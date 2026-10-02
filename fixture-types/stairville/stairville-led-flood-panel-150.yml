@@ -1,0 +1,68 @@
+# Stairville LED Flood Panel 150 (20°: item no. 235358, 40°: item no. 235359): 150 × 10 mm LEDs (48 red, 51 green,
+# 51 blue). Mode and address are set on the display ("d.xxx", then [Setup] → 3-ch / 4-ch / 8-ch).
+# Channel layout from the Thomann manual c_253358_253359 v5. Older revisions of the panel may differ – check the
+# manual that came with the device.
+id: stairville-led-flood-panel-150
+manufacturer: Stairville
+model: LED Flood Panel 150
+category: par
+
+modes:
+  - name: 4ch
+    channels:
+      - function: dimmer
+      - function: red
+      - function: green
+      - function: blue
+
+  # no dimmer channel: Lumen dims through red/green/blue (virtual dimmer)
+  - name: 3ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+
+  # Channels 2–4 only act as red/green/blue while the program channel is 0. With program 1–24, channel 2 picks a
+  # fixed color; with 25–255 it sets the program/sound speed.
+  - name: 8ch
+    channels:
+      - function: dimmer
+      - function: red
+      - function: green
+      - function: blue
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0,  to: 9,   label: Off }
+          - { from: 10, to: 255, label: Strobe slow → fast }
+      - function: program
+        default: 0
+        ranges:
+          - { from: 0,   to: 0,   label: RGB mix (channels 2–4) }
+          - { from: 1,   to: 24,  label: Fixed color via channel 2 }
+          - { from: 25,  to: 49,  label: Fading seven colors }
+          - { from: 50,  to: 74,  label: Fading three colors }
+          - { from: 75,  to: 99,  label: Rapid change seven colors }
+          - { from: 100, to: 124, label: Rapid change three colors }
+          - { from: 125, to: 149, label: Random 1 }
+          - { from: 150, to: 174, label: Random 2 }
+          - { from: 175, to: 199, label: Fading red only }
+          - { from: 200, to: 224, label: Fading green only }
+          - { from: 225, to: 249, label: Fading blue only }
+          - { from: 250, to: 255, label: Sound control }
+      # only devices whose ID (set on the display) matches react; 0–9 addresses all IDs
+      - function: generic
+        name: Group ID
+        default: 0
+        fade: snap
+        ranges:
+          - { from: 0,  to: 9,   label: All IDs }
+          - { from: 10, to: 209, label: ID 1–20 (steps of 10) }
+          - { from: 210, to: 255, label: ID 21–66 (one value each) }
+      - function: generic
+        name: Delayed power-up
+        default: 0
+        fade: snap
+        ranges:
+          - { from: 0,   to: 250, label: No function }
+          - { from: 251, to: 255, label: Delayed LED power-up }

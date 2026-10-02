@@ -1,0 +1,35 @@
+# lightmaXX LED Blinder 2 (art. no. LIG0016526-000): audience blinder, 2 × 50 W warm white COB LEDs, 30°.
+# Address on the display ("d001"); the only DMX mode has 6 channels. Channel layout from the manual (02/2023).
+#
+# Light needs both the master dimmer and the LED channels: the LED channels default to full, so the blinder
+# behaves like a plain dimmer. Lower "LED 1"/"LED 2" in the programmer to use the two lamps separately.
+# The manual does not split up the macro channel any further.
+id: lightmaxx-led-blinder-2
+manufacturer: lightmaXX
+model: LED Blinder 2
+category: par
+
+modes:
+  - name: 6ch
+    channels:
+      - function: dimmer
+        name: Master dimmer
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0, to: 0,   label: Off }
+          - { from: 1, to: 255, label: Strobe slow → fast }
+      - function: macro
+        default: 0
+        ranges:
+          - { from: 0, to: 0,   label: Off }
+          - { from: 1, to: 255, label: Macros }
+      - function: speed
+        name: Macro speed
+        default: 0
+      - function: white
+        name: LED 1
+        default: 255
+      - function: generic
+        name: LED 2
+        default: 255
