@@ -4,7 +4,7 @@ import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Ein Projekt, z.B. ein Theaterstück an einer Spielstätte. Genau ein Projekt kann aktiv sein.
+ * A project, e.g. a play at a venue. At most one project is active.
  */
 public record Project(long id, ProjectSpec spec, boolean active, Instant createdAt, Instant updatedAt) {
 

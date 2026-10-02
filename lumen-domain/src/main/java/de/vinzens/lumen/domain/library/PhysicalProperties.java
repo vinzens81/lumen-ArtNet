@@ -4,10 +4,10 @@ import java.util.Objects;
 import java.util.OptionalInt;
 
 /**
- * Physikalische Eigenschaften, die für die Anzeige gebraucht werden.
+ * Physical properties needed for display.
  *
- * @param panRange  Pan-Bereich in Grad
- * @param tiltRange Tilt-Bereich in Grad
+ * @param panRange  pan range in degrees
+ * @param tiltRange tilt range in degrees
  */
 public record PhysicalProperties(OptionalInt panRange, OptionalInt tiltRange) {
 

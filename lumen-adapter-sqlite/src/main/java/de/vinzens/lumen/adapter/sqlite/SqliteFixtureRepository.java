@@ -18,7 +18,7 @@ public class SqliteFixtureRepository implements FixtureRepository {
 	private static final String SELECT = "SELECT * FROM fixture";
 
 	private static final RowMapper<PatchedFixture> MAPPER = (rs, row) -> {
-		// getObject(…, Double.class) wirft beim SQLite-Treiber für NULL, daher getDouble + wasNull
+		// the SQLite driver throws on getObject(…, Double.class) for NULL, hence getDouble + wasNull
 		var x = rs.getDouble("pos_x");
 		var hasX = !rs.wasNull();
 		var y = rs.getDouble("pos_y");

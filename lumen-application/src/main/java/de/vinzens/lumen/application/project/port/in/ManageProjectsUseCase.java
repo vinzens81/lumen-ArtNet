@@ -14,7 +14,7 @@ public interface ManageProjectsUseCase {
 
 	Optional<Project> activeProject();
 
-	/** Legt ein Projekt an. Gibt es noch kein aktives Projekt, wird das neue aktiv. */
+	/** Creates a project. If there is no active project yet, the new one becomes active. */
 	Project create(ProjectSpec spec);
 
 	Project update(long id, ProjectSpec spec);

@@ -5,12 +5,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Ein logischer Kanal eines Modus. Bei 16 Bit belegt er zwei DMX-Kanäle (coarse + fine).
+ * A logical channel of a mode. With 16 bit it occupies two DMX channels (coarse + fine).
  *
- * @param name         Anzeigename, Pflicht bei {@link ChannelFunction#GENERIC}
- * @param resolution   8 oder 16 Bit
- * @param defaultValue Grundwert; bei 16 Bit im Bereich 0–65535
- * @param fadeBehavior überschriebenes Fade-Verhalten, sonst {@link ChannelFunction#defaultFade()}
+ * @param name         display name, required for {@link ChannelFunction#GENERIC}
+ * @param resolution   8 or 16 bit
+ * @param defaultValue default value; 0–65535 for 16 bit
+ * @param fadeBehavior overridden fade behavior, otherwise {@link ChannelFunction#defaultFade()}
  */
 public record ChannelDefinition(
 		ChannelFunction function,
@@ -31,7 +31,7 @@ public record ChannelDefinition(
 		ranges = List.copyOf(ranges);
 	}
 
-	/** Anzahl belegter DMX-Kanäle. */
+	/** Number of occupied DMX channels. */
 	public int dmxChannelCount() {
 		return resolution == RESOLUTION_16_BIT ? 2 : 1;
 	}
@@ -44,7 +44,7 @@ public record ChannelDefinition(
 		return fadeBehavior.orElse(function.defaultFade());
 	}
 
-	/** Name für die Anzeige: expliziter Name oder die Funktions-ID. */
+	/** Display name: explicit name or the function id. */
 	public String displayName() {
 		return name.orElse(function.id());
 	}

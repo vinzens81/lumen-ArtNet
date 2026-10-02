@@ -13,7 +13,7 @@
 	<version>0.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>lumen-parent</name>
-	<description>Lumen DMX/Art-Net Lichtsteuerung</description>
+	<description>Lumen DMX/Art-Net lighting control</description>
 
 	<modules>
 		<module>lumen-domain</module>
@@ -27,7 +27,7 @@
 	<properties>
 		<java.version>26</java.version>
 		<archunit.version>1.5.1</archunit.version>
-		<!-- spring-boot:run nur in lumen-app ausführen, nicht in den übrigen Modulen -->
+		<!-- run spring-boot:run only in lumen-app, not in the other modules -->
 		<spring-boot.run.skip>true</spring-boot.run.skip>
 	</properties>
 

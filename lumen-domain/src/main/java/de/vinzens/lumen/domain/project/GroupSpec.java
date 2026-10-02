@@ -8,10 +8,10 @@ import java.util.Optional;
 import java.util.regex.Pattern;
 
 /**
- * Bearbeitbare Eigenschaften einer Gruppe.
+ * Editable properties of a group.
  *
- * @param color      Anzeigefarbe im Format {@code #rrggbb}
- * @param fixtureIds Mitglieder in Anzeigereihenfolge
+ * @param color      display color in the format {@code #rrggbb}
+ * @param fixtureIds members in display order
  */
 public record GroupSpec(String name, Optional<String> color, int sortOrder, List<Long> fixtureIds) {
 
@@ -23,9 +23,9 @@ public record GroupSpec(String name, Optional<String> color, int sortOrder, List
 		new Validation()
 				.requireText(name, "name")
 				.require(color.map(c -> COLOR_PATTERN.matcher(c).matches()).orElse(true),
-						"color muss das Format #rrggbb haben")
+						"color must have the format #rrggbb")
 				.require(fixtureIds.stream().distinct().count() == fixtureIds.size(),
-						"fixtureIds enthält doppelte Einträge")
+						"fixtureIds contains duplicates")
 				.throwIfInvalid();
 		name = name.strip();
 		fixtureIds = List.copyOf(fixtureIds);

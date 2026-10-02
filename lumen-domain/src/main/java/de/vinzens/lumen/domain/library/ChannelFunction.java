@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * Bedeutung eines DMX-Kanals. Die {@link #id()} ist der Wert, der in den YAML-Dateien verwendet wird.
+ * Meaning of a DMX channel. The {@link #id()} is the value used in the YAML files.
  */
 public enum ChannelFunction {
 	DIMMER("dimmer", FadeBehavior.INTENSITY),

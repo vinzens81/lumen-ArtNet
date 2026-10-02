@@ -7,7 +7,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import javax.sql.DataSource;
 
 /**
- * Erzeugt alle Repositories für eine geöffnete Datenbank.
+ * Creates all repositories for an opened database.
  */
 public final class SqliteRepositories {
 

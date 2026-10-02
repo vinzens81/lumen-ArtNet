@@ -5,7 +5,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Beschreibung eines Gerätemodells aus der Gerätebibliothek, ohne projektspezifische Angaben.
+ * Description of a fixture model from the fixture library, without project-specific data.
  */
 public record FixtureType(
 		String id,

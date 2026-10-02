@@ -39,9 +39,9 @@ class YamlFixtureTypeSourceTest {
 				      - function: color-wheel
 				        fade: smooth
 				        ranges:
-				          - { from: 0, to: 9, label: Weiß, color: "#ffffff" }
+				          - { from: 0, to: 9, label: White, color: "#ffffff" }
 				      - function: generic
-				        name: Lüfter
+				        name: Fan speed
 				        invert: true
 				""");
 
@@ -60,10 +60,10 @@ class YamlFixtureTypeSourceTest {
 		var wheel = mode.channels().get(1);
 		assertThat(wheel.effectiveFadeBehavior()).isEqualTo(FadeBehavior.SMOOTH);
 		assertThat(wheel.ranges()).singleElement().satisfies(range -> {
-			assertThat(range.label()).isEqualTo("Weiß");
+			assertThat(range.label()).isEqualTo("White");
 			assertThat(range.color()).contains("#ffffff");
 		});
-		assertThat(mode.channels().get(2).displayName()).isEqualTo("Lüfter");
+		assertThat(mode.channels().get(2).displayName()).isEqualTo("Fan speed");
 		assertThat(mode.channels().get(2).invert()).isTrue();
 	}
 
@@ -88,7 +88,7 @@ class YamlFixtureTypeSourceTest {
 		assertThat(result.fixtureTypes()).isEmpty();
 		assertThat(result.issues()).singleElement().satisfies(issue -> {
 			assertThat(issue.source()).isEqualTo("typo.yml");
-			assertThat(issue.message()).startsWith("Unbekanntes Feld 'adress'").contains("Zeile");
+			assertThat(issue.message()).startsWith("Unknown field 'adress'").contains("line");
 		});
 	}
 
@@ -109,8 +109,8 @@ class YamlFixtureTypeSourceTest {
 
 		assertThat(result.fixtureTypes()).isEmpty();
 		assertThat(result.issues()).extracting(LibraryIssue::message)
-				.anyMatch(m -> m.startsWith("Unbekannte category 'lamp'"))
-				.anyMatch(m -> m.contains("Unbekannte function 'brightness'"));
+				.anyMatch(m -> m.startsWith("Unknown category 'lamp'"))
+				.anyMatch(m -> m.contains("unknown function 'brightness'"));
 		assertThat(result.issues()).allSatisfy(issue -> assertThat(issue.fixtureTypeId()).contains("bad"));
 	}
 
@@ -129,7 +129,7 @@ class YamlFixtureTypeSourceTest {
 
 	@Test
 	void missingDirectoryIsAWarning() {
-		var result = new YamlFixtureTypeSource(dir.resolve("fehlt")).loadAll();
+		var result = new YamlFixtureTypeSource(dir.resolve("missing")).loadAll();
 
 		assertThat(result.fixtureTypes()).isEmpty();
 		assertThat(result.issues()).singleElement()

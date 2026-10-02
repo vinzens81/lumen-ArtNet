@@ -6,10 +6,10 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Problem im Patch, z.B. eine Adressüberschneidung.
+ * Issue in the patch, e.g. an address overlap.
  *
- * @param fixtureIds  betroffene Geräte (bei Überschneidungen beide)
- * @param universeIds betroffene Universen
+ * @param fixtureIds  affected fixtures (both in case of an overlap)
+ * @param universeIds affected universes
  */
 public record PatchIssue(IssueSeverity severity, List<Long> fixtureIds, List<Long> universeIds, String message) {
 

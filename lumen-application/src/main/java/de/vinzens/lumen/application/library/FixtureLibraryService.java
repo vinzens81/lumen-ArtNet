@@ -16,7 +16,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Lädt die Gerätebibliothek, prüft sie und hält den letzten gültigen Stand im Speicher.
+ * Loads the fixture library, validates it and keeps the latest valid state in memory.
  */
 public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 
@@ -32,7 +32,7 @@ public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 	}
 
 	/**
-	 * Lädt die Bibliothek neu. Gerätetypen mit Fehlern werden übersprungen, Warnungen nur gemeldet.
+	 * Reloads the library. Fixture types with errors are skipped, warnings are only reported.
 	 */
 	public void reload() {
 		var result = source.loadAll();
@@ -49,7 +49,7 @@ public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 			var existing = valid.putIfAbsent(type.id(), sourced);
 			if (existing != null) {
 				issues.add(LibraryIssue.error(sourced.source(), type.id(), "id '" + type.id()
-						+ "' ist bereits in " + existing.source() + " definiert, Eintrag wird ignoriert"));
+						+ "' is already defined in " + existing.source() + ", entry ignored"));
 			}
 		}
 

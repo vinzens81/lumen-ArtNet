@@ -1,7 +1,7 @@
 package de.vinzens.lumen.application;
 
 /**
- * Aktion widerspricht dem aktuellen Zustand, z.B. ein Universe wird noch verwendet.
+ * The action conflicts with the current state, e.g. a universe is still in use.
  */
 public class ConflictException extends RuntimeException {
 

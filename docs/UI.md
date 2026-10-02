@@ -1,5 +1,9 @@
 # Web-Oberfläche – Konzept
 
+> **Sprache der Oberfläche: Englisch.** Die Skizzen unten verwenden zur Beschreibung noch deutsche Begriffe.
+> In der App heißen die Modi **Setup** (Konfiguration), **Show** (Betrieb) und später **Party**. Weitere Beispiele:
+> Szenen → *Scenes*, Programmer → *Programmer*, Aufnehmen → *Record*, Regiehinweis → *Cue note*.
+
 Die Oberfläche hat zwei klar getrennte Modi:
 
 | | **Konfiguration** (Einrichten & Proben) | **Betrieb** (Vorstellung) |

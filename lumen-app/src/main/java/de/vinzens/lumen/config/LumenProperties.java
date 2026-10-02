@@ -6,11 +6,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 import java.nio.file.Path;
 
 /**
- * Technische Einstellungen von Lumen ({@code lumen.*} in der application.yml).
- * Relative Pfade beziehen sich auf das Arbeitsverzeichnis.
+ * Technical settings of Lumen ({@code lumen.*} in application.yml).
+ * Relative paths are resolved against the working directory.
  *
- * @param fixtureLibraryDir Ordner der Gerätebibliothek (YAML)
- * @param databaseFile      SQLite-Datei mit den Projektdaten
+ * @param fixtureLibraryDir directory of the fixture library (YAML)
+ * @param databaseFile      SQLite file containing the project data
  */
 @ConfigurationProperties("lumen")
 public record LumenProperties(

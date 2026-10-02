@@ -9,14 +9,14 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
- * Übersetzt fachliche Fehler in HTTP-Antworten (RFC 9457 Problem Details).
+ * Translates domain errors into HTTP responses (RFC 9457 problem details).
  */
 @RestControllerAdvice
 class ApiExceptionHandler {
 
 	@ExceptionHandler
 	ProblemDetail validationFailed(DomainValidationException e) {
-		var problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Ungültige Eingaben");
+		var problem = ProblemDetail.forStatusAndDetail(HttpStatus.BAD_REQUEST, "Invalid input");
 		problem.setProperty("errors", e.errors());
 		return problem;
 	}

@@ -1,4 +1,4 @@
--- Projekte, Universen, Patch und Gruppen (Iteration 2)
+-- Projects, universes, patch and groups (iteration 2)
 
 CREATE TABLE project (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -11,7 +11,7 @@ CREATE TABLE project (
     updated_at  TEXT    NOT NULL
 );
 
--- höchstens ein aktives Projekt
+-- at most one active project
 CREATE UNIQUE INDEX project_single_active ON project (active) WHERE active = 1;
 
 CREATE TABLE universe (

@@ -1,12 +1,12 @@
 package de.vinzens.lumen.application.library.port.out;
 
 /**
- * Quelle der Gerätebeschreibungen, z.B. ein Ordner mit YAML-Dateien.
+ * Source of fixture descriptions, e.g. a directory of YAML files.
  */
 public interface FixtureTypeSource {
 
 	/**
-	 * Lädt alle Gerätetypen. Fehlerhafte Einträge werden nicht geworfen, sondern als Issues zurückgegeben.
+	 * Loads all fixture types. Faulty entries are not thrown but returned as issues.
 	 */
 	LoadResult loadAll();
 }

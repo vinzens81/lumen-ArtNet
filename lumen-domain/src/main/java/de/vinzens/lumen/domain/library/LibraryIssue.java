@@ -6,10 +6,10 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Problem beim Laden der Gerätebibliothek.
+ * Issue while loading the fixture library.
  *
- * @param source        Herkunft, z.B. der Dateiname
- * @param fixtureTypeId betroffener Gerätetyp, falls bekannt
+ * @param source        origin, e.g. the file name
+ * @param fixtureTypeId affected fixture type, if known
  */
 public record LibraryIssue(IssueSeverity severity, String source, Optional<String> fixtureTypeId, String message) {
 

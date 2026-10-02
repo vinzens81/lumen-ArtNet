@@ -1,13 +1,13 @@
 package de.vinzens.lumen.domain.library;
 
 /**
- * Wie sich ein Kanal beim Szenenwechsel verhält.
+ * How a channel behaves during a scene change.
  */
 public enum FadeBehavior {
-	/** Intensität: HTP, wird mit dem Szenen-Level skaliert. */
+	/** Intensity: HTP, scaled by the scene level. */
 	INTENSITY,
-	/** LTP, stufenlos vom Startwert zum Zielwert überblendet. */
+	/** LTP, smoothly faded from the start value to the target value. */
 	SMOOTH,
-	/** LTP, springt beim GO auf den Zielwert. */
+	/** LTP, jumps to the target value on GO. */
 	SNAP
 }

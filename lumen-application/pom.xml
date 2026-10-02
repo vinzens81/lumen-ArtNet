@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-application</artifactId>
 	<name>lumen-application</name>
-	<description>Use Cases und Ports, hängt nur von der Domain ab</description>
+	<description>Use cases and ports, depends only on the domain</description>
 
 	<dependencies>
 		<dependency>

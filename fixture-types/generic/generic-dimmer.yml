@@ -1,6 +1,6 @@
 id: generic-dimmer
 manufacturer: Generic
-model: Dimmerkanal
+model: Dimmer channel
 category: dimmer
 
 modes:

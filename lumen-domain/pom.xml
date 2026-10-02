@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-domain</artifactId>
 	<name>lumen-domain</name>
-	<description>Domain-Modell, reines Java ohne Framework-Abhängigkeiten</description>
+	<description>Domain model, plain Java without framework dependencies</description>
 
 	<dependencies>
 		<dependency>

@@ -3,7 +3,7 @@ package de.vinzens.lumen.domain.project;
 import java.util.Objects;
 
 /**
- * Benannte Menge von Geräten, z.B. „Frontlicht“.
+ * Named set of fixtures, e.g. "Front light".
  */
 public record Group(long id, long projectId, GroupSpec spec) {
 

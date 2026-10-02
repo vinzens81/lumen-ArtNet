@@ -1,7 +1,10 @@
 # Lumen – Hinweise für Claude
 
 DMX/Art-Net-Lichtsteuerung fürs Theater. Konzept und Planung stehen in `README.md` und `docs/`;
-der aktuelle Stand steht in `docs/ROADMAP.md`. Doku und UI-Texte sind auf Deutsch.
+der aktuelle Stand steht in `docs/ROADMAP.md`.
+
+**Sprache:** Dokumente (`README.md`, `docs/`, `CLAUDE.md`) auf Deutsch. Alles andere auf **Englisch**: Code, Kommentare,
+Javadoc, Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in `fixture-types/` und die Web-Oberfläche.
 
 ## Build & Run
 

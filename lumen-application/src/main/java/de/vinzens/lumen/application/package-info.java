@@ -1,4 +1,4 @@
 /**
- * Use Cases und Ports (Inbound/Outbound). Hängt nur von der Domain ab, kennt kein Framework.
+ * Use cases and ports (inbound/outbound). Depends only on the domain, knows no framework.
  */
 package de.vinzens.lumen.application;

@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface UniverseRepository {
 
-	/** Universen des Projekts, sortiert nach Nummer. */
+	/** Universes of the project, sorted by number. */
 	List<Universe> findByProject(long projectId);
 
 	Optional<Universe> findById(long id);

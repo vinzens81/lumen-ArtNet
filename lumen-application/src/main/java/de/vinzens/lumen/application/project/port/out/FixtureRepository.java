@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface FixtureRepository {
 
-	/** Geräte des Projekts, sortiert nach sortOrder und Name. */
+	/** Fixtures of the project, sorted by sortOrder and name. */
 	List<PatchedFixture> findByProject(long projectId);
 
 	Optional<PatchedFixture> findById(long id);
@@ -17,7 +17,7 @@ public interface FixtureRepository {
 
 	PatchedFixture update(long id, FixtureSpec spec);
 
-	/** Löscht das Gerät und entfernt es aus allen Gruppen. */
+	/** Deletes the fixture and removes it from all groups. */
 	void delete(long id);
 
 	int countByUniverse(long universeId);

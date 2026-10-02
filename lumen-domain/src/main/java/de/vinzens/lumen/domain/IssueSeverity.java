@@ -1,8 +1,8 @@
 package de.vinzens.lumen.domain;
 
 public enum IssueSeverity {
-	/** Der betroffene Gerätetyp bzw. die Datei wird nicht geladen. */
+	/** The affected fixture type or file is not loaded. */
 	ERROR,
-	/** Der Gerätetyp wird geladen, sollte aber korrigiert werden. */
+	/** The fixture type is loaded but should be fixed. */
 	WARNING
 }

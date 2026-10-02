@@ -45,17 +45,17 @@ class SqliteRepositoriesTest {
 
 	@Test
 	void projectRoundTripAndUpdate() {
-		var created = repos.projects().create(projectSpec("Der Sturm"), NOW);
+		var created = repos.projects().create(projectSpec("The Tempest"), NOW);
 
 		assertThat(created.spec().fadeIn()).isEqualTo(Duration.ofSeconds(2));
-		assertThat(created.spec().venue()).contains("Stadttheater");
+		assertThat(created.spec().venue()).contains("City Theatre");
 		assertThat(created.active()).isFalse();
 
 		var later = NOW.plusSeconds(60);
 		var updated = repos.projects().update(created.id(),
-				new ProjectSpec("Der Sturm (Gastspiel)", Optional.empty(), Duration.ZERO, Duration.ofSeconds(5)), later);
+				new ProjectSpec("The Tempest (guest performance)", Optional.empty(), Duration.ZERO, Duration.ofSeconds(5)), later);
 
-		assertThat(updated.spec().name()).isEqualTo("Der Sturm (Gastspiel)");
+		assertThat(updated.spec().name()).isEqualTo("The Tempest (guest performance)");
 		assertThat(updated.createdAt()).isEqualTo(NOW);
 		assertThat(updated.updatedAt()).isEqualTo(later);
 	}
@@ -76,7 +76,7 @@ class SqliteRepositoriesTest {
 	void dataSurvivesReopeningTheDatabase() {
 		var project = repos.projects().create(projectSpec("Persistent"), NOW);
 		var universe = repos.universes().create(project.id(), universeSpec(1));
-		repos.fixtures().create(project.id(), fixtureSpec("PAR links", universe.id(), 1));
+		repos.fixtures().create(project.id(), fixtureSpec("PAR left", universe.id(), 1));
 
 		var reopened = new SqliteRepositories(SqliteDatabase.open(dbFile));
 
@@ -84,7 +84,7 @@ class SqliteRepositoriesTest {
 		assertThat(reopened.fixtures().findByProject(project.id()))
 				.singleElement()
 				.satisfies(f -> {
-					assertThat(f.spec().name()).isEqualTo("PAR links");
+					assertThat(f.spec().name()).isEqualTo("PAR left");
 					assertThat(f.spec().position()).contains(new Position(0.25, 0.75));
 				});
 	}
@@ -105,7 +105,7 @@ class SqliteRepositoriesTest {
 	@Test
 	void universeRoundTrip() {
 		var project = repos.projects().create(projectSpec("P"), NOW);
-		var unicast = new UniverseSpec(2, Optional.of("Bühne"), new ArtNetAddress(0, 1, 2),
+		var unicast = new UniverseSpec(2, Optional.of("Stage"), new ArtNetAddress(0, 1, 2),
 				ArtNetTarget.parse("192.168.1.50"));
 
 		var universe = repos.universes().create(project.id(), unicast);
@@ -144,7 +144,7 @@ class SqliteRepositoriesTest {
 
 	@Test
 	void deletingAProjectRemovesEverything() {
-		var project = repos.projects().create(projectSpec("Weg"), NOW);
+		var project = repos.projects().create(projectSpec("Doomed"), NOW);
 		var universe = repos.universes().create(project.id(), universeSpec(1));
 		var fixture = repos.fixtures().create(project.id(), fixtureSpec("PAR", universe.id(), 1));
 		var group = repos.groups().create(project.id(), new GroupSpec("G", Optional.empty(), 0, List.of(fixture.id())));
@@ -157,7 +157,7 @@ class SqliteRepositoriesTest {
 	}
 
 	private static ProjectSpec projectSpec(String name) {
-		return new ProjectSpec(name, Optional.of("Stadttheater"), Duration.ofSeconds(2), Duration.ofSeconds(3));
+		return new ProjectSpec(name, Optional.of("City Theatre"), Duration.ofSeconds(2), Duration.ofSeconds(3));
 	}
 
 	private static UniverseSpec universeSpec(int number) {

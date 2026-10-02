@@ -9,7 +9,7 @@ import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Lädt die echten Beispielprofile aus {@code fixture-types/} im Projekt-Root.
+ * Loads the real example profiles from {@code fixture-types/} in the project root.
  */
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -31,13 +31,13 @@ class FixtureLibraryApiTest {
 		response.extractingPath("$[*].id").asArray()
 				.containsExactly("example-moving-head-spot", "generic-dimmer", "generic-rgbw-par");
 		response.extractingPath("$[0].modes[0].dmxChannelCount").isEqualTo(13);
-		// Tilt folgt auf den 16-Bit-Pan-Kanal und beginnt daher bei Offset 3
+		// tilt follows the 16-bit pan channel and therefore starts at offset 3
 		response.extractingPath("$[0].modes[0].channels[1].offset").isEqualTo(3);
 		response.extractingPath("$[0].modes[0].channels[5].fade").isEqualTo("snap");
 	}
 
 	@Test
 	void unknownFixtureTypeIs404() {
-		assertThat(mvc.get().uri("/api/library/fixture-types/gibts-nicht")).hasStatus(404);
+		assertThat(mvc.get().uri("/api/library/fixture-types/does-not-exist")).hasStatus(404);
 	}
 }

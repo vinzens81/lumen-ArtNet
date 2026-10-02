@@ -39,22 +39,22 @@ class ProjectValuesTest {
 	void projectSpecCollectsAllErrors() {
 		assertThatThrownBy(() -> new ProjectSpec(" ", Optional.empty(), Duration.ofSeconds(-1), Duration.ofHours(1)))
 				.isInstanceOfSatisfying(DomainValidationException.class, e -> assertThat(e.errors())
-						.containsExactly("name fehlt", "fadeIn muss zwischen 0 und 10 Minuten liegen",
-								"fadeOut muss zwischen 0 und 10 Minuten liegen"));
+						.containsExactly("name is missing", "fadeIn must be between 0 and 10 minutes",
+								"fadeOut must be between 0 and 10 minutes"));
 	}
 
 	@Test
 	void projectSpecNormalizesText() {
-		var spec = new ProjectSpec(" Der Sturm ", Optional.of("  "), Duration.ZERO, Duration.ZERO);
+		var spec = new ProjectSpec(" The Tempest ", Optional.of("  "), Duration.ZERO, Duration.ZERO);
 
-		assertThat(spec.name()).isEqualTo("Der Sturm");
+		assertThat(spec.name()).isEqualTo("The Tempest");
 		assertThat(spec.venue()).isEmpty();
 	}
 
 	@Test
 	void fixtureSpecValidatesAddressAndPosition() {
 		assertThatThrownBy(() -> new FixtureSpec("PAR", Optional.empty(), "par", "4ch", 1, 513,
-				Optional.empty(), 0)).hasMessageContaining("address muss zwischen 1 und 512 liegen");
+				Optional.empty(), 0)).hasMessageContaining("address must be between 1 and 512");
 		assertThatThrownBy(() -> new Position(1.5, 0)).hasMessageContaining("position.x");
 	}
 

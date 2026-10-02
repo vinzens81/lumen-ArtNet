@@ -5,7 +5,7 @@ import de.vinzens.lumen.domain.library.LibraryIssue;
 import java.util.List;
 
 /**
- * Ergebnis eines Ladevorgangs der Gerätebibliothek.
+ * Result of loading the fixture library.
  */
 public record LoadResult(List<SourcedFixtureType> fixtureTypes, List<LibraryIssue> issues) {
 

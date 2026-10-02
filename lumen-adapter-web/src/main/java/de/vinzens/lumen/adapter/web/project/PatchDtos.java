@@ -21,13 +21,13 @@ final class PatchDtos {
 	private PatchDtos() {
 	}
 
-	// --- Universen -------------------------------------------------------------------------------------------
+	// --- Universes ------------------------------------------------------------------------------------------
 
 	record ArtNetDto(int net, int subnet, int universe) {
 	}
 
 	/**
-	 * Ohne {@code artnet} wird Port-Adresse {@code number - 1} verwendet, ohne {@code target} Broadcast.
+	 * Without {@code artnet}, port address {@code number - 1} is used; without {@code target}, broadcast.
 	 */
 	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String target) {
 
@@ -53,7 +53,7 @@ final class PatchDtos {
 		}
 	}
 
-	// --- Geräte ----------------------------------------------------------------------------------------------
+	// --- Fixtures ---------------------------------------------------------------------------------------------
 
 	record PositionDto(double x, double y) {
 	}
@@ -71,8 +71,8 @@ final class PatchDtos {
 	}
 
 	/**
-	 * @param channelCount belegte DMX-Kanäle laut Bibliothek, {@code null} wenn Typ oder Modus unbekannt
-	 * @param lastAddress  letzte belegte Adresse, {@code null} wenn Typ oder Modus unbekannt
+	 * @param channelCount DMX channels occupied according to the library, {@code null} if type or mode is unknown
+	 * @param lastAddress  last occupied address, {@code null} if type or mode is unknown
 	 */
 	record FixtureResponse(long id, String name, String shortName, String fixtureTypeId, String mode,
 			long universeId, int address, Integer channelCount, Integer lastAddress, PositionDto position,
@@ -87,7 +87,7 @@ final class PatchDtos {
 		}
 	}
 
-	// --- Gruppen ---------------------------------------------------------------------------------------------
+	// --- Groups ----------------------------------------------------------------------------------------------
 
 	record GroupRequest(String name, String color, Integer sortOrder, List<Long> fixtureIds) {
 
@@ -106,7 +106,7 @@ final class PatchDtos {
 		}
 	}
 
-	// --- Prüfung ---------------------------------------------------------------------------------------------
+	// --- Issues ----------------------------------------------------------------------------------------------
 
 	record PatchIssueResponse(String severity, List<Long> fixtureIds, List<Long> universeIds, String message) {
 

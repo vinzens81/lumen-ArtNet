@@ -20,11 +20,11 @@ modes:
       - function: white
       - function: strobe
         ranges:
-          - { from: 0,  to: 9,   label: Aus }
-          - { from: 10, to: 255, label: Strobe langsam → schnell }
+          - { from: 0,  to: 9,   label: Off }
+          - { from: 10, to: 255, label: Strobe slow → fast }
       - function: program
         ranges:
-          - { from: 0,   to: 9,   label: Aus }
-          - { from: 10,  to: 255, label: Automatikprogramme }
+          - { from: 0,   to: 9,   label: Off }
+          - { from: 10,  to: 255, label: Auto programs }
       - function: generic
-        name: Programmgeschwindigkeit
+        name: Program speed

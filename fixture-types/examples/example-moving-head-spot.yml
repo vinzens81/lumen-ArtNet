@@ -1,4 +1,4 @@
-# Beispielprofil für einen Moving Head – an das echte Gerät anpassen (Kanalbelegung laut Handbuch).
+# Example profile for a moving head – adapt to the real fixture (channel layout according to its manual).
 id: example-moving-head-spot
 manufacturer: Example
 model: Spot 60
@@ -23,30 +23,30 @@ modes:
       - function: shutter
         default: 255
         ranges:
-          - { from: 0,   to: 7,   label: Geschlossen }
-          - { from: 8,   to: 15,  label: Offen }
-          - { from: 16,  to: 255, label: Strobe langsam → schnell }
+          - { from: 0,   to: 7,   label: Closed }
+          - { from: 8,   to: 15,  label: Open }
+          - { from: 16,  to: 255, label: Strobe slow → fast }
       - function: color-wheel
         ranges:
-          - { from: 0,   to: 9,   label: Weiß,  color: "#ffffff" }
-          - { from: 10,  to: 19,  label: Rot,   color: "#ff0000" }
-          - { from: 20,  to: 29,  label: Blau,  color: "#0033ff" }
-          - { from: 30,  to: 39,  label: Grün,  color: "#00ff44" }
-          - { from: 40,  to: 49,  label: Gelb,  color: "#ffdd00" }
-          - { from: 50,  to: 255, label: Farbrad-Rotation }
+          - { from: 0,   to: 9,   label: White, color: "#ffffff" }
+          - { from: 10,  to: 19,  label: Red,   color: "#ff0000" }
+          - { from: 20,  to: 29,  label: Blue,  color: "#0033ff" }
+          - { from: 30,  to: 39,  label: Green, color: "#00ff44" }
+          - { from: 40,  to: 49,  label: Yellow, color: "#ffdd00" }
+          - { from: 50,  to: 255, label: Color wheel rotation }
       - function: gobo
         ranges:
-          - { from: 0,   to: 9,   label: Offen }
+          - { from: 0,   to: 9,   label: Open }
           - { from: 10,  to: 19,  label: Gobo 1 }
           - { from: 20,  to: 29,  label: Gobo 2 }
-          - { from: 30,  to: 255, label: Gobo-Shake }
+          - { from: 30,  to: 255, label: Gobo shake }
       - function: gobo-rotation
       - function: focus
       - function: prism
         ranges:
-          - { from: 0,   to: 127, label: Aus }
-          - { from: 128, to: 255, label: Prisma an }
+          - { from: 0,   to: 127, label: Off }
+          - { from: 128, to: 255, label: Prism on }
       - function: reset
         ranges:
-          - { from: 0,   to: 249, label: Keine Funktion }
-          - { from: 250, to: 255, label: Reset (5 s halten) }
+          - { from: 0,   to: 249, label: No function }
+          - { from: 250, to: 255, label: Reset (hold 5 s) }

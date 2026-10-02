@@ -24,7 +24,7 @@ record FixtureTypeDto(
 	}
 
 	/**
-	 * @param offset DMX-Offset im Modus, beginnend bei 1
+	 * @param offset DMX offset within the mode, starting at 1
 	 */
 	record ChannelDto(
 			int offset,

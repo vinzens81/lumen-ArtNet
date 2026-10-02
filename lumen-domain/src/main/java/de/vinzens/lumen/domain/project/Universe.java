@@ -3,7 +3,7 @@ package de.vinzens.lumen.domain.project;
 import java.util.Objects;
 
 /**
- * Ein DMX-Universe (512 Kanäle) eines Projekts und sein Art-Net-Ziel.
+ * A DMX universe (512 channels) of a project and its Art-Net target.
  */
 public record Universe(long id, long projectId, UniverseSpec spec) {
 
@@ -11,7 +11,7 @@ public record Universe(long id, long projectId, UniverseSpec spec) {
 		Objects.requireNonNull(spec, "spec");
 	}
 
-	/** Anzeigename, z.B. „Universe 1 – Bühne“. */
+	/** Display name, e.g. "Universe 1 – Stage". */
 	public String displayName() {
 		return "Universe " + spec.number() + spec.name().map(n -> " – " + n).orElse("");
 	}

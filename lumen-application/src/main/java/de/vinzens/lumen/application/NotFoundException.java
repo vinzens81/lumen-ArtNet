@@ -1,7 +1,7 @@
 package de.vinzens.lumen.application;
 
 /**
- * Angefragtes Objekt existiert nicht (oder gehört nicht zum angegebenen Projekt).
+ * The requested object does not exist (or does not belong to the given project).
  */
 public class NotFoundException extends RuntimeException {
 

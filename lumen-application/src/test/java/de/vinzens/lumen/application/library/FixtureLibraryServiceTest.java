@@ -43,13 +43,13 @@ class FixtureLibraryServiceTest {
 	@Test
 	void keepsFirstDefinitionOfDuplicateId() {
 		var service = serviceWith(new LoadResult(List.of(
-				sourced(type("par", "Generic", "Erster"), "a.yml"),
-				sourced(type("par", "Generic", "Zweiter"), "b.yml")), List.of()));
+				sourced(type("par", "Generic", "First"), "a.yml"),
+				sourced(type("par", "Generic", "Second"), "b.yml")), List.of()));
 
-		assertThat(service.fixtureType("par")).map(FixtureType::model).contains("Erster");
+		assertThat(service.fixtureType("par")).map(FixtureType::model).contains("First");
 		assertThat(service.issues()).singleElement().satisfies(issue -> {
 			assertThat(issue.source()).isEqualTo("b.yml");
-			assertThat(issue.message()).contains("bereits in a.yml definiert");
+			assertThat(issue.message()).contains("already defined in a.yml");
 		});
 	}
 

@@ -25,28 +25,28 @@ class FixtureTypeValidatorTest {
 	void rejectsInvalidId() {
 		var type = type("RGB Par", mode("1ch", channel(ChannelFunction.DIMMER)));
 
-		assertThat(messages(type)).singleElement().asString().contains("Ungültige id");
+		assertThat(messages(type)).singleElement().asString().contains("Invalid id");
 	}
 
 	@Test
 	void requiresAtLeastOneModeAndChannel() {
-		assertThat(messages(type("empty"))).containsExactly("Mindestens ein Modus ist erforderlich");
+		assertThat(messages(type("empty"))).containsExactly("At least one mode is required");
 		assertThat(messages(type("no-channels", mode("0ch"))))
-				.containsExactly("Modus '0ch': Mindestens ein Kanal ist erforderlich");
+				.containsExactly("Mode '0ch': at least one channel is required");
 	}
 
 	@Test
 	void rejectsDuplicateModeNames() {
 		var type = type("dup", mode("1ch", channel(ChannelFunction.DIMMER)), mode("1ch", channel(ChannelFunction.DIMMER)));
 
-		assertThat(messages(type)).containsExactly("Modus '1ch' ist doppelt definiert");
+		assertThat(messages(type)).containsExactly("Mode '1ch' is defined twice");
 	}
 
 	@Test
 	void genericChannelNeedsName() {
 		var type = type("gen", mode("1ch", channel(ChannelFunction.GENERIC)));
 
-		assertThat(messages(type)).singleElement().asString().contains("generic-Kanäle brauchen einen name");
+		assertThat(messages(type)).singleElement().asString().contains("generic channels need a name");
 	}
 
 	@Test
@@ -67,21 +67,21 @@ class FixtureTypeValidatorTest {
 				Optional.empty());
 
 		assertThat(messages(type("bad", mode("2ch", badResolution, badDefault))))
-				.anyMatch(m -> m.contains("resolution muss 8 oder 16 sein"))
-				.anyMatch(m -> m.contains("default muss zwischen 0 und 255 liegen"));
+				.anyMatch(m -> m.contains("resolution must be 8 or 16"))
+				.anyMatch(m -> m.contains("default must be between 0 and 255"));
 	}
 
 	@Test
 	void rejectsOverlappingAndInvalidRanges() {
 		var strobe = new ChannelDefinition(ChannelFunction.STROBE, Optional.empty(), 8, 0, false, List.of(
-				new ChannelRange(0, 10, "Aus", Optional.empty()),
+				new ChannelRange(0, 10, "Off", Optional.empty()),
 				new ChannelRange(10, 255, "Strobe", Optional.empty()),
-				new ChannelRange(20, 5, "Kaputt", Optional.of("rot"))), Optional.empty());
+				new ChannelRange(20, 5, "Broken", Optional.of("red"))), Optional.empty());
 
 		assertThat(messages(type("strobe", mode("1ch", strobe))))
-				.anyMatch(m -> m.contains("überlappen"))
+				.anyMatch(m -> m.contains("overlap"))
 				.anyMatch(m -> m.contains("from ≤ to"))
-				.anyMatch(m -> m.contains("Format #rrggbb"));
+				.anyMatch(m -> m.contains("format #rrggbb"));
 	}
 
 	@Test
@@ -92,7 +92,7 @@ class FixtureTypeValidatorTest {
 
 		assertThat(issues).singleElement().satisfies(issue -> {
 			assertThat(issue.severity()).isEqualTo(IssueSeverity.WARNING);
-			assertThat(issue.message()).contains("mehrfach");
+			assertThat(issue.message()).contains("more than once");
 		});
 	}
 
@@ -103,7 +103,7 @@ class FixtureTypeValidatorTest {
 						Optional.empty()));
 
 		assertThat(messages(type("huge", new Mode("514ch", channels))))
-				.anyMatch(m -> m.contains("belegt 514 Kanäle"));
+				.anyMatch(m -> m.contains("occupies 514 channels"));
 	}
 
 	private static List<String> messages(FixtureType type) {

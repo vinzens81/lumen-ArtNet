@@ -3,7 +3,7 @@ package de.vinzens.lumen.domain.project;
 import de.vinzens.lumen.domain.Validation;
 
 /**
- * Art-Net-Port-Adresse, bestehend aus Net (7 Bit), SubNet (4 Bit) und Universe (4 Bit).
+ * Art-Net port address, consisting of net (7 bit), subnet (4 bit) and universe (4 bit).
  */
 public record ArtNetAddress(int net, int subnet, int universe) {
 
@@ -22,7 +22,7 @@ public record ArtNetAddress(int net, int subnet, int universe) {
 		return new ArtNetAddress(portAddress >> 8, (portAddress >> 4) & 0xF, portAddress & 0xF);
 	}
 
-	/** 15-Bit-Port-Adresse, wie sie im ArtDmx-Paket übertragen wird. */
+	/** 15-bit port address as transmitted in the ArtDmx packet. */
 	public int portAddress() {
 		return (net << 8) | (subnet << 4) | universe;
 	}

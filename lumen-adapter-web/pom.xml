@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-adapter-web</artifactId>
 	<name>lumen-adapter-web</name>
-	<description>REST- und WebSocket-Schnittstelle</description>
+	<description>REST and WebSocket interface</description>
 
 	<dependencies>
 		<dependency>

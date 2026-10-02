@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-adapter-library-yaml</artifactId>
 	<name>lumen-adapter-library-yaml</name>
-	<description>Gerätebibliothek aus einem Ordner mit YAML-Dateien</description>
+	<description>Fixture library from a directory of YAML files</description>
 
 	<dependencies>
 		<dependency>

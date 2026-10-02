@@ -7,11 +7,11 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Bearbeitbare Eigenschaften eines Projekts.
+ * Editable properties of a project.
  *
- * @param venue   Spielstätte, optional
- * @param fadeIn  globale Fade-In-Zeit aller Szenen
- * @param fadeOut globale Fade-Out-Zeit aller Szenen
+ * @param venue   venue, optional
+ * @param fadeIn  global fade-in time of all scenes
+ * @param fadeOut global fade-out time of all scenes
  */
 public record ProjectSpec(String name, Optional<String> venue, Duration fadeIn, Duration fadeOut) {
 
@@ -23,9 +23,9 @@ public record ProjectSpec(String name, Optional<String> venue, Duration fadeIn, 
 		new Validation()
 				.requireText(name, "name")
 				.require(fadeIn != null && !fadeIn.isNegative() && fadeIn.compareTo(MAX_FADE) <= 0,
-						"fadeIn muss zwischen 0 und " + MAX_FADE.toMinutes() + " Minuten liegen")
+						"fadeIn must be between 0 and " + MAX_FADE.toMinutes() + " minutes")
 				.require(fadeOut != null && !fadeOut.isNegative() && fadeOut.compareTo(MAX_FADE) <= 0,
-						"fadeOut muss zwischen 0 und " + MAX_FADE.toMinutes() + " Minuten liegen")
+						"fadeOut must be between 0 and " + MAX_FADE.toMinutes() + " minutes")
 				.throwIfInvalid();
 		name = name.strip();
 		venue = venue.map(String::strip).filter(v -> !v.isEmpty());

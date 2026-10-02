@@ -27,21 +27,21 @@ class PatchValidatorTest {
 
 	@Test
 	void validPatchHasNoIssues() {
-		var fixtures = List.of(fixture(10, "Front links", U1, 1), fixture(11, "Front rechts", U1, 5),
-				fixture(12, "Hinten", U2, 1));
+		var fixtures = List.of(fixture(10, "Front left", U1, 1), fixture(11, "Front right", U1, 5),
+				fixture(12, "Back", U2, 1));
 
 		assertThat(validate(List.of(U1, U2), fixtures)).isEmpty();
 	}
 
 	@Test
 	void reportsOverlapWithBothFixtures() {
-		var fixtures = List.of(fixture(10, "Front links", U1, 1), fixture(11, "Front rechts", U1, 3));
+		var fixtures = List.of(fixture(10, "Front left", U1, 1), fixture(11, "Front right", U1, 3));
 
 		assertThat(validate(List.of(U1), fixtures)).singleElement().satisfies(issue -> {
 			assertThat(issue.severity()).isEqualTo(IssueSeverity.ERROR);
 			assertThat(issue.fixtureIds()).containsExactly(10L, 11L);
 			assertThat(issue.message()).isEqualTo(
-					"'Front links' und 'Front rechts' überschneiden sich in Universe 1 – U1 (Kanäle 3–4)");
+					"'Front left' and 'Front right' overlap in Universe 1 – U1 (channels 3–4)");
 		});
 	}
 
@@ -52,23 +52,23 @@ class PatchValidatorTest {
 
 	@Test
 	void reportsFixturesExceedingTheUniverse() {
-		assertThat(validate(List.of(U1), List.of(fixture(10, "Letzter", U1, 510))))
+		assertThat(validate(List.of(U1), List.of(fixture(10, "Last", U1, 510))))
 				.singleElement()
-				.satisfies(issue -> assertThat(issue.message()).contains("belegt Kanäle 510–513"));
+				.satisfies(issue -> assertThat(issue.message()).contains("occupies channels 510–513"));
 	}
 
 	@Test
 	void reportsUnknownTypeModeAndUniverse() {
-		var unknownType = new PatchedFixture(10, 1, spec("Nebel", "fog-machine", "1ch", U1.id(), 1));
+		var unknownType = new PatchedFixture(10, 1, spec("Hazer", "fog-machine", "1ch", U1.id(), 1));
 		var unknownMode = new PatchedFixture(11, 1, spec("Par", "par", "8ch", U1.id(), 10));
-		var unknownUniverse = new PatchedFixture(12, 1, spec("Weg", "par", "4ch", 99, 20));
+		var unknownUniverse = new PatchedFixture(12, 1, spec("Lost", "par", "4ch", 99, 20));
 
 		assertThat(validate(List.of(U1), List.of(unknownType, unknownMode, unknownUniverse)))
 				.extracting(PatchIssue::message)
 				.containsExactly(
-						"'Nebel': Gerätetyp 'fog-machine' ist nicht in der Gerätebibliothek",
-						"'Par': Modus '8ch' gibt es bei 'par' nicht",
-						"'Weg': Universe existiert nicht");
+						"'Hazer': fixture type 'fog-machine' is not in the fixture library",
+						"'Par': fixture type 'par' has no mode '8ch'",
+						"'Lost': universe does not exist");
 	}
 
 	@Test

@@ -4,7 +4,7 @@ import java.util.Arrays;
 import java.util.Optional;
 
 /**
- * Grobe Geräteart, u.a. für Icons in der Oberfläche.
+ * Rough kind of fixture, used e.g. for icons in the UI.
  */
 public enum FixtureCategory {
 	PAR("par"),

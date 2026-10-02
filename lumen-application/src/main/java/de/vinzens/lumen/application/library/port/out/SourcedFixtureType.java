@@ -5,7 +5,7 @@ import de.vinzens.lumen.domain.library.FixtureType;
 import java.util.Objects;
 
 /**
- * Ein geladener Gerätetyp mit seiner Herkunft (z.B. Dateiname) für verständliche Fehlermeldungen.
+ * A loaded fixture type with its origin (e.g. file name) for understandable error messages.
  */
 public record SourcedFixtureType(FixtureType fixtureType, String source) {
 

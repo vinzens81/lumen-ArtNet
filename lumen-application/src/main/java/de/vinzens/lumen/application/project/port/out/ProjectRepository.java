@@ -17,9 +17,9 @@ public interface ProjectRepository {
 
 	Project update(long id, ProjectSpec spec, Instant now);
 
-	/** Löscht das Projekt inkl. Universen, Patch und Gruppen. */
+	/** Deletes the project including universes, patch and groups. */
 	void delete(long id);
 
-	/** Macht das Projekt zum einzigen aktiven Projekt. */
+	/** Makes the project the only active project. */
 	void activate(long id);
 }

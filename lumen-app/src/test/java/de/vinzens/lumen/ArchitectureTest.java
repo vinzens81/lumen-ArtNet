@@ -9,7 +9,7 @@ import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 /**
- * Sichert die hexagonale Architektur ab: Abhängigkeiten zeigen immer nach innen.
+ * Guards the hexagonal architecture: dependencies always point inwards.
  */
 @AnalyzeClasses(packages = "de.vinzens.lumen", importOptions = ImportOption.DoNotIncludeTests.class)
 class ArchitectureTest {

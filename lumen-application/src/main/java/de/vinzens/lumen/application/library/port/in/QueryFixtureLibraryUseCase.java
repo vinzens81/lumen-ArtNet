@@ -7,15 +7,15 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Lesender Zugriff auf die geladene Gerätebibliothek.
+ * Read access to the loaded fixture library.
  */
 public interface QueryFixtureLibraryUseCase {
 
-	/** Alle gültig geladenen Gerätetypen, sortiert nach Hersteller und Modell. */
+	/** All successfully loaded fixture types, sorted by manufacturer and model. */
 	List<FixtureType> fixtureTypes();
 
 	Optional<FixtureType> fixtureType(String id);
 
-	/** Probleme des letzten Ladevorgangs. */
+	/** Issues of the last load. */
 	List<LibraryIssue> issues();
 }

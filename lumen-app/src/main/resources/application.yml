@@ -3,7 +3,7 @@ spring:
     name: lumen
 
 server:
-  # Standardmäßig nur lokal erreichbar; Netzwerkzugriff wird später per Einstellung freigeschaltet
+  # Only reachable locally by default; network access will be enabled via a setting later
   address: 127.0.0.1
   port: 8080
 
@@ -14,7 +14,7 @@ management:
         include: health,info
 
 lumen:
-  # Gerätebibliothek (YAML), relativ zum Arbeitsverzeichnis
+  # Fixture library (YAML), relative to the working directory
   fixture-library-dir: fixture-types
-  # Projektdaten (SQLite), wird beim ersten Start angelegt
+  # Project data (SQLite), created on first start
   database-file: data/lumen.db

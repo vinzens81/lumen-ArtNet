@@ -39,7 +39,7 @@ public class PatchService implements ManagePatchUseCase {
 		this.library = Objects.requireNonNull(library, "library");
 	}
 
-	// --- Universen -------------------------------------------------------------------------------------------
+	// --- Universes ------------------------------------------------------------------------------------------
 
 	@Override
 	public List<Universe> universes(long projectId) {
@@ -66,8 +66,8 @@ public class PatchService implements ManagePatchUseCase {
 		var universe = requireUniverse(projectId, universeId);
 		var inUse = fixtures.countByUniverse(universeId);
 		if (inUse > 0) {
-			throw new ConflictException(universe.displayName() + " wird noch von " + inUse
-					+ (inUse == 1 ? " Gerät" : " Geräten") + " verwendet");
+			throw new ConflictException(universe.displayName() + " is still used by " + inUse
+					+ (inUse == 1 ? " fixture" : " fixtures"));
 		}
 		universes.delete(universeId);
 	}
@@ -76,18 +76,18 @@ public class PatchService implements ManagePatchUseCase {
 		var taken = universes.findByProject(projectId).stream()
 				.anyMatch(u -> u.spec().number() == number && !Objects.equals(u.id(), ownId));
 		if (taken) {
-			throw new ConflictException("Universe " + number + " existiert in diesem Projekt bereits");
+			throw new ConflictException("Universe " + number + " already exists in this project");
 		}
 	}
 
 	private Universe requireUniverse(long projectId, long universeId) {
 		return universes.findById(universeId)
 				.filter(u -> u.projectId() == projectId)
-				.orElseThrow(() -> new NotFoundException("Universe " + universeId + " existiert in Projekt "
-						+ projectId + " nicht"));
+				.orElseThrow(() -> new NotFoundException("Universe " + universeId + " does not exist in project "
+						+ projectId));
 	}
 
-	// --- Geräte ----------------------------------------------------------------------------------------------
+	// --- Fixtures ---------------------------------------------------------------------------------------------
 
 	@Override
 	public List<PatchedFixture> fixtures(long projectId) {
@@ -115,23 +115,23 @@ public class PatchService implements ManagePatchUseCase {
 		fixtures.delete(fixtureId);
 	}
 
-	/** Ein Gerät muss auf ein Universe desselben Projekts zeigen; Typ/Modus dürfen (vorübergehend) fehlen. */
+	/** A fixture must reference a universe of the same project; type/mode may be missing (temporarily). */
 	private void requireUniverseReference(long projectId, FixtureSpec spec) {
 		var exists = universes.findById(spec.universeId()).filter(u -> u.projectId() == projectId).isPresent();
 		if (!exists) {
 			throw new DomainValidationException(List.of("universeId " + spec.universeId()
-					+ " existiert in diesem Projekt nicht"));
+					+ " does not exist in this project"));
 		}
 	}
 
 	private PatchedFixture requireFixture(long projectId, long fixtureId) {
 		return fixtures.findById(fixtureId)
 				.filter(f -> f.projectId() == projectId)
-				.orElseThrow(() -> new NotFoundException("Gerät " + fixtureId + " existiert in Projekt "
-						+ projectId + " nicht"));
+				.orElseThrow(() -> new NotFoundException("Fixture " + fixtureId + " does not exist in project "
+						+ projectId));
 	}
 
-	// --- Gruppen ---------------------------------------------------------------------------------------------
+	// --- Groups ----------------------------------------------------------------------------------------------
 
 	@Override
 	public List<Group> groups(long projectId) {
@@ -163,18 +163,18 @@ public class PatchService implements ManagePatchUseCase {
 		var known = fixtures.findByProject(projectId).stream().map(PatchedFixture::id).collect(Collectors.toSet());
 		var unknown = spec.fixtureIds().stream().filter(id -> !known.contains(id)).toList();
 		if (!unknown.isEmpty()) {
-			throw new DomainValidationException(List.of("Geräte " + unknown + " existieren in diesem Projekt nicht"));
+			throw new DomainValidationException(List.of("Fixtures " + unknown + " do not exist in this project"));
 		}
 	}
 
 	private Group requireGroup(long projectId, long groupId) {
 		return groups.findById(groupId)
 				.filter(g -> g.projectId() == projectId)
-				.orElseThrow(() -> new NotFoundException("Gruppe " + groupId + " existiert in Projekt "
-						+ projectId + " nicht"));
+				.orElseThrow(() -> new NotFoundException("Group " + groupId + " does not exist in project "
+						+ projectId));
 	}
 
-	// --- Prüfung ---------------------------------------------------------------------------------------------
+	// --- Issues ----------------------------------------------------------------------------------------------
 
 	@Override
 	public List<PatchIssue> issues(long projectId) {

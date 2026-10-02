@@ -11,7 +11,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 
 /**
- * Öffnet die SQLite-Datenbankdatei und bringt das Schema per Flyway auf den neuesten Stand.
+ * Opens the SQLite database file and migrates the schema to the latest version using Flyway.
  */
 public final class SqliteDatabase {
 
@@ -45,7 +45,7 @@ public final class SqliteDatabase {
 		try {
 			Files.createDirectories(parent);
 		} catch (IOException e) {
-			throw new UncheckedIOException("Ordner für die Datenbank kann nicht angelegt werden: " + parent, e);
+			throw new UncheckedIOException("Cannot create database directory: " + parent, e);
 		}
 	}
 }

@@ -8,7 +8,7 @@ import java.util.Optional;
 
 public interface GroupRepository {
 
-	/** Gruppen des Projekts, sortiert nach sortOrder und Name. */
+	/** Groups of the project, sorted by sortOrder and name. */
 	List<Group> findByProject(long projectId);
 
 	Optional<Group> findById(long id);

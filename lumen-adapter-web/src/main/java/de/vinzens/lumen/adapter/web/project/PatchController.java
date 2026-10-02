@@ -37,7 +37,7 @@ class PatchController {
 		this.library = library;
 	}
 
-	// --- Universen -------------------------------------------------------------------------------------------
+	// --- Universes ------------------------------------------------------------------------------------------
 
 	@GetMapping("/universes")
 	List<UniverseResponse> universes(@PathVariable long projectId) {
@@ -62,7 +62,7 @@ class PatchController {
 		patch.deleteUniverse(projectId, universeId);
 	}
 
-	// --- Geräte ----------------------------------------------------------------------------------------------
+	// --- Fixtures ---------------------------------------------------------------------------------------------
 
 	@GetMapping("/fixtures")
 	List<FixtureResponse> fixtures(@PathVariable long projectId) {
@@ -95,7 +95,7 @@ class PatchController {
 		return FixtureResponse.from(fixture, channelCount);
 	}
 
-	// --- Gruppen ---------------------------------------------------------------------------------------------
+	// --- Groups ----------------------------------------------------------------------------------------------
 
 	@GetMapping("/groups")
 	List<GroupResponse> groups(@PathVariable long projectId) {
@@ -120,7 +120,7 @@ class PatchController {
 		patch.deleteGroup(projectId, groupId);
 	}
 
-	// --- Prüfung ---------------------------------------------------------------------------------------------
+	// --- Issues ----------------------------------------------------------------------------------------------
 
 	@GetMapping("/patch/issues")
 	List<PatchIssueResponse> issues(@PathVariable long projectId) {

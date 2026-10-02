@@ -22,7 +22,7 @@ class FixtureLibraryConfiguration {
 	FixtureLibraryService fixtureLibraryService(FixtureTypeSource source, LumenProperties properties) {
 		var service = new FixtureLibraryService(source);
 		service.reload();
-		log.info("Gerätebibliothek aus '{}' geladen: {} Gerätetypen",
+		log.info("Fixture library loaded from '{}': {} fixture types",
 				properties.fixtureLibraryDir().toAbsolutePath().normalize(), service.fixtureTypes().size());
 		service.issues().forEach(issue -> {
 			var message = "{}{}: {}";

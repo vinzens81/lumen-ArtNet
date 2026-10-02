@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-adapter-sqlite</artifactId>
 	<name>lumen-adapter-sqlite</name>
-	<description>Projektdaten in SQLite (Flyway-Migrationen, JdbcClient)</description>
+	<description>Project data in SQLite (Flyway migrations, JdbcClient)</description>
 
 	<dependencies>
 		<dependency>

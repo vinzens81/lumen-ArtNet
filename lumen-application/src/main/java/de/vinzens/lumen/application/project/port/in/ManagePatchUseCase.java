@@ -11,7 +11,7 @@ import de.vinzens.lumen.domain.project.UniverseSpec;
 import java.util.List;
 
 /**
- * Universen, Geräte und Gruppen eines Projekts. Alle Methoden prüfen, dass die Objekte zum Projekt gehören.
+ * Universes, fixtures and groups of a project. All methods check that the objects belong to the project.
  */
 public interface ManagePatchUseCase {
 
@@ -21,7 +21,7 @@ public interface ManagePatchUseCase {
 
 	Universe updateUniverse(long projectId, long universeId, UniverseSpec spec);
 
-	/** Schlägt fehl, solange noch Geräte im Universe gepatcht sind. */
+	/** Fails as long as fixtures are still patched in the universe. */
 	void deleteUniverse(long projectId, long universeId);
 
 	List<PatchedFixture> fixtures(long projectId);
@@ -40,6 +40,6 @@ public interface ManagePatchUseCase {
 
 	void deleteGroup(long projectId, long groupId);
 
-	/** Prüft den Patch gegen die aktuelle Gerätebibliothek. */
+	/** Validates the patch against the current fixture library. */
 	List<PatchIssue> issues(long projectId);
 }

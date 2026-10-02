@@ -65,6 +65,6 @@ public class ProjectService implements ManageProjectsUseCase {
 	}
 
 	static NotFoundException notFound(long id) {
-		return new NotFoundException("Projekt " + id + " existiert nicht");
+		return new NotFoundException("Project " + id + " does not exist");
 	}
 }

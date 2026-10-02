@@ -6,12 +6,12 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Bearbeitbare Eigenschaften eines gepatchten Geräts.
+ * Editable properties of a patched fixture.
  *
- * @param shortName     Kurzname für die Bühnenansicht, z.B. „FL“
- * @param fixtureTypeId Referenz in die Gerätebibliothek
- * @param universeId    Universe innerhalb des Projekts
- * @param address       DMX-Startadresse (1–512)
+ * @param shortName     short name for the stage view, e.g. "FL"
+ * @param fixtureTypeId reference into the fixture library
+ * @param universeId    universe within the project
+ * @param address       DMX start address (1–512)
  */
 public record FixtureSpec(
 		String name,
@@ -32,7 +32,7 @@ public record FixtureSpec(
 				.requireText(name, "name")
 				.requireText(fixtureTypeId, "fixtureTypeId")
 				.requireText(modeName, "mode")
-				.require(universeId > 0, "universeId fehlt")
+				.require(universeId > 0, "universeId is missing")
 				.requireRange(address, 1, MAX_ADDRESS, "address")
 				.throwIfInvalid();
 		name = name.strip();

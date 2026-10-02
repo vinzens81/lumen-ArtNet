@@ -9,7 +9,7 @@
 	</parent>
 	<artifactId>lumen-app</artifactId>
 	<name>lumen-app</name>
-	<description>Spring Boot Anwendung: Verdrahtung und Konfiguration</description>
+	<description>Spring Boot application: wiring and configuration</description>
 
 	<properties>
 		<spring-boot.run.skip>false</spring-boot.run.skip>
@@ -77,7 +77,7 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
-					<!-- Relative Pfade (fixture-types/, data/) beziehen sich auf das Projekt-Root -->
+					<!-- Relative paths (fixture-types/, data/) are resolved against the project root -->
 					<workingDirectory>${maven.multiModuleProjectDirectory}</workingDirectory>
 				</configuration>
 			</plugin>

@@ -5,7 +5,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.List;
 
 /**
- * Struktur einer Gerätetyp-YAML-Datei, wie sie gelesen wird. Wird anschließend auf die Domain abgebildet.
+ * Structure of a fixture type YAML file as it is read. Mapped to the domain afterwards.
  */
 record FixtureTypeDocument(
 		String id,

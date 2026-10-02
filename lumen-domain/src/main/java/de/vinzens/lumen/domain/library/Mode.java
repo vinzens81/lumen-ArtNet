@@ -4,7 +4,7 @@ import java.util.List;
 import java.util.Objects;
 
 /**
- * Ein DMX-Modus eines Gerätetyps. Die Reihenfolge der Kanäle entspricht dem DMX-Offset.
+ * A DMX mode of a fixture type. The order of the channels corresponds to the DMX offset.
  */
 public record Mode(String name, List<ChannelDefinition> channels) {
 
@@ -13,7 +13,7 @@ public record Mode(String name, List<ChannelDefinition> channels) {
 		channels = List.copyOf(channels);
 	}
 
-	/** Anzahl belegter DMX-Kanäle (16-Bit-Kanäle zählen doppelt). */
+	/** Number of occupied DMX channels (16-bit channels count twice). */
 	public int dmxChannelCount() {
 		return channels.stream().mapToInt(ChannelDefinition::dmxChannelCount).sum();
 	}

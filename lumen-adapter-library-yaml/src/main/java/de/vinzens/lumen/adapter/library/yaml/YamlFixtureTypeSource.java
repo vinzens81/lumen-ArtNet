@@ -18,7 +18,7 @@ import java.util.Objects;
 import java.util.stream.Stream;
 
 /**
- * Lädt Gerätetypen aus allen {@code *.yml}/{@code *.yaml}-Dateien eines Ordners (inkl. Unterordnern).
+ * Loads fixture types from all {@code *.yml}/{@code *.yaml} files of a directory (including subdirectories).
  */
 public class YamlFixtureTypeSource implements FixtureTypeSource {
 
@@ -35,7 +35,7 @@ public class YamlFixtureTypeSource implements FixtureTypeSource {
 	public LoadResult loadAll() {
 		if (!Files.isDirectory(directory)) {
 			return new LoadResult(List.of(), List.of(LibraryIssue.warning(directory.toString(), null,
-					"Ordner der Gerätebibliothek existiert nicht")));
+					"Fixture library directory does not exist")));
 		}
 
 		var types = new ArrayList<SourcedFixtureType>();
@@ -45,7 +45,7 @@ public class YamlFixtureTypeSource implements FixtureTypeSource {
 			try {
 				var document = mapper.readValue(file.toFile(), FixtureTypeDocument.class);
 				if (document == null) {
-					issues.add(LibraryIssue.error(source, null, "Datei ist leer"));
+					issues.add(LibraryIssue.error(source, null, "File is empty"));
 					continue;
 				}
 				var result = FixtureTypeDocumentMapper.map(document, source);
@@ -69,18 +69,18 @@ public class YamlFixtureTypeSource implements FixtureTypeSource {
 					.sorted()
 					.toList();
 		} catch (IOException e) {
-			issues.add(LibraryIssue.error(directory.toString(), null, "Ordner nicht lesbar: " + e.getMessage()));
+			issues.add(LibraryIssue.error(directory.toString(), null, "Directory is not readable: " + e.getMessage()));
 			return List.of();
 		}
 	}
 
 	private static String describe(JacksonException e) {
 		var line = e.getLocation() != null && e.getLocation().getLineNr() > 0
-				? " (Zeile " + e.getLocation().getLineNr() + ")"
+				? " (line " + e.getLocation().getLineNr() + ")"
 				: "";
 		if (e instanceof UnrecognizedPropertyException unknown) {
-			return "Unbekanntes Feld '" + unknown.getPropertyName() + "'" + line;
+			return "Unknown field '" + unknown.getPropertyName() + "'" + line;
 		}
-		return "Ungültiges YAML" + line + ": " + e.getOriginalMessage();
+		return "Invalid YAML" + line + ": " + e.getOriginalMessage();
 	}
 }

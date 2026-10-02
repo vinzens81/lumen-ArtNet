@@ -12,8 +12,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 /**
- * Prüft den Patch eines Projekts gegen die Gerätebibliothek: fehlende Typen/Modi, Adressbereich und
- * Überschneidungen. Ein fehlerhafter Patch darf gespeichert werden; die Probleme werden angezeigt.
+ * Validates the patch of a project against the fixture library: missing types/modes, address range and
+ * overlaps. A faulty patch may be saved; the issues are displayed.
  */
 public final class PatchValidator {
 
@@ -33,7 +33,7 @@ public final class PatchValidator {
 			var spec = fixture.spec();
 			var universe = universesById.get(spec.universeId());
 			if (universe == null) {
-				issues.add(PatchIssue.fixtureError("'" + spec.name() + "': Universe existiert nicht", fixture.id()));
+				issues.add(PatchIssue.fixtureError("'" + spec.name() + "': universe does not exist", fixture.id()));
 				continue;
 			}
 			var mode = resolveMode(fixture, library, issues);
@@ -42,8 +42,8 @@ public final class PatchValidator {
 			}
 			var last = spec.address() + mode.get().dmxChannelCount() - 1;
 			if (last > FixtureSpec.MAX_ADDRESS) {
-				issues.add(PatchIssue.fixtureError("'" + spec.name() + "': belegt Kanäle " + spec.address() + "–"
-						+ last + " und überschreitet 512 in " + universe.displayName(), fixture.id()));
+				issues.add(PatchIssue.fixtureError("'" + spec.name() + "': occupies channels " + spec.address() + "–"
+						+ last + " and exceeds 512 in " + universe.displayName(), fixture.id()));
 			}
 			footprints.add(new Footprint(fixture, universe, spec.address(), Math.min(last, FixtureSpec.MAX_ADDRESS)));
 		}
@@ -56,14 +56,14 @@ public final class PatchValidator {
 		var spec = fixture.spec();
 		var type = library.apply(spec.fixtureTypeId());
 		if (type.isEmpty()) {
-			issues.add(PatchIssue.fixtureError("'" + spec.name() + "': Gerätetyp '" + spec.fixtureTypeId()
-					+ "' ist nicht in der Gerätebibliothek", fixture.id()));
+			issues.add(PatchIssue.fixtureError("'" + spec.name() + "': fixture type '" + spec.fixtureTypeId()
+					+ "' is not in the fixture library", fixture.id()));
 			return Optional.empty();
 		}
 		var mode = type.get().mode(spec.modeName());
 		if (mode.isEmpty()) {
-			issues.add(PatchIssue.fixtureError("'" + spec.name() + "': Modus '" + spec.modeName()
-					+ "' gibt es bei '" + spec.fixtureTypeId() + "' nicht", fixture.id()));
+			issues.add(PatchIssue.fixtureError("'" + spec.name() + "': fixture type '" + spec.fixtureTypeId()
+					+ "' has no mode '" + spec.modeName() + "'", fixture.id()));
 		}
 		return mode;
 	}
@@ -79,9 +79,9 @@ public final class PatchValidator {
 				for (int j = i + 1; j < sorted.size() && sorted.get(j).first() <= sorted.get(i).last(); j++) {
 					var a = sorted.get(i);
 					var b = sorted.get(j);
-					issues.add(PatchIssue.fixtureError("'" + a.fixture().spec().name() + "' und '"
-							+ b.fixture().spec().name() + "' überschneiden sich in " + a.universe().displayName()
-							+ " (Kanäle " + b.first() + "–" + Math.min(a.last(), b.last()) + ")",
+					issues.add(PatchIssue.fixtureError("'" + a.fixture().spec().name() + "' and '"
+							+ b.fixture().spec().name() + "' overlap in " + a.universe().displayName()
+							+ " (channels " + b.first() + "–" + Math.min(a.last(), b.last()) + ")",
 							a.fixture().id(), b.fixture().id()));
 				}
 			}
@@ -96,8 +96,8 @@ public final class PatchValidator {
 			var artNet = universe.spec().artNet();
 			var existing = byPortAddress.putIfAbsent(artNet.portAddress(), universe);
 			if (existing != null) {
-				issues.add(PatchIssue.universeWarning(existing.displayName() + " und " + universe.displayName()
-						+ " senden beide auf Art-Net " + artNet, existing.id(), universe.id()));
+				issues.add(PatchIssue.universeWarning(existing.displayName() + " and " + universe.displayName()
+						+ " both send to Art-Net " + artNet, existing.id(), universe.id()));
 			}
 		}
 		return issues;

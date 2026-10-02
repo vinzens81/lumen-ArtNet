@@ -22,8 +22,8 @@ import java.util.OptionalInt;
 import java.util.stream.Collectors;
 
 /**
- * Bildet ein gelesenes YAML-Dokument auf die Domain ab. Strukturelle Fehler (fehlende Pflichtfelder,
- * unbekannte Funktionen) werden als Issues gesammelt; die fachliche Prüfung übernimmt die Domain.
+ * Maps a parsed YAML document to the domain. Structural errors (missing required fields, unknown
+ * functions) are collected as issues; semantic validation is done by the domain.
  */
 final class FixtureTypeDocumentMapper {
 
@@ -48,7 +48,7 @@ final class FixtureTypeDocumentMapper {
 	private FixtureType mapType(FixtureTypeDocument document) {
 		typeId = document.id();
 		if (typeId == null || typeId.isBlank()) {
-			error("id fehlt");
+			error("id is missing");
 			typeId = null;
 		}
 		var category = mapCategory(document.category());
@@ -64,11 +64,11 @@ final class FixtureTypeDocumentMapper {
 
 	private FixtureCategory mapCategory(String category) {
 		if (category == null) {
-			error("category fehlt (erlaubt: " + allowed(FixtureCategory.values()) + ")");
+			error("category is missing (allowed: " + allowed(FixtureCategory.values()) + ")");
 			return FixtureCategory.OTHER;
 		}
 		return FixtureCategory.fromId(category).orElseGet(() -> {
-			error("Unbekannte category '" + category + "' (erlaubt: " + allowed(FixtureCategory.values()) + ")");
+			error("Unknown category '" + category + "' (allowed: " + allowed(FixtureCategory.values()) + ")");
 			return FixtureCategory.OTHER;
 		});
 	}
@@ -90,14 +90,14 @@ final class FixtureTypeDocumentMapper {
 	}
 
 	private Optional<ChannelDefinition> mapChannel(ChannelDocument channel, String modeName) {
-		var prefix = "Modus '" + modeName + "': ";
+		var prefix = "Mode '" + modeName + "': ";
 		if (channel.function() == null) {
-			error(prefix + "Kanal ohne function");
+			error(prefix + "channel without function");
 			return Optional.empty();
 		}
 		var function = ChannelFunction.fromId(channel.function());
 		if (function.isEmpty()) {
-			error(prefix + "Unbekannte function '" + channel.function() + "'");
+			error(prefix + "unknown function '" + channel.function() + "'");
 			return Optional.empty();
 		}
 		var fade = Optional.ofNullable(channel.fade()).flatMap(value -> mapFade(value, prefix));
@@ -120,7 +120,7 @@ final class FixtureTypeDocumentMapper {
 			case "snap" -> Optional.of(FadeBehavior.SNAP);
 			case "smooth" -> Optional.of(FadeBehavior.SMOOTH);
 			default -> {
-				error(prefix + "Unbekanntes fade '" + fade + "' (erlaubt: snap, smooth)");
+				error(prefix + "unknown fade '" + fade + "' (allowed: snap, smooth)");
 				yield Optional.empty();
 			}
 		};
@@ -128,7 +128,7 @@ final class FixtureTypeDocumentMapper {
 
 	private Optional<ChannelRange> mapRange(RangeDocument range, String prefix) {
 		if (range.from() == null || range.to() == null) {
-			error(prefix + "Bereich '" + range.label() + "' braucht from und to");
+			error(prefix + "range '" + range.label() + "' needs from and to");
 			return Optional.empty();
 		}
 		return Optional.of(new ChannelRange(range.from(), range.to(),

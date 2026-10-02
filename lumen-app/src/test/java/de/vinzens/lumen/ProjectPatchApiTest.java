@@ -20,8 +20,8 @@ class ProjectPatchApiTest {
 
 	@Test
 	void activatingAProjectDeactivatesTheOthers() throws Exception {
-		var first = createProject("Erstes");
-		var second = createProject("Zweites");
+		var first = createProject("First");
+		var second = createProject("Second");
 
 		assertThat(post("/api/projects/" + second + "/activate", "")).hasStatusOk()
 				.bodyJson().extractingPath("$.active").isEqualTo(true);
@@ -38,7 +38,7 @@ class ProjectPatchApiTest {
 
 		assertThat(post("/api/projects", "{\"name\": \"\", \"fadeInMs\": -1}")).hasStatus(400)
 				.bodyJson().extractingPath("$.errors").asArray()
-				.containsExactly("name fehlt", "fadeIn muss zwischen 0 und 10 Minuten liegen");
+				.containsExactly("name is missing", "fadeIn must be between 0 and 10 minutes");
 	}
 
 	@Test
@@ -46,20 +46,20 @@ class ProjectPatchApiTest {
 		var project = createProject("Patch");
 		var universe = createUniverse(project, 1);
 
-		var left = createFixture(project, universe, "PAR links", 1);
+		var left = createFixture(project, universe, "PAR left", 1);
 		assertThat(left).hasStatus(201).bodyJson()
 				.extractingPath("$.lastAddress").isEqualTo(8);
-		createFixture(project, universe, "PAR rechts", 5);
+		createFixture(project, universe, "PAR right", 5);
 
 		var issues = assertThat(mvc.get().uri("/api/projects/" + project + "/patch/issues")).hasStatusOk().bodyJson();
 		issues.extractingPath("$[0].message").isEqualTo(
-				"'PAR links' und 'PAR rechts' überschneiden sich in Universe 1 – Bühne (Kanäle 5–8)");
+				"'PAR left' and 'PAR right' overlap in Universe 1 – Stage (channels 5–8)");
 		issues.extractingPath("$[0].fixtureIds").asArray().hasSize(2);
 	}
 
 	@Test
 	void universeDefaultsAndUniqueNumber() throws Exception {
-		var project = createProject("Universen");
+		var project = createProject("Universes");
 
 		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 3}")).hasStatus(201).bodyJson()
 				.satisfies(json -> {
@@ -73,7 +73,7 @@ class ProjectPatchApiTest {
 
 	@Test
 	void universeInUseCannotBeDeleted() throws Exception {
-		var project = createProject("Löschen");
+		var project = createProject("Delete");
 		var universe = createUniverse(project, 1);
 		var fixture = id(createFixture(project, universe, "PAR", 1));
 
@@ -85,7 +85,7 @@ class ProjectPatchApiTest {
 
 	@Test
 	void groupsOnlyAcceptFixturesOfTheProject() throws Exception {
-		var project = createProject("Gruppen");
+		var project = createProject("Groups");
 		var universe = createUniverse(project, 1);
 		var a = id(createFixture(project, universe, "A", 1));
 		var b = id(createFixture(project, universe, "B", 9));
@@ -95,17 +95,17 @@ class ProjectPatchApiTest {
 				.hasStatus(201).bodyJson().extractingPath("$.fixtureIds").asArray()
 				.containsExactly((int) b, (int) a);
 
-		var other = createProject("Anderes");
+		var other = createProject("Other");
 		assertThat(post("/api/projects/" + other + "/groups",
-				"{\"name\": \"Fremd\", \"fixtureIds\": [" + a + "]}")).hasStatus(400);
+				"{\"name\": \"Foreign\", \"fixtureIds\": [" + a + "]}")).hasStatus(400);
 	}
 
 	@Test
 	void fixturesOfOtherProjectsAreNotFound() throws Exception {
-		var project = createProject("Eigenes");
+		var project = createProject("Own");
 		var universe = createUniverse(project, 1);
 		var fixture = id(createFixture(project, universe, "PAR", 1));
-		var other = createProject("Fremdes");
+		var other = createProject("Foreign");
 
 		assertThat(mvc.delete().uri("/api/projects/" + other + "/fixtures/" + fixture)).hasStatus(404);
 		assertThat(mvc.get().uri("/api/projects/999999/fixtures")).hasStatus(404);
@@ -117,7 +117,7 @@ class ProjectPatchApiTest {
 
 	private long createUniverse(long project, int number) throws Exception {
 		return id(post("/api/projects/" + project + "/universes",
-				"{\"number\": " + number + ", \"name\": \"Bühne\", \"artnet\": {\"net\": 0, \"subnet\": 0, "
+				"{\"number\": " + number + ", \"name\": \"Stage\", \"artnet\": {\"net\": 0, \"subnet\": 0, "
 						+ "\"universe\": " + (number - 1) + "}, \"target\": \"broadcast\"}"));
 	}
 

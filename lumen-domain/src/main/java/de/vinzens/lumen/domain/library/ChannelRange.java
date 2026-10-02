@@ -4,9 +4,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 /**
- * Benannter Wertebereich eines Kanals, z.B. „Strobe langsam → schnell“ oder ein Farbrad-Slot.
+ * Named value range of a channel, e.g. "Strobe slow → fast" or a color wheel slot.
  *
- * @param color optionale Anzeigefarbe im Format {@code #rrggbb}
+ * @param color optional display color in the format {@code #rrggbb}
  */
 public record ChannelRange(int from, int to, String label, Optional<String> color) {
 
