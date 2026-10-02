@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { channelOwners, locateValues, nextFreeAddress, numberedNames, occupancy } from './patch';
+import { channelOwners, locateValues, nextFreeAddress, numberedNames, occupancy, plannedFixtures } from './patch';
 import type { Channel, Fixture, Mode } from './types';
 
 function fixture(id: number, address: number, channelCount: number | null): Fixture {
@@ -98,5 +98,19 @@ describe('channelOwners', () => {
     expect(owners[10]?.channel).toBe('Pan fine');
     expect(owners[11]?.channel).toBe('Dimmer');
     expect(owners[12]).toBeNull();
+  });
+});
+
+describe('plannedFixtures', () => {
+  it('patches several fixtures back to back with numbered names', () => {
+    const base = { name: 'LED PAR', shortName: 'P', fixtureTypeId: 'par', mode: '4ch', universeId: 1, position: null, sortOrder: 0 };
+
+    const planned = plannedFixtures(base, 10, 4, 8);
+
+    expect(planned.map((f) => f.address)).toEqual([10, 14, 18, 22, 26, 30, 34, 38]);
+    expect(planned.map((f) => f.name)).toEqual(['LED PAR 1', 'LED PAR 2', 'LED PAR 3', 'LED PAR 4', 'LED PAR 5',
+      'LED PAR 6', 'LED PAR 7', 'LED PAR 8']);
+    expect(planned.every((f) => f.shortName === null)).toBe(true);
+    expect(plannedFixtures(base, 1, 4, 1)).toEqual([{ ...base, address: 1 }]);
   });
 });

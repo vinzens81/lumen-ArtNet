@@ -2,7 +2,7 @@
   import AddressGrid from '../components/AddressGrid.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import { api } from '../lib/api';
-  import { fixtureHue, footprint, locateValues, nextFreeAddress, numberedNames } from '../lib/patch';
+  import { fixtureHue, footprint, locateValues, nextFreeAddress, plannedFixtures } from '../lib/patch';
   import { navigate } from '../lib/router.svelte';
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
@@ -22,6 +22,8 @@
   let located = $state<number[]>([]);
   let confirmDelete = $state(false);
 
+  /** true while several fixtures are being created one after another */
+  let adding = $state(false);
   let form = $state({ typeId: '', mode: '', name: '', shortName: '', universeId: 0, address: 1, count: 1 });
   let addressTouched = $state(false);
 
@@ -116,32 +118,42 @@
     void form.mode;
     void form.count;
     void form.universeId;
-    if (panel === 'add' && !addressTouched) suggestAddress();
+    if (panel === 'add' && !addressTouched && !adding) suggestAddress();
   });
 
   async function add() {
     if (!project || !formMode) return;
-    const names = numberedNames(form.name.trim(), Math.max(1, form.count));
+    // everything is fixed before the first request: each created fixture reloads the patch (live update), and the
+    // address suggestion must not move the remaining fixtures
+    const projectId = project.id;
+    const targetUniverse = form.universeId;
+    const planned = plannedFixtures(
+      {
+        name: form.name,
+        shortName: form.shortName || null,
+        fixtureTypeId: form.typeId,
+        mode: form.mode,
+        universeId: targetUniverse,
+        position: null,
+        sortOrder: 0,
+      },
+      form.address,
+      formChannels,
+      form.count,
+    );
+    adding = true;
     try {
-      for (let i = 0; i < names.length; i++) {
-        await api.fixtures.create(project.id, {
-          name: names[i],
-          shortName: names.length === 1 ? form.shortName || null : null,
-          fixtureTypeId: form.typeId,
-          mode: form.mode,
-          universeId: form.universeId,
-          address: form.address + i * formChannels,
-          position: null,
-          sortOrder: 0,
-        });
+      for (const fixture of planned) {
+        await api.fixtures.create(projectId, fixture);
       }
-      notify(names.length === 1 ? `Patched "${names[0]}"` : `Patched ${names.length} fixtures`);
+      notify(planned.length === 1 ? `Patched "${planned[0].name}"` : `Patched ${planned.length} fixtures`);
       panel = 'list';
-      universeId = form.universeId;
-      await loadAll(project.id);
+      universeId = targetUniverse;
     } catch (e) {
       showError(e);
-      await loadAll(project.id);
+    } finally {
+      adding = false;
+      await loadAll(projectId);
     }
   }
 
@@ -384,7 +396,7 @@
 
           <div class="form-actions">
             {#if panel === 'add'}
-              <button class="btn primary" type="submit" disabled={!formMode}>Patch {form.count > 1 ? `${form.count} fixtures` : 'fixture'}</button>
+              <button class="btn primary" type="submit" disabled={!formMode || adding}>Patch {form.count > 1 ? `${form.count} fixtures` : 'fixture'}</button>
             {:else}
               <button class="btn primary" type="submit">Save</button>
               {#if selected}

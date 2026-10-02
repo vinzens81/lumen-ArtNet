@@ -1,4 +1,4 @@
-import type { Fixture, Mode } from './types';
+import type { Fixture, FixtureRequest, Mode } from './types';
 
 export const UNIVERSE_SIZE = 512;
 
@@ -47,6 +47,25 @@ export function numberedNames(base: string, count: number, firstNumber = 1): str
     return [base];
   }
   return Array.from({ length: count }, (_, i) => `${base} ${firstNumber + i}`);
+}
+
+/**
+ * Requests for patching {@code count} fixtures of the same type back to back from {@code address}. Computed once
+ * before the first request, so nothing that changes while they are sent (e.g. a reloaded patch) shifts them.
+ */
+export function plannedFixtures(
+  base: Omit<FixtureRequest, 'name' | 'address'> & { name: string },
+  address: number,
+  channels: number,
+  count: number,
+): FixtureRequest[] {
+  const names = numberedNames(base.name.trim(), Math.max(1, count));
+  return names.map((name, i) => ({
+    ...base,
+    name,
+    shortName: names.length === 1 ? base.shortName : null,
+    address: address + i * Math.max(1, channels),
+  }));
 }
 
 const LOCATE_FUNCTIONS = new Set(['dimmer', 'red', 'green', 'blue', 'white', 'warm-white', 'cold-white', 'amber', 'lime']);
