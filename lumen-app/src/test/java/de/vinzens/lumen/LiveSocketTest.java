@@ -41,6 +41,8 @@ class LiveSocketTest {
 
 		assertThat(type(messages.poll(5, TimeUnit.SECONDS))).isEqualTo("programmer");
 		assertThat(type(messages.poll(5, TimeUnit.SECONDS))).isEqualTo("master");
+		assertThat(type(messages.poll(5, TimeUnit.SECONDS))).isEqualTo("playback");
+		assertThat(type(messages.poll(5, TimeUnit.SECONDS))).isEqualTo("mode");
 
 		var response = http.send(HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + "/api/output/master"))
 				.header("Content-Type", "application/json")
@@ -48,24 +50,21 @@ class LiveSocketTest {
 				.build(), HttpResponse.BodyHandlers.ofString());
 		assertThat(response.statusCode()).isEqualTo(200);
 
-		var update = messages.poll(5, TimeUnit.SECONDS);
-		assertThat(type(update)).isEqualTo("master");
+		var update = await(messages, "master");
 		assertThat((Double) JsonPath.read(update, "$.level")).isEqualTo(0.25);
 	}
 
 	@Test
 	void acceptsCommandsAndReportsErrors() throws Exception {
 		var messages = connect();
-		messages.poll(5, TimeUnit.SECONDS);
-		messages.poll(5, TimeUnit.SECONDS);
+		await(messages, "mode");
 
 		socket.sendText("{\"type\": \"master.set\", \"level\": 0.75}", true).join();
-		var update = messages.poll(5, TimeUnit.SECONDS);
+		var update = await(messages, "master");
 		assertThat((Double) JsonPath.read(update, "$.level")).isEqualTo(0.75);
 
 		socket.sendText("{\"type\": \"master.set\", \"level\": 3}", true).join();
-		var error = messages.poll(5, TimeUnit.SECONDS);
-		assertThat(type(error)).isEqualTo("error");
+		var error = await(messages, "error");
 		assertThat((String) JsonPath.read(error, "$.message")).contains("level must be between 0 and 1");
 
 		socket.sendText("{\"type\": \"master.set\", \"level\": 1}", true).join();
@@ -91,6 +90,18 @@ class LiveSocketTest {
 				})
 				.join();
 		return messages;
+	}
+
+	/** Skips other updates until a message of the given type arrives. */
+	private static String await(BlockingQueue<String> messages, String type) throws InterruptedException {
+		var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		while (System.nanoTime() < deadline) {
+			var message = messages.poll(deadline - System.nanoTime(), TimeUnit.NANOSECONDS);
+			if (message != null && type.equals(JsonPath.read(message, "$.type"))) {
+				return message;
+			}
+		}
+		throw new AssertionError("no '" + type + "' message within 5 s");
 	}
 
 	private static String type(String message) {

@@ -8,6 +8,8 @@ import type {
   GroupRequest,
   LibraryIssue,
   MasterState,
+  OperatingMode,
+  PlaybackStatus,
   PatchIssue,
   Project,
   ProjectRequest,
@@ -114,6 +116,18 @@ export const api = {
     master: () => get<MasterState>('/api/output/master'),
     setMaster: (level: number) => put<MasterState>('/api/output/master', { level }),
     setBlackout: (active: boolean) => put<MasterState>('/api/output/blackout', { active }),
+  },
+  playback: {
+    status: () => get<PlaybackStatus>('/api/playback'),
+    go: () => post<PlaybackStatus>('/api/playback/go'),
+    back: () => post<PlaybackStatus>('/api/playback/back'),
+    pause: () => post<PlaybackStatus>('/api/playback/pause'),
+    finish: () => post<PlaybackStatus>('/api/playback/finish'),
+    setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
+  },
+  mode: {
+    get: () => get<{ mode: OperatingMode }>('/api/mode'),
+    set: (mode: OperatingMode) => put<{ mode: OperatingMode }>('/api/mode', { mode }),
   },
   artnet: {
     nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),

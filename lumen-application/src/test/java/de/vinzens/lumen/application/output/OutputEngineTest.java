@@ -1,5 +1,6 @@
 package de.vinzens.lumen.application.output;
 
+import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
@@ -19,6 +20,8 @@ import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.library.PhysicalProperties;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.output.LayerOutput;
+import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
@@ -32,6 +35,7 @@ import de.vinzens.lumen.domain.project.UniverseSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -77,7 +81,8 @@ class OutputEngineTest {
 		var events = new StateEvents();
 		events.subscribe(published::add);
 		engine = new OutputEngine(projectRepository(), universeRepository(), fixtureRepository(), groupRepository(),
-				library(), (universe, frame) -> sent.add(new Sent(universe.spec().number(), frame)), events);
+				library(), (universe, frame) -> sent.add(new Sent(universe.spec().number(), frame)), events,
+				Clock.systemUTC());
 		engine.patchChanged();
 		published.clear();
 	}
@@ -130,6 +135,31 @@ class OutputEngineTest {
 		assertThat(engine.frame(1).get(5)).isZero();
 		assertThat(engine.master().level()).isEqualTo(0.5);
 		assertThat(published).endsWith(StateTopic.OUTPUT, StateTopic.OUTPUT);
+	}
+
+	@Test
+	void showModeClearsAndLocksTheProgrammer() {
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0)));
+
+		engine.setMode(OperatingMode.SHOW);
+
+		assertThat(engine.programmerValues()).isEmpty();
+		assertThat(published).endsWith(StateTopic.MODE);
+		assertThatThrownBy(() -> engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0))))
+				.isInstanceOf(ConflictException.class);
+		engine.setMode(OperatingMode.SETUP);
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0)));
+	}
+
+	@Test
+	void layerSourcesAreMergedBelowTheProgrammer() {
+		engine.addLayerSource((now, modes) -> new LayerOutput(50,
+				Map.of(100L, new FixtureValues(Map.of(DIMMER, 0.5, RED, 1.0)))));
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 0.2, RED, 0.0)));
+
+		var frame = engine.frame(1);
+		assertThat(frame.get(5)).as("dimmer HTP: max(0.5, 0.2)").isEqualTo(128);
+		assertThat(frame.get(6)).as("red LTP: programmer wins").isZero();
 	}
 
 	@Test

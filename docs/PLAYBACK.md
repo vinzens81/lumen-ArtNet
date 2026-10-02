@@ -91,8 +91,8 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 | Befehl | Taste | Verhalten |
 |---|---|---|
 | **GO** | `Leertaste` | Nächste Szene in der Liste mit Überblendung starten |
-| **Back** | `←` | Vorherige Szene mit denselben Fade-Zeiten |
-| **Springen** | Szene antippen + GO | Beliebige Szene als nächste vormerken |
+| **Back** | `←` | Vorherige Szene **in der Liste** (nicht die zuletzt gespielte) mit denselben Fade-Zeiten |
+| **Springen** | Szene antippen (oder `↑`/`↓`) + GO | Beliebige Szene als nächste vormerken |
 | **Pause** | `P` | Laufende Fades einfrieren, erneutes Drücken setzt fort |
 | **Fade abschließen** | `Enter` | Laufenden Fade sofort beenden (Zielzustand) |
 | **Blackout** | `B` | Sofort alles aus (Grand Master 0), erneutes Drücken stellt wieder her |
@@ -103,13 +103,24 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 - Die aktuelle Szene wird in `playback_state` gespeichert. Nach einem Neustart bietet der Betriebsmodus an, dort
   weiterzumachen (Szene wird direkt ohne Fade gesetzt).
 
+## Umsetzung
+
+- `Playback` (Domain) rechnet auf einer **virtuellen Uhr**, die während Pause stillsteht – Fades und Auto-Follow-
+  Countdown frieren dadurch ein und laufen nahtlos weiter.
+- `Crossfade.mix` setzt die Mischregeln oben um; das Fade-Verhalten pro Kanal kommt aus dem Geräteprofil
+  (inkl. `fade: snap|smooth`).
+- Das Playback ist eine Ausgabe-Ebene (Priorität 50) **unter** dem Programmer (100).
+- Doppel-GO-Schutz: Client 300 ms, Server 200 ms.
+- Beim Start des Servers steht das Playback auf „Ready“ (dunkel); Wiederaufnahme nach Neustart folgt in Iteration 8.
+
 ## Programmer vs. Playback
 
 - Im **Konfigurationsmodus** setzt der **Programmer** Werte direkt („Live-Bearbeitung“), daraus werden Szenen
   gespeichert bzw. aktualisiert.
-- Im **Betriebsmodus** gibt nur das Playback aus. Der Programmer ist gesperrt, damit niemand während der Vorstellung
-  versehentlich etwas verstellt.
-- Beim Wechsel Konfiguration → Betrieb wird der Programmer geleert.
+- Im **Betriebsmodus** gibt nur das Playback aus. Der Programmer ist gesperrt (der Server lehnt Änderungen mit 409 ab),
+  damit niemand während der Vorstellung versehentlich etwas verstellt.
+- Beim Wechsel Konfiguration → Betrieb wird der Programmer geleert. Der Modus ist Server-Zustand: alle verbundenen
+  Browser wechseln mit. Zurück in den Konfigurationsmodus geht es nur mit Bestätigung (später PIN).
 
 ## Mögliche Erweiterungen (Backlog)
 

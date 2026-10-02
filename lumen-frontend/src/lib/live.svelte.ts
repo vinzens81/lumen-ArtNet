@@ -1,6 +1,6 @@
 import { api } from './api';
 import { showError } from './toasts.svelte';
-import type { AttributeValues, MasterState } from './types';
+import type { AttributeValues, MasterState, OperatingMode, PlaybackStatus } from './types';
 
 const SEND_INTERVAL_MS = 33;
 /** Incoming snapshots are overlaid with local edits for this long, so faders do not jump back. */
@@ -21,6 +21,12 @@ class LiveState {
   projectsRevision = $state(0);
   scenesRevision = $state(0);
   nodesRevision = $state(0);
+  playback = $state<PlaybackStatus | null>(null);
+  /** performance.now() when the playback status arrived, to interpolate fades locally */
+  playbackReceivedAt = $state(0);
+  mode = $state<OperatingMode>('setup');
+  /** false until the server reported its mode, so a reload in show mode does not bounce to setup first */
+  modeKnown = $state(false);
 
   private socket: WebSocket | null = null;
   private retries = 0;
@@ -79,6 +85,14 @@ class LiveState {
       case 'nodes':
         this.nodesRevision++;
         break;
+      case 'playback':
+        this.playback = message.status as PlaybackStatus;
+        this.playbackReceivedAt = performance.now();
+        break;
+      case 'mode':
+        this.mode = message.mode as OperatingMode;
+        this.modeKnown = true;
+        break;
       case 'error':
         showError(new Error(String(message.message)));
         break;
@@ -119,6 +133,28 @@ class LiveState {
       this.socket.send(JSON.stringify({ type: 'blackout.set', active }));
     } else {
       await api.output.setBlackout(active).catch(showError);
+    }
+  }
+
+  /** Playback commands go over the socket for the lowest latency, REST as fallback. */
+  playbackCommand(command: 'go' | 'back' | 'pause' | 'finish') {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: `playback.${command}` }));
+    } else {
+      api.playback[command]()
+        .then((status) => {
+          this.playback = status;
+          this.playbackReceivedAt = performance.now();
+        })
+        .catch(showError);
+    }
+  }
+
+  async setMode(mode: OperatingMode) {
+    try {
+      this.mode = (await api.mode.set(mode)).mode;
+    } catch (e) {
+      showError(e);
     }
   }
 

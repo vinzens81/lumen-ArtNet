@@ -1,10 +1,13 @@
 package de.vinzens.lumen.adapter.web.live;
 
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
+import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.port.in.ControlMasterUseCase;
+import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
+import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,6 +24,7 @@ import java.io.IOException;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -32,9 +36,10 @@ import java.util.concurrent.TimeUnit;
  * Keeps all connected clients in sync. State changes are collected and flushed at most every
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
- * <p>Server → client: {@code programmer} (all values), {@code master}, {@code patch}, {@code scenes},
- * {@code nodes}, {@code projects} (the last four ask the client to reload via REST). Client → server: {@code programmer.set} and
- * {@code master.set} for low-latency fader control.
+ * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
+ * {@code patch}, {@code scenes},
+ * {@code nodes}, {@code projects} (the last four ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
  */
 @Component
 class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
@@ -46,6 +51,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 
 	private final ControlProgrammerUseCase programmer;
 	private final ControlMasterUseCase master;
+	private final ControlPlaybackUseCase playback;
+	private final ControlModeUseCase mode;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 	private final Set<StateTopic> dirty = EnumSet.noneOf(StateTopic.class);
@@ -55,10 +62,12 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		return thread;
 	});
 
-	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, StateEvents events,
-			JsonMapper json) {
+	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
+			ControlModeUseCase mode, StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
+		this.playback = playback;
+		this.mode = mode;
 		this.json = json;
 		events.subscribe(this::markDirty);
 		flusher.scheduleWithFixedDelay(this::flush, FLUSH_INTERVAL_MS, FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
@@ -105,6 +114,14 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case PATCH -> message.put("type", "patch");
 			case SCENES -> message.put("type", "scenes");
 			case NODES -> message.put("type", "nodes");
+			case PLAYBACK -> {
+				message.put("type", "playback");
+				message.put("status", PlaybackResponse.from(playback.status()));
+			}
+			case MODE -> {
+				message.put("type", "mode");
+				message.put("mode", mode.mode().name().toLowerCase(Locale.ROOT));
+			}
 			case PROJECTS -> message.put("type", "projects");
 		}
 		return message;
@@ -127,7 +144,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	public void afterConnectionEstablished(WebSocketSession session) {
 		var safe = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, BUFFER_SIZE_LIMIT);
 		sessions.put(session.getId(), safe);
-		for (var topic : List.of(StateTopic.PROGRAMMER, StateTopic.OUTPUT)) {
+		for (var topic : List.of(StateTopic.PROGRAMMER, StateTopic.OUTPUT, StateTopic.PLAYBACK, StateTopic.MODE)) {
 			send(safe, new TextMessage(json.writeValueAsString(message(topic))));
 		}
 	}
@@ -152,6 +169,10 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					master.setMasterLevel(command.level());
 				}
 				case "blackout.set" -> master.setBlackout(Boolean.TRUE.equals(command.active()));
+				case "playback.go" -> playback.go();
+				case "playback.back" -> playback.back();
+				case "playback.pause" -> playback.togglePause();
+				case "playback.finish" -> playback.finish();
 				default -> throw new DomainValidationException(List.of("Unknown command '" + command.type() + "'"));
 			}
 		} catch (DomainValidationException e) {

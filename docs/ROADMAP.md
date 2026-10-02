@@ -94,14 +94,15 @@ Anlass: echte Hardware (eigener ESP8266-Dimmer, 1 Kanal, im WLAN). Broadcast sch
 Geprüft: Der echte ESP (192.168.0.150, Port-Adresse 0) wurde per ArtPoll gefunden; der Unicast an gefundene Nodes ist
 mit einem simulierten ESP (gleiches ArtPollReply-Format wie die Firmware) end-to-end getestet.
 
-## ⬜ Iteration 7 – Playback-Engine & Betriebsmodus 🎭
+## ✅ Iteration 7 – Playback-Engine & Betriebsmodus 🎭
 - Domain: `Playback`, `Crossfade` mit Snapshot, HTP/LTP-Mischung, Pause, injizierte `Clock`
   (ausführliche Unit-Tests für das Fade-Verhalten, siehe [PLAYBACK.md](PLAYBACK.md))
 - GO / Back / Springen / Pause / Fade abschließen, Start- und Endzustand (Blackout vor Szene 1, „Ende“ nach der letzten)
 - Auto-Follow: automatisches GO nach der Stay-Dauer, Countdown im UI
 - Betriebsmodus-UI: Szenenliste, Jetzt/Ausblendend/Nächste mit Fortschritt, Regiehinweis, großer GO-Button,
   Tastaturkürzel, Sperre gegen Bearbeiten, Wake Lock
-- Probe-Überblendung im Konfigurationsmodus
+- Show-Modus ist Server-Zustand: sperrt den Programmer (409), alle verbundenen Clients wechseln mit
+- Noch offen (→ später): Probe-Überblendung im Konfigurationsmodus, Fade-Zeiten pro Szene (z.B. für einen Blitz)
 
 **DoD:** Eine komplette Show kann per Leertaste durchgespielt werden, Fade-Out und Fade-In laufen parallel,
 ein Doppel-GO erzeugt keinen Sprung.

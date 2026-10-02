@@ -12,6 +12,7 @@ import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
 import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
+import de.vinzens.lumen.application.playback.PlaybackService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -68,15 +69,24 @@ class OutputConfiguration {
 
 	@Bean
 	OutputEngine outputEngine(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
-			DmxOutputPort dmxOutput, StateEvents stateEvents) {
+			DmxOutputPort dmxOutput, StateEvents stateEvents, Clock clock) {
 		var engine = new OutputEngine(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				repositories.groups(), library, dmxOutput, stateEvents);
+				repositories.groups(), library, dmxOutput, stateEvents, clock);
 		engine.patchChanged();
 		return engine;
 	}
 
+	@Bean
+	PlaybackService playbackService(SqliteRepositories repositories, Clock clock, StateEvents stateEvents,
+			OutputEngine outputEngine) {
+		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), clock, stateEvents);
+		outputEngine.addLayerSource(playback);
+		return playback;
+	}
+
 	@Bean(destroyMethod = "close")
-	RenderLoop renderLoop(OutputEngine engine, LumenProperties properties) {
+	// depends on the playback so its layer is registered before the first tick
+	RenderLoop renderLoop(PlaybackService playbackService, OutputEngine engine, LumenProperties properties) {
 		var loop = new RenderLoop(engine, properties.output().rateHz());
 		loop.start();
 		log.info("Render loop running at {} Hz", properties.output().rateHz());

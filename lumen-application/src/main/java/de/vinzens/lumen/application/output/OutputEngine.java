@@ -1,10 +1,12 @@
 package de.vinzens.lumen.application.output;
 
+import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlMasterUseCase;
+import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryOutputUseCase;
 import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
@@ -15,16 +17,21 @@ import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.library.Attribute;
+import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.output.DmxRenderer;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.LayerMerger;
+import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.output.MasterState;
+import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.output.Programmer;
 import de.vinzens.lumen.domain.output.RenderFixture;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.Universe;
 
+import java.time.Clock;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -32,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -41,7 +49,8 @@ import java.util.stream.Collectors;
  * State is kept in immutable snapshots, so REST calls and the render loop never block each other.
  */
 public class OutputEngine
-		implements ControlProgrammerUseCase, ControlMasterUseCase, QueryOutputUseCase, PatchChangeListener {
+		implements ControlProgrammerUseCase, ControlMasterUseCase, ControlModeUseCase, QueryOutputUseCase,
+		PatchChangeListener {
 
 	static final int PROGRAMMER_PRIORITY = 100;
 
@@ -52,13 +61,17 @@ public class OutputEngine
 	private final QueryFixtureLibraryUseCase library;
 	private final DmxOutputPort output;
 	private final StateEvents events;
+	private final Clock clock;
+	private final List<OutputLayerSource> layerSources = new CopyOnWriteArrayList<>();
 
 	private final AtomicReference<ActivePatch> patch = new AtomicReference<>(ActivePatch.NONE);
 	private final AtomicReference<Programmer> programmer = new AtomicReference<>(Programmer.EMPTY);
 	private final AtomicReference<MasterState> master = new AtomicReference<>(MasterState.FULL);
+	private final AtomicReference<OperatingMode> mode = new AtomicReference<>(OperatingMode.SETUP);
 
 	public OutputEngine(ProjectRepository projects, UniverseRepository universes, FixtureRepository fixtures,
-			GroupRepository groups, QueryFixtureLibraryUseCase library, DmxOutputPort output, StateEvents events) {
+			GroupRepository groups, QueryFixtureLibraryUseCase library, DmxOutputPort output, StateEvents events,
+			Clock clock) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
@@ -66,6 +79,12 @@ public class OutputEngine
 		this.library = Objects.requireNonNull(library, "library");
 		this.output = Objects.requireNonNull(output, "output");
 		this.events = Objects.requireNonNull(events, "events");
+		this.clock = Objects.requireNonNull(clock, "clock");
+	}
+
+	/** Adds a layer below the programmer, e.g. the scene playback. */
+	public void addLayerSource(OutputLayerSource source) {
+		layerSources.add(source);
 	}
 
 	/** Reloads the patch of the active project. Switching projects clears the programmer. */
@@ -105,7 +124,15 @@ public class OutputEngine
 	}
 
 	private Map<Long, DmxFrame> render(ActivePatch current) {
-		var values = LayerMerger.merge(List.of(programmer.get().asLayer(PROGRAMMER_PRIORITY)));
+		var now = clock.instant();
+		var modes = new HashMap<Long, Mode>();
+		current.fixtures().forEach(f -> modes.put(f.fixtureId(), f.mode()));
+		var layers = new ArrayList<LayerOutput>();
+		for (var source : layerSources) {
+			layers.add(source.layer(now, modes));
+		}
+		layers.add(programmer.get().asLayer(PROGRAMMER_PRIORITY));
+		var values = LayerMerger.merge(layers);
 		var universeIds = current.universes().stream().map(Universe::id).toList();
 		return DmxRenderer.render(universeIds, current.fixtures(), values, master.get().effectiveLevel());
 	}
@@ -132,6 +159,7 @@ public class OutputEngine
 
 	@Override
 	public FixtureValues setValues(long fixtureId, FixtureValues values) {
+		requireSetupMode();
 		var fixture = requireFixture(fixtureId);
 		var allowed = fixture.mode().attributes();
 		var unknown = values.values().keySet().stream()
@@ -150,6 +178,7 @@ public class OutputEngine
 
 	@Override
 	public Map<Long, FixtureValues> setValues(Collection<Long> fixtureIds, FixtureValues values) {
+		requireSetupMode();
 		var targets = new LinkedHashSet<>(fixtureIds).stream().map(this::requireFixture).toList();
 		var perFixture = new HashMap<Long, FixtureValues>();
 		var used = new LinkedHashSet<Attribute>();
@@ -198,6 +227,7 @@ public class OutputEngine
 
 	@Override
 	public void loadValues(Map<Long, FixtureValues> values) {
+		requireSetupMode();
 		var current = patch.get();
 		var loaded = new HashMap<Long, FixtureValues>();
 		values.forEach((fixtureId, fixtureValues) -> current.fixture(fixtureId).ifPresent(fixture -> {
@@ -236,6 +266,32 @@ public class OutputEngine
 	public void clear() {
 		programmer.set(Programmer.EMPTY);
 		events.publish(StateTopic.PROGRAMMER);
+	}
+
+	private void requireSetupMode() {
+		if (mode.get() == OperatingMode.SHOW) {
+			throw new ConflictException("The programmer is locked in show mode");
+		}
+	}
+
+	// --- Mode ------------------------------------------------------------------------------------------------
+
+	@Override
+	public OperatingMode mode() {
+		return mode.get();
+	}
+
+	@Override
+	public OperatingMode setMode(OperatingMode newMode) {
+		var previous = mode.getAndSet(newMode);
+		if (previous != newMode) {
+			if (newMode == OperatingMode.SHOW) {
+				programmer.set(Programmer.EMPTY);
+				events.publish(StateTopic.PROGRAMMER);
+			}
+			events.publish(StateTopic.MODE);
+		}
+		return newMode;
 	}
 
 	// --- Master ----------------------------------------------------------------------------------------------

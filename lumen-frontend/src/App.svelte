@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import MasterBar from './components/MasterBar.svelte';
+  import Modal from './components/Modal.svelte';
   import Toasts from './components/Toasts.svelte';
   import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
@@ -23,6 +24,23 @@
   ];
 
   const showMode = $derived(isShowMode(router.route));
+  let leaveShowOpen = $state(false);
+
+  // the operating mode is server state: every connected client follows it
+  $effect(() => {
+    if (!live.modeKnown) return;
+    if (live.mode === 'show' && router.route !== '/show') navigate('/show');
+    if (live.mode === 'setup' && router.route === '/show') navigate('/setup/scenes');
+  });
+
+  async function enterShow() {
+    await live.setMode('show');
+  }
+
+  async function leaveShow() {
+    leaveShowOpen = false;
+    await live.setMode('setup');
+  }
 
   $effect(() => {
     document.documentElement.dataset.mode = showMode ? 'show' : 'setup';
@@ -93,8 +111,8 @@
     </div>
 
     <div class="mode" role="group" aria-label="Mode">
-      <button type="button" class:on={!showMode} onclick={() => navigate('/setup/patch')}>Setup</button>
-      <button type="button" class:on={showMode} onclick={() => navigate('/show')}>Show</button>
+      <button type="button" class:on={!showMode} onclick={() => showMode && (leaveShowOpen = true)}>Setup</button>
+      <button type="button" class:on={showMode} onclick={() => !showMode && enterShow()}>Show</button>
     </div>
   </header>
 
@@ -124,6 +142,14 @@
 </div>
 
 <svelte:window {onkeydown} />
+
+<Modal bind:open={leaveShowOpen} title="Leave show mode?">
+  <p>The playback keeps running. In setup mode the programmer is unlocked again and can change the light on stage.</p>
+  {#snippet actions()}
+    <button class="btn ghost" type="button" onclick={() => (leaveShowOpen = false)}>Stay in show</button>
+    <button class="btn primary" type="button" onclick={leaveShow}>Leave show mode</button>
+  {/snippet}
+</Modal>
 
 <Toasts />
 

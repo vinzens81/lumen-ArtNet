@@ -159,8 +159,9 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 
 | Endpunkt | Zweck |
 |---|---|
-| `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern |
-| `POST /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
+| `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern, Status |
+| `PUT /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
+| `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer |
 | `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand Master / Blackout |
 | `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor), `n` = Universe-Nummer im aktiven Projekt |
 
@@ -171,11 +172,11 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 
 | Richtung | Nachricht |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
-| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}` |
+| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
+| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`) |
 
-Beim Verbinden bekommt ein Client sofort Programmer und Master. Später kommen Playback-Status (aktuelle/nächste Szene,
-Fade-Fortschritt) dazu. Intern veröffentlicht die Application-Schicht Änderungen über `StateEvents`; der Web-Adapter
+Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status und Modus. Den Fade-Fortschritt
+interpoliert der Client selbst (der Status enthält die verstrichene Zeit beim Senden). Intern veröffentlicht die Application-Schicht Änderungen über `StateEvents`; der Web-Adapter
 abonniert sie – so bleibt die Abhängigkeitsrichtung nach innen.
 
 ## Betriebssicherheit (Theater!)

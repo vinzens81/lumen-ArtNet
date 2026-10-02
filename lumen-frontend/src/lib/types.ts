@@ -175,3 +175,18 @@ export interface SceneRequest {
   autoFollowMs: number | null;
   record?: boolean;
 }
+
+export type OperatingMode = 'setup' | 'show';
+
+export interface PlaybackStatus {
+  available: boolean;
+  /** -1 before the first scene, sceneCount at the end of the show */
+  position: number;
+  sceneCount: number;
+  currentSceneId: number | null;
+  nextSceneId: number | null;
+  nextIsEnd: boolean;
+  fade: { fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number } | null;
+  paused: boolean;
+  autoFollowInMs: number | null;
+}

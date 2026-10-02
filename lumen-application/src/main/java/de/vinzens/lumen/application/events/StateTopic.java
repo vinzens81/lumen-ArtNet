@@ -14,6 +14,10 @@ public enum StateTopic {
 	PROGRAMMER,
 	/** Art-Net nodes appeared, changed or went offline. */
 	NODES,
+	/** Playback position, fades or pause changed. */
+	PLAYBACK,
+	/** Setup/show mode changed. */
+	MODE,
 	/** Grand master or blackout changed. */
 	OUTPUT
 }
