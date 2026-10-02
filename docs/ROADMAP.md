@@ -141,13 +141,13 @@ wieder im Betriebsmodus, das Licht ist dunkel, und nach „Resume“ liegt Szene
 Geprüft im Browser (Desktop, Tablet-Hochformat 820 px, Handy 390 px): Bühne einrichten per Ziehen, Live-Glow bei
 Szenenwechsel, DMX-Monitor, Show-Steuerung. Auf einem echten Tablet noch nicht ausprobiert.
 
-## ⬜ Iteration K – Kompositionen & dynamische Szenen 🌈 (nach Iteration 9)
+## 🟨 Iteration K – Kompositionen & dynamische Szenen 🌈
 Konzept und Entscheidungen: [COMPOSITIONS.md](COMPOSITIONS.md). Szenen bestehen danach aus einer **statischen Basis**
 (wie bisher) plus beliebig vielen **Kompositionen**: Abläufe wie Lauflicht, Farbwechsel auf RGB-PARs oder freie
 Schrittfolgen, die in der Szene über dem festen Licht mitlaufen. Kompositionen werden in einer Bibliothek gepflegt
 und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
 
-**K1 – Engine & Szenen-Integration**
+**✅ K1 – Engine & Szenen-Integration**
 - Domain: `Composition` mit Vorlagen als reine Funktionen: **Lauflicht**, **Farbwechsel**, **Regenbogen**,
   **Welle/Puls**, **Flackern**; Ziel = Gruppe (dynamisch) oder Fixture-Liste in fester Reihenfolge, Spreizung
 - **Schrittfolge (Chaser):** Schritte mit Werten pro Fixture, Halte-/Überblendzeit pro Schritt, Loop/Ping-Pong
@@ -156,6 +156,10 @@ und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
   gleicher Herkunft läuft in der Folgeszene nahtlos weiter (pro Einsatz „Neu starten“), Pause friert sie ein
 - Flyway-Migration `composition` (Bibliothek, Szenen-Kopien, Extra-Tasten), `composition_target`, `composition_step`,
   `composition_step_value`; REST für Bibliothek, Schritte und Kopien in Szenen
+- Umgesetzt: alle fünf Vorlagen und Schrittfolgen als reine Funktionen mit Tabellen-Tests, `CompositionMixer`,
+  Playback mit Weiterlaufen beim Fade-Out und nahtlosem Übergang bei gleicher Herkunft (`V5`). Kompositionen reisen im
+  Projekt-Export mit. Der Durchlauftest spielt jetzt Szenen mit Lauflicht, Farbwechsel und durchlaufendem Flackern
+  (ca. 50 µs pro Frame, Heap konstant). Noch ohne Oberfläche: bedienbar ist K1 bisher nur über die REST-API
 
 **K2 – Editor & Vorschau**
 - Neuer Tab „Compositions“ (Bibliothek): Vorlage wählen, Ziel und Reihenfolge, Parameter, animierte Vorschau

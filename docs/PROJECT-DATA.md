@@ -19,7 +19,8 @@ und welche Szenen es gibt.
   und das Schema ist überschaubar).
 - **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
   Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
-  V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9).
+  V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9), V5 = Kompositionen
+  (Iteration K, Schema in [COMPOSITIONS.md](COMPOSITIONS.md#datenmodell-entwurf-neue-flyway-migration)).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -111,7 +112,10 @@ playback_state                                  -- für Wiederaufnahme nach Abst
   "groups":    [ { "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],
   "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
                    "values": { "7": { "dimmer": 1.0, "blue": 0.8 } } } ],
-  "stagePlan": { "contentType": "image/png", "data": "<Base64>" }
+  "stagePlan": { "contentType": "image/png", "data": "<Base64>" },
+  "compositions": [ { "id": 4, "sceneNumber": null, "sourceId": null, "name": "Lauflicht", "kind": "chase",
+                      "params": { "stepMs": 400 }, "target": { "groupId": 2 }, "level": 1 },
+                    { "id": 9, "sceneNumber": "2.5", "sourceId": 4, "name": "Lauflicht", "kind": "chase", … } ]
 }
 ```
 

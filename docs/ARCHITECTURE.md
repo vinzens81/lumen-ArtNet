@@ -147,6 +147,7 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
 | `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Bühnenpositionen (0–1) mehrerer Fixtures auf einmal, `null` = nicht auf der Bühne |
 | `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
+| `CRUD /api/projects/{id}/compositions` · `/scenes/{sceneId}/compositions` | Kompositions-Bibliothek und Kopien in Szenen, siehe [COMPOSITIONS.md](COMPOSITIONS.md#umsetzung-k1) |
 | `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |

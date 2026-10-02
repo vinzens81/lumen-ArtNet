@@ -1,7 +1,8 @@
 # Kompositionen & dynamische Szenen
 
-> **Status:** Konzept, wird nach den offenen Theater-Iterationen umgesetzt (siehe [ROADMAP.md](ROADMAP.md),
-> Iteration K). Die Grundsatzentscheidungen sind getroffen (siehe [Entscheidungen](#entscheidungen-2026-10-02)).
+> **Status:** K1 (Engine, Datenbank, REST-API) ist umgesetzt, Editor/Vorschau (K2) und Extra-Tasten (K3) folgen
+> (siehe [ROADMAP.md](ROADMAP.md), Iteration K). Abweichungen vom ursprünglichen Konzept stehen unter
+> [Umsetzung K1](#umsetzung-k1).
 
 ## Problem
 
@@ -249,6 +250,35 @@ composition_step_value                          -- Werte pro Schritt, normalisie
 | Folgeszene | **nahtlos weiterlaufen** bei gleicher Herkunft, pro Einsatz **„Neu starten“** umschaltbar |
 | Einmalige Abläufe | ja, als Erweiterung in **K3** |
 | Ohne Szene zuschaltbar | ja, als **Extra-Tasten** im Betriebsmodus (Toggle/Flash) |
+
+## Umsetzung K1
+
+- **Domain** `de.vinzens.lumen.domain.composition`: `Chase`, `ColorCycle`, `Rainbow`, `Wave`, `Flicker`,
+  `StepSequence` (versiegelt unter `Pattern`), `Target` (`Group` | `Fixtures` | `Steps`), `CompositionSpec`,
+  `CompositionMixer`. Farbe setzen Vorlagen als `red`/`green`/`blue`; Geräte ohne diese Kanäle bleiben unverändert.
+- **Lauflicht:** „Übergang“ heißt `softness` (0 = hart, 1 = Geräte blenden um den Kopf herum ein und aus). Bei
+  „zufällig“ gibt es nur harte Übergänge.
+- **Flackern:** Wertrauschen mit festem Seed (gleiche Zeit → gleicher Wert). Charaktere: Kerze (ruhig), Feuer (zwei
+  Frequenzen, tiefer), defekte Röhre (meist an, fällt gelegentlich aus).
+- **Weiterlaufen:** Eine Kopie mit gleicher Herkunft und gleichem Typ übernimmt die Startzeit der laufenden. Sie wird
+  dabei **nicht** aus- und eingeblendet: Ihr Beitrag geht während der Fade-In-Zeit linear von den alten zu den neuen
+  Werten, ihr Level ebenso. Alle anderen Kompositionen der alten Szene laufen beim Ausblenden weiter.
+- **Doppel-GO:** Abweichend vom Konzept wird bei einem GO während eines Fades die gesamte aktuelle Ausgabe
+  eingefroren (auch die Kompositionen der Szene, die gerade einblendete). Weiterlaufende Kompositionen behalten
+  trotzdem ihre Phase. So bleibt es bei höchstens zwei Ebenen und es springt nichts.
+- **Datenbank:** zusätzlich die Spalte `target` (`group` | `fixtures` | `steps`). Wird eine Gruppe gelöscht, bleibt
+  `target = group` mit `group_id = NULL` und die Komposition hat kein Ziel (dunkel).
+- **REST:** `GET/POST /api/projects/{id}/compositions`, `GET/PUT/DELETE …/compositions/{cid}` (auch für Kopien),
+  `POST …/compositions/{cid}/reload-from-library` · `/save-to-library`, `GET/POST …/scenes/{sid}/compositions`
+  (`{libraryId}` fügt eine Kopie ein), `PUT …/scenes/{sid}/compositions/order` `{ids}`. Parameter sind pro Typ
+  typisiert (Zeiten in ms, Farben `#rrggbb`, Aufzählungen klein geschrieben, unbekannte Felder → 400).
+  Beispiel:
+  ```json
+  {"name": "Kirmes-Lauflicht", "kind": "chase",
+   "params": {"stepMs": 400, "width": 1, "direction": "ping_pong", "softness": 0, "min": 0, "max": 1},
+   "target": {"groupId": 3}, "level": 1, "speedFactor": 1, "restart": false}
+  ```
+- **Schrittfolgen mit Gruppen-Ziel** (offene Frage unten): vorerst Werte pro Fixture, wie aufgenommen.
 
 ## Noch offen (vor dem Start klären)
 
