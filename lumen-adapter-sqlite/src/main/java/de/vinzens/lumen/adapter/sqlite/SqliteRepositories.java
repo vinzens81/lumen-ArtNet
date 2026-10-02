@@ -15,6 +15,7 @@ public final class SqliteRepositories {
 	private final SqliteUniverseRepository universes;
 	private final SqliteFixtureRepository fixtures;
 	private final SqliteGroupRepository groups;
+	private final SqliteSceneRepository scenes;
 
 	public SqliteRepositories(DataSource dataSource) {
 		var jdbc = JdbcClient.create(dataSource);
@@ -23,6 +24,7 @@ public final class SqliteRepositories {
 		this.universes = new SqliteUniverseRepository(jdbc);
 		this.fixtures = new SqliteFixtureRepository(jdbc);
 		this.groups = new SqliteGroupRepository(jdbc, transactions);
+		this.scenes = new SqliteSceneRepository(jdbc, transactions);
 	}
 
 	public SqliteProjectRepository projects() {
@@ -39,5 +41,9 @@ public final class SqliteRepositories {
 
 	public SqliteGroupRepository groups() {
 		return groups;
+	}
+
+	public SqliteSceneRepository scenes() {
+		return scenes;
 	}
 }

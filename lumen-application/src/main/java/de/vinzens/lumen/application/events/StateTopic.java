@@ -8,6 +8,8 @@ public enum StateTopic {
 	PROJECTS,
 	/** Universes, fixtures or groups of the active project changed. */
 	PATCH,
+	/** Scenes of the active project changed. */
+	SCENES,
 	/** Programmer values changed. */
 	PROGRAMMER,
 	/** Grand master or blackout changed. */

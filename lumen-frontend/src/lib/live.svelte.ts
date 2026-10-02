@@ -19,6 +19,7 @@ class LiveState {
   /** Incremented when the server reports patch or project changes; views reload when it changes. */
   patchRevision = $state(0);
   projectsRevision = $state(0);
+  scenesRevision = $state(0);
 
   private socket: WebSocket | null = null;
   private retries = 0;
@@ -36,6 +37,7 @@ class LiveState {
       this.retries = 0;
       this.patchRevision++;
       this.projectsRevision++;
+      this.scenesRevision++;
     };
     socket.onmessage = (event) => this.receive(JSON.parse(event.data));
     socket.onclose = () => {
@@ -68,6 +70,9 @@ class LiveState {
         break;
       case 'projects':
         this.projectsRevision++;
+        break;
+      case 'scenes':
+        this.scenesRevision++;
         break;
       case 'error':
         showError(new Error(String(message.message)));

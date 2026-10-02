@@ -140,3 +140,21 @@ export interface GroupRequest {
   sortOrder: number;
   fixtureIds: number[];
 }
+
+export interface Scene {
+  id: number;
+  number: string;
+  name: string;
+  cueNote: string | null;
+  autoFollowMs: number | null;
+  fixtureCount: number;
+  values: Record<number, AttributeValues>;
+}
+
+export interface SceneRequest {
+  number?: string | null;
+  name: string;
+  cueNote: string | null;
+  autoFollowMs: number | null;
+  record?: boolean;
+}

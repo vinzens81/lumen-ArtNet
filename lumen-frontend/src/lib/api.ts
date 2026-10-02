@@ -10,6 +10,8 @@ import type {
   PatchIssue,
   Project,
   ProjectRequest,
+  Scene,
+  SceneRequest,
   Universe,
   UniverseRequest,
 } from './types';
@@ -87,6 +89,15 @@ export const api = {
     update: (projectId: number, id: number, group: GroupRequest) =>
       put<Group>(`/api/projects/${projectId}/groups/${id}`, group),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/groups/${id}`),
+  },
+  scenes: {
+    list: (projectId: number) => get<Scene[]>(`/api/projects/${projectId}/scenes`),
+    create: (projectId: number, scene: SceneRequest) => post<Scene>(`/api/projects/${projectId}/scenes`, scene),
+    update: (projectId: number, id: number, scene: SceneRequest) =>
+      put<Scene>(`/api/projects/${projectId}/scenes/${id}`, scene),
+    record: (projectId: number, id: number) => post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`),
+    load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
   },
   patchIssues: (projectId: number) => get<PatchIssue[]>(`/api/projects/${projectId}/patch/issues`),
   programmer: {

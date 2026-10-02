@@ -20,7 +20,8 @@
   .toasts {
     position: fixed;
     right: 16px;
-    bottom: 16px;
+    /* above the master bar, so the blackout button is never covered */
+    bottom: 96px;
     z-index: 100;
     display: flex;
     flex-direction: column;

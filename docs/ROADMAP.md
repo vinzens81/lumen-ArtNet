@@ -68,9 +68,12 @@ Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem H
 
 **DoD:** Licht ist im Browser frei steuerbar, ein zweiter Browser zeigt alle Änderungen live.
 
-## ⬜ Iteration 6 – Szenen programmieren
+## ✅ Iteration 6 – Szenen programmieren
 - Domain: `Scene`, `AttributeValues`; Repository für Szenen
-- Szenenliste: anlegen, Nummern wie „2.5“, Name, Regiehinweis, optionale Auto-Follow-Dauer, Reihenfolge per Drag & Drop
+- Szenenliste: anlegen, Nummern wie „2.5“, Name, Regiehinweis, optionale Auto-Follow-Dauer; Reihenfolge ergibt sich aus
+  der Nummer (statt Drag & Drop – sonst könnte Szene 5 vor Szene 3 stehen)
+- „Record scene“ direkt im Programmer, Farbvorschau pro Szene in der Liste
+- Nebenbei: Cache-Header für das Web-UI (sonst zeigt der Browser nach einem Update die alte Oberfläche)
 - Aufnehmen / Aktualisieren aus dem Programmer, Szene in den Programmer laden (Vorschau)
 - Einstellungen: **globale Fade-In-/Fade-Out-Zeit**
 

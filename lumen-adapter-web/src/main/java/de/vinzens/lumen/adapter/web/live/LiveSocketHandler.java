@@ -32,8 +32,8 @@ import java.util.concurrent.TimeUnit;
  * Keeps all connected clients in sync. State changes are collected and flushed at most every
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
- * <p>Server → client: {@code programmer} (all values), {@code master}, {@code patch}, {@code projects}
- * (the latter two ask the client to reload via REST). Client → server: {@code programmer.set} and
+ * <p>Server → client: {@code programmer} (all values), {@code master}, {@code patch}, {@code scenes},
+ * {@code projects} (the last three ask the client to reload via REST). Client → server: {@code programmer.set} and
  * {@code master.set} for low-latency fader control.
  */
 @Component
@@ -103,6 +103,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				message.put("blackout", state.blackout());
 			}
 			case PATCH -> message.put("type", "patch");
+			case SCENES -> message.put("type", "scenes");
 			case PROJECTS -> message.put("type", "projects");
 		}
 		return message;

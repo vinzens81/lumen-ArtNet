@@ -61,7 +61,7 @@ genügt eine Bestätigung (gedrückt halten).
   - **Adress-Raster** (512 Zellen pro Universe) zeigt belegte Bereiche farbig, Überschneidungen rot.
   - Gruppen zuweisen.
 - **Bühne:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild).
-- **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Reihenfolge per Drag & Drop) und Szenen
+- **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen.
 - **⚙ Einstellungen:** **globale Fade-In-/Fade-Out-Zeit**, Grand-Master-Verhalten, Tastenkürzel, später MIDI-Mapping mit MIDI-Learn ([MIDI.md](MIDI.md)).
 

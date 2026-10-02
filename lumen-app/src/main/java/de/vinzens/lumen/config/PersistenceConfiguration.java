@@ -2,10 +2,12 @@ package de.vinzens.lumen.config;
 
 import de.vinzens.lumen.adapter.sqlite.SqliteDatabase;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
+import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.project.PatchService;
 import de.vinzens.lumen.application.project.ProjectService;
+import de.vinzens.lumen.application.scene.SceneService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -40,5 +42,10 @@ class PersistenceConfiguration {
 			OutputEngine outputEngine) {
 		return new PatchService(repositories.projects(), repositories.universes(), repositories.fixtures(),
 				repositories.groups(), library, outputEngine);
+	}
+
+	@Bean
+	SceneService sceneService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents) {
+		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine, stateEvents);
 	}
 }

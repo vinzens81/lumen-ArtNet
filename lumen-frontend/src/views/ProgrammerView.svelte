@@ -3,6 +3,7 @@
   import Fader from '../components/Fader.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import Modal from '../components/Modal.svelte';
+  import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import XYPad from '../components/XYPad.svelte';
   import { api } from '../lib/api';
   import { attributeOf, attributesOf, defaultValue, supportedValues } from '../lib/attributes';
@@ -43,6 +44,7 @@
   let groupOpen = $state(false);
   let editingGroup = $state<Group | null>(null);
   let groupForm = $state({ name: '', color: '#3cf0ff', useSelection: true });
+  let recordOpen = $state(false);
 
   const project = $derived(app.active);
 
@@ -228,6 +230,14 @@
     </aside>
 
     <!-- Fixture cards ----------------------------------------------------------------------------------- -->
+    <div class="center">
+    <div class="toolbar">
+      <span class="dim">{Object.keys(live.programmer).length} fixtures with programmer values</span>
+      <button class="btn small ghost" type="button" onclick={() => live.clear(Object.keys(live.programmer).map(Number))}
+        disabled={Object.keys(live.programmer).length === 0}>Clear programmer</button>
+      <button class="btn small primary" type="button" onclick={() => (recordOpen = true)}
+        disabled={Object.keys(live.programmer).length === 0}>⏺ Record scene</button>
+    </div>
     <section class="cards">
       {#each entries as entry (entry.fixture.id)}
         <button
@@ -245,15 +255,14 @@
         </button>
       {/each}
     </section>
+    </div>
 
     <!-- Programmer -------------------------------------------------------------------------------------- -->
     <aside class="panel glass">
       {#if selected.length === 0}
         <div class="none">
           <h3>Programmer</h3>
-          <p class="dim">Select fixtures to control them.</p>
-          <button class="btn small ghost" type="button" onclick={() => live.clear(Object.keys(live.programmer).map(Number))}
-            disabled={Object.keys(live.programmer).length === 0}>Clear all programmer values</button>
+          <p class="dim">Select fixtures to control them. When the look is right, record it as a scene.</p>
         </div>
       {:else}
         <header class="panel-head">
@@ -369,6 +378,8 @@
   </div>
 {/if}
 
+<RecordSceneModal bind:open={recordOpen} />
+
 <Modal bind:open={groupOpen} title={editingGroup ? 'Edit group' : 'New group'}>
   <form id="group-form" onsubmit={(e) => { e.preventDefault(); saveGroup(); }}>
     <div class="row">
@@ -458,6 +469,24 @@
   .hint {
     margin: 4px 0 0;
     font-size: 11px;
+  }
+
+  .center {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    min-width: 0;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .toolbar .dim {
+    flex: 1;
+    font-size: 12px;
   }
 
   .cards {

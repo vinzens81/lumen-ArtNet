@@ -31,6 +31,12 @@ public interface ControlProgrammerUseCase {
 	/** Like {@link #setValues(Collection, FixtureValues)} for all members of a group of the active project. */
 	Map<Long, FixtureValues> setGroupValues(long groupId, FixtureValues values);
 
+	/**
+	 * Replaces the whole programmer, e.g. with the values of a scene. Fixtures that are not patched and
+	 * attributes a fixture does not have (any more) are skipped.
+	 */
+	void loadValues(Map<Long, FixtureValues> values);
+
 	void clearFixture(long fixtureId);
 
 	void clearFixtures(Collection<Long> fixtureIds);

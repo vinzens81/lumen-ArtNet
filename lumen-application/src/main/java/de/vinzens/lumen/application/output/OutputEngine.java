@@ -80,6 +80,7 @@ public class OutputEngine
 		}
 		events.publish(StateTopic.PROJECTS);
 		events.publish(StateTopic.PATCH);
+		events.publish(StateTopic.SCENES);
 	}
 
 	private ActivePatch load(Project project) {
@@ -193,6 +194,24 @@ public class OutputEngine
 				.orElseThrow(() -> new NotFoundException("Group " + groupId + " does not exist in the active project"));
 		var members = group.spec().fixtureIds().stream().filter(id -> patch.get().fixture(id).isPresent()).toList();
 		return setValues(members, values);
+	}
+
+	@Override
+	public void loadValues(Map<Long, FixtureValues> values) {
+		var current = patch.get();
+		var loaded = new HashMap<Long, FixtureValues>();
+		values.forEach((fixtureId, fixtureValues) -> current.fixture(fixtureId).ifPresent(fixture -> {
+			var allowed = fixture.mode().attributes();
+			var supported = new HashMap<Attribute, Double>();
+			fixtureValues.values().forEach((attribute, value) -> {
+				if (allowed.contains(attribute)) {
+					supported.put(attribute, value);
+				}
+			});
+			loaded.put(fixtureId, new FixtureValues(supported));
+		}));
+		programmer.set(new Programmer(loaded));
+		events.publish(StateTopic.PROGRAMMER);
 	}
 
 	@Override

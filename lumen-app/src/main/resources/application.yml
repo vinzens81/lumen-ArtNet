@@ -1,6 +1,12 @@
 spring:
   application:
     name: lumen
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          # index.html must be revalidated, hashed files under /assets are cached (StaticResourcesConfiguration)
+          no-cache: true
 
 server:
   # Only reachable locally by default; network access will be enabled via a setting later

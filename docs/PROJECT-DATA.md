@@ -69,20 +69,18 @@ fixture_group_member
 scene
   id              INTEGER PK
   project_id      FK → project ON DELETE CASCADE
-  number          TEXT NOT NULL                 -- "1", "2", "2.5" – Einfügen ohne Umnummerieren
+  number          TEXT NOT NULL                 -- "1", "2", "2.5" – normalisiert, bestimmt die Reihenfolge
   name            TEXT NOT NULL                 -- "Akt 1 – Morgendämmerung"
   cue_note        TEXT                          -- Regiehinweis: "GO bei: '…und dann ging die Sonne auf'"
   auto_follow_ms  INTEGER NULL                  -- NULL = Stay bis GO; sonst automatisches GO nach Ablauf
-  sort_order      INTEGER NOT NULL              -- Reihenfolge in der Szenenliste
   UNIQUE(project_id, number)
 
 scene_value                                     -- Werte einer Szene, normalisiert 0..1
   scene_id        FK → scene ON DELETE CASCADE
   fixture_id      FK → fixture ON DELETE CASCADE
-  function        TEXT NOT NULL                 -- 'dimmer', 'red', 'pan', 'gobo', …
-  head            INTEGER NOT NULL DEFAULT 0    -- für Multi-Pixel-Geräte
+  attribute       TEXT NOT NULL                 -- Attribut-ID: 'dimmer', 'red', 'pan', 'generic:Program speed', …
   value           REAL NOT NULL
-  PRIMARY KEY(scene_id, fixture_id, function, head)
+  PRIMARY KEY(scene_id, fixture_id, attribute)
 
 app_setting                                     -- projektübergreifende Einstellungen
   key             TEXT PK                       -- z.B. 'config_pin_hash'
@@ -94,7 +92,11 @@ playback_state                                  -- für Wiederaufnahme nach Abst
   updated_at      TEXT
 ```
 
-**Werte werden pro Funktion gespeichert, nicht als rohe DMX-Bytes.** Wird ein Gerät umgepatcht (andere Adresse,
+**Reihenfolge = Szenennummer** (numerisch: 1 < 2 < 2.5 < 10). Einfügen geht über Dezimalnummern, eine separate
+Sortierspalte gibt es nicht – so kann Szene 5 nie vor Szene 3 stehen. Multi-Pixel-Geräte bekommen später eigene
+Attribut-IDs (z.B. `red@2`), dafür ist keine Schemaänderung nötig.
+
+**Werte werden pro Attribut gespeichert, nicht als rohe DMX-Bytes.** Wird ein Gerät umgepatcht (andere Adresse,
 anderer Modus), bleiben die Szenen gültig.
 
 **Nicht in einer Szene enthaltene Fixtures** sind in dieser Szene **aus** (Intensität 0). Sie werden also beim

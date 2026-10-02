@@ -137,8 +137,8 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
 | `CRUD /api/projects/{id}/groups` | Gruppen |
-| `CRUD /api/projects/{id}/scenes`, `PUT /api/projects/{id}/scenes/order` | Szenenliste |
-| `POST /api/projects/{id}/scenes/{sceneId}/record` | Programmer-Werte in Szene speichern |
+| `CRUD /api/projects/{id}/scenes` | Szenenliste, sortiert nach Nummer; `POST` mit `"record": true` übernimmt den Programmer, ohne `number` die nächste ganze Zahl |
+| `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Szene mit dem Programmer überschreiben · Szene in den Programmer laden |
 
 Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
 `CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.

@@ -1,0 +1,31 @@
+package de.vinzens.lumen.domain.scene;
+
+import de.vinzens.lumen.domain.Validation;
+
+import java.time.Duration;
+import java.util.Objects;
+import java.util.Optional;
+
+/**
+ * Editable properties of a scene.
+ *
+ * @param cueNote    note for the operator, e.g. "GO on: '…and then the sun rose'"
+ * @param autoFollow if set, the next scene starts automatically this long after the fade-in has finished
+ */
+public record SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow) {
+
+	public static final Duration MAX_AUTO_FOLLOW = Duration.ofHours(1);
+
+	public SceneSpec {
+		Objects.requireNonNull(cueNote, "cueNote");
+		Objects.requireNonNull(autoFollow, "autoFollow");
+		new Validation()
+				.require(number != null, "number is missing")
+				.requireText(name, "name")
+				.require(autoFollow.map(d -> d.isPositive() && d.compareTo(MAX_AUTO_FOLLOW) <= 0).orElse(true),
+						"autoFollow must be between 0 and " + MAX_AUTO_FOLLOW.toMinutes() + " minutes")
+				.throwIfInvalid();
+		name = name.strip();
+		cueNote = cueNote.map(String::strip).filter(n -> !n.isEmpty());
+	}
+}
