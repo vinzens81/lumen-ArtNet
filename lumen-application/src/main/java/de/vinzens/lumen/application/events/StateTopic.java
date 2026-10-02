@@ -23,5 +23,7 @@ public enum StateTopic {
 	/** New measurement of render loop and Art-Net output (every second). */
 	HEALTH,
 	/** PIN or network access changed, or all clients were locked. */
-	ACCESS
+	ACCESS,
+	/** The fixture library was reloaded. */
+	LIBRARY
 }

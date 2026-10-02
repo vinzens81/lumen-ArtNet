@@ -14,6 +14,7 @@ import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.StagePlan;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
@@ -36,7 +37,7 @@ import java.util.Optional;
  */
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
-		List<SceneEntry> scenes) {
+		List<SceneEntry> scenes, StagePlanEntry stagePlan) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
@@ -49,7 +50,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.universes().stream().map(UniverseEntry::from).toList(),
 				export.fixtures().stream().map(FixtureEntry::from).toList(),
 				export.groups().stream().map(GroupEntry::from).toList(),
-				export.scenes().stream().map(SceneEntry::from).toList());
+				export.scenes().stream().map(SceneEntry::from).toList(),
+				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null));
 	}
 
 	ProjectExport toExport() {
@@ -67,7 +69,9 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				list(universes).stream().map(UniverseEntry::toUniverse).toList(),
 				list(fixtures).stream().map(FixtureEntry::toFixture).toList(),
 				list(groups).stream().map(GroupEntry::toGroup).toList(),
-				list(scenes).stream().map(SceneEntry::toScene).toList());
+				list(scenes).stream().map(SceneEntry::toScene).toList(),
+				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
+						plan.data() == null ? new byte[0] : plan.data())));
 	}
 
 	private static long require(Long id, String what) {
@@ -79,6 +83,10 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 
 	private static <T> List<T> list(List<T> entries) {
 		return entries == null ? List.of() : entries.stream().filter(Objects::nonNull).toList();
+	}
+
+	/** @param data the image, Base64 in JSON */
+	record StagePlanEntry(String contentType, byte[] data) {
 	}
 
 	/** @param mode {@code auto}, {@code unicast} or {@code broadcast} */

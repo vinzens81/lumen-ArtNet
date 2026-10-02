@@ -24,6 +24,8 @@ lumen:
   network-access: false
   # Fixture library (YAML), relative to the working directory
   fixture-library-dir: fixture-types
+  # changed YAML files are picked up automatically
+  fixture-library-watch-interval: 2s
   # Project data (SQLite), created on first start
   database-file: data/lumen.db
   backup:

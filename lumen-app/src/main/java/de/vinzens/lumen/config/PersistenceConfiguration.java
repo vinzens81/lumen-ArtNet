@@ -11,6 +11,7 @@ import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.project.PatchService;
 import de.vinzens.lumen.application.project.ProjectService;
 import de.vinzens.lumen.application.project.ProjectTransferService;
+import de.vinzens.lumen.application.project.StageService;
 import de.vinzens.lumen.application.scene.SceneService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -55,7 +56,13 @@ class PersistenceConfiguration {
 	ProjectTransferService projectTransferService(SqliteRepositories repositories, Clock clock,
 			OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				repositories.groups(), repositories.scenes(), clock, outputEngine);
+				repositories.groups(), repositories.scenes(), repositories.stagePlans(), clock, outputEngine);
+	}
+
+	@Bean
+	StageService stageService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents) {
+		return new StageService(repositories.projects(), repositories.fixtures(), repositories.stagePlans(),
+				outputEngine, stateEvents);
 	}
 
 	@Bean

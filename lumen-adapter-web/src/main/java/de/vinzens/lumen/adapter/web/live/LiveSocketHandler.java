@@ -10,6 +10,7 @@ import de.vinzens.lumen.application.output.port.in.ControlMasterUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryHealthUseCase;
+import de.vinzens.lumen.application.output.port.in.QueryOutputUseCase;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import org.slf4j.Logger;
@@ -25,7 +26,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -40,14 +43,20 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
- * {@code health} (every second), {@code access}, {@code patch}, {@code scenes},
- * {@code nodes}, {@code projects} (the last five ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code health} (every second), {@code library}, {@code access}, {@code patch},
+ * {@code scenes}, {@code nodes}, {@code projects} (the last six ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
+ *
+ * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1"]}} a client gets {@code output}
+ * (attribute values as sent, before the grand master) and {@code dmx} (512 channel values of a universe) at most
+ * every {@value #STREAM_INTERVAL_MS} ms, only when they changed.
  */
 @Component
 class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 
 	static final long FLUSH_INTERVAL_MS = 33;
+	/** Live output for stage view and DMX monitor is sent at most this often (only when it changed). */
+	static final long STREAM_INTERVAL_MS = 100;
 	private static final int SEND_TIME_LIMIT_MS = 2_000;
 	private static final int BUFFER_SIZE_LIMIT = 512 * 1024;
 	private static final Logger log = LoggerFactory.getLogger(LiveSocketHandler.class);
@@ -57,9 +66,11 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private final ControlPlaybackUseCase playback;
 	private final ControlModeUseCase mode;
 	private final QueryHealthUseCase health;
+	private final QueryOutputUseCase output;
 	private final ConfigLock lock;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
+	private final Map<String, Subscription> subscriptions = new ConcurrentHashMap<>();
 	private final Set<StateTopic> dirty = EnumSet.noneOf(StateTopic.class);
 	private final ScheduledExecutorService flusher = Executors.newSingleThreadScheduledExecutor(runnable -> {
 		var thread = new Thread(runnable, "lumen-live-flush");
@@ -68,16 +79,64 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	});
 
 	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
-			ControlModeUseCase mode, QueryHealthUseCase health, ConfigLock lock, StateEvents events, JsonMapper json) {
+			ControlModeUseCase mode, QueryHealthUseCase health, QueryOutputUseCase output, ConfigLock lock,
+			StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
 		this.playback = playback;
 		this.mode = mode;
 		this.health = health;
+		this.output = output;
 		this.lock = lock;
 		this.json = json;
 		events.subscribe(this::markDirty);
 		flusher.scheduleWithFixedDelay(this::flush, FLUSH_INTERVAL_MS, FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
+		flusher.scheduleWithFixedDelay(this::stream, STREAM_INTERVAL_MS, STREAM_INTERVAL_MS, TimeUnit.MILLISECONDS);
+	}
+
+	/** Sends live output to the clients that subscribed to it, if it changed since they got it last. */
+	private void stream() {
+		if (subscriptions.isEmpty()) {
+			return;
+		}
+		try {
+			var texts = new HashMap<String, String>();
+			subscriptions.forEach((sessionId, subscription) -> {
+				var session = sessions.get(sessionId);
+				if (session == null) {
+					return;
+				}
+				for (var topic : subscription.topics()) {
+					var text = texts.computeIfAbsent(topic, this::streamMessage);
+					if (text != null && !text.equals(subscription.lastSent().put(topic, text))) {
+						send(session, new TextMessage(text));
+					}
+				}
+			});
+		} catch (RuntimeException e) {
+			log.warn("Live output stream failed", e);
+		}
+	}
+
+	/** @return the message for a stream topic, or null if there is nothing to send (e.g. unknown universe) */
+	private String streamMessage(String topic) {
+		var message = new LinkedHashMap<String, Object>();
+		if (topic.equals("output")) {
+			message.put("type", "output");
+			message.put("values", ValuesJson.toJson(output.outputValues()));
+		} else if (topic.startsWith("dmx:")) {
+			var universe = Integer.parseInt(topic.substring(4));
+			var frame = output.lastFrame(universe);
+			if (frame.isEmpty()) {
+				return null;
+			}
+			message.put("type", "dmx");
+			message.put("universe", universe);
+			message.put("values", frame.get().toIntArray());
+		} else {
+			return null;
+		}
+		return json.writeValueAsString(message);
 	}
 
 	private void markDirty(StateTopic topic) {
@@ -131,6 +190,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			}
 			case PROJECTS -> message.put("type", "projects");
 			case ACCESS -> message.put("type", "access");
+			case LIBRARY -> message.put("type", "library");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));
@@ -165,6 +225,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	@Override
 	public void afterConnectionClosed(WebSocketSession session, CloseStatus status) {
 		sessions.remove(session.getId());
+		subscriptions.remove(session.getId());
 	}
 
 	@Override
@@ -184,6 +245,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					master.setMasterLevel(command.level());
 				}
 				case "blackout.set" -> master.setBlackout(Boolean.TRUE.equals(command.active()));
+				case "subscribe" -> subscribe(session, command.topics());
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();
 				case "playback.pause" -> playback.togglePause();
@@ -199,6 +261,22 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		}
 	}
 
+	/** Replaces the live output topics of a client: {@code output} and {@code dmx:<universe number>}. */
+	private void subscribe(WebSocketSession session, List<String> topics) {
+		var valid = new LinkedHashSet<String>();
+		for (var topic : topics == null ? List.<String>of() : topics) {
+			if (!topic.equals("output") && !topic.matches("dmx:\\d{1,4}")) {
+				throw new DomainValidationException(List.of("Unknown live topic '" + topic + "'"));
+			}
+			valid.add(topic);
+		}
+		if (valid.isEmpty()) {
+			subscriptions.remove(session.getId());
+		} else {
+			subscriptions.put(session.getId(), new Subscription(Set.copyOf(valid), new ConcurrentHashMap<>()));
+		}
+	}
+
 	private void reply(WebSocketSession session, String error) {
 		var target = sessions.getOrDefault(session.getId(), session);
 		send(target, new TextMessage(json.writeValueAsString(Map.of("type", "error", "message", error))));
@@ -209,6 +287,11 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		flusher.shutdownNow();
 	}
 
-	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active) {
+	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
+			List<String> topics) {
+	}
+
+	/** @param lastSent topic → message last sent to this client */
+	private record Subscription(Set<String> topics, Map<String, String> lastSent) {
 	}
 }

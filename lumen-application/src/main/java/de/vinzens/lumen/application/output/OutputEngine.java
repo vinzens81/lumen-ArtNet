@@ -68,6 +68,8 @@ public class OutputEngine
 	private final AtomicReference<Programmer> programmer = new AtomicReference<>(Programmer.EMPTY);
 	private final AtomicReference<MasterState> master = new AtomicReference<>(MasterState.FULL);
 	private final AtomicReference<OperatingMode> mode = new AtomicReference<>(OperatingMode.SETUP);
+	/** What the last tick sent, for live views (stage, DMX monitor). */
+	private final AtomicReference<Rendered> lastSent = new AtomicReference<>(Rendered.NOTHING);
 
 	public OutputEngine(ProjectRepository projects, UniverseRepository universes, FixtureRepository fixtures,
 			GroupRepository groups, QueryFixtureLibraryUseCase library, DmxOutputPort output, StateEvents events,
@@ -122,13 +124,14 @@ public class OutputEngine
 	/** Renders all universes of the active project and sends them. Called by the render loop. */
 	public void tick() {
 		var current = patch.get();
-		var frames = render(current);
+		var rendered = render(current);
 		for (var universe : current.universes()) {
-			output.send(universe, frames.get(universe.id()));
+			output.send(universe, rendered.frames().get(universe.id()));
 		}
+		lastSent.set(rendered);
 	}
 
-	private Map<Long, DmxFrame> render(ActivePatch current) {
+	private Rendered render(ActivePatch current) {
 		var now = clock.instant();
 		var modes = new HashMap<Long, Mode>();
 		current.fixtures().forEach(f -> modes.put(f.fixtureId(), f.mode()));
@@ -139,7 +142,8 @@ public class OutputEngine
 		layers.add(programmer.get().asLayer(PROGRAMMER_PRIORITY));
 		var values = LayerMerger.merge(layers);
 		var universeIds = current.universes().stream().map(Universe::id).toList();
-		return DmxRenderer.render(universeIds, current.fixtures(), values, master.get().effectiveLevel());
+		var frames = DmxRenderer.render(universeIds, current.fixtures(), values, master.get().effectiveLevel());
+		return new Rendered(current, values, frames);
 	}
 
 	// --- Output ----------------------------------------------------------------------------------------------
@@ -152,7 +156,21 @@ public class OutputEngine
 				.findFirst()
 				.orElseThrow(() -> new NotFoundException("Universe " + universeNumber
 						+ " does not exist in the active project"));
-		return render(current).get(universe.id());
+		return render(current).frames().get(universe.id());
+	}
+
+	@Override
+	public Map<Long, FixtureValues> outputValues() {
+		return lastSent.get().values();
+	}
+
+	@Override
+	public Optional<DmxFrame> lastFrame(int universeNumber) {
+		var rendered = lastSent.get();
+		return rendered.patch().universes().stream()
+				.filter(u -> u.spec().number() == universeNumber)
+				.findFirst()
+				.map(universe -> rendered.frames().get(universe.id()));
 	}
 
 	// --- Programmer ------------------------------------------------------------------------------------------
@@ -323,6 +341,12 @@ public class OutputEngine
 	private RenderFixture requireFixture(long fixtureId) {
 		return patch.get().fixture(fixtureId).orElseThrow(() -> new NotFoundException("Fixture " + fixtureId
 				+ " is not patched in the active project (or its fixture type is missing in the library)"));
+	}
+
+	/** @param values merged attribute values before the grand master */
+	private record Rendered(ActivePatch patch, Map<Long, FixtureValues> values, Map<Long, DmxFrame> frames) {
+
+		static final Rendered NOTHING = new Rendered(ActivePatch.NONE, Map.of(), Map.of());
 	}
 
 	private record ActivePatch(Long projectId, List<Universe> universes, List<RenderFixture> fixtures,

@@ -7,6 +7,7 @@ import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.ProjectSpec;
+import de.vinzens.lumen.domain.project.StagePlan;
 import de.vinzens.lumen.domain.project.UniverseSpec;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
@@ -121,6 +122,19 @@ class SqliteSceneRepositoryTest {
 		reopened.playbackStates().save(project, Optional.of(storm), Instant.EPOCH);
 		reopened.scenes().delete(storm);
 		assertThat(reopened.playbackStates().currentScene(project)).isEmpty();
+	}
+
+	@Test
+	void stagePlanIsStoredPerProject() {
+		var png = new byte[] {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 1, 2, 3};
+		assertThat(repos.stagePlans().find(project)).isEmpty();
+
+		repos.stagePlans().save(project, new StagePlan("image/png", png));
+		repos.stagePlans().save(project, new StagePlan("image/png", png));
+
+		assertThat(repos.stagePlans().find(project)).contains(new StagePlan("image/png", png));
+		repos.projects().delete(project);
+		assertThat(repos.stagePlans().find(project)).isEmpty();
 	}
 
 	@Test

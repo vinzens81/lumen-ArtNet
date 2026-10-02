@@ -1,8 +1,12 @@
 package de.vinzens.lumen.adapter.web.library;
 
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.library.port.in.ReloadFixtureLibraryUseCase;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,9 +18,18 @@ import java.util.List;
 class FixtureLibraryController {
 
 	private final QueryFixtureLibraryUseCase library;
+	private final ReloadFixtureLibraryUseCase reloader;
 
-	FixtureLibraryController(QueryFixtureLibraryUseCase library) {
+	FixtureLibraryController(QueryFixtureLibraryUseCase library, ReloadFixtureLibraryUseCase reloader) {
 		this.library = library;
+		this.reloader = reloader;
+	}
+
+	/** Reads the YAML files again (also happens automatically a few seconds after a file changed). */
+	@PostMapping("/reload")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void reload() {
+		reloader.reload();
 	}
 
 	@GetMapping("/fixture-types")

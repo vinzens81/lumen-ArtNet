@@ -70,6 +70,49 @@ class LiveSocketTest {
 		socket.sendText("{\"type\": \"master.set\", \"level\": 1}", true).join();
 	}
 
+	@Test
+	void streamsLiveOutputToSubscribers() throws Exception {
+		var project = id(request("POST", "/api/projects", "{\"name\": \"Live output\"}"));
+		request("POST", "/api/projects/" + project + "/activate", "");
+		var universe = id(request("POST", "/api/projects/" + project + "/universes", "{\"number\": 1}"));
+		var fixture = id(request("POST", "/api/projects/" + project + "/fixtures", """
+				{"name": "D", "fixtureTypeId": "generic-dimmer", "mode": "1ch", "universeId": %d, "address": 3}
+				""".formatted(universe)));
+		var messages = connect();
+		await(messages, "mode");
+
+		socket.sendText("{\"type\": \"subscribe\", \"topics\": [\"output\", \"dmx:1\"]}", true).join();
+		request("PATCH", "/api/programmer/fixtures/" + fixture, "{\"dimmer\": 1}");
+
+		var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
+		String dmx;
+		do {
+			dmx = await(messages, "dmx");
+		} while (JsonPath.<Integer>read(dmx, "$.values[2]") != 255 && System.nanoTime() < deadline);
+		assertThat(JsonPath.<Integer>read(dmx, "$.universe")).isEqualTo(1);
+		assertThat(JsonPath.<Integer>read(dmx, "$.values[2]")).isEqualTo(255);
+		var output = await(messages, "output");
+		assertThat(output).contains("\"" + fixture + "\"");
+
+		socket.sendText("{\"type\": \"subscribe\", \"topics\": [\"stage\"]}", true).join();
+		assertThat((String) JsonPath.read(await(messages, "error"), "$.message")).contains("Unknown live topic");
+		request("DELETE", "/api/programmer", null);
+	}
+
+	private String request(String method, String path, String json) throws Exception {
+		var builder = HttpRequest.newBuilder(URI.create("http://127.0.0.1:" + port + path))
+				.header("Content-Type", "application/json")
+				.method(method, json == null ? HttpRequest.BodyPublishers.noBody()
+						: HttpRequest.BodyPublishers.ofString(json));
+		var response = http.send(builder.build(), HttpResponse.BodyHandlers.ofString());
+		assertThat(response.statusCode()).as(method + " " + path + ": " + response.body()).isLessThan(300);
+		return response.body();
+	}
+
+	private static long id(String body) {
+		return ((Number) JsonPath.read(body, "$.id")).longValue();
+	}
+
 	private BlockingQueue<String> connect() {
 		var messages = new LinkedBlockingQueue<String>();
 		socket = http.newWebSocketBuilder()

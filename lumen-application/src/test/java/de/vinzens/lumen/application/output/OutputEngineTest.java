@@ -100,6 +100,20 @@ class OutputEngineTest {
 	}
 
 	@Test
+	void remembersWhatTheLastTickSentForLiveViews() {
+		assertThat(engine.outputValues()).isEmpty();
+		assertThat(engine.lastFrame(1)).isEmpty();
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0)));
+		assertThat(engine.outputValues()).as("not sent yet").isEmpty();
+
+		engine.tick();
+
+		assertThat(engine.outputValues().get(100L).get(DIMMER)).contains(1.0);
+		assertThat(engine.lastFrame(1)).hasValueSatisfying(frame -> assertThat(frame.get(5)).isEqualTo(255));
+		assertThat(engine.lastFrame(9)).isEmpty();
+	}
+
+	@Test
 	void selectionOnlyReceivesSupportedAttributes() {
 		var result = engine.setValues(List.of(100L, 101L), new FixtureValues(Map.of(DIMMER, 1.0, RED, 1.0, PAN, 0.5)));
 

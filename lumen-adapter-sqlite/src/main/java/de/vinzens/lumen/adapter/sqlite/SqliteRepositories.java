@@ -18,6 +18,7 @@ public final class SqliteRepositories {
 	private final SqliteSceneRepository scenes;
 	private final SqliteSettingsRepository settings;
 	private final SqlitePlaybackStateRepository playbackStates;
+	private final SqliteStagePlanRepository stagePlans;
 
 	private final DataSource dataSource;
 
@@ -32,6 +33,7 @@ public final class SqliteRepositories {
 		this.scenes = new SqliteSceneRepository(jdbc, transactions);
 		this.settings = new SqliteSettingsRepository(jdbc);
 		this.playbackStates = new SqlitePlaybackStateRepository(jdbc);
+		this.stagePlans = new SqliteStagePlanRepository(jdbc);
 	}
 
 	public DataSource dataSource() {
@@ -64,5 +66,9 @@ public final class SqliteRepositories {
 
 	public SqlitePlaybackStateRepository playbackStates() {
 		return playbackStates;
+	}
+
+	public SqliteStagePlanRepository stagePlans() {
+		return stagePlans;
 	}
 }

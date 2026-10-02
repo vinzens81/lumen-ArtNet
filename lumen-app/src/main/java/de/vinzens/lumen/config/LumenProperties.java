@@ -11,6 +11,7 @@ import java.time.Duration;
  * Relative paths are resolved against the working directory.
  *
  * @param fixtureLibraryDir directory of the fixture library (YAML)
+ * @param fixtureLibraryWatchInterval how often the library directory is checked for changed files
  * @param databaseFile      SQLite file containing the project data
  * @param backup            automatic database backups
  * @param networkAccess     accept connections from other devices regardless of the setting in the UI
@@ -18,6 +19,7 @@ import java.time.Duration;
 @ConfigurationProperties("lumen")
 public record LumenProperties(
 		@DefaultValue("fixture-types") String fixtureLibraryDir,
+		@DefaultValue("2s") Duration fixtureLibraryWatchInterval,
 		@DefaultValue("data/lumen.db") String databaseFile,
 		@DefaultValue Output output,
 		@DefaultValue ArtNet artnet,

@@ -5,6 +5,7 @@ import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.PatchChangeListener;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
+import de.vinzens.lumen.application.project.port.out.StagePlanRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
@@ -31,17 +32,19 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final FixtureRepository fixtures;
 	private final GroupRepository groups;
 	private final SceneRepository scenes;
+	private final StagePlanRepository stagePlans;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
-			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, Clock clock,
-			PatchChangeListener listener) {
+			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
+			Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
 		this.groups = Objects.requireNonNull(groups, "groups");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
+		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -50,7 +53,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	public ProjectExport export(long projectId) {
 		var project = projects.findById(projectId).orElseThrow(() -> ProjectService.notFound(projectId));
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
-				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId));
+				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
+				stagePlans.find(projectId));
 	}
 
 	@Override
@@ -92,6 +96,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			scene.values().forEach((fixtureId, fixtureValues) -> values.put(fixtureIds.get(fixtureId), fixtureValues));
 			scenes.create(projectId, scene.spec(), values);
 		}
+		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
 	}
 
 	private static void validateReferences(ProjectExport export) {
