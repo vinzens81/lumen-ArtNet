@@ -18,12 +18,16 @@
 	<modules>
 		<module>lumen-domain</module>
 		<module>lumen-application</module>
+		<module>lumen-adapter-library-yaml</module>
+		<module>lumen-adapter-web</module>
 		<module>lumen-app</module>
 	</modules>
 
 	<properties>
 		<java.version>26</java.version>
 		<archunit.version>1.5.1</archunit.version>
+		<!-- spring-boot:run nur in lumen-app ausführen, nicht in den übrigen Modulen -->
+		<spring-boot.run.skip>true</spring-boot.run.skip>
 	</properties>
 
 	<dependencyManagement>
@@ -36,6 +40,16 @@
 			<dependency>
 				<groupId>de.vinzens.lumen</groupId>
 				<artifactId>lumen-application</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.vinzens.lumen</groupId>
+				<artifactId>lumen-adapter-library-yaml</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.vinzens.lumen</groupId>
+				<artifactId>lumen-adapter-web</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

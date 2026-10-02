@@ -1,0 +1,9 @@
+id: generic-dimmer
+manufacturer: Generic
+model: Dimmerkanal
+category: dimmer
+
+modes:
+  - name: 1ch
+    channels:
+      - function: dimmer

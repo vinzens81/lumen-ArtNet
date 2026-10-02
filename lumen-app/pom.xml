@@ -11,6 +11,10 @@
 	<name>lumen-app</name>
 	<description>Spring Boot Anwendung: Verdrahtung und Konfiguration</description>
 
+	<properties>
+		<spring-boot.run.skip>false</spring-boot.run.skip>
+	</properties>
+
 	<dependencies>
 		<dependency>
 			<groupId>de.vinzens.lumen</groupId>
@@ -19,6 +23,14 @@
 		<dependency>
 			<groupId>de.vinzens.lumen</groupId>
 			<artifactId>lumen-application</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.vinzens.lumen</groupId>
+			<artifactId>lumen-adapter-library-yaml</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.vinzens.lumen</groupId>
+			<artifactId>lumen-adapter-web</artifactId>
 		</dependency>
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
@@ -60,6 +72,10 @@
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
+				<configuration>
+					<!-- Relative Pfade (fixture-types/, data/) beziehen sich auf das Projekt-Root -->
+					<workingDirectory>${maven.multiModuleProjectDirectory}</workingDirectory>
+				</configuration>
 			</plugin>
 		</plugins>
 	</build>

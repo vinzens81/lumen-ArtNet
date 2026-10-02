@@ -6,12 +6,14 @@ die stehen im Projekt in der SQLite-Datenbank, siehe [PROJECT-DATA.md](PROJECT-D
 
 ```
 fixture-types/                   (Ordner konfigurierbar über lumen.fixture-library-dir)
-├── generic-rgbw-par.yml
-├── stairville-led-bar-240.yml
-└── moving-head-spot.yml
+├── generic/
+│   ├── generic-dimmer.yml
+│   └── generic-rgbw-par.yml
+└── examples/
+    └── example-moving-head-spot.yml
 ```
 
-Alle `*.yml` / `*.yaml` im Ordner werden geladen. Die `id` muss eindeutig sein – über sie referenziert ein
+Alle `*.yml` / `*.yaml` im Ordner und in Unterordnern werden geladen (Unterordner z.B. pro Hersteller). Die `id` muss eindeutig sein – über sie referenziert ein
 Projekt den Gerätetyp.
 
 ---
@@ -62,7 +64,7 @@ physical:
   tilt-range: 270
 
 modes:
-  - name: 14ch
+  - name: 13ch
     channels:
       - function: pan
         resolution: 16           # belegt 2 Kanäle (coarse + fine)
@@ -110,9 +112,10 @@ modes:
 | Position | `pan`, `tilt` | LTP, stufenlos überblendet |
 | Strahl (stufenlos) | `focus`, `zoom`, `iris`, `gobo-rotation` | LTP, stufenlos überblendet |
 | Diskret | `color-wheel`, `gobo`, `prism`, `shutter`, `strobe`, `program`, `macro`, `reset` | LTP, springt beim GO |
-| Sonstiges | `speed`, `fog`, `fan`, `generic` | `generic`: LTP, stufenlos; braucht `name` |
+| Sonstiges | `speed` | LTP, springt beim GO |
+| | `fog`, `fan`, `generic` | LTP, stufenlos; `generic` braucht `name` |
 
-Optionale Felder pro Kanal: `name`, `default` (0–255), `resolution` (8/16), `invert` (bool), `ranges`,
+Optionale Felder pro Kanal: `name`, `default` (0–255, bei 16 Bit 0–65535), `resolution` (8/16), `invert` (bool), `ranges`,
 `fade: snap|smooth` (überschreibt das Standardverhalten).
 
 **Geräte ohne Dimmerkanal** (z.B. 4ch-RGBW-Modus) bekommen einen **virtuellen Dimmer**: Die Engine skaliert die

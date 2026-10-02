@@ -16,11 +16,12 @@ Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
 
 **DoD:** `mvn verify` grün, App startet.
 
-## ⬜ Iteration 1 – Gerätebibliothek (YAML)
-- Domain: `FixtureType`, `Mode`, `ChannelDefinition`, `ChannelFunction`
-- Adapter `library-yaml`: lädt `fixture-types/`, validiert
+## ✅ Iteration 1 – Gerätebibliothek (YAML)
+- Domain: `FixtureType`, `Mode`, `ChannelDefinition`, `ChannelFunction`, `FixtureTypeValidator`
+- Adapter `library-yaml`: lädt `fixture-types/` (inkl. Unterordner), unbekannte Felder werden als Fehler gemeldet
+- Adapter `web`: erster REST-Controller
 - Beispielprofile im Repo (PAR, Dimmer, Moving Head)
-- `GET /api/library/fixture-types`, `GET /api/library/issues`
+- `GET /api/library/fixture-types`, `GET /api/library/fixture-types/{id}`, `GET /api/library/issues`
 
 **DoD:** Beispielprofile werden geladen, eine fehlerhafte YAML erzeugt verständliche Issues, ohne den Start zu verhindern.
 

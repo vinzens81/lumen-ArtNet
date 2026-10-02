@@ -6,6 +6,7 @@ import com.tngtech.archunit.junit.ArchTest;
 import com.tngtech.archunit.lang.ArchRule;
 
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
+import static com.tngtech.archunit.library.dependencies.SlicesRuleDefinition.slices;
 
 /**
  * Sichert die hexagonale Architektur ab: Abhängigkeiten zeigen immer nach innen.
@@ -20,12 +21,19 @@ class ArchitectureTest {
 	@ArchTest
 	static final ArchRule domainDependsOnNothingOutside = noClasses()
 			.that().resideInAPackage(DOMAIN)
-			.should().dependOnClassesThat().resideInAnyPackage(APPLICATION, ADAPTER, "org.springframework..")
+			.should().dependOnClassesThat()
+			.resideInAnyPackage(APPLICATION, ADAPTER, "org.springframework..", "tools.jackson..", "com.fasterxml..")
 			.allowEmptyShould(true);
 
 	@ArchTest
 	static final ArchRule applicationDependsOnlyOnDomain = noClasses()
 			.that().resideInAPackage(APPLICATION)
-			.should().dependOnClassesThat().resideInAnyPackage(ADAPTER, "org.springframework..")
+			.should().dependOnClassesThat()
+			.resideInAnyPackage(ADAPTER, "org.springframework..", "tools.jackson..", "com.fasterxml..")
 			.allowEmptyShould(true);
+
+	@ArchTest
+	static final ArchRule adaptersDoNotDependOnEachOther = slices()
+			.matching("de.vinzens.lumen.adapter.(*)..")
+			.should().notDependOnEachOther();
 }

@@ -1,0 +1,30 @@
+id: generic-rgbw-par
+manufacturer: Generic
+model: LED PAR 7x10W RGBW
+category: par
+
+modes:
+  - name: 4ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+
+  - name: 8ch
+    channels:
+      - function: dimmer
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: strobe
+        ranges:
+          - { from: 0,  to: 9,   label: Aus }
+          - { from: 10, to: 255, label: Strobe langsam → schnell }
+      - function: program
+        ranges:
+          - { from: 0,   to: 9,   label: Aus }
+          - { from: 10,  to: 255, label: Automatikprogramme }
+      - function: generic
+        name: Programmgeschwindigkeit

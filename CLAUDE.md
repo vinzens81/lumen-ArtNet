@@ -7,11 +7,12 @@ der aktuelle Stand steht in `docs/ROADMAP.md`. Doku und UI-Texte sind auf Deutsc
 
 ```bash
 ./mvnw verify                                 # Build + alle Tests (inkl. ArchUnit)
-./mvnw -pl lumen-app -am spring-boot:run      # App starten → http://127.0.0.1:8080/actuator/health
+./mvnw -pl lumen-app -am compile spring-boot:run   # App starten → http://127.0.0.1:8080/actuator/health
 ./mvnw -pl lumen-domain test                  # nur ein Modul testen
 ```
 
-Java 26, Spring Boot 4.1, Maven Multi-Module (Parent: `pom.xml`, Basis-Package `de.vinzens.lumen`).
+Java 26, Spring Boot 4.1 (Jackson 3: `tools.jackson.*`), Maven Multi-Module (Parent: `pom.xml`,
+Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` beziehen sich auf das Projekt-Root.
 
 ## Architekturregeln (hexagonal)
 
@@ -20,5 +21,7 @@ Java 26, Spring Boot 4.1, Maven Multi-Module (Parent: `pom.xml`, Basis-Package `
 - `lumen-adapter-*` – Adapter (Packages `de.vinzens.lumen.adapter.<name>`), werden erst in der Iteration angelegt,
   in der sie gebraucht werden.
 - `lumen-app` – Spring Boot Main und Verdrahtung der Use Cases als Beans.
+- Adapter hängen nicht voneinander ab; Domain/Application kennen weder Spring noch Jackson.
 - `ArchitectureTest` (in `lumen-app`) prüft die Regeln; neue Adapter-Module dort als Abhängigkeit aufnehmen.
+- REST-Antworten sind DTOs im Web-Adapter, Domain-Objekte werden nicht direkt serialisiert.
 - Zeitabhängige Logik (Fades, Auto-Follow) bekommt eine `Clock` injiziert und wird ohne Spring getestet.
