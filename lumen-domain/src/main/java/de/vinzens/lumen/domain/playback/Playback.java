@@ -86,6 +86,21 @@ public final class Playback {
 		return true;
 	}
 
+	/**
+	 * Puts a scene on stage at once, without a fade, e.g. to resume the show after a restart. Its auto-follow
+	 * countdown starts now.
+	 */
+	public void restore(long sceneId, Instant now) {
+		var index = indexOf(sceneId);
+		if (index < 0) {
+			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
+		}
+		position = index;
+		transition = null;
+		pendingNext = null;
+		stayStart = virtualNow(now);
+	}
+
 	/** Chooses the scene that the next GO starts. */
 	public void setNext(long sceneId) {
 		var index = indexOf(sceneId);

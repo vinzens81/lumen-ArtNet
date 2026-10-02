@@ -5,6 +5,7 @@ import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.output.OperatingMode;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -48,6 +49,18 @@ class PlaybackController {
 	@PostMapping("/api/playback/finish")
 	PlaybackResponse finish() {
 		return PlaybackResponse.from(playback.finish());
+	}
+
+	/** Puts the scene from before a restart back on stage at once. */
+	@PostMapping("/api/playback/resume")
+	PlaybackResponse resume() {
+		return PlaybackResponse.from(playback.resume());
+	}
+
+	/** Starts from the beginning instead of resuming. */
+	@DeleteMapping("/api/playback/resume")
+	PlaybackResponse dismissResume() {
+		return PlaybackResponse.from(playback.dismissResume());
 	}
 
 	@PutMapping("/api/playback/next")

@@ -189,4 +189,6 @@ export interface PlaybackStatus {
   fade: { fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number } | null;
   paused: boolean;
   autoFollowInMs: number | null;
+  /** scene that was on stage before a server restart and can be resumed */
+  resumeSceneId: number | null;
 }

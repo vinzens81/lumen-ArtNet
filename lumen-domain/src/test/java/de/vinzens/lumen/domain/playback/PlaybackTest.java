@@ -167,6 +167,21 @@ class PlaybackTest {
 		assertThat(playback.position()).isEqualTo(2);
 	}
 
+	@Test
+	void restorePutsASceneOnStageWithoutFade() {
+		go();
+		advance(500);
+
+		playback.restore(storm.id(), now);
+
+		assertThat(playback.currentScene()).contains(storm);
+		assertThat(playback.fade(now)).isEmpty();
+		assertThat(dimmer(1)).isEqualTo(0.0);
+		assertThat(dimmer(2)).isEqualTo(1.0);
+		assertThat(playback.nextScene()).contains(night);
+		assertThat(playback.autoFollowRemaining(now)).as("countdown starts now").contains(Duration.ofSeconds(5));
+	}
+
 	private void go() {
 		playback.go(now, B);
 	}

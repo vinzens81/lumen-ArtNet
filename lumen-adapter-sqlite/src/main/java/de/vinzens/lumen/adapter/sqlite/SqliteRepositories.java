@@ -16,6 +16,8 @@ public final class SqliteRepositories {
 	private final SqliteFixtureRepository fixtures;
 	private final SqliteGroupRepository groups;
 	private final SqliteSceneRepository scenes;
+	private final SqliteSettingsRepository settings;
+	private final SqlitePlaybackStateRepository playbackStates;
 
 	public SqliteRepositories(DataSource dataSource) {
 		var jdbc = JdbcClient.create(dataSource);
@@ -25,6 +27,8 @@ public final class SqliteRepositories {
 		this.fixtures = new SqliteFixtureRepository(jdbc);
 		this.groups = new SqliteGroupRepository(jdbc, transactions);
 		this.scenes = new SqliteSceneRepository(jdbc, transactions);
+		this.settings = new SqliteSettingsRepository(jdbc);
+		this.playbackStates = new SqlitePlaybackStateRepository(jdbc);
 	}
 
 	public SqliteProjectRepository projects() {
@@ -45,5 +49,13 @@ public final class SqliteRepositories {
 
 	public SqliteSceneRepository scenes() {
 		return scenes;
+	}
+
+	public SqliteSettingsRepository settings() {
+		return settings;
+	}
+
+	public SqlitePlaybackStateRepository playbackStates() {
+		return playbackStates;
 	}
 }

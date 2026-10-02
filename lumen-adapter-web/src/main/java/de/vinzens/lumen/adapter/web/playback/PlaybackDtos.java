@@ -16,16 +16,19 @@ public final class PlaybackDtos {
 	/**
 	 * @param position     -1 before the first scene, sceneCount at the end of the show
 	 * @param autoFollowInMs time until the next scene starts automatically, null without auto-follow
+	 * @param resumeSceneId  scene that was on stage before a restart and can be resumed, otherwise null
 	 */
 	public record PlaybackResponse(boolean available, int position, int sceneCount, Long currentSceneId,
-			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs) {
+			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs,
+			Long resumeSceneId) {
 
 		public static PlaybackResponse from(PlaybackStatus status) {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
 					status.currentSceneId().orElse(null), status.nextSceneId().orElse(null), status.nextIsEnd(),
 					status.fade().map(f -> new FadeResponse(f.fromSceneId().orElse(null), f.elapsed().toMillis(),
 							f.fadeIn().toMillis(), f.fadeOut().toMillis())).orElse(null),
-					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null));
+					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
+					status.resumeSceneId().orElse(null));
 		}
 	}
 

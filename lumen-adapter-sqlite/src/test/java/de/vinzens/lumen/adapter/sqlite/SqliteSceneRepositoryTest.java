@@ -106,6 +106,33 @@ class SqliteSceneRepositoryTest {
 				.isInstanceOf(DataAccessException.class);
 	}
 
+	@Test
+	void playbackStateSurvivesReopeningAndForgetsDeletedScenes() {
+		var storm = repos.scenes().create(project, spec("4", "Storm"), Map.of()).id();
+		assertThat(repos.playbackStates().currentScene(project)).isEmpty();
+
+		repos.playbackStates().save(project, Optional.of(storm), Instant.EPOCH);
+		var reopened = new SqliteRepositories(SqliteDatabase.open(dbFile));
+		assertThat(reopened.playbackStates().currentScene(project)).contains(storm);
+
+		reopened.playbackStates().save(project, Optional.empty(), Instant.EPOCH);
+		assertThat(reopened.playbackStates().currentScene(project)).isEmpty();
+
+		reopened.playbackStates().save(project, Optional.of(storm), Instant.EPOCH);
+		reopened.scenes().delete(storm);
+		assertThat(reopened.playbackStates().currentScene(project)).isEmpty();
+	}
+
+	@Test
+	void settingsAreKeyValuePairs() {
+		assertThat(repos.settings().get("operating_mode")).isEmpty();
+		repos.settings().put("operating_mode", "SHOW");
+		repos.settings().put("operating_mode", "SETUP");
+		assertThat(repos.settings().get("operating_mode")).contains("SETUP");
+		repos.settings().remove("operating_mode");
+		assertThat(repos.settings().get("operating_mode")).isEmpty();
+	}
+
 	private static SceneSpec spec(String number, String name) {
 		return new SceneSpec(SceneNumber.parse(number), name, Optional.empty(), Optional.empty());
 	}

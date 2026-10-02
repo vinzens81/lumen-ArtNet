@@ -124,6 +124,8 @@ export const api = {
     pause: () => post<PlaybackStatus>('/api/playback/pause'),
     finish: () => post<PlaybackStatus>('/api/playback/finish'),
     setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
+    resume: () => post<PlaybackStatus>('/api/playback/resume'),
+    dismissResume: () => request<PlaybackStatus>('DELETE', '/api/playback/resume'),
   },
   mode: {
     get: () => get<{ mode: OperatingMode }>('/api/mode'),

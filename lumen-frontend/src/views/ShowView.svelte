@@ -4,7 +4,7 @@
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Scene } from '../lib/types';
+  import type { PlaybackStatus, Scene } from '../lib/types';
 
   const GO_GUARD_MS = 300;
 
@@ -18,6 +18,7 @@
   const byId = $derived(new Map(scenes.map((s) => [s.id, s])));
   const current = $derived(status?.currentSceneId != null ? byId.get(status.currentSceneId) : undefined);
   const next = $derived(status?.nextSceneId != null ? byId.get(status.nextSceneId) : undefined);
+  const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
   const outgoing = $derived(status?.fade?.fromSceneId != null ? byId.get(status.fade.fromSceneId) : undefined);
 
   /** Time since the status arrived, frozen while paused. */
@@ -73,14 +74,17 @@
     live.playbackCommand('go');
   }
 
-  function chooseNext(scene: Scene) {
-    api.playback
-      .setNext(scene.id)
+  function apply(request: Promise<PlaybackStatus>) {
+    request
       .then((s) => {
         live.playback = s;
         live.playbackReceivedAt = performance.now();
       })
       .catch(showError);
+  }
+
+  function chooseNext(scene: Scene) {
+    apply(api.playback.setNext(scene.id));
   }
 
   function moveNext(step: number) {
@@ -150,6 +154,23 @@
 
   <div class="stage">
     <div class="info">
+    {#if resumeScene}
+      <article class="panel glass resume-panel" aria-live="polite">
+        <h3>Resume the show?</h3>
+        <p>
+          Before the restart, scene <span class="mono">{resumeScene.number}</span> <strong>{resumeScene.name}</strong>
+          was on stage. Resuming puts it back on stage at once, without a fade.
+        </p>
+        <div class="resume-actions">
+          <button type="button" class="btn primary" onclick={() => apply(api.playback.resume())}>
+            Resume at scene {resumeScene.number}
+          </button>
+          <button type="button" class="btn ghost" onclick={() => apply(api.playback.dismissResume())}>
+            Start from the beginning
+          </button>
+        </div>
+      </article>
+    {/if}
     <article class="panel glass now-panel">
       <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
       {#if current}
@@ -416,6 +437,25 @@
 
   .follow-text {
     color: var(--ok);
+  }
+
+  .resume-panel {
+    border-color: var(--warning);
+    box-shadow: 0 0 30px var(--warning-soft);
+  }
+
+  .resume-panel h3 {
+    color: var(--warning);
+  }
+
+  .resume-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .resume-actions .btn {
+    min-height: 48px;
   }
 
   .out-panel {

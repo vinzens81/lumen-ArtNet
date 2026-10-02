@@ -6,8 +6,9 @@ import de.vinzens.lumen.adapter.artnet.ArtNetSettings;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
-import de.vinzens.lumen.application.output.ArtNetNodeService;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.output.ArtNetNodeService;
+import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
@@ -19,6 +20,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 @Configuration(proxyBeanMethods = false)
 class OutputConfiguration {
@@ -77,10 +80,31 @@ class OutputConfiguration {
 	}
 
 	@Bean
-	PlaybackService playbackService(SqliteRepositories repositories, Clock clock, StateEvents stateEvents,
-			OutputEngine outputEngine) {
-		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), clock, stateEvents);
+	OperatingModeKeeper operatingModeKeeper(OutputEngine outputEngine, SqliteRepositories repositories,
+			StateEvents stateEvents) {
+		var keeper = new OperatingModeKeeper(outputEngine, repositories.settings(), stateEvents);
+		log.info("Operating mode: {}", outputEngine.mode());
+		return keeper;
+	}
+
+	/** Saves the playback state off the render thread; pending writes are finished on shutdown. */
+	@Bean(destroyMethod = "close")
+	ExecutorService playbackStateWriter() {
+		return Executors.newSingleThreadExecutor(runnable -> {
+			var thread = new Thread(runnable, "lumen-playback-state");
+			thread.setDaemon(true);
+			return thread;
+		});
+	}
+
+	@Bean
+	PlaybackService playbackService(SqliteRepositories repositories, ExecutorService playbackStateWriter, Clock clock,
+			StateEvents stateEvents, OutputEngine outputEngine) {
+		var playback = new PlaybackService(repositories.projects(), repositories.scenes(),
+				repositories.playbackStates(), playbackStateWriter, clock, stateEvents);
 		outputEngine.addLayerSource(playback);
+		playback.status().resumeSceneId().ifPresent(sceneId ->
+				log.info("Show can be resumed at scene id {}", sceneId));
 		return playback;
 	}
 
