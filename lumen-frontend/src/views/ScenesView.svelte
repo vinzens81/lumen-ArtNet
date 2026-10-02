@@ -278,7 +278,8 @@
             title="Drag to move – the scene gets a number between its new neighbors"
             onpointerdown={(e) => startDrag(e, i, scene)} onpointermove={moveDrag} onpointerup={endDrag}
             onpointercancel={() => (drag = null)} onkeydown={(e) => onHandleKey(e, i, scene)}>⋮⋮</button>
-          <button type="button" class="cue" class:selected={scene.id === selectedId} onclick={() => select(scene)}>
+          <button type="button" class="cue" class:selected={scene.id === selectedId}
+            class:on-stage={stagePreview.status.sceneId === scene.id} onclick={() => select(scene)}>
             <span class="number mono">{scene.number}</span>
             <span class="text">
               <span class="name">{scene.name}</span>
@@ -291,6 +292,11 @@
                 <span class="dark">dark</span>
               {/each}
             </span>
+            {#if stagePreview.status.sceneId === scene.id}
+              <span class="on-stage-tag" title="This scene is playing on stage (preview)">
+                <span class="pulse" aria-hidden="true"></span>ON STAGE
+              </span>
+            {/if}
             {#if scene.compositions.length > 0}
               <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
                 {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
@@ -458,7 +464,10 @@
 
   .cue {
     display: grid;
-    grid-template-columns: 64px minmax(0, 1fr) auto auto;
+    /* number and text, then as many badges as the scene has, all in one row */
+    grid-template-columns: 64px minmax(0, 1fr);
+    grid-auto-flow: column;
+    grid-auto-columns: auto;
     align-items: center;
     gap: 14px;
     padding: 12px 14px;
@@ -528,6 +537,39 @@
 
   .cue:hover {
     background: var(--panel-raised);
+  }
+
+  /* playing on stage as a preview: glowing edge, independent of the selection */
+  .cue.on-stage {
+    box-shadow: inset 3px 0 0 var(--accent), -4px 0 14px -6px var(--accent-glow);
+  }
+
+  .on-stage-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  .on-stage-tag .pulse {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--accent-ink);
+    animation: on-stage-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes on-stage-pulse {
+    50% {
+      opacity: 0.25;
+    }
   }
 
   .cue.selected {
