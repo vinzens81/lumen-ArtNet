@@ -9,6 +9,7 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Mixes the outgoing look (a snapshot of the output at GO) with the incoming scene. Fade-out and fade-in run
@@ -31,6 +32,15 @@ public final class Crossfade {
 
 	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
 			Duration elapsed, Duration fadeIn, Duration fadeOut, FadeBehaviors behaviors) {
+		return mix(from, to, elapsed, fadeIn, fadeOut, behaviors, null);
+	}
+
+	/**
+	 * @param darkAtGo fixtures that were dark at GO; {@code null} = decide by the intensity in {@code from}.
+	 *                 Needed when {@code from} keeps moving (running compositions).
+	 */
+	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
+			Duration elapsed, Duration fadeIn, Duration fadeOut, FadeBehaviors behaviors, Set<Long> darkAtGo) {
 		var levelIn = progress(elapsed, fadeIn);
 		var levelOut = 1 - progress(elapsed, fadeOut);
 
@@ -40,14 +50,19 @@ public final class Crossfade {
 		for (var fixtureId : fixtures) {
 			var old = from.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var target = to.getOrDefault(fixtureId, FixtureValues.EMPTY);
-			result.put(fixtureId, mixFixture(fixtureId, old, target, levelIn, levelOut, behaviors));
+			var wasDark = darkAtGo != null ? darkAtGo.contains(fixtureId) : isDark(old);
+			result.put(fixtureId, mixFixture(fixtureId, old, target, wasDark, levelIn, levelOut, behaviors));
 		}
 		return result;
 	}
 
-	private static FixtureValues mixFixture(long fixtureId, FixtureValues old, FixtureValues target, double levelIn,
-			double levelOut, FadeBehaviors behaviors) {
-		var wasDark = old.get(DIMMER).orElse(0.0) < DARK;
+	/** Whether a fixture gives no visible light. */
+	public static boolean isDark(FixtureValues values) {
+		return values.get(DIMMER).orElse(0.0) < DARK;
+	}
+
+	private static FixtureValues mixFixture(long fixtureId, FixtureValues old, FixtureValues target, boolean wasDark,
+			double levelIn, double levelOut, FadeBehaviors behaviors) {
 		var attributes = new HashSet<>(old.values().keySet());
 		attributes.addAll(target.values().keySet());
 		attributes.add(DIMMER);

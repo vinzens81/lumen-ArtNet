@@ -161,7 +161,8 @@ class PlaybackTest {
 		go();
 		var inserted = scene(4, "1.5", 1L, Optional.empty());
 
-		playback.reload(List.of(dawn, inserted, storm, night), Duration.ofSeconds(2), Duration.ofSeconds(4));
+		playback.reload(List.of(dawn, inserted, storm, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+				now);
 
 		assertThat(playback.currentScene()).contains(storm);
 		assertThat(playback.position()).isEqualTo(2);

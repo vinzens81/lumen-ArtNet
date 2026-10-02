@@ -97,7 +97,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				savedSceneId = states.currentScene(project.id());
 				resumeSceneId = savedSceneId;
 			} else {
-				playback.reload(cueList, fadeIn, fadeOut);
+				playback.reload(cueList, Map.of(), fadeIn, fadeOut, clock.instant());
 			}
 			resumeSceneId = resumeSceneId.filter(id -> cueList.stream().anyMatch(scene -> scene.id() == id));
 		}
