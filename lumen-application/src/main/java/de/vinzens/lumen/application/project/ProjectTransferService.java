@@ -1,5 +1,6 @@
 package de.vinzens.lumen.application.project;
 
+import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
@@ -9,6 +10,11 @@ import de.vinzens.lumen.application.project.port.out.StagePlanRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
+import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.Pattern;
+import de.vinzens.lumen.domain.composition.StepSequence;
+import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
@@ -33,18 +39,20 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final GroupRepository groups;
 	private final SceneRepository scenes;
 	private final StagePlanRepository stagePlans;
+	private final CompositionRepository compositions;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
-			Clock clock, PatchChangeListener listener) {
+			CompositionRepository compositions, Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
 		this.groups = Objects.requireNonNull(groups, "groups");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
+		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -54,7 +62,13 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		var project = projects.findById(projectId).orElseThrow(() -> ProjectService.notFound(projectId));
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
 				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
-				stagePlans.find(projectId));
+				stagePlans.find(projectId), allCompositions(projectId));
+	}
+
+	private List<Composition> allCompositions(long projectId) {
+		var result = new ArrayList<>(compositions.findLibrary(projectId));
+		compositions.findByScenes(projectId).values().forEach(result::addAll);
+		return result;
 	}
 
 	@Override
@@ -86,17 +100,48 @@ public class ProjectTransferService implements TransferProjectUseCase {
 					universeIds.get(spec.universeId()), spec.address(), spec.position(), spec.sortOrder());
 			fixtureIds.put(fixture.id(), fixtures.create(projectId, copy).id());
 		}
+		var groupIds = new HashMap<Long, Long>();
 		for (var group : export.groups()) {
 			var spec = group.spec();
-			groups.create(projectId, new GroupSpec(spec.name(), spec.color(), spec.sortOrder(),
-					spec.fixtureIds().stream().map(fixtureIds::get).toList()));
+			groupIds.put(group.id(), groups.create(projectId, new GroupSpec(spec.name(), spec.color(), spec.sortOrder(),
+					spec.fixtureIds().stream().map(fixtureIds::get).toList())).id());
 		}
+		var sceneIds = new HashMap<Long, Long>();
 		for (var scene : export.scenes()) {
 			var values = new HashMap<Long, FixtureValues>();
 			scene.values().forEach((fixtureId, fixtureValues) -> values.put(fixtureIds.get(fixtureId), fixtureValues));
-			scenes.create(projectId, scene.spec(), values);
+			sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), values).id());
 		}
 		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
+
+		// library first, so copies can refer to their origin
+		var compositionIds = new HashMap<Long, Long>();
+		var ordered = new ArrayList<>(export.compositions());
+		ordered.sort((a, b) -> Boolean.compare(!a.inLibrary(), !b.inLibrary()));
+		for (var composition : ordered) {
+			var spec = remap(composition.spec(), fixtureIds, groupIds);
+			var created = compositions.create(projectId, composition.sceneId().map(sceneIds::get),
+					composition.sourceId().map(compositionIds::get), spec);
+			compositionIds.put(composition.id(), created.id());
+		}
+	}
+
+	/** The spec with fixture and group ids of the new project. */
+	private static CompositionSpec remap(CompositionSpec spec, Map<Long, Long> fixtureIds, Map<Long, Long> groupIds) {
+		Target target = switch (spec.target()) {
+			case Target.Group group -> new Target.Group(groupIds.get(group.groupId()));
+			case Target.Fixtures list -> new Target.Fixtures(list.fixtureIds().stream().map(fixtureIds::get).toList());
+			case Target.Steps steps -> steps;
+		};
+		Pattern pattern = spec.pattern();
+		if (pattern instanceof StepSequence sequence) {
+			pattern = new StepSequence(sequence.steps().stream().map(step -> {
+				var values = new HashMap<Long, FixtureValues>();
+				step.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
+				return new StepSequence.Step(step.holdSeconds(), step.fadeSeconds(), values);
+			}).toList(), sequence.playMode());
+		}
+		return new CompositionSpec(spec.name(), pattern, target, spec.level(), spec.speedFactor(), spec.restart());
 	}
 
 	private static void validateReferences(ProjectExport export) {
@@ -120,6 +165,31 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		for (var group : export.groups()) {
 			group.spec().fixtureIds().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
 					errors.add("Group '" + group.spec().name() + "' refers to unknown fixture " + id));
+		}
+		var groupIds = new HashSet<Long>();
+		export.groups().forEach(g -> groupIds.add(g.id()));
+		var sceneIds = new HashSet<Long>();
+		export.scenes().forEach(scene -> sceneIds.add(scene.id()));
+		var libraryIds = new HashSet<Long>();
+		export.compositions().stream().filter(Composition::inLibrary).forEach(c -> libraryIds.add(c.id()));
+		for (var composition : export.compositions()) {
+			var name = "Composition '" + composition.spec().name() + "'";
+			composition.sceneId().filter(id -> !sceneIds.contains(id))
+					.ifPresent(id -> errors.add(name + " refers to unknown scene " + id));
+			composition.sourceId().filter(id -> !libraryIds.contains(id))
+					.ifPresent(id -> errors.add(name + " refers to unknown library composition " + id));
+			switch (composition.spec().target()) {
+				case Target.Group group -> {
+					if (!groupIds.contains(group.groupId())) {
+						errors.add(name + " refers to unknown group " + group.groupId());
+					}
+				}
+				case Target.Fixtures list -> list.fixtureIds().stream().filter(id -> !fixtureIds.contains(id))
+						.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
+				case Target.Steps steps -> composition.spec().pattern().ownFixtures().orElse(List.of()).stream()
+						.filter(id -> !fixtureIds.contains(id))
+						.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
+			}
 		}
 		var sceneNumbers = new HashSet<SceneNumber>();
 		for (var scene : export.scenes()) {

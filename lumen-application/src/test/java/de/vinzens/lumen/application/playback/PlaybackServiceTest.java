@@ -1,13 +1,17 @@
 package de.vinzens.lumen.application.playback;
 
 import de.vinzens.lumen.application.ConflictException;
+import de.vinzens.lumen.application.FixedCompositions;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
+import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.project.Group;
+import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.Scene;
@@ -125,12 +129,42 @@ class PlaybackServiceTest {
 				writes.add(sceneId);
 			}
 		};
-		return new PlaybackService(projects(), sceneRepository(), states, Runnable::run, clock, events);
+		return new PlaybackService(projects(), sceneRepository(), FixedCompositions.NONE, groups(), states,
+				Runnable::run, clock, events);
 	}
 
 	private void go(PlaybackService service) {
 		service.go();
 		clock.advance(Duration.ofSeconds(1)); // beyond the double-GO guard
+	}
+
+	private static GroupRepository groups() {
+		return new GroupRepository() {
+			@Override
+			public List<Group> findByProject(long projectId) {
+				return List.of();
+			}
+
+			@Override
+			public Optional<Group> findById(long id) {
+				return Optional.empty();
+			}
+
+			@Override
+			public Group create(long projectId, GroupSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public Group update(long id, GroupSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+		};
 	}
 
 	private ProjectRepository projects() {

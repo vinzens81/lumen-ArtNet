@@ -1,6 +1,13 @@
 package de.vinzens.lumen.application;
 
 import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.domain.composition.Chase;
+import de.vinzens.lumen.domain.composition.Color;
+import de.vinzens.lumen.domain.composition.ColorCycle;
+import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.Flicker;
+import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.playback.PlaybackService;
@@ -52,7 +59,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Durability test of iteration 8: plays a show for three hours of simulated time at the real frame rate –
- * auto-follow chains, manual GOs, pauses, master moves and blackouts – and checks that memory does not grow.
+ * auto-follow chains, manual GOs, pauses, master moves and blackouts, scenes with running compositions – and
+ * checks that memory does not grow.
  */
 class ShowSoakTest {
 
@@ -85,7 +93,8 @@ class ShowSoakTest {
 		var events = new StateEvents();
 		var engine = new OutputEngine(projects(), universes(), fixtures(), groups(), library(),
 				(universe, frame) -> framesSent++, events, clock);
-		var playback = new PlaybackService(projects(), scenes(), states(), Runnable::run, clock, events);
+		var playback = new PlaybackService(projects(), scenes(), new FixedCompositions(compositions()), groups(),
+				states(), Runnable::run, clock, events);
 		engine.addLayerSource(playback);
 		engine.patchChanged();
 		engine.setMode(OperatingMode.SHOW);
@@ -150,6 +159,34 @@ class ShowSoakTest {
 						"1ch", universe.id(), 100 + i, Optional.empty(), 0)));
 			}
 		}
+	}
+
+	/** Every scene runs compositions; scenes 1–6 share a flicker of the same origin that continues across GOs. */
+	private Map<Long, List<Composition>> compositions() {
+		var dimmers = fixtures.stream().filter(f -> f.spec().fixtureTypeId().equals("dimmer")).map(PatchedFixture::id)
+				.toList();
+		var pars = fixtures.stream().filter(f -> f.spec().fixtureTypeId().equals("par")).map(PatchedFixture::id)
+				.toList();
+		var result = new HashMap<Long, List<Composition>>();
+		long id = 1000;
+		for (var scene : scenes) {
+			var list = new ArrayList<Composition>();
+			list.add(composition(id++, scene.id(), Optional.empty(), CompositionSpec.of("Chase",
+					new Chase(0.3, 2, Chase.Direction.PING_PONG, 0.5, 0, 1), new Target.Fixtures(dimmers))));
+			list.add(composition(id++, scene.id(), Optional.empty(), CompositionSpec.of("Colors",
+					new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0, 1), new Color(0, 1, 0)), 2, 1, 0.5, 1),
+					new Target.Fixtures(pars))));
+			if (scene.id() <= 106) {
+				list.add(composition(id++, scene.id(), Optional.of(1L), CompositionSpec.of("Candle",
+						new Flicker(Flicker.Character.FIRE, 0.4, 1, 9), new Target.Fixtures(pars))));
+			}
+			result.put(scene.id(), list);
+		}
+		return result;
+	}
+
+	private static Composition composition(long id, long sceneId, Optional<Long> source, CompositionSpec spec) {
+		return new Composition(id, 1, Optional.of(sceneId), source, 0, spec);
 	}
 
 	private void recordScenes() {

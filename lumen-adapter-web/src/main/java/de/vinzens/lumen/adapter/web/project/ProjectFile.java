@@ -1,5 +1,9 @@
 package de.vinzens.lumen.adapter.web.project;
 
+import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionRequest;
+import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
+import de.vinzens.lumen.adapter.web.composition.CompositionDtos.StepDto;
+import de.vinzens.lumen.adapter.web.composition.CompositionDtos.TargetDto;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
@@ -8,6 +12,7 @@ import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseResponse;
 import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase.ProjectExport;
 import de.vinzens.lumen.domain.DomainValidationException;
+import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
@@ -20,8 +25,12 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -37,13 +46,15 @@ import java.util.Optional;
  */
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
-		List<SceneEntry> scenes, StagePlanEntry stagePlan) {
+		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
 
-	static ProjectFile from(ProjectExport export, Instant now) {
+	static ProjectFile from(ProjectExport export, Instant now, JsonMapper json) {
 		var spec = export.project();
+		var sceneNumbers = new HashMap<Long, String>();
+		export.scenes().forEach(scene -> sceneNumbers.put(scene.id(), scene.spec().number().toString()));
 		return new ProjectFile(FORMAT, VERSION, now,
 				new ProjectRequest(spec.name(), spec.venue().orElse(null), spec.fadeIn().toMillis(),
 						spec.fadeOut().toMillis()),
@@ -51,10 +62,11 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.fixtures().stream().map(FixtureEntry::from).toList(),
 				export.groups().stream().map(GroupEntry::from).toList(),
 				export.scenes().stream().map(SceneEntry::from).toList(),
-				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null));
+				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null),
+				export.compositions().stream().map(c -> CompositionEntry.from(c, sceneNumbers, json)).toList());
 	}
 
-	ProjectExport toExport() {
+	ProjectExport toExport(JsonMapper json) {
 		if (!FORMAT.equals(format)) {
 			throw new DomainValidationException(List.of("This is not a Lumen project file (format '" + format + "')"));
 		}
@@ -65,13 +77,23 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		if (project == null) {
 			throw new DomainValidationException(List.of("project is missing"));
 		}
+		// scenes have no id in the file: compositions refer to them by number
+		var sceneList = list(scenes);
+		var sceneIds = new HashMap<String, Long>();
+		var exportScenes = new ArrayList<Scene>();
+		for (int i = 0; i < sceneList.size(); i++) {
+			var scene = sceneList.get(i).toScene(i + 1);
+			sceneIds.put(scene.spec().number().toString(), scene.id());
+			exportScenes.add(scene);
+		}
 		return new ProjectExport(project.toSpec(),
 				list(universes).stream().map(UniverseEntry::toUniverse).toList(),
 				list(fixtures).stream().map(FixtureEntry::toFixture).toList(),
 				list(groups).stream().map(GroupEntry::toGroup).toList(),
-				list(scenes).stream().map(SceneEntry::toScene).toList(),
+				exportScenes,
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
-						plan.data() == null ? new byte[0] : plan.data())));
+						plan.data() == null ? new byte[0] : plan.data())),
+				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList());
 	}
 
 	private static long require(Long id, String what) {
@@ -83,6 +105,37 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 
 	private static <T> List<T> list(List<T> entries) {
 		return entries == null ? List.of() : entries.stream().filter(Objects::nonNull).toList();
+	}
+
+	/**
+	 * A composition in the library ({@code sceneNumber} null) or a copy in a scene; the other fields are the same as
+	 * in the composition API.
+	 *
+	 * @param sourceId id of the library composition a copy was made from
+	 */
+	record CompositionEntry(Long id, String sceneNumber, Long sourceId, String name, String kind, JsonNode params,
+			TargetDto target, List<StepDto> steps, Double level, Double speedFactor, Boolean restart) {
+
+		static CompositionEntry from(Composition composition, Map<Long, String> sceneNumbers, JsonMapper json) {
+			var api = CompositionResponse.from(composition);
+			return new CompositionEntry(api.id(), composition.sceneId().map(sceneNumbers::get).orElse(null),
+					api.sourceId(), api.name(), api.kind(), json.valueToTree(api.params()), api.target(), api.steps(),
+					api.level(), api.speedFactor(), api.restart());
+		}
+
+		Composition toComposition(Map<String, Long> sceneIds, JsonMapper json) {
+			var spec = new CompositionRequest(name, kind, params, target, steps, level, speedFactor, restart)
+					.toSpec(json);
+			Optional<Long> sceneId = Optional.empty();
+			if (sceneNumber != null) {
+				var number = SceneNumber.parse(sceneNumber).toString();
+				sceneId = Optional.of(Optional.ofNullable(sceneIds.get(number)).orElseThrow(() ->
+						new DomainValidationException(List.of("Composition '" + name + "' refers to unknown scene "
+								+ sceneNumber))));
+			}
+			return new Composition(Objects.requireNonNullElse(id, 0L), 0, sceneId, Optional.ofNullable(sourceId), 0,
+					spec);
+		}
 	}
 
 	/** @param data the image, Base64 in JSON */
@@ -122,15 +175,17 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	record GroupEntry(String name, String color, Integer sortOrder, List<Long> fixtureIds) {
+	/** @param id referred to by compositions; may be missing in files without compositions */
+	record GroupEntry(Long id, String name, String color, Integer sortOrder, List<Long> fixtureIds) {
 
 		static GroupEntry from(Group group) {
 			var spec = group.spec();
-			return new GroupEntry(spec.name(), spec.color().orElse(null), spec.sortOrder(), spec.fixtureIds());
+			return new GroupEntry(group.id(), spec.name(), spec.color().orElse(null), spec.sortOrder(),
+					spec.fixtureIds());
 		}
 
 		Group toGroup() {
-			return new Group(0, 0, new GroupSpec(name, Optional.ofNullable(color), Objects.requireNonNullElse(sortOrder, 0),
+			return new Group(Objects.requireNonNullElse(id, 0L), 0, new GroupSpec(name, Optional.ofNullable(color), Objects.requireNonNullElse(sortOrder, 0),
 					fixtureIds == null ? List.of() : fixtureIds));
 		}
 	}
@@ -145,7 +200,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					spec.autoFollow().map(Duration::toMillis).orElse(null), ValuesJson.toJson(scene.values()));
 		}
 
-		Scene toScene() {
+		Scene toScene(long id) {
 			if (number == null) {
 				throw new DomainValidationException(List.of("Scene '" + name + "' has no number"));
 			}
@@ -154,7 +209,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));
-			return new Scene(0, 0, spec, fixtureValues);
+			return new Scene(id, 0, spec, fixtureValues);
 		}
 	}
 }

@@ -1,5 +1,6 @@
 package de.vinzens.lumen.application.project.port.in;
 
+import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Project;
@@ -24,11 +25,11 @@ public interface TransferProjectUseCase {
 	Project importProject(ProjectExport export);
 
 	/**
-	 * Everything that belongs to a project. Fixtures refer to universes, groups and scene values to fixtures by
-	 * the ids in this export.
+	 * Everything that belongs to a project. Fixtures refer to universes, groups and scene values to fixtures,
+	 * compositions to scenes, groups, fixtures and their library origin by the ids in this export.
 	 */
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
-			List<Group> groups, List<Scene> scenes, Optional<StagePlan> stagePlan) {
+			List<Group> groups, List<Scene> scenes, Optional<StagePlan> stagePlan, List<Composition> compositions) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
@@ -36,6 +37,7 @@ public interface TransferProjectUseCase {
 			fixtures = List.copyOf(fixtures);
 			groups = List.copyOf(groups);
 			scenes = List.copyOf(scenes);
+			compositions = List.copyOf(compositions);
 		}
 	}
 }

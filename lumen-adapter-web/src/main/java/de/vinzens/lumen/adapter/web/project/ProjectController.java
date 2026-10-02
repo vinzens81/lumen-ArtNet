@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
@@ -28,16 +29,18 @@ class ProjectController {
 
 	private final ManageProjectsUseCase projects;
 	private final TransferProjectUseCase transfer;
+	private final JsonMapper json;
 
-	ProjectController(ManageProjectsUseCase projects, TransferProjectUseCase transfer) {
+	ProjectController(ManageProjectsUseCase projects, TransferProjectUseCase transfer, JsonMapper json) {
 		this.projects = projects;
 		this.transfer = transfer;
+		this.json = json;
 	}
 
 	/** The project with patch, groups and scenes as a file to download. */
 	@GetMapping("/{id}/export")
 	ResponseEntity<ProjectFile> export(@PathVariable long id) {
-		var file = ProjectFile.from(transfer.export(id), Instant.now());
+		var file = ProjectFile.from(transfer.export(id), Instant.now(), json);
 		var fileName = file.project().name().replaceAll("[^\\p{L}\\p{N} ._-]", "_").strip() + ".lumen.json";
 		return ResponseEntity.ok()
 				.header(HttpHeaders.CONTENT_DISPOSITION,
@@ -49,7 +52,7 @@ class ProjectController {
 	@PostMapping("/import")
 	@ResponseStatus(HttpStatus.CREATED)
 	ProjectResponse importProject(@RequestBody ProjectFile file) {
-		return ProjectResponse.from(transfer.importProject(file.toExport()));
+		return ProjectResponse.from(transfer.importProject(file.toExport(json)));
 	}
 
 	@GetMapping

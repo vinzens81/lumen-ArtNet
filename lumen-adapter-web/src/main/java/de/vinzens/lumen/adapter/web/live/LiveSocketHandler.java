@@ -43,8 +43,8 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
- * {@code health} (every second), {@code library}, {@code access}, {@code patch},
- * {@code scenes}, {@code nodes}, {@code projects} (the last six ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code health} (every second), {@code compositions}, {@code library}, {@code access},
+ * {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last seven ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1"]}} a client gets {@code output}
@@ -191,6 +191,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case PROJECTS -> message.put("type", "projects");
 			case ACCESS -> message.put("type", "access");
 			case LIBRARY -> message.put("type", "library");
+			case COMPOSITIONS -> message.put("type", "compositions");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));

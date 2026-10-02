@@ -4,6 +4,7 @@ import de.vinzens.lumen.adapter.sqlite.SqliteBackups;
 import de.vinzens.lumen.adapter.sqlite.SqliteDatabase;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.backup.BackupService;
+import de.vinzens.lumen.application.composition.CompositionService;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
@@ -56,7 +57,14 @@ class PersistenceConfiguration {
 	ProjectTransferService projectTransferService(SqliteRepositories repositories, Clock clock,
 			OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				repositories.groups(), repositories.scenes(), repositories.stagePlans(), clock, outputEngine);
+				repositories.groups(), repositories.scenes(), repositories.stagePlans(), repositories.compositions(),
+				clock, outputEngine);
+	}
+
+	@Bean
+	CompositionService compositionService(SqliteRepositories repositories, StateEvents stateEvents) {
+		return new CompositionService(repositories.projects(), repositories.scenes(), repositories.fixtures(),
+				repositories.groups(), repositories.compositions(), stateEvents);
 	}
 
 	@Bean

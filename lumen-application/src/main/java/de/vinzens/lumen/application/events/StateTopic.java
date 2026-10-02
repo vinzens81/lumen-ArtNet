@@ -25,5 +25,7 @@ public enum StateTopic {
 	/** PIN or network access changed, or all clients were locked. */
 	ACCESS,
 	/** The fixture library was reloaded. */
-	LIBRARY
+	LIBRARY,
+	/** Compositions in the library or in scenes changed. */
+	COMPOSITIONS
 }
