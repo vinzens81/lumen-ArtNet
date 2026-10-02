@@ -1,0 +1,35 @@
+# Rtktoup LED par 4 × 10 W RGBW (model MCSJ-1640, sold on Amazon e.g. as B0DG29Z3K2): DMX 4 / 8 channels.
+#
+# UNVERIFIED: no DMX table was found online (the listing only says "4/8CH"). The 4ch mode is almost certainly
+# R/G/B/W. The 8ch layout is the one most of these no-name mini pars use – check it against the printed manual
+# or by raising one channel at a time in the programmer and watching the lamp.
+# Some buyers report the LEDs are RGB only; then the white channel simply does nothing.
+id: rtktoup-led-par-4x10w-rgbw
+manufacturer: Rtktoup
+model: LED Par 4 × 10 W RGBW (MCSJ-1640)
+category: par
+
+modes:
+  # no dimmer channel: Lumen dims through red/green/blue/white (virtual dimmer)
+  - name: 4ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+
+  # assumed layout, see above
+  - name: 8ch
+    channels:
+      - function: dimmer
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: strobe
+        default: 0
+      - function: program
+        default: 0
+      - function: speed
+        name: Program speed
+        default: 0
