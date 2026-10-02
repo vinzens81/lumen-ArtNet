@@ -8,6 +8,17 @@ Javadoc, Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in 
 
 ## Build & Run
 
+Für den Alltag gibt es zwei Skripte im Projekt-Root (`--help` zeigt alle Optionen):
+
+```bash
+./build.sh              # sauberer Build mit allen Tests; --fast ohne Tests
+./run.sh                # startet das gebaute JAR (baut vorher, falls keins da ist); --build baut immer neu
+./run.sh --test         # Art-Net aus, eigene DB data/test.db – zum Ausprobieren ohne echte Geräte
+./run.sh -- --server.port=8099   # alles nach -- geht an Lumen
+```
+
+Die Maven-Befehle direkt:
+
 ```bash
 ./mvnw verify                                 # Build + alle Tests (inkl. ArchUnit)
 ./mvnw -pl lumen-app -am compile spring-boot:run   # App starten → http://127.0.0.1:8080/actuator/health
