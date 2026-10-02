@@ -3,6 +3,7 @@ package de.vinzens.lumen.config;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.access.AccessService;
 import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputEngine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +21,10 @@ class AccessConfiguration {
 
 	private static final Logger log = LoggerFactory.getLogger(AccessConfiguration.class);
 
+	/** Created after the saved operating mode is restored, so restoring show mode does not count as entering it. */
 	@Bean
 	AccessService accessService(SqliteRepositories repositories, OutputEngine outputEngine, Clock clock,
-			StateEvents stateEvents, LumenProperties properties) {
+			StateEvents stateEvents, LumenProperties properties, OperatingModeKeeper operatingModeKeeper) {
 		var access = new AccessService(repositories.settings(), outputEngine, clock, stateEvents,
 				properties.networkAccess());
 		log.info("Configuration PIN: {}", access.pinSet() ? "set" : "not set");

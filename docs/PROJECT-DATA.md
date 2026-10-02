@@ -13,12 +13,13 @@ und welche Szenen es gibt.
 ## Entscheidungen
 
 - **Eine Datenbankdatei** (`data/lumen.db`) mit beliebig vielen Projekten. Genau ein Projekt ist *aktiv*.
-- **Export/Import eines Projekts** als einzelne Datei (JSON, später auch als eigene `.sqlite`) –
-  als Backup und um eine Show auf einen anderen Rechner mitzunehmen.
+- **Export/Import eines Projekts** als einzelne JSON-Datei (`<Name>.lumen.json`) – als Backup und um eine Show auf
+  einen anderen Rechner mitzunehmen. Zusätzlich sichert Lumen automatisch die ganze Datenbank nach `data/backups/`.
 - **Zugriff:** `sqlite-jdbc` (xerial) + Spring `JdbcClient`, kein JPA (SQLite und Hibernate passen schlecht zusammen,
   und das Schema ist überschaubar).
 - **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
-  Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), Szenen, `app_setting` und `playback_state` folgen.
+  Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
+  V3 = `app_setting` und `playback_state` (Iteration 8).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -83,14 +84,34 @@ scene_value                                     -- Werte einer Szene, normalisie
   PRIMARY KEY(scene_id, fixture_id, attribute)
 
 app_setting                                     -- projektübergreifende Einstellungen
-  key             TEXT PK                       -- z.B. 'config_pin_hash'
-  value           TEXT
+  key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
+  value           TEXT NOT NULL
 
 playback_state                                  -- für Wiederaufnahme nach Absturz/Neustart
-  project_id      PK, FK → project
-  current_scene_id FK → scene NULL
-  updated_at      TEXT
+  project_id      PK, FK → project ON DELETE CASCADE
+  current_scene_id FK → scene ON DELETE SET NULL   -- NULL = dunkel (vor Szene 1 oder nach dem Ende)
+  updated_at      TEXT NOT NULL
 ```
+
+### Projektdatei (Export/Import)
+
+```json
+{
+  "format": "lumen-project", "version": 1, "exportedAt": "2026-10-02T19:30:00Z",
+  "project":   { "name": "Der Sturm", "venue": "Stadttheater", "fadeInMs": 3000, "fadeOutMs": 3000 },
+  "universes": [ { "id": 1, "number": 1, "name": "Bühne", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
+                   "mode": "auto", "ipAddresses": [] } ],
+  "fixtures":  [ { "id": 7, "name": "Front links", "shortName": "FL", "fixtureTypeId": "generic-rgbw-par",
+                   "mode": "8ch", "universeId": 1, "address": 1, "position": null, "sortOrder": 0 } ],
+  "groups":    [ { "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],
+  "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
+                   "values": { "7": { "dimmer": 1.0, "blue": 0.8 } } } ]
+}
+```
+
+Die IDs verbinden nur die Teile der Datei. Beim Import entsteht ein **neues Projekt** mit neuen IDs; heißt schon ein
+Projekt so, bekommt es den Zusatz „(imported)“. Verweise auf unbekannte Universen/Fixtures werden abgelehnt, ohne
+ein halbes Projekt zu hinterlassen. Fehlende Gerätetypen sind erlaubt und erscheinen als Patch-Problem.
 
 **Reihenfolge = Szenennummer** (numerisch: 1 < 2 < 2.5 < 10). Einfügen geht über Dezimalnummern, eine separate
 Sortierspalte gibt es nicht – so kann Szene 5 nie vor Szene 3 stehen. Multi-Pixel-Geräte bekommen später eigene

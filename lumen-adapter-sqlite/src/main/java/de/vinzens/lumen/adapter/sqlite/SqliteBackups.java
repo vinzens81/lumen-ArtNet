@@ -9,7 +9,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
-import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.Comparator;
 import java.util.List;
@@ -18,14 +17,13 @@ import java.util.stream.Stream;
 
 /**
  * Backs up the database with {@code VACUUM INTO}, which writes a consistent copy while the application keeps
- * running. Only the newest {@code keep} backups are kept.
+ * running. Only the newest {@code keep} backups are kept. File names carry the time in the zone of the clock.
  *
  * <p>To restore a backup, stop Lumen and copy the file over the database file.
  */
 public class SqliteBackups implements DatabaseBackups {
 
-	private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS")
-			.withZone(ZoneOffset.UTC);
+	private static final DateTimeFormatter TIMESTAMP = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss-SSS");
 	private static final Pattern NAME = Pattern.compile("lumen-\\d{8}-\\d{6}-\\d{3}(-\\d+)?-[a-z0-9-]+\\.db");
 	private static final Pattern REASON = Pattern.compile("[a-z0-9-]+");
 
@@ -51,7 +49,7 @@ public class SqliteBackups implements DatabaseBackups {
 		}
 		try {
 			Files.createDirectories(directory);
-			var stamp = TIMESTAMP.format(clock.instant());
+			var stamp = TIMESTAMP.withZone(clock.getZone()).format(clock.instant());
 			var file = directory.resolve("lumen-" + stamp + "-" + reason + ".db");
 			for (int i = 2; Files.exists(file); i++) {
 				file = directory.resolve("lumen-" + stamp + "-" + i + "-" + reason + ".db");

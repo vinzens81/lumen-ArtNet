@@ -101,7 +101,8 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 - **Vor der ersten Szene** ist der Zustand „Blackout / Einlass“. Das erste GO blendet Szene 1 ein.
 - **Nach der letzten Szene** blendet ein GO alles mit `fade_out_ms` auf Schwarz („Ende“).
 - Die aktuelle Szene wird in `playback_state` gespeichert. Nach einem Neustart bietet der Betriebsmodus an, dort
-  weiterzumachen (Szene wird direkt ohne Fade gesetzt).
+  weiterzumachen (Szene wird direkt ohne Fade gesetzt, ihr Auto-Follow-Countdown beginnt neu). „Start from the
+  beginning“ oder ein GO verwirft das Angebot.
 
 ## Umsetzung
 
@@ -111,7 +112,8 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
   (inkl. `fade: snap|smooth`).
 - Das Playback ist eine Ausgabe-Ebene (Priorität 50) **unter** dem Programmer (100).
 - Doppel-GO-Schutz: Client 300 ms, Server 200 ms.
-- Beim Start des Servers steht das Playback auf „Ready“ (dunkel); Wiederaufnahme nach Neustart folgt in Iteration 8.
+- Beim Start des Servers steht das Playback auf „Ready“ (dunkel). Gibt es eine gespeicherte Szene, nennt der Status
+  sie als `resumeSceneId`; `POST /api/playback/resume` setzt sie (`Playback.restore`).
 
 ## Programmer vs. Playback
 
@@ -120,7 +122,8 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 - Im **Betriebsmodus** gibt nur das Playback aus. Der Programmer ist gesperrt (der Server lehnt Änderungen mit 409 ab),
   damit niemand während der Vorstellung versehentlich etwas verstellt.
 - Beim Wechsel Konfiguration → Betrieb wird der Programmer geleert. Der Modus ist Server-Zustand: alle verbundenen
-  Browser wechseln mit. Zurück in den Konfigurationsmodus geht es nur mit Bestätigung (später PIN).
+  Browser wechseln mit. Zurück in den Konfigurationsmodus geht es nur mit Bestätigung bzw. mit der PIN, falls eine
+  gesetzt ist. Auch der Modus überlebt einen Neustart.
 
 ## Mögliche Erweiterungen (Backlog)
 

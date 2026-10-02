@@ -97,11 +97,11 @@
     {:else}
       <form class="pin-form" onsubmit={(e) => { e.preventDefault(); if (pinValid) savePin(newPin); }}>
         <label class="field">{access.status?.pinSet ? 'New PIN' : 'PIN'}
-          <input type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" bind:value={newPin}
+          <input type="password" inputmode="numeric" autocomplete="new-password" data-1p-ignore maxlength="12" bind:value={newPin}
             placeholder="4–12 digits" />
         </label>
         <label class="field">Repeat PIN
-          <input type="password" inputmode="numeric" autocomplete="new-password" maxlength="12" bind:value={confirmPin} />
+          <input type="password" inputmode="numeric" autocomplete="new-password" data-1p-ignore maxlength="12" bind:value={confirmPin} />
         </label>
         <div class="actions">
           <button class="btn primary" type="submit" disabled={!pinValid}>

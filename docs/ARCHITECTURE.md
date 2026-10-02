@@ -140,7 +140,10 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 |---|---|
 | `GET /api/library/fixture-types`, `GET /api/library/issues` | Gerätebibliothek |
 | `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) |
-| `GET /api/projects/{id}/export`, `POST /api/projects/import` | Backup / Mitnehmen |
+| `GET /api/projects/{id}/export`, `POST /api/projects/import` | Projekt als JSON-Datei (Format siehe [PROJECT-DATA.md](PROJECT-DATA.md)) / als neues Projekt importieren |
+| `GET /api/backups` · `POST /api/backups` | DB-Backups auflisten (inkl. Ordner) · sofort ein Backup anlegen |
+| `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN-Status dieses Browsers, entsperren (403 falsche PIN, 429 nach 5 Fehlversuchen), sperren |
+| `PUT /api/access/pin` `{pin\|null}` · `PUT /api/access/network` `{enabled}` | PIN setzen/ändern/entfernen · Netzwerkzugriff (wirkt nach Neustart) |
 | `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
@@ -150,7 +153,7 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 
 Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
 `CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
-Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
+Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"locked": true` (PIN nötig), 404, 409.
 | `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live-Werte (aktives Projekt) |
 | `PATCH /api/programmer/fixtures` `{fixtureIds, values}` · `POST /api/programmer/clear` `{fixtureIds}` | Auswahl setzen/löschen; jedes Gerät bekommt nur seine Attribute |
 | `PATCH /api/programmer/groups/{id}` | Live-Werte für alle Mitglieder einer Gruppe |
@@ -160,10 +163,12 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 | Endpunkt | Zweck |
 |---|---|
 | `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern, Status |
+| `POST /api/playback/resume` · `DELETE /api/playback/resume` | nach einem Neustart bei `resumeSceneId` weitermachen · Angebot verwerfen |
 | `PUT /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
-| `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer |
+| `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer, zurück nach `setup` nur entsperrt |
 | `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand Master / Blackout |
 | `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor), `n` = Universe-Nummer im aktiven Projekt |
+| `GET /api/output/health` | Render-Loop und Art-Net der letzten Sekunde: `level` (ok/warning/error), `problems`, Raten |
 
 **Attributwerte** sind normalisiert (0.0–1.0) und werden über die Attribut-ID adressiert, z.B.
 `{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`.
@@ -172,25 +177,41 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 
 | Richtung | Nachricht |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
+| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
 | Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`) |
 
-Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status und Modus. Den Fade-Fortschritt
+Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status, Modus und Health. `programmer.set` braucht
+bei gesetzter PIN einen entsperrten Browser; nach dem Entsperren verbindet sich der Client neu. Den Fade-Fortschritt
 interpoliert der Client selbst (der Status enthält die verstrichene Zeit beim Senden). Intern veröffentlicht die Application-Schicht Änderungen über `StateEvents`; der Web-Adapter
 abonniert sie – so bleibt die Abhängigkeitsrichtung nach innen.
 
 ## Betriebssicherheit (Theater!)
 
 - Die Ausgabe läuft unabhängig vom Browser: Schließt sich der Tab oder fällt das WLAN aus, bleibt das Licht stehen.
-- Die aktuelle Szene wird persistiert, nach einem Neustart kann die Show dort fortgesetzt werden.
-- Automatisches DB-Backup beim Projektwechsel und beim Start des Betriebsmodus (`data/backups/`).
+- Die aktuelle Szene wird persistiert (`playback_state`), ebenso der Betriebsmodus (`app_setting`). Nach einem
+  Neustart startet Lumen im selben Modus, das Licht bleibt dunkel und der Betriebsmodus bietet an, bei der
+  gespeicherten Szene weiterzumachen. Gespeichert wird auf einem eigenen Thread, der Render-Loop wartet nie auf die DB.
+- Automatisches DB-Backup (`VACUUM INTO`, konsistent im laufenden Betrieb) beim Start, beim Projektwechsel und beim
+  Start des Betriebsmodus nach `data/backups/`; die neuesten 30 bleiben (`lumen.backup.*`). Wiederherstellen: Lumen
+  beenden und die Datei über `data/lumen.db` kopieren.
+- **Watchdog:** Der Render-Loop fängt jeden Fehler im Tick ab (auch `Error`). Hängt ein Tick länger als 2 s, ersetzt
+  der Watchdog den Render-Thread. Jede Sekunde werden Render-Rate und Art-Net-Pakete/s gemessen und an alle Clients
+  geschickt; die Kopfleiste zeigt den Zustand (z.B. „Art-Net 40/s“, Warnung bei Sendefehlern oder ohne Empfänger).
+- **Durchlauftest:** `ShowSoakTest` spielt 3 h Show (40 Hz, Auto-Follow, GO, Pause, Master, Blackout) mit simulierter
+  Uhr in wenigen Sekunden und prüft, dass der Heap nicht wächst.
 
 ## Betrieb & Zugriff
 
 - Zielplattform ist ein **Laptop am Regieplatz**: Server, Browser und MIDI-Controller laufen auf demselben Gerät,
   der Art-Net-Node hängt per Netzwerkkabel dran.
-- Der HTTP-Server lauscht standardmäßig nur auf **`127.0.0.1`**. Zugriff von Tablet/Handy im Netz wird per
-  Einstellung (`lumen.network-access=true` bzw. im UI) freigeschaltet.
-- **Konfigurations-PIN:** Der Betriebsmodus ist ohne Login nutzbar. Alle schreibenden Konfigurations-Endpunkte
-  (Patch, Szenen, Programmer, Einstellungen) erfordern eine Session, die mit der PIN entsperrt wurde. Die PIN liegt
-  gehasht (z.B. Argon2/BCrypt) in `app_setting`. Umsetzung mit Spring Security im Web-Adapter.
+- Der HTTP-Server lauscht standardmäßig nur auf **`127.0.0.1`**. Zugriff von Tablet/Handy im Netz wird unter
+  Settings freigeschaltet (wirkt nach einem Neustart, dann lauscht er auf `0.0.0.0`) oder fest per
+  `lumen.network-access=true`.
+- **Konfigurations-PIN** (optional): Lesen und der Betrieb (Playback, Master, Blackout, Wechsel in den Betriebsmodus)
+  gehen immer ohne PIN. Alle anderen schreibenden Endpunkte und `programmer.set` per WebSocket brauchen eine
+  HTTP-Session, die mit der PIN entsperrt wurde. Der Start des Betriebsmodus sperrt alle Browser wieder, also fragt
+  der Weg zurück in die Konfiguration nach der PIN. Die PIN (4–12 Ziffern) liegt als gesalzener PBKDF2-Hash in
+  `app_setting`; nach 5 falschen Eingaben ist das Entsperren 30 s blockiert.
+- Umsetzung ohne Spring Security: ein `HandlerInterceptor` im Web-Adapter prüft die Session, die Logik
+  (`AccessService`) liegt in der Application-Schicht. Eine Sperr-„Epoche“ zählt hoch, wenn alle Browser gesperrt
+  werden; eine Session ist entsperrt, solange ihre Epoche aktuell ist.

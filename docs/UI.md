@@ -19,7 +19,8 @@ Modi auslegen.
 
 Der Wechsel erfolgt über einen Schalter oben rechts. **Betrieb → Konfiguration** erfordert die
 **Konfigurations-PIN**, damit es nicht versehentlich während der Vorstellung passiert. Ist keine PIN gesetzt,
-genügt eine Bestätigung (gedrückt halten).
+genügt eine Bestätigung. Mit PIN zeigt die Kopfleiste im Konfigurationsmodus „🔒 Locked“ bzw. „🔓 Unlocked“; eine
+gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
 
 ## Look & Feel
 
@@ -53,7 +54,8 @@ genügt eine Bestätigung (gedrückt halten).
 ```
 
 ### Tabs
-- **Projekt-Auswahl** (oben links): Projekt anlegen, wechseln, duplizieren, exportieren/importieren.
+- **Projekt-Auswahl** (oben links): Projekt wechseln. Im Tab **Projects** anlegen, bearbeiten, exportieren
+  (Download als `.lumen.json`) und importieren.
 - **Universen:** Art-Net-Ziele anlegen (IP/Broadcast, Net/SubNet/Universe), später Node-Discovery.
 - **Patch:**
   - Gerätebibliothek links durchsuchen, Gerät per „+“ oder Drag & Drop hinzufügen (Name, Modus, Universe, Adresse,
@@ -63,7 +65,9 @@ genügt eine Bestätigung (gedrückt halten).
 - **Bühne:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild).
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen.
-- **⚙ Einstellungen:** **globale Fade-In-/Fade-Out-Zeit**, Grand-Master-Verhalten, Tastenkürzel, später MIDI-Mapping mit MIDI-Learn ([MIDI.md](MIDI.md)).
+- **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
+  „Back up now“. Die globalen Fade-Zeiten stehen beim Projekt. Später Tastenkürzel und MIDI-Mapping mit MIDI-Learn
+  ([MIDI.md](MIDI.md)).
 
 ### Programmer (rechts)
 Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte eine neue YAML:

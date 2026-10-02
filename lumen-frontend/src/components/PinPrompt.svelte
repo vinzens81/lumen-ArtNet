@@ -49,6 +49,7 @@
       type="password"
       inputmode="numeric"
       autocomplete="off"
+      data-1p-ignore
       maxlength="12"
       aria-label="PIN"
       aria-invalid={error !== null}

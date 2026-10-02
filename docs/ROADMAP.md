@@ -107,14 +107,22 @@ mit einem simulierten ESP (gleiches ArtPollReply-Format wie die Firmware) end-to
 **DoD:** Eine komplette Show kann per Leertaste durchgespielt werden, Fade-Out und Fade-In laufen parallel,
 ein Doppel-GO erzeugt keinen Sprung.
 
-## ⬜ Iteration 8 – Theatertauglichkeit / Robustheit
-- `playback_state` persistieren, Wiederaufnahme nach Neustart
-- Projekt-Export/-Import, automatische DB-Backups
-- Render-Loop gegen Fehler absichern, Watchdog/Health-Status im UI (Art-Net live, Pakete/s)
-- Konfigurations-PIN (gehasht in `app_setting`), Netzwerkzugriff per Einstellung freischalten
-- Durchlauftest: 3 h Show-Simulation ohne Speicherwachstum
+## ✅ Iteration 8 – Theatertauglichkeit / Robustheit 🛡️
+- `playback_state` persistieren, Wiederaufnahme nach Neustart: Banner „Resume the show?“ im Betriebsmodus, die Szene
+  kommt ohne Fade zurück. Auch der Betriebsmodus überlebt einen Neustart (`app_setting`), Flyway `V3`
+- Projekt-Export/-Import als `.lumen.json` (Import legt immer ein neues Projekt an), automatische DB-Backups per
+  `VACUUM INTO` beim Start, Projektwechsel und Start des Betriebsmodus, die neuesten 30 bleiben
+- Render-Loop fängt auch `Error`s ab, Watchdog ersetzt einen hängenden Render-Thread; Health-Status (Render-Rate,
+  Art-Net-Pakete/s, Sendefehler) jede Sekunde per WebSocket, Anzeige in der Kopfleiste
+- Konfigurations-PIN (PBKDF2-Hash in `app_setting`, Sperre nach 5 Fehlversuchen), der Start des Betriebsmodus sperrt
+  alle Browser. Netzwerkzugriff per Einstellung (wirkt nach Neustart). Umgesetzt ohne Spring Security
+  (Session + `HandlerInterceptor`)
+- Neuer Tab **Settings**: PIN, Netzwerkzugriff, Backups
+- Durchlauftest `ShowSoakTest`: 3 h Show-Simulation (432.000 Frames, simulierte Uhr) in ca. 5 s, Heap bleibt konstant
 
 **DoD:** Server während der Szene 4 hart beenden und neu starten: Licht ist nach Bestätigung wieder in Szene 4.
+Geprüft mit `ResumeAfterRestartTest`: zwei App-Starts auf derselben Datenbank. Nach dem Neustart steht der Server
+wieder im Betriebsmodus, das Licht ist dunkel, und nach „Resume“ liegt Szene 4 wieder auf dem DMX-Ausgang.
 
 ## ⬜ Iteration 9 – Bühnenansicht & Komfort
 - 2D-Bühne mit Positionen, Drag & Drop, optionales Grundriss-Bild, Glow und Lichtkegel
