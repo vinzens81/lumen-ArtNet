@@ -41,6 +41,8 @@
   const targetIds = $derived(targetFixtures(draft, groups));
   const unsuitable = $derived(unsuitableFixtures(draft.kind, targetIds, modes));
   const fast = $derived(isFast(draft));
+  /** flicker and random chases have no end */
+  const canRunOnce = $derived(draft.kind !== 'flicker' && !(draft.kind === 'chase' && p.direction === 'random'));
   const onStage = $derived(stagePreview.status.compositionId === composition.id);
 
   // a different composition, or a change from elsewhere while nothing is pending here
@@ -74,6 +76,7 @@
       level: draft.level,
       speedFactor: draft.speedFactor,
       restart: draft.restart,
+      once: draft.once,
     };
     const snapshot = JSON.stringify(draft);
     try {
@@ -408,6 +411,10 @@
         <input type="range" min="0" max="1" step="0.01" bind:value={draft.level} /></label>
       <label class="field">Tempo · {draft.speedFactor.toFixed(2)}×
         <input type="range" min="0.25" max="4" step="0.05" bind:value={draft.speedFactor} /></label>
+      {#if canRunOnce}
+        <label class="check"><input type="checkbox" bind:checked={draft.once} />
+          Run once <span class="hint">(stops at the end and stays there – e.g. a sunrise)</span></label>
+      {/if}
       {#if isCopy}
         <label class="check"><input type="checkbox" bind:checked={draft.restart} />
           Restart at GO <span class="hint">(otherwise it continues from the previous scene)</span></label>

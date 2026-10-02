@@ -193,6 +193,30 @@ export interface PlaybackStatus {
   autoFollowInMs: number | null;
   /** scene that was on stage before a server restart and can be resumed */
   resumeSceneId: number | null;
+  /** assigned extra keys */
+  keys: KeyStatus[];
+}
+
+export type KeyMode = 'toggle' | 'flash';
+
+export interface KeyStatus {
+  slot: number;
+  name: string;
+  kind: CompositionKind;
+  mode: KeyMode;
+  /** switched on (possibly still fading in) */
+  on: boolean;
+  /** current fade level 0–1 */
+  level: number;
+  /** usable in the scene on stage */
+  available: boolean;
+}
+
+export interface ExtraKey {
+  slot: number;
+  mode: KeyMode;
+  fadeMs: number;
+  composition: Composition;
 }
 
 /** Health of the light output, measured by the server every second. */
@@ -310,6 +334,8 @@ export interface Composition {
   level: number;
   speedFactor: number;
   restart: boolean;
+  /** runs through once and stays at the end */
+  once: boolean;
 }
 
 export interface CompositionRequest {
@@ -321,4 +347,5 @@ export interface CompositionRequest {
   level?: number;
   speedFactor?: number;
   restart?: boolean;
+  once?: boolean;
 }

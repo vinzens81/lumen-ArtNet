@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import KeyBar from '../components/KeyBar.svelte';
   import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
@@ -249,6 +250,7 @@
       </button>
       <button type="button" class="btn secondary" onclick={() => live.playbackCommand('finish')} disabled={!status?.fade}>⏭ Finish fade <kbd>↵</kbd></button>
     </div>
+    <div class="key-bar"><KeyBar keys={status?.keys ?? []} /></div>
     </div>
   </div>
 </section>
@@ -558,6 +560,7 @@
   /* phone as a remote: now, next, GO and Back – nothing else to hit by accident */
   @media (max-width: 600px) {
     .list,
+    .key-bar,
     .out-panel,
     .controls .secondary,
     .go .hint,

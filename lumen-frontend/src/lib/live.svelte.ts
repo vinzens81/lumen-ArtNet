@@ -218,6 +218,20 @@ class LiveState {
     }
   }
 
+  /** Extra key pressed or released; via WebSocket for low latency, REST as fallback. */
+  keyCommand(slot: number, action: 'press' | 'release') {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: `keys.${action}`, slot }));
+    } else {
+      (action === 'press' ? api.playback.pressKey(slot) : api.playback.releaseKey(slot))
+        .then((status) => {
+          this.playback = status;
+          this.playbackReceivedAt = performance.now();
+        })
+        .catch(showError);
+    }
+  }
+
   async setMode(mode: OperatingMode) {
     try {
       this.mode = (await api.mode.set(mode)).mode;

@@ -2,6 +2,7 @@
   import Modal from '../components/Modal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import SceneCompositions from '../components/SceneCompositions.svelte';
+  import SceneExtraKeys from '../components/SceneExtraKeys.svelte';
   import { api } from '../lib/api';
   import { modesOf, previewOf, rgbToCss, swatchesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
@@ -363,6 +364,7 @@
 
           {#if projectId !== null}
             <SceneCompositions {projectId} sceneId={selected.id} {fixtures} {groups} {modes} />
+            <SceneExtraKeys {projectId} sceneId={selected.id} />
           {/if}
 
           <section>

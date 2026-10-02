@@ -1,5 +1,6 @@
 <script lang="ts">
   import CompositionEditor from '../components/CompositionEditor.svelte';
+  import ExtraKeysPanel from '../components/ExtraKeysPanel.svelte';
   import Modal from '../components/Modal.svelte';
   import { api } from '../lib/api';
   import { modesOf } from '../lib/color';
@@ -129,6 +130,9 @@
         {/if}
       </article>
     </div>
+    {#if projectId !== null}
+      <ExtraKeysPanel {projectId} {library} {fixtures} {groups} {modes} />
+    {/if}
   {/if}
 </section>
 

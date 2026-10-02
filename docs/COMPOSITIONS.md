@@ -1,7 +1,7 @@
 # Kompositionen & dynamische Szenen
 
-> **Status:** K1 (Engine, Datenbank, REST-API) und K2 (Editor, Vorschau, Szenen-Editor) sind umgesetzt,
-> Extra-Tasten und Erweiterungen (K3) folgen
+> **Status:** umgesetzt (K1 Engine, K2 Editor und Vorschau, K3 Extra-Tasten und einmalige Abläufe). Offen sind nur
+> Multi-Pixel-Zellen als Ziel.
 > (siehe [ROADMAP.md](ROADMAP.md), Iteration K). Abweichungen vom ursprünglichen Konzept stehen unter
 > [Umsetzung K1](#umsetzung-k1).
 
@@ -302,9 +302,32 @@ composition_step_value                          -- Werte pro Schritt, normalisie
   RGB, Intensität ohne Dimmer) und schnelles Blitzen (Lauflicht/Welle unter 333 ms mit großem Hub, „defekte Röhre“).
 - **Szenenlisten** (Konfiguration und Betrieb) zeigen die Typ-Symbole der Kompositionen einer Szene.
 
+## Umsetzung K3
+
+- **Extra-Tasten:** 8 Plätze pro Projekt (`composition.key_slot`), jede Taste mit eigener Kopie einer
+  Bibliotheks-Komposition, Modus **Toggle** oder **Flash** (an, solange gedrückt) und einer Fade-Zeit für Ein- und
+  Ausblenden. Zuweisen im Tab „Compositions“ (Abschnitt „Extra keys“), die Komposition einer Taste wird im gleichen
+  Editor bearbeitet.
+- **Pro Szene freigeschaltet** (Entscheidung 2026-10-02, Tabelle `scene_extra_key`): Im Szenen-Editor wird
+  angehakt, welche Tasten in der Szene nutzbar sind. Eine neu belegte Taste ist zunächst in allen Szenen frei, eine
+  neue Szene übernimmt die Tasten der Szene davor. Vor der ersten Szene und am Ende ist keine Taste nutzbar.
+- **Ausgehen:** Führt ein GO in eine Szene ohne die Taste, blendet sie aus; ebenso beim GO auf „Ende“
+  (Entscheidung: aus am Ende der Show). Blackout und Grand Master dimmen die Tasten, schalten sie aber nicht aus.
+- **Mischung:** Die Tasten werden im Playback **über dessen Ausgabe** gelegt, mit den Regeln aus „Mischung in der
+  Szene“ (Intensität HTP bzw. relativ, Farbe LTP mit Level × Fade). Ein Flackern auf einer Taste flackert also um die
+  Helligkeit der aktuellen Szene. Bei mehreren Tasten gewinnt die höhere Nummer. Tasten laufen auf der echten Uhr,
+  Pause hält sie nicht an.
+- **Bedienung im Betrieb:** Tastenleiste unter GO (auf dem Handy ausgeblendet) und Tasten `1`–`8`;
+  REST `POST /api/playback/keys/{slot}/press` · `/release`, WebSocket `keys.press` / `keys.release` mit `slot`.
+  Wie GO ohne PIN. Der Playback-Status enthält `keys` (`on`, `level`, `available`).
+- **Einmalige Abläufe:** Schalter „Run once“ (`once`) an jeder Komposition. Lauflicht vorwärts/rückwärts bleibt am
+  letzten Gerät, Farbwechsel bei der letzten Farbe, Welle nach einer Periode (Sägezahn oben), Schrittfolge beim
+  letzten Schritt. Flackern und zufälliges Lauflicht haben kein Ende.
+- **Export:** Tasten (`extraKeys`) und die Tasten jeder Szene (`scenes[].extraKeys`) reisen im Projekt-Export mit.
+
 ## Noch offen (vor dem Start klären)
 
-- Anzahl der Extra-Tasten und ob sie pro Szene ein-/ausgeblendet werden können (z.B. „Gewitter“ nur in Akt 2)
-- Sollen Extra-Tasten bei „Ende“ / Blackout automatisch ausgehen?
+- ~~Anzahl der Extra-Tasten, pro Szene?~~ → 8, pro Szene freigeschaltet (siehe Umsetzung K3)
+- ~~Ausgehen bei „Ende“ / Blackout?~~ → aus am Ende; Blackout dimmt nur
 - Schrittfolgen mit Gruppen-Ziel: Werte pro Fixture (wie aufgenommen) oder relativ zur Position in der Gruppe, damit
   auch Schrittfolgen dynamisch mit der Gruppe mitwachsen?

@@ -149,6 +149,7 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
 | `CRUD /api/projects/{id}/compositions` · `/scenes/{sceneId}/compositions` | Kompositions-Bibliothek und Kopien in Szenen, siehe [COMPOSITIONS.md](COMPOSITIONS.md#umsetzung-k1) |
 | `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Komposition oder ganze Szene zum Ausprobieren auf der Bühne zeigen (nur Konfigurationsmodus) |
+| `GET /api/projects/{id}/extra-keys` · `PUT/DELETE …/extra-keys/{slot}` · `GET/PUT …/scenes/{sid}/extra-keys` | Extra-Tasten belegen (`{libraryId, mode, fadeMs}`) und pro Szene freischalten (`{slots}`) |
 | `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
@@ -168,6 +169,7 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"
 | Endpunkt | Zweck |
 |---|---|
 | `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern, Status |
+| `POST /api/playback/keys/{slot}/press` · `/release` | Extra-Taste 1–8 drücken / loslassen (Toggle bzw. Flash) |
 | `POST /api/playback/resume` · `DELETE /api/playback/resume` | nach einem Neustart bei `resumeSceneId` weitermachen · Angebot verwerfen |
 | `PUT /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
 | `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer, zurück nach `setup` nur entsperrt |
@@ -184,7 +186,7 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"
 |---|---|
 | Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` (Client lädt per REST neu); nach einem Abo
 `{"type":"output","values":{…}}` (Werte wie gesendet, vor dem Master) und `{"type":"dmx","universe":n,"values":[…512]}`, `{"type":"error","message":…}` |
-| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung; `preview:<id>` liefert `{"type":"preview","compositionId":…,"values":{…}}` für den Editor) |
+| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"keys.press","slot":1}` (ebenso `keys.release`), `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung; `preview:<id>` liefert `{"type":"preview","compositionId":…,"values":{…}}` für den Editor) |
 
 Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status, Modus und Health. `programmer.set` braucht
 bei gesetzter PIN einen entsperrten Browser; nach dem Entsperren verbindet sich der Client neu. Den Fade-Fortschritt

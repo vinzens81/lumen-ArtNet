@@ -136,7 +136,13 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 - Kein Programmer, kein Patch, keine Szenenbearbeitung. Nur Master und Blackout.
 
 ### Tastatur (Betrieb)
-`Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen
+`Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen ·
+`1`–`8` Extra-Tasten (Flash: solange gedrückt)
+
+### Extra-Tasten (Betrieb)
+Unter GO liegt die Tastenleiste mit den belegten Extra-Tasten (Name, Typ-Symbol, an/aus). Sie leuchten beim Ein- und
+Ausblenden mit. In der aktuellen Szene nicht freigeschaltete Tasten sind ausgegraut. Auf dem Handy ist die Leiste
+ausgeblendet.
 
 ---
 

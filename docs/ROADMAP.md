@@ -141,7 +141,7 @@ wieder im Betriebsmodus, das Licht ist dunkel, und nach „Resume“ liegt Szene
 Geprüft im Browser (Desktop, Tablet-Hochformat 820 px, Handy 390 px): Bühne einrichten per Ziehen, Live-Glow bei
 Szenenwechsel, DMX-Monitor, Show-Steuerung. Auf einem echten Tablet noch nicht ausprobiert.
 
-## 🟨 Iteration K – Kompositionen & dynamische Szenen 🌈
+## ✅ Iteration K – Kompositionen & dynamische Szenen 🌈
 Konzept und Entscheidungen: [COMPOSITIONS.md](COMPOSITIONS.md). Szenen bestehen danach aus einer **statischen Basis**
 (wie bisher) plus beliebig vielen **Kompositionen**: Abläufe wie Lauflicht, Farbwechsel auf RGB-PARs oder freie
 Schrittfolgen, die in der Szene über dem festen Licht mitlaufen. Kompositionen werden in einer Bibliothek gepflegt
@@ -174,16 +174,24 @@ und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
   Hinweise auf Überschneidungen, unpassende Geräte und schnelles Blitzen (⚡, ab ca. 3 Hz). Abweichung: Die
   Szenenlisten zeigen Typ-Symbole statt einer animierten Farbvorschau
 
-**K3 – Extra-Tasten & Erweiterungen**
+**✅ K3 – Extra-Tasten & Erweiterungen**
 - **Extra-Tasten im Betriebsmodus:** Kompositionen unabhängig von der Szene zuschalten (Toggle/Flash, Tasten `1`–`8`,
   später MIDI), eigene Ausgabe-Ebene über dem Playback
 - **Einmalige Abläufe** (laufen einmal durch und bleiben am Ende stehen, z.B. Sonnenaufgang)
 - Multi-Pixel-Zellen als Ziel, Kennzeichnung schneller Flacker-/Strobe-Effekte
+- Umgesetzt: 8 Extra-Tasten pro Projekt (Toggle/Flash, Fade-Zeit, eigene Kopie der Komposition), **pro Szene
+  freigeschaltet** (neue Taste: in allen Szenen, neue Szene: erbt die Tasten der Szene davor), gehen bei einer Szene
+  ohne die Taste und beim „Ende“ aus (Flyway `V6`). Tastenleiste und Tasten `1`–`8` im Betriebsmodus, ohne PIN.
+  „Run once“ für alle Typen mit Ende (nicht Flackern / zufälliges Lauflicht). Kennzeichnung schneller Effekte (⚡)
+  seit K2. **Verschoben:** Multi-Pixel-Zellen – die Gerätebibliothek kennt noch keine Multi-Pixel-Geräte
 
 **DoD:** Eine Szene mit warmweißem Grundlicht, einem Lauflicht auf einer Dimmer-Reihe und einem Farbwechsel auf
 den RGB-PARs lässt sich im Browser zusammenstellen. Im Betrieb blenden die Abläufe per GO weich ein und aus, laufen
 in der Folgeszene ohne Sprung weiter, und Pause hält sie an. Per Extra-Taste lässt sich ein Gewitter über jede Szene
 legen.
+Geprüft: Zusammenstellen und Vorschau im Browser (Testserver), Weiterlaufen/Pause/Doppel-GO in Domain-Tests, im
+Betrieb ein „Thunderstorm“ auf Taste 1 per Tastatur über die warmweiße Szene gelegt und wieder ausgeschaltet. Noch
+nicht mit echten Geräten ausprobiert.
 
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)

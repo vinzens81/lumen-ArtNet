@@ -16,6 +16,7 @@ function composition(id: number, kind: Composition['kind'], target: Composition[
     level: 1,
     speedFactor: 1,
     restart: false,
+    once: false,
     ...extra,
   };
 }

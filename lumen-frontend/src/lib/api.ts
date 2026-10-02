@@ -5,6 +5,8 @@ import type {
   Backups,
   Composition,
   CompositionRequest,
+  ExtraKey,
+  KeyMode,
   AttributeValues,
   Fixture,
   FixtureRequest,
@@ -136,6 +138,18 @@ export const api = {
     saveToLibrary: (projectId: number, id: number) =>
       post<Composition>(`/api/projects/${projectId}/compositions/${id}/save-to-library`),
   },
+  extraKeys: {
+    list: (projectId: number) => get<ExtraKey[]>(`/api/projects/${projectId}/extra-keys`),
+    assign: (projectId: number, slot: number, libraryId: number, mode: KeyMode, fadeMs: number) =>
+      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { libraryId, mode, fadeMs }),
+    update: (projectId: number, slot: number, mode: KeyMode, fadeMs: number) =>
+      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { mode, fadeMs }),
+    clear: (projectId: number, slot: number) => del(`/api/projects/${projectId}/extra-keys/${slot}`),
+    ofScene: (projectId: number, sceneId: number) =>
+      get<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`),
+    setForScene: (projectId: number, sceneId: number, slots: number[]) =>
+      put<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`, { slots }),
+  },
   stagePreview: {
     status: () => get<StagePreviewStatus>('/api/stage-preview'),
     showComposition: (projectId: number, id: number) =>
@@ -173,6 +187,8 @@ export const api = {
     pause: () => post<PlaybackStatus>('/api/playback/pause'),
     finish: () => post<PlaybackStatus>('/api/playback/finish'),
     setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
+    pressKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/press`),
+    releaseKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/release`),
     resume: () => post<PlaybackStatus>('/api/playback/resume'),
     dismissResume: () => request<PlaybackStatus>('DELETE', '/api/playback/resume'),
   },
