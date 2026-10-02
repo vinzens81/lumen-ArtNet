@@ -28,6 +28,9 @@ Wiederverwendbare Werte, die man auf beliebige Gruppen „wirft“:
 - **Strahlpaletten:** Gobo, Prisma, Zoom
 
 ### Effekte
+Die Effekt-Engine entsteht schon vorher als [Kompositionen](COMPOSITIONS.md) für dynamische Theater-Szenen
+(Iteration K). Der Party-Modus ergänzt BPM-Kopplung und die Steuerung über Executors.
+
 Parametrisierbare Bewegungen über eine Gruppe, mit Phasenversatz zwischen den Geräten:
 - **Intensität:** Pulse, Sinus, Sägezahn, Chase (Lauflicht), Random-Flackern, Strobe
 - **Farbe:** Rainbow, Farbwechsel zwischen 2–n Farben, Farb-Chase

@@ -124,6 +124,7 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 
 ## Mögliche Erweiterungen (Backlog)
 
+- Dynamische Szenen mit Lauflicht, Farbwechsel usw.: siehe [COMPOSITIONS.md](COMPOSITIONS.md)
 - Fade-Zeiten pro Szene überschreiben (global bleibt Default). Praktisch z.B. für einen Blitz mit 0 s Fade.
 - Verzögerung (Delay) zwischen Fade-Out und Fade-In
 - Externe GO-Taste (USB-Fußschalter / OSC); MIDI-Controller siehe [MIDI.md](MIDI.md)

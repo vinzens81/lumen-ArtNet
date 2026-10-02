@@ -40,6 +40,7 @@ per **GO** mit parallelem Fade-Out/Fade-In ineinander überblenden.
 | [docs/PROJECT-DATA.md](docs/PROJECT-DATA.md) | SQLite-Schema für Projekte, Patch und Szenen |
 | [docs/PLAYBACK.md](docs/PLAYBACK.md) | Szenen, Fade-In/Stay/Fade-Out, Überblendlogik, GO |
 | [docs/UI.md](docs/UI.md) | Konfigurations- und Betriebsmodus, Look & Feel |
+| [docs/COMPOSITIONS.md](docs/COMPOSITIONS.md) | *Geplant:* Kompositionen (Lauflicht, Farbwechsel, …) als dynamischer Teil von Szenen |
 | [docs/MIDI.md](docs/MIDI.md) | *Optional:* USB-MIDI-Controller mit Fadern & Buttons, MIDI-Learn, LED-Feedback |
 | [docs/PARTY-MODE.md](docs/PARTY-MODE.md) | *Zukunft:* Party-Modus mit Live-Steuerung, Effekten, BPM und Executors |
 | [docs/MOVEMENT.md](docs/MOVEMENT.md) | *Zukunft:* Bewegungsbilder für Moving Heads & Scanner (Offset, Scale, Form) |

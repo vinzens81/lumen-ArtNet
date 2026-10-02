@@ -49,6 +49,7 @@ position(t, fixtureIndex) = offset + rotate( scale ⊙ form( phase(t, speed) + s
 
 ## Abhängigkeiten
 
-- Baut auf der Effekt-Engine und der BPM-Clock aus dem [Party-Modus](PARTY-MODE.md) auf.
+- Baut auf der Kompositions-Engine ([COMPOSITIONS.md](COMPOSITIONS.md)) und der BPM-Clock aus dem
+  [Party-Modus](PARTY-MODE.md) auf. Ein Bewegungsbild wird ein weiterer Kompositions-Typ.
 - Läuft als `OutputLayer` in der bestehenden Engine ([ARCHITECTURE.md](ARCHITECTURE.md#dmx-engine)). Es ist kein Umbau nötig.
 - Bis dahin gibt es nur **statische Pan/Tilt-Positionen** über das XY-Pad im Programmer und in Szenen.

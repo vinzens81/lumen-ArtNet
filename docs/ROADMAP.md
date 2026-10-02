@@ -125,6 +125,41 @@ ein Doppel-GO erzeugt keinen Sprung.
 
 **DoD:** Auf dem Tablet ist die Show komfortabel einrichtbar und spielbar.
 
+## ⬜ Iteration K – Kompositionen & dynamische Szenen 🌈 (nach Iteration 9)
+Konzept und Entscheidungen: [COMPOSITIONS.md](COMPOSITIONS.md). Szenen bestehen danach aus einer **statischen Basis**
+(wie bisher) plus beliebig vielen **Kompositionen**: Abläufe wie Lauflicht, Farbwechsel auf RGB-PARs oder freie
+Schrittfolgen, die in der Szene über dem festen Licht mitlaufen. Kompositionen werden in einer Bibliothek gepflegt
+und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
+
+**K1 – Engine & Szenen-Integration**
+- Domain: `Composition` mit Vorlagen als reine Funktionen: **Lauflicht**, **Farbwechsel**, **Regenbogen**,
+  **Welle/Puls**, **Flackern**; Ziel = Gruppe (dynamisch) oder Fixture-Liste in fester Reihenfolge, Spreizung
+- **Schrittfolge (Chaser):** Schritte mit Werten pro Fixture, Halte-/Überblendzeit pro Schritt, Loop/Ping-Pong
+- Mischregeln Basis ⊕ Kompositionen (Intensität absolut/HTP oder relativ, Farbe LTP mit Level, spätere gewinnt)
+- `Playback`/`Crossfade` mit zeitabhängigen Zielwerten: Kompositionen laufen beim Fade-Out weiter, eine Kopie mit
+  gleicher Herkunft läuft in der Folgeszene nahtlos weiter (pro Einsatz „Neu starten“), Pause friert sie ein
+- Flyway-Migration `composition` (Bibliothek, Szenen-Kopien, Extra-Tasten), `composition_target`, `composition_step`,
+  `composition_step_value`; REST für Bibliothek, Schritte und Kopien in Szenen
+
+**K2 – Editor & Vorschau**
+- Neuer Tab „Compositions“ (Bibliothek): Vorlage wählen, Ziel und Reihenfolge, Parameter, animierte Vorschau
+- Schrittfolgen-Editor: Schritte aus dem Programmer aufnehmen/aktualisieren, Zeiten, Umsortieren
+- Live-Vorschau auf der Bühne als eigene Ausgabe-Ebene (im Show-Modus gesperrt)
+- Szenen-Editor: aus der Bibliothek einfügen (Kopie), anpassen, Reihenfolge, Level, Tempo-Faktor, „Neu starten“,
+  „aus Bibliothek neu laden“ / „in Bibliothek übernehmen“; Hinweise bei Überschneidungen und unpassenden Geräten
+- Szenenliste: Symbol und animierte Farbvorschau für dynamische Szenen
+
+**K3 – Extra-Tasten & Erweiterungen**
+- **Extra-Tasten im Betriebsmodus:** Kompositionen unabhängig von der Szene zuschalten (Toggle/Flash, Tasten `1`–`8`,
+  später MIDI), eigene Ausgabe-Ebene über dem Playback
+- **Einmalige Abläufe** (laufen einmal durch und bleiben am Ende stehen, z.B. Sonnenaufgang)
+- Multi-Pixel-Zellen als Ziel, Kennzeichnung schneller Flacker-/Strobe-Effekte
+
+**DoD:** Eine Szene mit warmweißem Grundlicht, einem Lauflicht auf einer Dimmer-Reihe und einem Farbwechsel auf
+den RGB-PARs lässt sich im Browser zusammenstellen. Im Betrieb blenden die Abläufe per GO weich ein und aus, laufen
+in der Folgeszene ohne Sprung weiter, und Pause hält sie an. Per Extra-Taste lässt sich ein Gewitter über jede Szene
+legen.
+
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
 - Modul `lumen-adapter-midi` mit `javax.sound.midi`: Geräteerkennung, Hotplug, Eingangs-Events
@@ -141,7 +176,7 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 - Externe GO-Taste: USB-Fußschalter (als Tastatur), OSC (z.B. aus QLab); MIDI siehe eigene Iteration
 - sACN als zweiter `DmxOutputPort`
 - Hostnamen (mDNS, z.B. `artnet-dimmer.local`) als Art-Net-Ziel – noch offen, ob gewünscht
-- Einfache Theater-Effekte als Szenen-Attribut (Kerzen-/Feuerflackern, Blitz) – nutzt die Effekt-Engine aus Iteration 11
+- Blitz-Effekt als Szenen-Attribut (Kerzen-/Feuerflackern ist jetzt Teil von Iteration K)
 - PWA, Docker / Raspberry Pi als alternativer Betriebsort
 - Import von Open-Fixture-Library-Profilen
 - Druckbare Cue-Liste (PDF) für die Regie
@@ -149,8 +184,8 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 ## ⬜ Iteration 11+ – Party-Modus 🪩 (Zukunft)
 Konzept: [PARTY-MODE.md](PARTY-MODE.md). Grob in Teilschritten:
 1. **Tempo & Paletten:** Tap-Tempo/BPM-Clock, Farb- und Positionspaletten, Party-UI mit Gruppen + Paletten
-2. **Effekt-Engine:** Intensitäts- und Farbeffekte mit Phasenversatz, BPM-gekoppelt (Bewegungsbilder separat, siehe unten)
-3. **Executors:** frei belegbare Slots mit Fader, Flash und Toggle; Chaser
+2. **Effekt-Engine:** nutzt die Kompositionen aus Iteration K, ergänzt BPM-Kopplung (Bewegungsbilder separat, siehe unten)
+3. **Executors:** frei belegbare Slots mit Fader, Flash und Toggle (Weiterentwicklung der Extra-Tasten und Chaser aus Iteration K)
 4. **Live-Werkzeuge:** Flash All, Strobe All, Fog, Speed-Master, Look als Szene speichern
 5. **Extras:** Beat-Erkennung per Mikrofon, MIDI-Mappings für Executors (setzt die MIDI-Iteration voraus)
 
