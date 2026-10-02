@@ -69,7 +69,10 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   „Compositions“), jede Szene bekommt eine eigene Kopie. Siehe [COMPOSITIONS.md](COMPOSITIONS.md).
 - **DMX:** Monitor aller 512 Kanäle eines Universes, live.
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
-  aufnehmen.
+  aufnehmen. Umsortieren per Drag & Drop am Griff ⋮⋮ (oder Alt+↑/↓): Die Reihenfolge bleibt die Nummer, die gezogene
+  Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
+  Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
+  dazwischen), ohne Markierung am Ende.
 - **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
   „Back up now“. Die globalen Fade-Zeiten stehen beim Projekt. Später Tastenkürzel und MIDI-Mapping mit MIDI-Learn
   ([MIDI.md](MIDI.md)).

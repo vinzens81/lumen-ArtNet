@@ -9,6 +9,7 @@
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import { kindIcon } from '../lib/compositions';
+  import { numberAt, numberBetween } from '../lib/sceneNumbers';
   import type { Fixture, Group, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
@@ -110,15 +111,96 @@
     }
   }
 
+  /** Inserts an empty scene after the selected one (number in between), or at the end. */
   async function addEmpty() {
     if (!project) return;
+    let number: string | null = null;
+    if (selected) {
+      const next = scenes[scenes.indexOf(selected) + 1];
+      number = numberBetween(selected.number, next?.number ?? null);
+      if (number === null) {
+        showError(new Error(`No free scene number after ${selected.number} – renumber the next scene first`));
+        return;
+      }
+    }
     try {
-      const scene = await api.scenes.create(project.id, { name: 'Blackout', cueNote: null, autoFollowMs: null });
+      const scene = await api.scenes.create(project.id, { number, name: 'Blackout', cueNote: null, autoFollowMs: null });
       await load(project.id);
       select(scene);
     } catch (e) {
       showError(e);
     }
+  }
+
+  // --- reorder by drag & drop: the scene gets a number between its new neighbors ------------------------------
+
+  let listElement: HTMLElement | undefined = $state();
+  /** scene being dragged and the position among the other scenes it would be dropped at */
+  let drag = $state<{ id: number; from: number; to: number } | null>(null);
+
+  function startDrag(event: PointerEvent, index: number, scene: Scene) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    drag = { id: scene.id, from: index, to: index };
+  }
+
+  function moveDrag(event: PointerEvent) {
+    if (!drag || !listElement) return;
+    const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row')];
+    // position among the other scenes: count rows (except the dragged one) whose middle is above the pointer
+    let to = 0;
+    rows.forEach((row, i) => {
+      const rect = row.getBoundingClientRect();
+      if (i !== drag!.from && event.clientY > rect.top + rect.height / 2) to++;
+    });
+    drag = { ...drag, to };
+  }
+
+  async function endDrag() {
+    if (!drag) return;
+    const { id, from, to } = drag;
+    drag = null;
+    if (to !== from) await moveTo(id, to);
+  }
+
+  /** Keyboard alternative: Alt+↑/↓ on the handle moves the scene by one place. */
+  function onHandleKey(event: KeyboardEvent, index: number, scene: Scene) {
+    if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
+    event.preventDefault();
+    const to = index + (event.key === 'ArrowUp' ? -1 : 1);
+    if (to >= 0 && to < scenes.length) moveTo(scene.id, to);
+  }
+
+  async function moveTo(sceneId: number, to: number) {
+    const scene = scenes.find((s) => s.id === sceneId);
+    if (!project || !scene) return;
+    const others = scenes.filter((s) => s.id !== sceneId).map((s) => s.number);
+    const number = numberAt(others, to);
+    if (number === null) {
+      showError(new Error('No free scene number at that place – renumber a neighbor first'));
+      return;
+    }
+    try {
+      const updated = await api.scenes.update(project.id, scene.id, {
+        number,
+        name: scene.name,
+        cueNote: scene.cueNote,
+        autoFollowMs: scene.autoFollowMs,
+      });
+      notify(`Scene “${updated.name}” is now number ${updated.number}`);
+      await load(project.id);
+      if (selectedId === updated.id) select(updated);
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  /** Where the drop line is drawn: before the row with this index (in the full list), or after the last. */
+  function dropBefore(index: number): boolean {
+    if (!drag || drag.to === drag.from) return false;
+    const target = drag.to >= drag.from ? drag.to + 1 : drag.to;
+    return index === target;
   }
 
   async function remove() {
@@ -162,7 +244,10 @@
     <header class="head">
       <div>
         <h1>Scenes</h1>
-        <p class="dim">The cue list of the show, ordered by number. Use decimals like 2.5 to insert between scenes.</p>
+        <p class="dim">
+          The cue list of the show, ordered by number. Drag a scene by ⋮⋮ to move it – it gets a number between its new
+          neighbors (like 2.5). “+ Empty scene” inserts after the selected scene.
+        </p>
       </div>
       <form class="fades glass" onsubmit={(e) => { e.preventDefault(); saveFades(); }}>
         <label>Fade in <input type="number" min="0" max="600" step="0.1" bind:value={fades.fadeIn} /> s</label>
@@ -178,7 +263,7 @@
     </header>
 
     <div class="layout">
-      <div class="list glass">
+      <div class="list glass" bind:this={listElement}>
         {#if scenes.length === 0}
           <div class="empty">
             <h2>No scenes yet</h2>
@@ -187,6 +272,11 @@
           </div>
         {/if}
         {#each scenes as scene, i (scene.id)}
+          <div class="cue-row" class:dragging={drag?.id === scene.id} class:drop-before={dropBefore(i)}>
+          <button type="button" class="handle" aria-label="Move scene {scene.number} (drag, or Alt+↑/↓)"
+            title="Drag to move – the scene gets a number between its new neighbors"
+            onpointerdown={(e) => startDrag(e, i, scene)} onpointermove={moveDrag} onpointerup={endDrag}
+            onpointercancel={() => (drag = null)} onkeydown={(e) => onHandleKey(e, i, scene)}>⋮⋮</button>
           <button type="button" class="cue" class:selected={scene.id === selectedId} onclick={() => select(scene)}>
             <span class="number mono">{scene.number}</span>
             <span class="text">
@@ -209,7 +299,9 @@
               <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{i === scenes.length - 1 ? ' (last – ignored)' : ''}</span>
             {/if}
           </button>
+          </div>
         {/each}
+        {#if drag && drag.to !== drag.from && drag.to === scenes.length - 1}<div class="drop-end"></div>{/if}
       </div>
 
       <aside class="editor glass">
@@ -364,8 +456,59 @@
     cursor: pointer;
   }
 
-  .cue + .cue {
-    border-top-color: var(--border);
+  .cue-row {
+    position: relative;
+    display: flex;
+    align-items: stretch;
+  }
+
+  .cue-row + .cue-row {
+    border-top: 1px solid var(--border);
+  }
+
+  .cue-row .cue {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .cue-row.dragging {
+    opacity: 0.4;
+  }
+
+  .cue-row.drop-before::before,
+  .drop-end {
+    content: '';
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: -2px;
+    height: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+    box-shadow: 0 0 10px var(--accent-glow);
+  }
+
+  .drop-end {
+    position: relative;
+    top: 0;
+  }
+
+  .handle {
+    flex: none;
+    width: 26px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-faint);
+    font: inherit;
+    letter-spacing: -2px;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .handle:hover,
+  .handle:focus-visible {
+    color: var(--accent);
   }
 
   .cue:hover {
