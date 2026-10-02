@@ -3,6 +3,7 @@ package de.vinzens.lumen.config;
 import de.vinzens.lumen.adapter.sqlite.SqliteDatabase;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.project.PatchService;
 import de.vinzens.lumen.application.project.ProjectService;
 import org.slf4j.Logger;
@@ -30,13 +31,14 @@ class PersistenceConfiguration {
 	}
 
 	@Bean
-	ProjectService projectService(SqliteRepositories repositories, Clock clock) {
-		return new ProjectService(repositories.projects(), clock);
+	ProjectService projectService(SqliteRepositories repositories, Clock clock, OutputEngine outputEngine) {
+		return new ProjectService(repositories.projects(), clock, outputEngine);
 	}
 
 	@Bean
-	PatchService patchService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library) {
+	PatchService patchService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			OutputEngine outputEngine) {
 		return new PatchService(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				repositories.groups(), library);
+				repositories.groups(), library, outputEngine);
 	}
 }

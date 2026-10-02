@@ -20,6 +20,7 @@
 		<module>lumen-application</module>
 		<module>lumen-adapter-library-yaml</module>
 		<module>lumen-adapter-sqlite</module>
+		<module>lumen-adapter-artnet</module>
 		<module>lumen-adapter-web</module>
 		<module>lumen-app</module>
 	</modules>
@@ -29,6 +30,8 @@
 		<archunit.version>1.5.1</archunit.version>
 		<!-- run spring-boot:run only in lumen-app, not in the other modules -->
 		<spring-boot.run.skip>true</spring-boot.run.skip>
+		<!-- sqlite-jdbc loads a native library (JNI) -->
+		<argLine>--enable-native-access=ALL-UNNAMED</argLine>
 	</properties>
 
 	<dependencyManagement>
@@ -51,6 +54,11 @@
 			<dependency>
 				<groupId>de.vinzens.lumen</groupId>
 				<artifactId>lumen-adapter-sqlite</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.vinzens.lumen</groupId>
+				<artifactId>lumen-adapter-artnet</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

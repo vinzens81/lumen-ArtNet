@@ -1,0 +1,246 @@
+package de.vinzens.lumen.application.output;
+
+import de.vinzens.lumen.application.NotFoundException;
+import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.project.port.out.FixtureRepository;
+import de.vinzens.lumen.application.project.port.out.ProjectRepository;
+import de.vinzens.lumen.application.project.port.out.UniverseRepository;
+import de.vinzens.lumen.domain.DomainValidationException;
+import de.vinzens.lumen.domain.library.Attribute;
+import de.vinzens.lumen.domain.library.ChannelDefinition;
+import de.vinzens.lumen.domain.library.ChannelFunction;
+import de.vinzens.lumen.domain.library.FixtureCategory;
+import de.vinzens.lumen.domain.library.FixtureType;
+import de.vinzens.lumen.domain.library.LibraryIssue;
+import de.vinzens.lumen.domain.library.Mode;
+import de.vinzens.lumen.domain.library.PhysicalProperties;
+import de.vinzens.lumen.domain.output.DmxFrame;
+import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.project.ArtNetAddress;
+import de.vinzens.lumen.domain.project.ArtNetTarget;
+import de.vinzens.lumen.domain.project.FixtureSpec;
+import de.vinzens.lumen.domain.project.PatchedFixture;
+import de.vinzens.lumen.domain.project.Project;
+import de.vinzens.lumen.domain.project.ProjectSpec;
+import de.vinzens.lumen.domain.project.Universe;
+import de.vinzens.lumen.domain.project.UniverseSpec;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+class OutputEngineTest {
+
+	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
+	private static final Attribute RED = Attribute.of(ChannelFunction.RED);
+
+	private static final FixtureType PAR = new FixtureType("par", "Generic", "Par", FixtureCategory.PAR,
+			PhysicalProperties.NONE, List.of(new Mode("2ch", List.of(
+					channel(ChannelFunction.DIMMER), channel(ChannelFunction.RED)))));
+
+	private final List<Project> projects = new ArrayList<>();
+	private final List<Universe> universes = new ArrayList<>();
+	private final List<PatchedFixture> fixtures = new ArrayList<>();
+	private final List<Sent> sent = new ArrayList<>();
+	private OutputEngine engine;
+
+	@BeforeEach
+	void setUp() {
+		projects.add(project(1, true));
+		universes.add(universe(10, 1, 1));
+		universes.add(universe(11, 1, 2));
+		fixtures.add(new PatchedFixture(100, 1, new FixtureSpec("PAR", Optional.empty(), "par", "2ch", 10, 5,
+				Optional.empty(), 0)));
+		engine = new OutputEngine(projectRepository(), universeRepository(), fixtureRepository(), library(),
+				(universe, frame) -> sent.add(new Sent(universe.spec().number(), frame)));
+		engine.patchChanged();
+	}
+
+	@Test
+	void tickSendsEveryUniverseOfTheActiveProject() {
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0, RED, 0.5)));
+
+		engine.tick();
+
+		assertThat(sent).extracting(Sent::number).containsExactly(1, 2);
+		assertThat(sent.getFirst().frame().get(5)).isEqualTo(255);
+		assertThat(sent.getFirst().frame().get(6)).isEqualTo(128);
+		assertThat(sent.get(1).frame()).isEqualTo(DmxFrame.BLACK);
+	}
+
+	@Test
+	void frameIsRenderedForTheUniverseNumber() {
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0)));
+
+		assertThat(engine.frame(1).get(5)).isEqualTo(255);
+		assertThatThrownBy(() -> engine.frame(3)).isInstanceOf(NotFoundException.class);
+	}
+
+	@Test
+	void rejectsAttributesTheFixtureDoesNotHave() {
+		assertThatThrownBy(() -> engine.setValues(100, new FixtureValues(Map.of(Attribute.of(ChannelFunction.PAN), 1.0))))
+				.isInstanceOf(DomainValidationException.class)
+				.hasMessageContaining("[pan]");
+	}
+
+	@Test
+	void unknownFixtureIsNotFound() {
+		assertThatThrownBy(() -> engine.setValues(999, new FixtureValues(Map.of(DIMMER, 1.0))))
+				.isInstanceOf(NotFoundException.class);
+	}
+
+	@Test
+	void switchingProjectsClearsTheProgrammer() {
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0)));
+		projects.set(0, project(1, false));
+		projects.add(project(2, true));
+
+		engine.patchChanged();
+		engine.tick();
+
+		assertThat(engine.programmerValues()).isEmpty();
+		assertThat(sent).isEmpty();
+	}
+
+	private record Sent(int number, DmxFrame frame) {
+	}
+
+	private static Project project(long id, boolean active) {
+		var now = Instant.EPOCH;
+		return new Project(id, new ProjectSpec("P" + id, Optional.empty(), Duration.ZERO, Duration.ZERO), active, now,
+				now);
+	}
+
+	private static Universe universe(long id, long projectId, int number) {
+		return new Universe(id, projectId, new UniverseSpec(number, Optional.empty(), new ArtNetAddress(0, 0, number - 1),
+				new ArtNetTarget.Broadcast()));
+	}
+
+	private static ChannelDefinition channel(ChannelFunction function) {
+		return new ChannelDefinition(function, Optional.empty(), 8, 0, false, List.of(), Optional.empty());
+	}
+
+	private QueryFixtureLibraryUseCase library() {
+		return new QueryFixtureLibraryUseCase() {
+			@Override
+			public List<FixtureType> fixtureTypes() {
+				return List.of(PAR);
+			}
+
+			@Override
+			public Optional<FixtureType> fixtureType(String id) {
+				return Optional.of(PAR).filter(type -> type.id().equals(id));
+			}
+
+			@Override
+			public List<LibraryIssue> issues() {
+				return List.of();
+			}
+		};
+	}
+
+	private ProjectRepository projectRepository() {
+		return new ProjectRepository() {
+			@Override
+			public List<Project> findAll() {
+				return List.copyOf(projects);
+			}
+
+			@Override
+			public Optional<Project> findById(long id) {
+				return projects.stream().filter(p -> p.id() == id).findFirst();
+			}
+
+			@Override
+			public Project create(ProjectSpec spec, Instant now) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public Project update(long id, ProjectSpec spec, Instant now) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void activate(long id) {
+				throw new UnsupportedOperationException();
+			}
+		};
+	}
+
+	private UniverseRepository universeRepository() {
+		return new UniverseRepository() {
+			@Override
+			public List<Universe> findByProject(long projectId) {
+				return universes.stream().filter(u -> u.projectId() == projectId).toList();
+			}
+
+			@Override
+			public Optional<Universe> findById(long id) {
+				return universes.stream().filter(u -> u.id() == id).findFirst();
+			}
+
+			@Override
+			public Universe create(long projectId, UniverseSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public Universe update(long id, UniverseSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+		};
+	}
+
+	private FixtureRepository fixtureRepository() {
+		return new FixtureRepository() {
+			@Override
+			public List<PatchedFixture> findByProject(long projectId) {
+				return fixtures.stream().filter(f -> f.projectId() == projectId).toList();
+			}
+
+			@Override
+			public Optional<PatchedFixture> findById(long id) {
+				return fixtures.stream().filter(f -> f.id() == id).findFirst();
+			}
+
+			@Override
+			public PatchedFixture create(long projectId, FixtureSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public PatchedFixture update(long id, FixtureSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public int countByUniverse(long universeId) {
+				throw new UnsupportedOperationException();
+			}
+		};
+	}
+}

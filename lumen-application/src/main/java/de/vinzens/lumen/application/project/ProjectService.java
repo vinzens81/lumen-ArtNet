@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.project;
 
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.project.port.in.ManageProjectsUseCase;
+import de.vinzens.lumen.application.project.port.out.PatchChangeListener;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
@@ -15,10 +16,12 @@ public class ProjectService implements ManageProjectsUseCase {
 
 	private final ProjectRepository projects;
 	private final Clock clock;
+	private final PatchChangeListener listener;
 
-	public ProjectService(ProjectRepository projects, Clock clock) {
+	public ProjectService(ProjectRepository projects, Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.clock = Objects.requireNonNull(clock, "clock");
+		this.listener = Objects.requireNonNull(listener, "listener");
 	}
 
 	@Override
@@ -55,12 +58,14 @@ public class ProjectService implements ManageProjectsUseCase {
 	public void delete(long id) {
 		project(id);
 		projects.delete(id);
+		listener.patchChanged();
 	}
 
 	@Override
 	public Project activate(long id) {
 		project(id);
 		projects.activate(id);
+		listener.patchChanged();
 		return project(id);
 	}
 

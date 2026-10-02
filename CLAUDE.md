@@ -17,7 +17,7 @@ Javadoc, Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in 
 Java 26, Spring Boot 4.1 (Jackson 3: `tools.jackson.*`), Maven Multi-Module (Parent: `pom.xml`,
 Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` und `data/lumen.db` (SQLite, wird beim
 Start angelegt, nicht eingecheckt) beziehen sich auf das Projekt-Root. Tests in `lumen-app` nutzen
-`src/test/resources/config/application.yml` (eigene DB unter `target/test-data/`).
+`src/test/resources/config/application.yml` (eigene DB unter `target/test-data/`, Art-Net-Ausgabe aus).
 
 ## Architekturregeln (hexagonal)
 

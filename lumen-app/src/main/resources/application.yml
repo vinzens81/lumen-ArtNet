@@ -18,3 +18,14 @@ lumen:
   fixture-library-dir: fixture-types
   # Project data (SQLite), created on first start
   database-file: data/lumen.db
+  output:
+    # render loop rate (Art-Net allows at most 44 frames per second)
+    rate-hz: 40
+  artnet:
+    enabled: true
+    # local address to send from, 0.0.0.0 = any interface
+    bind-address: 0.0.0.0
+    # destination UDP port (Art-Net standard: 6454)
+    port: 6454
+    # destination for universes with target 'broadcast', e.g. 2.255.255.255 or the directed broadcast of your network
+    broadcast-address: 255.255.255.255

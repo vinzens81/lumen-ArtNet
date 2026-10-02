@@ -33,15 +33,18 @@ Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
 
 **DoD:** Projekt per REST anlegen und mit Geräten patchen, Daten überleben einen Neustart, Überschneidungen werden gemeldet.
 
-## ⬜ Iteration 3 – DMX-Engine & Art-Net 💡
-- Domain: `OutputState`, `DmxFrame`, Mapping Attribute → DMX (8/16 Bit, Defaults, virtueller Dimmer, invert)
+## ✅ Iteration 3 – DMX-Engine & Art-Net 💡
+- Code-Sprache auf Englisch umgestellt (Doku bleibt Deutsch)
+- Domain: `Attribute`, `FixtureValues`, `DmxFrame`, `DmxRenderer` (8/16 Bit, Defaults, virtueller Dimmer, invert, Grand Master)
 - Render-Loop mit `OutputLayer`/`LayerMerger` (Grundlage für Playback und den späteren Party-Modus)
 - `Programmer` als erster Layer (Live-Werte)
 - Adapter `artnet`: ArtDmx bauen und senden, Sequence-Nummern, Unicast/Broadcast
 - Test: byte-genauer Vergleich des ArtDmx-Pakets
 - `PATCH /api/programmer/fixtures/{id}`, `GET /api/output/universes/{n}/dmx`
+- Patch-Änderungen und Projektwechsel werden sofort in die Ausgabe übernommen
 
 **DoD:** Per `curl` wird ein echter Scheinwerfer eingeschaltet (oder ist in QLC+/Wireshark sichtbar).
+Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem Header und den gesetzten Kanalwerten.
 
 ## ⬜ Iteration 4 – UI-Grundgerüst & Konfigurationsmodus
 - Modul `lumen-frontend` (Svelte + Vite + TS), Build via `frontend-maven-plugin` ins JAR

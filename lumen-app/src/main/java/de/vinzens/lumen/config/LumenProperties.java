@@ -15,5 +15,26 @@ import java.nio.file.Path;
 @ConfigurationProperties("lumen")
 public record LumenProperties(
 		@DefaultValue("fixture-types") Path fixtureLibraryDir,
-		@DefaultValue("data/lumen.db") Path databaseFile) {
+		@DefaultValue("data/lumen.db") Path databaseFile,
+		@DefaultValue Output output,
+		@DefaultValue ArtNet artnet) {
+
+	/**
+	 * @param rateHz render loop rate; Art-Net allows at most 44 frames per second
+	 */
+	public record Output(@DefaultValue("40") int rateHz) {
+	}
+
+	/**
+	 * @param enabled          send Art-Net packets at all (disabled in tests)
+	 * @param bindAddress      local address to send from
+	 * @param port             destination UDP port
+	 * @param broadcastAddress destination for universes with target {@code broadcast}
+	 */
+	public record ArtNet(
+			@DefaultValue("true") boolean enabled,
+			@DefaultValue("0.0.0.0") String bindAddress,
+			@DefaultValue("6454") int port,
+			@DefaultValue("255.255.255.255") String broadcastAddress) {
+	}
 }

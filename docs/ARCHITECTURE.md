@@ -110,7 +110,20 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 - Ziel pro Universe: **Unicast** an die Node-IP oder **Broadcast**.
 - Sequence-Nummer pro Universe (1–255).
 - Später: **ArtPoll/ArtPollReply** zur Discovery, Nodes im Konfigurationsmodus auswählbar.
-- Ohne Hardware: `LoggingDmxOutput`, QLC+ als Art-Net-Monitor oder Wireshark.
+- Gesendet wird von einem zufälligen lokalen Port; Ziel-Port, Bind-Adresse und Broadcast-Adresse stehen in
+  `application.yml` unter `lumen.artnet.*`. In Tests ist die Ausgabe abgeschaltet (`lumen.artnet.enabled: false`).
+
+### Testen ohne Hardware
+
+- **DMX-Werte ansehen:** `GET /api/output/universes/1/dmx` liefert die 512 Kanalwerte des aktiven Projekts.
+- **Art-Net mitschneiden:** Wireshark mit dem Filter `artnet` (Port 6454) zeigt die ArtDmx-Pakete samt Kanalwerten.
+- **Art-Net-Monitor:** QLC+ (Input/Output → Art-Net als Eingang, dann „DMX Monitor“). Läuft QLC+ auf demselben
+  Rechner, das Universe in Lumen auf Unicast `127.0.0.1` stellen.
+- **Schnelltest per curl** (aktives Projekt mit einem gepatchten Gerät vorausgesetzt):
+  ```bash
+  curl -X PATCH -H 'Content-Type: application/json' \
+       -d '{"dimmer": 1, "red": 1}' http://127.0.0.1:8080/api/programmer/fixtures/1
+  ```
 
 ## Web-API
 
@@ -130,7 +143,8 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
 `CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
 Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
-| `PATCH /api/programmer/fixtures/{id}` · `PATCH /api/programmer/groups/{id}` · `DELETE /api/programmer` | Live-Werte |
+| `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live-Werte (aktives Projekt) |
+| `PATCH /api/programmer/groups/{id}` | Live-Werte für eine Gruppe (Iteration 5) |
 
 **Betrieb**
 
@@ -139,7 +153,10 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 | `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern |
 | `POST /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
 | `POST /api/output/master` · `/blackout` | Grand Master / Blackout |
-| `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor) |
+| `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor), `n` = Universe-Nummer im aktiven Projekt |
+
+**Attributwerte** sind normalisiert (0.0–1.0) und werden über die Attribut-ID adressiert, z.B.
+`{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`.
 
 **WebSocket `/ws`:** Der Server pusht Playback-Status (aktuelle/nächste Szene, Fade-Fortschritt), Programmer-Änderungen
 und Ausgabewerte (gedrosselt auf ~30 Nachrichten/s). Clients können GO und Fader-Änderungen auch über den WebSocket

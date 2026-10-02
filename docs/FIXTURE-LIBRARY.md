@@ -119,7 +119,12 @@ Optionale Felder pro Kanal: `name`, `default` (0–255, bei 16 Bit 0–65535), `
 `fade: snap|smooth` (überschreibt das Standardverhalten).
 
 **Geräte ohne Dimmerkanal** (z.B. 4ch-RGBW-Modus) bekommen einen **virtuellen Dimmer**: Die Engine skaliert die
-Farbkanäle, sodass sie sich im Programmer und beim Faden genau wie Geräte mit Dimmer verhalten.
+Farbkanäle (`red`, `green`, `blue`, `white`, `warm-white`, `cold-white`, `amber`, `uv`, `lime`), sodass sie sich im
+Programmer und beim Faden genau wie Geräte mit Dimmer verhalten. Ohne gesetzten Dimmer bleibt ein Gerät dunkel – auch
+wenn Farben gesetzt sind. Subtraktive Farben (`cyan`, `magenta`, `yellow`) werden nicht skaliert.
+
+**Attribut-IDs:** Jeder Kanal steuert ein Attribut, dessen ID der `function` entspricht (`dimmer`, `red`, …).
+Generic-Kanäle werden über ihren Namen unterschieden: `generic:<name>`, z.B. `generic:Program speed`.
 
 ### Multi-Pixel-Geräte (später)
 

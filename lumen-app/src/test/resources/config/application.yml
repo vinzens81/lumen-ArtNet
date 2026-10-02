@@ -3,3 +3,6 @@ lumen:
   fixture-library-dir: ../fixture-types
   # separate database per Spring context, removed by 'mvn clean'
   database-file: target/test-data/${random.uuid}.db
+  artnet:
+    # never send packets into the network from tests
+    enabled: false

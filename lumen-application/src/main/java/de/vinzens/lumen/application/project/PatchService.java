@@ -6,6 +6,7 @@ import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.project.port.in.ManagePatchUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
+import de.vinzens.lumen.application.project.port.out.PatchChangeListener;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
@@ -29,14 +30,16 @@ public class PatchService implements ManagePatchUseCase {
 	private final FixtureRepository fixtures;
 	private final GroupRepository groups;
 	private final QueryFixtureLibraryUseCase library;
+	private final PatchChangeListener listener;
 
 	public PatchService(ProjectRepository projects, UniverseRepository universes, FixtureRepository fixtures,
-			GroupRepository groups, QueryFixtureLibraryUseCase library) {
+			GroupRepository groups, QueryFixtureLibraryUseCase library, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
 		this.groups = Objects.requireNonNull(groups, "groups");
 		this.library = Objects.requireNonNull(library, "library");
+		this.listener = Objects.requireNonNull(listener, "listener");
 	}
 
 	// --- Universes ------------------------------------------------------------------------------------------
@@ -51,14 +54,14 @@ public class PatchService implements ManagePatchUseCase {
 	public Universe createUniverse(long projectId, UniverseSpec spec) {
 		requireProject(projectId);
 		requireUniqueNumber(projectId, spec.number(), null);
-		return universes.create(projectId, spec);
+		return notifying(universes.create(projectId, spec));
 	}
 
 	@Override
 	public Universe updateUniverse(long projectId, long universeId, UniverseSpec spec) {
 		requireUniverse(projectId, universeId);
 		requireUniqueNumber(projectId, spec.number(), universeId);
-		return universes.update(universeId, spec);
+		return notifying(universes.update(universeId, spec));
 	}
 
 	@Override
@@ -70,6 +73,7 @@ public class PatchService implements ManagePatchUseCase {
 					+ (inUse == 1 ? " fixture" : " fixtures"));
 		}
 		universes.delete(universeId);
+		listener.patchChanged();
 	}
 
 	private void requireUniqueNumber(long projectId, int number, Long ownId) {
@@ -99,20 +103,21 @@ public class PatchService implements ManagePatchUseCase {
 	public PatchedFixture createFixture(long projectId, FixtureSpec spec) {
 		requireProject(projectId);
 		requireUniverseReference(projectId, spec);
-		return fixtures.create(projectId, spec);
+		return notifying(fixtures.create(projectId, spec));
 	}
 
 	@Override
 	public PatchedFixture updateFixture(long projectId, long fixtureId, FixtureSpec spec) {
 		requireFixture(projectId, fixtureId);
 		requireUniverseReference(projectId, spec);
-		return fixtures.update(fixtureId, spec);
+		return notifying(fixtures.update(fixtureId, spec));
 	}
 
 	@Override
 	public void deleteFixture(long projectId, long fixtureId) {
 		requireFixture(projectId, fixtureId);
 		fixtures.delete(fixtureId);
+		listener.patchChanged();
 	}
 
 	/** A fixture must reference a universe of the same project; type/mode may be missing (temporarily). */
@@ -181,6 +186,11 @@ public class PatchService implements ManagePatchUseCase {
 		requireProject(projectId);
 		return PatchValidator.validate(universes.findByProject(projectId), fixtures.findByProject(projectId),
 				library::fixtureType);
+	}
+
+	private <T> T notifying(T result) {
+		listener.patchChanged();
+		return result;
 	}
 
 	private void requireProject(long projectId) {

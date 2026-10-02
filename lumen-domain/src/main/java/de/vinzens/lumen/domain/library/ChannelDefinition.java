@@ -44,6 +44,11 @@ public record ChannelDefinition(
 		return fadeBehavior.orElse(function.defaultFade());
 	}
 
+	/** The attribute controlled by this channel. */
+	public Attribute attribute() {
+		return function == ChannelFunction.GENERIC ? Attribute.generic(name.orElse("")) : Attribute.of(function);
+	}
+
 	/** Display name: explicit name or the function id. */
 	public String displayName() {
 		return name.orElse(function.id());

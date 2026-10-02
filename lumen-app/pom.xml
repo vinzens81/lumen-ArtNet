@@ -34,6 +34,10 @@
 		</dependency>
 		<dependency>
 			<groupId>de.vinzens.lumen</groupId>
+			<artifactId>lumen-adapter-artnet</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.vinzens.lumen</groupId>
 			<artifactId>lumen-adapter-web</artifactId>
 		</dependency>
 		<dependency>
@@ -74,9 +78,22 @@
 	<build>
 		<plugins>
 			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-jar-plugin</artifactId>
+				<configuration>
+					<archive>
+						<manifestEntries>
+							<!-- sqlite-jdbc loads a native library; required for java -jar on Java 24+ -->
+							<Enable-Native-Access>ALL-UNNAMED</Enable-Native-Access>
+						</manifestEntries>
+					</archive>
+				</configuration>
+			</plugin>
+			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
 					<!-- Relative paths (fixture-types/, data/) are resolved against the project root -->
 					<workingDirectory>${maven.multiModuleProjectDirectory}</workingDirectory>
 				</configuration>
