@@ -12,6 +12,7 @@ import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.Target;
@@ -126,9 +127,13 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			compositionIds.put(composition.id(), created.id());
 		}
 		for (var key : export.keys()) {
-			var composition = key.composition();
-			compositions.saveKey(projectId, key.slot(), composition.sourceId().map(compositionIds::get), key.mode(),
-					key.fade(), remap(composition.spec(), fixtureIds, groupIds));
+			switch (key.content()) {
+				case ExtraKey.Content.PlaysComposition plays -> compositions.saveKey(projectId, key.slot(),
+						plays.composition().sourceId().map(compositionIds::get), key.mode(), key.fade(),
+						remap(plays.composition().spec(), fixtureIds, groupIds));
+				case ExtraKey.Content.PlaysScene plays -> compositions.saveSceneKey(projectId, key.slot(),
+						sceneIds.get(plays.sceneId()), key.mode(), key.fade());
+			}
 		}
 		export.sceneKeys().forEach((sceneId, slots) -> compositions.saveSceneKeys(sceneIds.get(sceneId), slots));
 	}
@@ -203,8 +208,10 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			if (!slots.add(key.slot())) {
 				errors.add("Extra key " + key.slot() + " is used twice");
 			}
-			key.composition().sourceId().filter(id -> !libraryIds.contains(id)).ifPresent(id ->
+			key.composition().flatMap(Composition::sourceId).filter(id -> !libraryIds.contains(id)).ifPresent(id ->
 					errors.add("Extra key " + key.slot() + " refers to unknown library composition " + id));
+			key.sceneId().filter(id -> !sceneIds.contains(id)).ifPresent(id ->
+					errors.add("Extra key " + key.slot() + " refers to unknown scene " + id));
 		}
 		export.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
 				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));

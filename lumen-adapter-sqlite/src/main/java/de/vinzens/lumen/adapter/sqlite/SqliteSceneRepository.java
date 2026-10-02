@@ -51,9 +51,11 @@ public class SqliteSceneRepository implements SceneRepository {
 	public Scene create(long projectId, SceneSpec spec, Map<Long, FixtureValues> values) {
 		long id = transactions.execute(status -> {
 			var keys = new GeneratedKeyHolder();
-			jdbc.sql("INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms) VALUES (?, ?, ?, ?, ?)")
+			jdbc.sql("""
+					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, key_only)
+					VALUES (?, ?, ?, ?, ?, ?)""")
 					.params(projectId, spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-							autoFollowMs(spec))
+							autoFollowMs(spec), spec.keyOnly() ? 1 : 0)
 					.update(keys);
 			var sceneId = generatedId(keys);
 			insertValues(sceneId, values);
@@ -64,8 +66,9 @@ public class SqliteSceneRepository implements SceneRepository {
 
 	@Override
 	public Scene updateSpec(long id, SceneSpec spec) {
-		jdbc.sql("UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ? WHERE id = ?")
-				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), autoFollowMs(spec), id)
+		jdbc.sql("UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, key_only = ? WHERE id = ?")
+				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), autoFollowMs(spec),
+						spec.keyOnly() ? 1 : 0, id)
 				.update();
 		return findById(id).orElseThrow();
 	}
@@ -129,7 +132,8 @@ public class SqliteSceneRepository implements SceneRepository {
 				SceneNumber.parse(rs.getString("number")),
 				rs.getString("name"),
 				Optional.ofNullable(rs.getString("cue_note")),
-				hasAutoFollow ? Optional.of(Duration.ofMillis(autoFollow)) : Optional.empty()));
+				hasAutoFollow ? Optional.of(Duration.ofMillis(autoFollow)) : Optional.empty(),
+				rs.getInt("key_only") == 1));
 	}
 
 	private ValueRow valueRow(ResultSet rs, int rowNum) throws SQLException {

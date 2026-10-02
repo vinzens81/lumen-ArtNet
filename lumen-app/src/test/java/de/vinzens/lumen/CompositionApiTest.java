@@ -232,6 +232,50 @@ class CompositionApiTest {
 	}
 
 	@Test
+	void keysCanPlayWholeScenesThatGoSkips() throws Exception {
+		var scenes = base + "/scenes";
+		id(post(scenes, "{\"number\": \"1\", \"name\": \"Act 1\"}"));
+		// key-only scene: first dimmer of the ramp at full, the PARs red
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
+		var rampFirst = JsonPath.<List<Integer>>read(body(base + "/groups"), "$[0].fixtureIds").getFirst();
+		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + rampFirst).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"dimmer\": 1}")).hasStatusOk();
+		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + par1).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"dimmer\": 1, \"red\": 1}")).hasStatusOk();
+		var look = id(post(scenes, "{\"number\": \"90\", \"name\": \"Storm look\", \"keyOnly\": true, \"record\": true}"));
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
+
+		assertThat(put(base + "/extra-keys/4", "{\"sceneId\": " + look + ", \"mode\": \"flash\"}")).hasStatusOk()
+				.bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.sceneId").isEqualTo((int) look);
+					assertThat(json).extractingPath("$.composition").isNull();
+				});
+		assertThat(put(base + "/extra-keys/4", "{\"sceneId\": " + look + ", \"libraryId\": 1}")).hasStatus(400);
+		assertThat(body(scenes + "/" + look + "/extra-keys")).as("key-only scenes get no keys").isEqualTo("{\"slots\":[]}");
+
+		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
+		assertThat(mvc.get().uri("/api/playback")).bodyJson().extractingPath("$.sceneCount").as("GO skips it")
+				.isEqualTo(1);
+		assertThat(post("/api/playback/go", "")).hasStatusOk();
+		assertThat(post("/api/playback/keys/4/press", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.keys[0].kind").isEqualTo("scene");
+		Thread.sleep(100);
+		var dmx = dmx();
+		assertThat(dmx[0]).as("storm look over Act 1").isEqualTo(255);
+		assertThat(new int[] {dmx[9], dmx[10]}).as("PAR 1 dimmer and red").containsExactly(255, 255);
+		assertThat(post("/api/playback/keys/4/release", "")).hasStatusOk();
+		Thread.sleep(100);
+		assertThat(dmx()[0]).as("flash released").isZero();
+		put("/api/mode", "{\"mode\": \"setup\"}");
+
+		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
+		var copy = "/api/projects/" + id(post("/api/projects/import", file));
+		var copiedKey = body(copy + "/extra-keys");
+		var copiedLook = JsonPath.<List<Integer>>read(body(copy + "/scenes"), "$[?(@.keyOnly == true)].id").getFirst();
+		assertThat(JsonPath.<Integer>read(copiedKey, "$[0].sceneId")).isEqualTo(copiedLook);
+	}
+
+	@Test
 	void compositionsTravelWithTheProjectExport() throws Exception {
 		var chase = id(post(base + "/compositions", """
 				{"name": "Fair chase", "kind": "chase", "target": {"groupId": %d}}""".formatted(ramp)));

@@ -102,6 +102,31 @@ class ExtraKeysTest {
 	}
 
 	@Test
+	void sceneKeyLaysTheWholeSceneOverThePlayback() {
+		var red = Attribute.of(ChannelFunction.RED);
+		var chase = new ActiveComposition(20, Optional.empty(), new Chase(1, 1, Chase.Direction.FORWARD, 0, 0, 1),
+				List.of(4L, 5L), 1, 1, false);
+		var scene = new ExtraKeys.SceneLook(7, Map.of(
+				1L, new FixtureValues(Map.of(DIMMER, 0.8, red, 1.0)),
+				2L, new FixtureValues(Map.of(DIMMER, 1.0))), List.of(chase));
+		keys.configure(List.of(new PlayableKey(4, KeyMode.TOGGLE, Duration.ofSeconds(2), "Storm look", scene)), now);
+		keys.setAvailable(Set.of(4), now);
+		keys.press(4, now);
+		advance(1000); // 50 %
+
+		var playback = Map.of(1L, new FixtureValues(Map.of(DIMMER, 0.5, red, 0.0)),
+				3L, new FixtureValues(Map.of(DIMMER, 0.3)));
+		var look = keys.apply(playback, now, FixtureAttributes.ALL);
+
+		assertThat(look.get(1L).get(DIMMER)).as("HTP: playback 50 % beats 80 % × 0.5").contains(0.5);
+		assertThat(look.get(1L).get(red)).as("color faded in half way").contains(0.5);
+		assertThat(look.get(2L).get(DIMMER)).contains(0.5);
+		assertThat(look.get(3L).get(DIMMER)).as("not in the key scene: unchanged").contains(0.3);
+		assertThat(look.get(5L).get(DIMMER)).as("the scene's chase runs too (step 1)").contains(0.5);
+		assertThat(keys.status(now).getFirst().kind()).as("plays a scene").isEmpty();
+	}
+
+	@Test
 	void reconfiguringKeepsRunningKeysWithTheSameComposition() {
 		keys.press(1, now);
 		advance(2000);

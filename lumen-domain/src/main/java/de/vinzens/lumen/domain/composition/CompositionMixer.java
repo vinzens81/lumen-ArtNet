@@ -76,6 +76,28 @@ public final class CompositionMixer {
 		return result;
 	}
 
+	/**
+	 * Lays a whole look over another one, e.g. a scene on an extra key: intensity HTP
+	 * ({@code max(look, value × level)}), other attributes faded in by the level. Fixtures the overlay does not
+	 * contain keep their values.
+	 */
+	public static Map<Long, FixtureValues> overlay(Map<Long, FixtureValues> look, Map<Long, FixtureValues> overlay,
+			double level) {
+		var result = new HashMap<>(look);
+		overlay.forEach((fixtureId, values) -> {
+			var base = look.getOrDefault(fixtureId, FixtureValues.EMPTY);
+			var mixed = new HashMap<>(base.values());
+			values.values().forEach((attribute, value) -> {
+				var baseValue = base.get(attribute);
+				mixed.put(attribute, attribute.equals(Values.DIMMER)
+						? Math.max(baseValue.orElse(0.0), value * level)
+						: baseValue.map(b -> b + (value - b) * level).orElse(value));
+			});
+			result.put(fixtureId, new FixtureValues(clamped(mixed)));
+		});
+		return result;
+	}
+
 	private static Map<Attribute, Double> clamped(Map<Attribute, Double> values) {
 		var result = new HashMap<Attribute, Double>();
 		values.forEach((attribute, value) -> result.put(attribute, Values.clamp(value)));

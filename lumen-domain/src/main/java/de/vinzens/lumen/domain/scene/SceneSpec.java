@@ -12,7 +12,11 @@ import java.util.Optional;
  * @param cueNote    note for the operator, e.g. "GO on: '…and then the sun rose'"
  * @param autoFollow if set, the next scene starts automatically this long after the fade-in has finished
  */
-public record SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow) {
+/**
+ * @param keyOnly the scene is only played by extra keys: GO skips it, it is not part of the cue list
+ */
+public record SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
+		boolean keyOnly) {
 
 	public static final Duration MAX_AUTO_FOLLOW = Duration.ofHours(1);
 
@@ -27,5 +31,10 @@ public record SceneSpec(SceneNumber number, String name, Optional<String> cueNot
 				.throwIfInvalid();
 		name = name.strip();
 		cueNote = cueNote.map(String::strip).filter(n -> !n.isEmpty());
+	}
+
+	/** A scene of the cue list. */
+	public SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow) {
+		this(number, name, cueNote, autoFollow, false);
 	}
 }

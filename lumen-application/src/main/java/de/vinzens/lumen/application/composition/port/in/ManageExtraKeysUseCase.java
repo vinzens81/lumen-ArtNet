@@ -22,6 +22,9 @@ public interface ManageExtraKeysUseCase {
 	 */
 	ExtraKey assignKey(long projectId, int slot, long libraryCompositionId, KeyMode mode, Duration fade);
 
+	/** Puts a scene on a key: the key plays its values and compositions; changes to the scene apply at once. */
+	ExtraKey assignScene(long projectId, int slot, long sceneId, KeyMode mode, Duration fade);
+
 	ExtraKey updateKey(long projectId, int slot, KeyMode mode, Duration fade);
 
 	/** Empties the key; it disappears from all scenes. */

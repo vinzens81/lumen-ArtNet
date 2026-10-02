@@ -40,8 +40,11 @@ public interface CompositionRepository {
 
 	// --- extra keys --------------------------------------------------------------------------------------------
 
-	/** Assigned extra keys of the project, by slot. */
+	/** Assigned extra keys of the project (compositions and scenes), by slot. */
 	List<ExtraKey> findKeys(long projectId);
+
+	/** Puts a scene on a key, replacing what was on it. */
+	ExtraKey saveSceneKey(long projectId, int slot, long sceneId, KeyMode mode, Duration fade);
 
 	/** Puts a composition on a key, replacing what was on it. */
 	ExtraKey saveKey(long projectId, int slot, Optional<Long> sourceId, KeyMode mode, Duration fade,

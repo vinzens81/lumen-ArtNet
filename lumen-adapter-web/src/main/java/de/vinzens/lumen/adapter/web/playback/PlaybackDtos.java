@@ -37,6 +37,7 @@ public final class PlaybackDtos {
 	}
 
 	/**
+	 * @param kind      kind of the composition, {@code scene} if the key plays a scene
 	 * @param on        switched on (possibly still fading in)
 	 * @param level     current fade level 0–1
 	 * @param available can be used in the scene on stage
@@ -45,7 +46,8 @@ public final class PlaybackDtos {
 			boolean available) {
 
 		static KeyResponse from(KeyStatus key) {
-			return new KeyResponse(key.slot(), key.name(), key.kind().id(), key.mode().id(), key.on(),
+			return new KeyResponse(key.slot(), key.name(), key.kind().map(kind -> kind.id()).orElse("scene"),
+					key.mode().id(), key.on(),
 					Math.round(key.level() * 1000) / 1000.0, key.available());
 		}
 	}

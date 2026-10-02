@@ -47,7 +47,7 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean recordFromProgrammer) {
+			Optional<Duration> autoFollow, boolean keyOnly, boolean recordFromProgrammer) {
 		if (recordFromProgrammer) {
 			requireActive(projectId);
 		} else {
@@ -58,7 +58,7 @@ public class SceneService implements ManageScenesUseCase {
 				? SceneNumber.of(1)
 				: existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
-		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow);
+		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly);
 		var values = recordFromProgrammer ? programmerSnapshot() : Map.<Long, FixtureValues>of();
 		var created = scenes.create(projectId, spec, values);
 		inheritExtraKeys(projectId, existing, created);
@@ -67,7 +67,11 @@ public class SceneService implements ManageScenesUseCase {
 
 	/** A new scene can use the same extra keys as the scene before it, so inserting a scene keeps e.g. a storm key. */
 	private void inheritExtraKeys(long projectId, List<Scene> existing, Scene created) {
+		if (created.spec().keyOnly()) {
+			return;
+		}
 		existing.stream()
+				.filter(scene -> !scene.spec().keyOnly())
 				.filter(scene -> scene.spec().number().compareTo(created.spec().number()) < 0)
 				.reduce((first, second) -> second)
 				.map(previous -> compositions.findSceneKeys(projectId).get(previous.id()))
@@ -77,10 +81,10 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow) {
+			Optional<Duration> autoFollow, boolean keyOnly) {
 		requireScene(projectId, sceneId);
 		requireFreeNumber(scenes.findByProject(projectId), number, sceneId);
-		return published(scenes.updateSpec(sceneId, new SceneSpec(number, name, cueNote, autoFollow)));
+		return published(scenes.updateSpec(sceneId, new SceneSpec(number, name, cueNote, autoFollow, keyOnly)));
 	}
 
 	@Override

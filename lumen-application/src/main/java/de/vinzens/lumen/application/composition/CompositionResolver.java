@@ -2,15 +2,21 @@ package de.vinzens.lumen.application.composition;
 
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
+import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.ExtraKeys;
 import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
+import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.composition.Target;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -20,10 +26,17 @@ public class CompositionResolver {
 
 	private final CompositionRepository compositions;
 	private final GroupRepository groups;
+	private final SceneRepository scenes;
 
 	public CompositionResolver(CompositionRepository compositions, GroupRepository groups) {
+		this(compositions, groups, null);
+	}
+
+	/** @param scenes for extra keys that play a scene; without, such keys play nothing */
+	public CompositionResolver(CompositionRepository compositions, GroupRepository groups, SceneRepository scenes) {
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.groups = Objects.requireNonNull(groups, "groups");
+		this.scenes = scenes;
 	}
 
 	/** Compositions of every scene of the project, by scene id, in their order. */
@@ -36,13 +49,29 @@ public class CompositionResolver {
 		return result;
 	}
 
-	/** Assigned extra keys of the project, ready to play. */
+	/** Assigned extra keys of the project, ready to play. A key whose scene no longer exists is left out. */
 	public List<PlayableKey> keys(long projectId) {
 		var members = groupMembers(projectId);
-		return compositions.findKeys(projectId).stream()
-				.map(key -> new PlayableKey(key.slot(), key.mode(), key.fade(), key.composition().spec().name(),
-						ActiveComposition.of(key.composition(), targetFixtures(key.composition(), members))))
-				.toList();
+		var result = new ArrayList<PlayableKey>();
+		for (var key : compositions.findKeys(projectId)) {
+			switch (key.content()) {
+				case ExtraKey.Content.PlaysComposition plays -> result.add(new PlayableKey(key.slot(), key.mode(),
+						key.fade(), plays.composition().spec().name(),
+						ActiveComposition.of(plays.composition(), targetFixtures(plays.composition(), members))));
+				case ExtraKey.Content.PlaysScene plays -> findScene(plays.sceneId()).ifPresent(scene -> {
+					var sceneCompositions = compositions.findByScene(scene.id()).stream()
+							.map(copy -> ActiveComposition.of(copy, targetFixtures(copy, members)))
+							.toList();
+					result.add(new PlayableKey(key.slot(), key.mode(), key.fade(), scene.spec().name(),
+							new ExtraKeys.SceneLook(scene.id(), scene.values(), sceneCompositions)));
+				});
+			}
+		}
+		return result;
+	}
+
+	private Optional<Scene> findScene(long sceneId) {
+		return scenes == null ? Optional.empty() : scenes.findById(sceneId);
 	}
 
 	/** Extra keys usable per scene: scene id → slots. */

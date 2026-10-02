@@ -42,16 +42,25 @@ class ExtraKeyController {
 	}
 
 	/**
-	 * With {@code libraryId}: puts a copy of that library composition on the key. Without: changes mode and fade of an
-	 * assigned key.
+	 * With {@code libraryId}: puts a copy of that library composition on the key. With {@code sceneId}: the key plays
+	 * that scene. With neither: changes mode and fade of an assigned key.
 	 */
 	@PutMapping("/extra-keys/{slot}")
 	KeyResponse setKey(@PathVariable long projectId, @PathVariable int slot, @RequestBody KeyRequest request) {
+		if (request.libraryId() != null && request.sceneId() != null) {
+			throw new DomainValidationException(List.of("A key plays either a composition (libraryId) or a scene "
+					+ "(sceneId), not both"));
+		}
 		var mode = parseMode(request.mode());
 		var fade = Duration.ofMillis(Objects.requireNonNullElse(request.fadeMs(), 0L));
-		var key = request.libraryId() != null
-				? keys.assignKey(projectId, slot, request.libraryId(), mode, fade)
-				: keys.updateKey(projectId, slot, mode, fade);
+		ExtraKey key;
+		if (request.libraryId() != null) {
+			key = keys.assignKey(projectId, slot, request.libraryId(), mode, fade);
+		} else if (request.sceneId() != null) {
+			key = keys.assignScene(projectId, slot, request.sceneId(), mode, fade);
+		} else {
+			key = keys.updateKey(projectId, slot, mode, fade);
+		}
 		return KeyResponse.from(key);
 	}
 
@@ -75,17 +84,22 @@ class ExtraKeyController {
 	}
 
 	/**
-	 * @param libraryId composition to copy onto the key; omit to only change mode and fade
+	 * @param libraryId composition to copy onto the key
+	 * @param sceneId   scene for the key to play
 	 * @param mode      toggle (default) or flash
 	 */
-	record KeyRequest(Long libraryId, String mode, Long fadeMs) {
+	record KeyRequest(Long libraryId, Long sceneId, String mode, Long fadeMs) {
 	}
 
-	record KeyResponse(int slot, String mode, long fadeMs, CompositionResponse composition) {
+	/**
+	 * @param composition the key's composition, null if it plays a scene
+	 * @param sceneId     the scene the key plays, null if it plays a composition
+	 */
+	record KeyResponse(int slot, String mode, long fadeMs, CompositionResponse composition, Long sceneId) {
 
 		static KeyResponse from(ExtraKey key) {
 			return new KeyResponse(key.slot(), key.mode().id(), key.fade().toMillis(),
-					CompositionResponse.from(key.composition()));
+					key.composition().map(CompositionResponse::from).orElse(null), key.sceneId().orElse(null));
 		}
 	}
 

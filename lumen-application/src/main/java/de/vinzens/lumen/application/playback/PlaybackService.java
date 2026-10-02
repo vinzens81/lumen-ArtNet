@@ -98,7 +98,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			keys = new ExtraKeys();
 		} else {
 			var project = active.get();
-			var cueList = scenes.findByProject(project.id());
+			// scenes only for extra keys are not part of the cue list
+			var cueList = scenes.findByProject(project.id()).stream().filter(scene -> !scene.spec().keyOnly()).toList();
 			var running = compositions.scenes(project.id());
 			var fadeIn = project.spec().fadeIn();
 			var fadeOut = project.spec().fadeOut();

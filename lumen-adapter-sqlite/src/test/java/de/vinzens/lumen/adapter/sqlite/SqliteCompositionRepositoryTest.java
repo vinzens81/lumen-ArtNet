@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Color;
 import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Flicker;
 import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.composition.StepSequence;
@@ -125,14 +126,14 @@ class SqliteCompositionRepositoryTest {
 		assertThat(key.slot()).isEqualTo(3);
 		assertThat(key.mode()).isEqualTo(KeyMode.FLASH);
 		assertThat(key.fade()).isEqualTo(Duration.ofMillis(250));
-		assertThat(key.composition().sourceId()).contains(library.id());
-		assertThat(key.composition().spec()).isEqualTo(spec);
+		assertThat(key.composition().orElseThrow().sourceId()).contains(library.id());
+		assertThat(key.composition().orElseThrow().spec()).isEqualTo(spec);
 		assertThat(repos.compositions().findLibrary(project)).as("keys are not in the library").hasSize(1);
 		assertThat(repos.compositions().findByScenes(project)).isEmpty();
 
 		repos.compositions().saveKey(project, 3, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, spec);
 		assertThat(repos.compositions().findKeys(project)).as("replaced").singleElement()
-				.satisfies(k -> assertThat(k.composition().sourceId()).isEmpty());
+				.satisfies(k -> assertThat(k.composition().orElseThrow().sourceId()).isEmpty());
 		assertThat(repos.compositions().updateKeySettings(project, 3, KeyMode.FLASH, Duration.ofSeconds(1)).fade())
 				.isEqualTo(Duration.ofSeconds(1));
 
@@ -142,6 +143,33 @@ class SqliteCompositionRepositoryTest {
 		assertThat(repos.compositions().findKeys(project)).isEmpty();
 		repos.scenes().delete(scene);
 		assertThat(repos.compositions().findSceneKeys(project)).isEmpty();
+	}
+
+	@Test
+	void keysCanPlayAWholeScene() {
+		var storm = repos.scenes().create(project, new SceneSpec(SceneNumber.of(90), "Storm look", Optional.empty(),
+				Optional.empty(), true), Map.of()).id();
+		assertThat(repos.scenes().findById(storm).orElseThrow().spec().keyOnly()).isTrue();
+
+		repos.compositions().saveKey(project, 2, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, flicker("Candle"));
+		var key = repos.compositions().saveSceneKey(project, 1, storm, KeyMode.FLASH, Duration.ofMillis(100));
+		assertThat(key.sceneId()).contains(storm);
+		assertThat(key.composition()).isEmpty();
+		assertThat(repos.compositions().findKeys(project)).extracting(ExtraKey::slot).containsExactly(1, 2);
+
+		repos.compositions().saveKey(project, 1, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, flicker("Candle"));
+		assertThat(repos.compositions().findKeys(project)).as("a composition replaces the scene").hasSize(2)
+				.allSatisfy(k -> assertThat(k.sceneId()).isEmpty());
+		repos.compositions().saveSceneKey(project, 2, storm, KeyMode.TOGGLE, Duration.ZERO);
+		assertThat(repos.compositions().updateKeySettings(project, 2, KeyMode.FLASH, Duration.ofSeconds(2)))
+				.satisfies(k -> {
+					assertThat(k.mode()).isEqualTo(KeyMode.FLASH);
+					assertThat(k.sceneId()).contains(storm);
+				});
+
+		repos.scenes().delete(storm);
+		assertThat(repos.compositions().findKeys(project)).as("the scene's key is empty again")
+				.extracting(ExtraKey::slot).containsExactly(1);
 	}
 
 	@Test

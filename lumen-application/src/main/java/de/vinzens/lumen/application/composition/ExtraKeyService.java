@@ -48,17 +48,41 @@ public class ExtraKeyService implements ManageExtraKeysUseCase {
 				.filter(c -> c.projectId() == projectId && c.inLibrary())
 				.orElseThrow(() -> new NotFoundException("Composition " + libraryCompositionId
 						+ " is not in the library of project " + projectId));
-		var wasEmpty = compositions.findKeys(projectId).stream().noneMatch(k -> k.slot() == slot);
+		var wasEmpty = isEmpty(projectId, slot);
 		var key = compositions.saveKey(projectId, slot, Optional.of(source.id()), mode, fade, source.spec());
 		if (wasEmpty) {
-			var sceneKeys = compositions.findSceneKeys(projectId);
-			for (var scene : scenes.findByProject(projectId)) {
-				var slots = new TreeSet<>(sceneKeys.getOrDefault(scene.id(), Set.of()));
-				slots.add(slot);
-				compositions.saveSceneKeys(scene.id(), slots);
-			}
+			enableEverywhere(projectId, slot);
 		}
 		return changed(key);
+	}
+
+	@Override
+	public ExtraKey assignScene(long projectId, int slot, long sceneId, KeyMode mode, Duration fade) {
+		requireScene(projectId, sceneId);
+		ExtraKey.validate(slot, fade);
+		var wasEmpty = isEmpty(projectId, slot);
+		var key = compositions.saveSceneKey(projectId, slot, sceneId, mode, fade);
+		if (wasEmpty) {
+			enableEverywhere(projectId, slot);
+		}
+		return changed(key);
+	}
+
+	private boolean isEmpty(long projectId, int slot) {
+		return compositions.findKeys(projectId).stream().noneMatch(k -> k.slot() == slot);
+	}
+
+	/** A newly assigned key is usable in every scene of the cue list. */
+	private void enableEverywhere(long projectId, int slot) {
+		var sceneKeys = compositions.findSceneKeys(projectId);
+		for (var scene : scenes.findByProject(projectId)) {
+			if (scene.spec().keyOnly()) {
+				continue;
+			}
+			var slots = new TreeSet<>(sceneKeys.getOrDefault(scene.id(), Set.of()));
+			slots.add(slot);
+			compositions.saveSceneKeys(scene.id(), slots);
+		}
 	}
 
 	@Override

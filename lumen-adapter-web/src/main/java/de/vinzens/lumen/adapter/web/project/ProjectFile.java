@@ -71,7 +71,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null),
 				export.compositions().stream().map(c -> CompositionEntry.from(c, sceneNumbers, json)).toList(),
 				export.keys().stream().map(k -> new ExtraKeyEntry(k.slot(), k.mode().id(), k.fade().toMillis(),
-						CompositionEntry.from(k.composition(), sceneNumbers, json))).toList());
+						k.composition().map(c -> CompositionEntry.from(c, sceneNumbers, json)).orElse(null),
+						k.sceneId().map(sceneNumbers::get).orElse(null))).toList());
 	}
 
 	ProjectExport toExport(JsonMapper json) {
@@ -152,20 +153,33 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	/** An extra key of show mode with its own composition (mode toggle or flash). */
-	record ExtraKeyEntry(Integer slot, String mode, Long fadeMs, CompositionEntry composition) {
+	/**
+	 * An extra key of show mode (mode toggle or flash) with its own composition or a scene.
+	 *
+	 * @param sceneNumber the scene the key plays, instead of a composition
+	 */
+	record ExtraKeyEntry(Integer slot, String mode, Long fadeMs, CompositionEntry composition, String sceneNumber) {
 
 		ExtraKey toKey(Map<String, Long> sceneIds, JsonMapper json) {
-			if (slot == null || composition == null) {
-				throw new DomainValidationException(List.of("An extra key needs slot and composition"));
+			if (slot == null || (composition == null) == (sceneNumber == null)) {
+				throw new DomainValidationException(List.of("An extra key needs a slot and either a composition or "
+						+ "a sceneNumber"));
 			}
 			var mode = this.mode == null ? KeyMode.TOGGLE : switch (this.mode) {
 				case "toggle" -> KeyMode.TOGGLE;
 				case "flash" -> KeyMode.FLASH;
 				default -> throw new DomainValidationException(List.of("Extra key mode must be toggle or flash"));
 			};
-			return new ExtraKey(slot, mode, Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)),
-					composition.toComposition(sceneIds, json));
+			var fade = Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L));
+			if (composition != null) {
+				return new ExtraKey(slot, mode, fade, composition.toComposition(sceneIds, json));
+			}
+			var sceneId = sceneIds.get(SceneNumber.parse(sceneNumber).toString());
+			if (sceneId == null) {
+				throw new DomainValidationException(List.of("Extra key " + slot + " refers to unknown scene "
+						+ sceneNumber));
+			}
+			return new ExtraKey(slot, mode, fade, new ExtraKey.Content.PlaysScene(sceneId));
 		}
 	}
 
@@ -222,14 +236,18 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	}
 
 	/** @param values normalized values (0–1) per fixture id and attribute */
-	/** @param extraKeys extra keys usable in this scene */
-	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs,
+	/**
+	 * @param keyOnly   only played by extra keys
+	 * @param extraKeys extra keys usable in this scene
+	 */
+	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
 			Map<Long, Map<String, Double>> values, List<Integer> extraKeys) {
 
 		static SceneEntry from(Scene scene, Set<Integer> keys) {
 			var spec = scene.spec();
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), ValuesJson.toJson(scene.values()),
+					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
+					ValuesJson.toJson(scene.values()),
 					keys.stream().sorted().toList());
 		}
 
@@ -238,7 +256,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				throw new DomainValidationException(List.of("Scene '" + name + "' has no number"));
 			}
 			var spec = new SceneSpec(SceneNumber.parse(number), name, Optional.ofNullable(cueNote),
-					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis));
+					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(keyOnly));
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));

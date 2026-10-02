@@ -68,6 +68,11 @@ public record FixedCompositions(Map<Long, List<Composition>> byScene, List<Extra
 	}
 
 	@Override
+	public ExtraKey saveSceneKey(long projectId, int slot, long sceneId, KeyMode mode, Duration fade) {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
 	public ExtraKey saveKey(long projectId, int slot, Optional<Long> sourceId, KeyMode mode, Duration fade,
 			CompositionSpec spec) {
 		throw new UnsupportedOperationException();

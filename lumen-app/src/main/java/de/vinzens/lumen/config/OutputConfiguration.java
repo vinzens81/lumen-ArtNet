@@ -102,7 +102,7 @@ class OutputConfiguration {
 
 	@Bean
 	CompositionResolver compositionResolver(SqliteRepositories repositories) {
-		return new CompositionResolver(repositories.compositions(), repositories.groups());
+		return new CompositionResolver(repositories.compositions(), repositories.groups(), repositories.scenes());
 	}
 
 	@Bean

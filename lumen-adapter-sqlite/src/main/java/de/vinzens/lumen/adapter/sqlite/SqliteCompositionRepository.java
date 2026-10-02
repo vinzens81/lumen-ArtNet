@@ -26,6 +26,7 @@ import java.sql.ResultSet;
 import java.time.Duration;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -149,11 +150,35 @@ public class SqliteCompositionRepository implements CompositionRepository {
 
 	@Override
 	public List<ExtraKey> findKeys(long projectId) {
-		var rows = jdbc.sql("SELECT * FROM composition WHERE project_id = ? AND key_slot IS NOT NULL ORDER BY key_slot")
-				.param(projectId).query(this::row).list();
-		return rows.stream().map(row -> new ExtraKey(row.keySlot(), KeyMode.valueOf(row.keyMode().toUpperCase(
-				Locale.ROOT)), Duration.ofMillis(row.keyFadeMs() == null ? 0 : row.keyFadeMs()),
-				toComposition(row))).toList();
+		var keys = new ArrayList<ExtraKey>();
+		jdbc.sql("SELECT * FROM composition WHERE project_id = ? AND key_slot IS NOT NULL").param(projectId)
+				.query(this::row).list()
+				.forEach(row -> keys.add(new ExtraKey(row.keySlot(), keyMode(row.keyMode()),
+						Duration.ofMillis(row.keyFadeMs() == null ? 0 : row.keyFadeMs()), toComposition(row))));
+		jdbc.sql("SELECT * FROM extra_key_scene WHERE project_id = ?").param(projectId)
+				.query(rs -> {
+					keys.add(new ExtraKey(rs.getInt("key_slot"), keyMode(rs.getString("key_mode")),
+							Duration.ofMillis(rs.getLong("key_fade_ms")), new ExtraKey.Content.PlaysScene(
+									rs.getLong("scene_id"))));
+				});
+		keys.sort(Comparator.comparingInt(ExtraKey::slot));
+		return keys;
+	}
+
+	@Override
+	public ExtraKey saveSceneKey(long projectId, int slot, long sceneId, KeyMode mode, Duration fade) {
+		transactions.executeWithoutResult(status -> {
+			deleteKey(projectId, slot);
+			jdbc.sql("""
+					INSERT INTO extra_key_scene (project_id, key_slot, scene_id, key_mode, key_fade_ms)
+					VALUES (?, ?, ?, ?, ?)""")
+					.params(projectId, slot, sceneId, mode.id(), fade.toMillis()).update();
+		});
+		return key(projectId, slot);
+	}
+
+	private static KeyMode keyMode(String id) {
+		return KeyMode.valueOf(id.toUpperCase(Locale.ROOT));
 	}
 
 	@Override
@@ -180,12 +205,15 @@ public class SqliteCompositionRepository implements CompositionRepository {
 	public ExtraKey updateKeySettings(long projectId, int slot, KeyMode mode, Duration fade) {
 		jdbc.sql("UPDATE composition SET key_mode = ?, key_fade_ms = ? WHERE project_id = ? AND key_slot = ?")
 				.params(mode.id(), fade.toMillis(), projectId, slot).update();
+		jdbc.sql("UPDATE extra_key_scene SET key_mode = ?, key_fade_ms = ? WHERE project_id = ? AND key_slot = ?")
+				.params(mode.id(), fade.toMillis(), projectId, slot).update();
 		return key(projectId, slot);
 	}
 
 	@Override
 	public void deleteKey(long projectId, int slot) {
 		jdbc.sql("DELETE FROM composition WHERE project_id = ? AND key_slot = ?").params(projectId, slot).update();
+		jdbc.sql("DELETE FROM extra_key_scene WHERE project_id = ? AND key_slot = ?").params(projectId, slot).update();
 	}
 
 	@Override

@@ -20,13 +20,14 @@ public interface ManageScenesUseCase {
 	 * Creates a scene.
 	 *
 	 * @param number                 the cue number, or empty for the next whole number after the last scene
+	 * @param keyOnly                only played by extra keys, GO skips it
 	 * @param recordFromProgrammer   take the current programmer values, otherwise the scene starts empty (dark)
 	 */
 	Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean recordFromProgrammer);
+			Optional<Duration> autoFollow, boolean keyOnly, boolean recordFromProgrammer);
 
 	Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow);
+			Optional<Duration> autoFollow, boolean keyOnly);
 
 	/** Overwrites the values of the scene with the current programmer. */
 	Scene record(long projectId, long sceneId);

@@ -58,7 +58,7 @@ class SceneController {
 		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.record())));
+				Boolean.TRUE.equals(request.keyOnly()), Boolean.TRUE.equals(request.record())));
 	}
 
 	@PutMapping("/{sceneId}")
@@ -67,7 +67,8 @@ class SceneController {
 			throw new DomainValidationException(List.of("number is missing"));
 		}
 		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
-				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request)));
+				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
+				Boolean.TRUE.equals(request.keyOnly())));
 	}
 
 	/** Overwrites the scene with the current programmer values. */
@@ -97,20 +98,25 @@ class SceneController {
 	 * @param number       cue number as text, e.g. "2.5"
 	 * @param autoFollowMs stay time before the next scene starts automatically, {@code null} = wait for GO
 	 */
-	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean record) {
+	/** @param keyOnly only played by extra keys, GO skips the scene */
+	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
+			Boolean record) {
 	}
 
 	/**
 	 * @param values programmer-style values per fixture id
 	 */
-	/** @param compositions compositions running in the scene, in their order */
-	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, int fixtureCount,
-			Map<Long, Map<String, Double>> values, List<CompositionSummary> compositions) {
+	/**
+	 * @param keyOnly      only played by extra keys, not part of the cue list
+	 * @param compositions compositions running in the scene, in their order
+	 */
+	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
+			int fixtureCount, Map<Long, Map<String, Double>> values, List<CompositionSummary> compositions) {
 
 		static SceneResponse from(Scene scene, List<Composition> compositions) {
 			var spec = scene.spec();
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), scene.values().size(),
+					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(), scene.values().size(),
 					ValuesJson.toJson(scene.values()), compositions.stream()
 							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
 							.toList());

@@ -10,37 +10,68 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 /**
- * The extra keys while the show runs: which are on, their fades, and their compositions laid over the playback with
- * the same rules as compositions in a scene. Keys run on the real clock: pausing the playback does not stop them.
+ * The extra keys while the show runs: which are on, their fades, and what they play laid over the playback – a
+ * composition with the same rules as in a scene, or a whole scene as one look. Keys run on the real clock: pausing the playback does not stop them.
  * A key can only be switched on while it is available in the current scene; when it stops being available it fades
  * out. Not thread-safe – callers synchronize.
  */
 public final class ExtraKeys {
 
-	/**
-	 * A key ready to play.
-	 *
-	 * @param composition resolved composition of the key
-	 */
-	public record PlayableKey(int slot, KeyMode mode, Duration fade, String name, ActiveComposition composition) {
+	/** A key ready to play. */
+	public record PlayableKey(int slot, KeyMode mode, Duration fade, String name, Look look) {
 
 		public PlayableKey {
 			Objects.requireNonNull(mode, "mode");
 			Objects.requireNonNull(fade, "fade");
-			Objects.requireNonNull(composition, "composition");
+			Objects.requireNonNull(look, "look");
+		}
+
+		public PlayableKey(int slot, KeyMode mode, Duration fade, String name, ActiveComposition composition) {
+			this(slot, mode, fade, name, new CompositionLook(composition));
+		}
+	}
+
+	/** What a key lays over the playback. */
+	public sealed interface Look {
+
+		/** Identifies the content: a key keeps running when it is reconfigured with the same content. */
+		String identity();
+	}
+
+	/** A composition, laid over the playback with its own rules (a flicker flickers around the scene). */
+	public record CompositionLook(ActiveComposition composition) implements Look {
+
+		public String identity() {
+			return "composition:" + composition.id();
+		}
+	}
+
+	/** A whole scene: its values with its compositions, laid over the playback as one look. */
+	public record SceneLook(long sceneId, Map<Long, FixtureValues> values, List<ActiveComposition> compositions)
+			implements Look {
+
+		public SceneLook {
+			values = Map.copyOf(values);
+			compositions = List.copyOf(compositions);
+		}
+
+		public String identity() {
+			return "scene:" + sceneId;
 		}
 	}
 
 	/**
+	 * @param kind      kind of the composition, empty if the key plays a scene
 	 * @param on        target state (fading in or on)
 	 * @param level     current fade level 0–1
 	 * @param available can be switched on in the current scene
 	 */
-	public record KeyStatus(int slot, String name, PatternKind kind, KeyMode mode, boolean on, double level,
-			boolean available) {
+	public record KeyStatus(int slot, String name, Optional<PatternKind> kind, KeyMode mode, boolean on,
+			double level, boolean available) {
 	}
 
 	private Map<Integer, PlayableKey> keys = Map.of();
@@ -54,7 +85,7 @@ public final class ExtraKeys {
 		for (var slot : List.copyOf(states.keySet())) {
 			var key = bySlot.get(slot);
 			var old = keys.get(slot);
-			if (key == null || old == null || key.composition().id() != old.composition().id()) {
+			if (key == null || old == null || !key.look().identity().equals(old.look().identity())) {
 				states.remove(slot);
 			}
 		}
@@ -133,10 +164,19 @@ public final class ExtraKeys {
 			if (key == null || level <= 0) {
 				continue;
 			}
-			var composition = key.composition();
 			var seconds = Math.max(0, Duration.between(states.get(slot).startedAt(), now).toNanos() / 1e9);
-			result = CompositionMixer.apply(result, CompositionMixer.contribution(composition, seconds, attributes),
-					composition.pattern(), composition.level() * level, attributes);
+			result = switch (key.look()) {
+				case CompositionLook played -> CompositionMixer.apply(result,
+						CompositionMixer.contribution(played.composition(), seconds, attributes),
+						played.composition().pattern(), played.composition().level() * level, attributes);
+				case SceneLook played -> {
+					var scene = played.values();
+					for (var composition : played.compositions()) {
+						scene = CompositionMixer.apply(scene, composition, seconds, attributes);
+					}
+					yield CompositionMixer.overlay(result, scene, level);
+				}
+			};
 		}
 		return result;
 	}
@@ -145,7 +185,10 @@ public final class ExtraKeys {
 		var result = new ArrayList<KeyStatus>();
 		for (var key : keys.values().stream().sorted((a, b) -> Integer.compare(a.slot(), b.slot())).toList()) {
 			var state = states.get(key.slot());
-			result.add(new KeyStatus(key.slot(), key.name(), key.composition().pattern().kind(), key.mode(),
+			var kind = key.look() instanceof CompositionLook look
+					? Optional.of(look.composition().pattern().kind())
+					: Optional.<PatternKind>empty();
+			result.add(new KeyStatus(key.slot(), key.name(), kind, key.mode(),
 					state != null && state.on(), level(key.slot(), now), available.contains(key.slot())));
 		}
 		return result;
