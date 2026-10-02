@@ -38,3 +38,7 @@ build/
 ### Lumen ###
 # Laufzeitdaten (SQLite-DB, Backups)
 data/
+
+### Frontend ###
+lumen-frontend/node/
+lumen-frontend/node_modules/

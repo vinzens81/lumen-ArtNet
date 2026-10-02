@@ -46,10 +46,13 @@ Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
 **DoD:** Per `curl` wird ein echter Scheinwerfer eingeschaltet (oder ist in QLC+/Wireshark sichtbar).
 Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem Header und den gesetzten Kanalwerten.
 
-## ⬜ Iteration 4 – UI-Grundgerüst & Konfigurationsmodus
+## ✅ Iteration 4 – UI-Grundgerüst & Konfigurationsmodus
 - Modul `lumen-frontend` (Svelte + Vite + TS), Build via `frontend-maven-plugin` ins JAR
 - Design Tokens, Dark Theme, App-Shell mit Moduswechsel (Betrieb vorerst Platzhalter)
 - Projekt-Auswahl, Universen-Verwaltung, Patch-Ansicht mit Gerätebibliothek und Adress-Raster
+- Zusätzlich: „Locate“-Knopf pro Gerät (leuchtet hell auf, um es auf der Bühne zu finden), Mehrfach-Patch mit
+  Anzahl und automatischer nächster freier Adresse, Patch-Probleme anklickbar, Server-Status in der Kopfleiste
+- Stage und Scenes sind als „Coming soon“ angelegt, der Show-Modus als Platzhalter
 
 **DoD:** Ein komplettes Projekt lässt sich im Browser anlegen und patchen.
 

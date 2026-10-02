@@ -14,6 +14,18 @@ Javadoc, Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in 
 ./mvnw -pl lumen-domain test                  # nur ein Modul testen
 ```
 
+Frontend (`lumen-frontend`, Svelte 5 + Vite + TypeScript): Maven lädt Node selbst nach `lumen-frontend/node/`,
+`npm run build` (inkl. `svelte-check`) landet in `target/classes/static` und wird von Spring Boot ausgeliefert.
+Für schnelles UI-Arbeiten mit Hot Reload (Backend muss auf :8080 laufen, `/api` wird durchgereicht):
+
+```bash
+cd lumen-frontend && PATH="$PWD/node:$PATH" npm run dev     # → http://localhost:5173
+PATH="$PWD/node:$PATH" npm test                              # Vitest
+```
+
+Hinweis: Das Projekt liegt in `~/Documents`. Synchronisiert iCloud diesen Ordner, können Duplikate wie
+`Klasse 2.class` in `target/` entstehen („Unable to find a single main class“). Dann hilft `./mvnw clean`.
+
 Java 26, Spring Boot 4.1 (Jackson 3: `tools.jackson.*`), Maven Multi-Module (Parent: `pom.xml`,
 Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` und `data/lumen.db` (SQLite, wird beim
 Start angelegt, nicht eingecheckt) beziehen sich auf das Projekt-Root. Tests in `lumen-app` nutzen
@@ -29,6 +41,8 @@ Start angelegt, nicht eingecheckt) beziehen sich auf das Projekt-Root. Tests in 
 - Adapter hängen nicht voneinander ab; Domain/Application kennen weder Spring noch Jackson.
 - `ArchitectureTest` (in `lumen-app`) prüft die Regeln; neue Adapter-Module dort als Abhängigkeit aufnehmen.
 - REST-Antworten sind DTOs im Web-Adapter, Domain-Objekte werden nicht direkt serialisiert.
+- Frontend: Design-Tokens in `src/app.css` (CSS-Variablen), API-Typen in `src/lib/types.ts` passend zu den DTOs halten,
+  reine Logik in `src/lib/*.ts` mit Vitest testen. `svelte-check` läuft mit `--fail-on-warnings` (inkl. a11y).
 - Schema-Änderungen nur als neue Flyway-Migration (`lumen-adapter-sqlite/src/main/resources/db/migration`),
   bestehende Migrationen nie ändern.
 - Zeitabhängige Logik (Fades, Auto-Follow) bekommt eine `Clock` injiziert und wird ohne Spring getestet.

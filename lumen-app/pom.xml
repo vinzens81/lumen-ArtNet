@@ -41,6 +41,10 @@
 			<artifactId>lumen-adapter-web</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>de.vinzens.lumen</groupId>
+			<artifactId>lumen-frontend</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-actuator</artifactId>
 		</dependency>
@@ -93,6 +97,8 @@
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>
 				<configuration>
+					<!-- explicit, so stray copies like "LumenApplication 2.class" (iCloud) cannot confuse the build -->
+					<mainClass>de.vinzens.lumen.LumenApplication</mainClass>
 					<jvmArguments>--enable-native-access=ALL-UNNAMED</jvmArguments>
 					<!-- Relative paths (fixture-types/, data/) are resolved against the project root -->
 					<workingDirectory>${maven.multiModuleProjectDirectory}</workingDirectory>
