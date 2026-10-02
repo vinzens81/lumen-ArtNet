@@ -66,3 +66,27 @@ export function locateValues(mode: Mode): Record<string, number> {
 export function fixtureHue(id: number): number {
   return Math.round((id * 137.508) % 360);
 }
+
+export interface ChannelOwner {
+  fixture: Fixture;
+  /** channel name from the profile, with "fine" for the second byte of 16-bit channels */
+  channel: string;
+}
+
+/** Which fixture and profile channel each DMX channel (index 0 = channel 1) of a universe belongs to. */
+export function channelOwners(fixtures: Fixture[], modes: Map<number, Mode>): (ChannelOwner | null)[] {
+  const owners: (ChannelOwner | null)[] = Array.from({ length: UNIVERSE_SIZE }, () => null);
+  for (const fixture of fixtures) {
+    const mode = modes.get(fixture.id);
+    if (!mode) continue;
+    for (const channel of mode.channels) {
+      for (let byte = 0; byte < channel.dmxChannelCount; byte++) {
+        const index = fixture.address - 1 + channel.offset + byte;
+        if (index < UNIVERSE_SIZE && owners[index] === null) {
+          owners[index] = { fixture, channel: byte === 0 ? channel.name : `${channel.name} fine` };
+        }
+      }
+    }
+  }
+  return owners;
+}

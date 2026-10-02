@@ -84,15 +84,25 @@ class LiveSocketTest {
 		socket.sendText("{\"type\": \"subscribe\", \"topics\": [\"output\", \"dmx:1\"]}", true).join();
 		request("PATCH", "/api/programmer/fixtures/" + fixture, "{\"dimmer\": 1}");
 
+		// both streams arrive in any order; wait until each shows the new value
+		String dmx = null;
+		String output = null;
 		var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(5);
-		String dmx;
-		do {
-			dmx = await(messages, "dmx");
-		} while (JsonPath.<Integer>read(dmx, "$.values[2]") != 255 && System.nanoTime() < deadline);
+		while ((dmx == null || output == null) && System.nanoTime() < deadline) {
+			var message = messages.poll(100, TimeUnit.MILLISECONDS);
+			if (message == null) {
+				continue;
+			}
+			var type = JsonPath.<String>read(message, "$.type");
+			if (type.equals("dmx") && JsonPath.<Integer>read(message, "$.values[2]") == 255) {
+				dmx = message;
+			} else if (type.equals("output") && message.contains("\"" + fixture + "\"")) {
+				output = message;
+			}
+		}
+		assertThat(dmx).as("dmx message with the new value").isNotNull();
+		assertThat(output).as("output message with the fixture").isNotNull();
 		assertThat(JsonPath.<Integer>read(dmx, "$.universe")).isEqualTo(1);
-		assertThat(JsonPath.<Integer>read(dmx, "$.values[2]")).isEqualTo(255);
-		var output = await(messages, "output");
-		assertThat(output).contains("\"" + fixture + "\"");
 
 		socket.sendText("{\"type\": \"subscribe\", \"topics\": [\"stage\"]}", true).join();
 		assertThat((String) JsonPath.read(await(messages, "error"), "$.message")).contains("Unknown live topic");

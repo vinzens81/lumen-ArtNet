@@ -298,3 +298,10 @@ a {
   background: rgba(255, 255, 255, 0.08);
   border-radius: 10px;
 }
+
+/* phone as a remote in show mode: no master or blackout to hit by accident */
+@media (max-width: 600px) {
+  :root[data-mode='show'] footer.master {
+    display: none;
+  }
+}

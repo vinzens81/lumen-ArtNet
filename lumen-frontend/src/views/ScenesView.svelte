@@ -2,7 +2,7 @@
   import Modal from '../components/Modal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import { api } from '../lib/api';
-  import { previewOf, rgbToCss } from '../lib/color';
+  import { modesOf, previewOf, rgbToCss, swatchesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
@@ -24,14 +24,7 @@
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
-  const modes = $derived.by(() => {
-    const result = new Map<number, Mode>();
-    for (const fixture of fixtures) {
-      const mode = app.fixtureType(fixture.fixtureTypeId)?.modes.find((m) => m.name === fixture.mode);
-      if (mode) result.set(fixture.id, mode);
-    }
-    return result;
-  });
+  const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const nextNumber = $derived(
     scenes.length === 0 ? '1' : String(Math.floor(Number(scenes[scenes.length - 1].number)) + 1),
   );
@@ -67,14 +60,8 @@
     };
   }
 
-  /** Glowing swatches of the lit fixtures, in patch order. */
-  function swatches(scene: Scene): { color: string; intensity: number }[] {
-    return fixtures
-      .filter((f) => scene.values[f.id] && modes.has(f.id))
-      .sort((a, b) => a.universeId - b.universeId || a.address - b.address)
-      .map((f) => previewOf(modes.get(f.id)!, scene.values[f.id]))
-      .filter((p) => p.intensity > 0.01)
-      .map((p) => ({ color: rgbToCss(p.color), intensity: p.intensity }));
+  function swatches(scene: Scene) {
+    return swatchesOf(fixtures, modes, scene.values);
   }
 
   async function save() {

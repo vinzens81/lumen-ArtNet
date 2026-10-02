@@ -7,6 +7,7 @@ export type Route =
   | '/setup/programmer'
   | '/setup/stage'
   | '/setup/scenes'
+  | '/setup/dmx'
   | '/setup/settings'
   | '/show';
 
@@ -17,6 +18,7 @@ const ROUTES: Route[] = [
   '/setup/programmer',
   '/setup/stage',
   '/setup/scenes',
+  '/setup/dmx',
   '/setup/settings',
   '/show',
 ];

@@ -9,13 +9,14 @@
   import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
+  import DmxMonitorView from './views/DmxMonitorView.svelte';
   import PatchView from './views/PatchView.svelte';
   import ProgrammerView from './views/ProgrammerView.svelte';
   import ProjectsView from './views/ProjectsView.svelte';
   import ScenesView from './views/ScenesView.svelte';
   import SettingsView from './views/SettingsView.svelte';
   import ShowView from './views/ShowView.svelte';
-  import SoonView from './views/SoonView.svelte';
+  import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
 
   const tabs: { route: Route; label: string; soon?: boolean }[] = [
@@ -23,8 +24,9 @@
     { route: '/setup/universes', label: 'Universes' },
     { route: '/setup/patch', label: 'Patch' },
     { route: '/setup/programmer', label: 'Programmer' },
-    { route: '/setup/stage', label: 'Stage', soon: true },
+    { route: '/setup/stage', label: 'Stage' },
     { route: '/setup/scenes', label: 'Scenes' },
+    { route: '/setup/dmx', label: 'DMX' },
     { route: '/setup/settings', label: 'Settings' },
   ];
 
@@ -92,6 +94,11 @@
   // other clients changed projects: refresh the project list
   $effect(() => {
     if (live.projectsRevision > 0) app.reloadProjects();
+  });
+
+  // fixture profiles changed on disk (or the connection came back)
+  $effect(() => {
+    if (live.libraryRevision > 1) app.reloadLibrary();
   });
 
   function onkeydown(event: KeyboardEvent) {
@@ -171,9 +178,11 @@
     {:else if router.route === '/setup/programmer'}
       <ProgrammerView />
     {:else if router.route === '/setup/stage'}
-      <SoonView title="Stage view" text="Place fixtures on a stage plan and watch them glow in their real colors." />
+      <StageView />
     {:else if router.route === '/setup/scenes'}
       <ScenesView />
+    {:else if router.route === '/setup/dmx'}
+      <DmxMonitorView />
     {:else if router.route === '/setup/settings'}
       <SettingsView />
     {:else}

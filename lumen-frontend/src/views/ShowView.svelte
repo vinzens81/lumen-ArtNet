@@ -1,14 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
+  import { modesOf, swatchesOf, type Swatch } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { PlaybackStatus, Scene } from '../lib/types';
+  import type { Fixture, PlaybackStatus, Scene } from '../lib/types';
 
   const GO_GUARD_MS = 300;
 
   let scenes = $state<Scene[]>([]);
+  let fixtures = $state<Fixture[]>([]);
   let now = $state(performance.now());
   let lastGo = 0;
   let listElement: HTMLElement | undefined = $state();
@@ -16,6 +19,10 @@
   const projectId = $derived(app.active?.id ?? null);
   const status = $derived(live.playback);
   const byId = $derived(new Map(scenes.map((s) => [s.id, s])));
+  const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
+  const swatches = $derived(
+    new Map<number, Swatch[]>(scenes.map((s) => [s.id, swatchesOf(fixtures, modes, s.values)])),
+  );
   const current = $derived(status?.currentSceneId != null ? byId.get(status.currentSceneId) : undefined);
   const next = $derived(status?.nextSceneId != null ? byId.get(status.nextSceneId) : undefined);
   const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
@@ -42,8 +49,14 @@
 
   $effect(() => {
     void live.scenesRevision;
+    void live.patchRevision;
     if (projectId !== null) {
-      api.scenes.list(projectId).then((list) => (scenes = list)).catch(showError);
+      Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId)])
+        .then(([sceneList, fixtureList]) => {
+          scenes = sceneList;
+          fixtures = fixtureList;
+        })
+        .catch(showError);
     }
   });
 
@@ -139,6 +152,7 @@
           <span class="name">{scene.name}</span>
           {#if scene.cueNote}<span class="note">{scene.cueNote}</span>{/if}
         </span>
+        <Swatches swatches={swatches.get(scene.id) ?? []} max={10} />
         {#if scene.autoFollowMs !== null}<span class="badge">⟳ {seconds(scene.autoFollowMs)}</span>{/if}
         {#if rowState(scene, i) === 'current'}<span class="tag now">NOW</span>{/if}
         {#if rowState(scene, i) === 'next'}<span class="tag next">NEXT</span>{/if}
@@ -223,11 +237,11 @@
     </button>
 
     <div class="controls">
-      <button type="button" class="btn" onclick={() => live.playbackCommand('back')} disabled={!status || status.position < 0}>◀ Back <kbd>←</kbd></button>
-      <button type="button" class="btn" onclick={() => live.playbackCommand('pause')} disabled={!status?.available}>
+      <button type="button" class="btn back" onclick={() => live.playbackCommand('back')} disabled={!status || status.position < 0}>◀ Back <kbd>←</kbd></button>
+      <button type="button" class="btn secondary" onclick={() => live.playbackCommand('pause')} disabled={!status?.available}>
         {status?.paused ? '▶ Resume' : '⏸ Pause'} <kbd>P</kbd>
       </button>
-      <button type="button" class="btn" onclick={() => live.playbackCommand('finish')} disabled={!status?.fade}>⏭ Finish fade <kbd>↵</kbd></button>
+      <button type="button" class="btn secondary" onclick={() => live.playbackCommand('finish')} disabled={!status?.fade}>⏭ Finish fade <kbd>↵</kbd></button>
     </div>
     </div>
   </div>
@@ -532,6 +546,42 @@
 
     .list {
       max-height: none;
+    }
+  }
+
+  /* phone as a remote: now, next, GO and Back – nothing else to hit by accident */
+  @media (max-width: 600px) {
+    .list,
+    .out-panel,
+    .controls .secondary,
+    .go .hint,
+    kbd {
+      display: none;
+    }
+
+    .show {
+      min-height: 0;
+    }
+
+    .info {
+      flex: none;
+    }
+
+    .big {
+      font-size: 20px;
+    }
+
+    .go {
+      min-height: 38vh;
+    }
+
+    .controls {
+      grid-template-columns: 1fr;
+    }
+
+    .controls .back {
+      min-height: 64px;
+      font-size: 18px;
     }
   }
 </style>

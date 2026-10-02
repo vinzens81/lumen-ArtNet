@@ -1,4 +1,4 @@
-import type { Mode } from './types';
+import type { AttributeValues, Fixture, Mode } from './types';
 
 export type Rgb = [number, number, number];
 
@@ -86,4 +86,33 @@ export function previewOf(mode: Mode, values: Record<string, number>, master = 1
     if (slot?.color) return { color: hexToRgb(slot.color), intensity };
   }
   return { color: WARM_WHITE, intensity };
+}
+
+export interface Swatch {
+  color: string;
+  intensity: number;
+}
+
+/** Glowing swatches of the lit fixtures of a look (e.g. a scene), in patch order. */
+export function swatchesOf(
+  fixtures: Fixture[],
+  modes: Map<number, Mode>,
+  values: Record<number, AttributeValues>,
+): Swatch[] {
+  return fixtures
+    .filter((f) => values[f.id] && modes.has(f.id))
+    .sort((a, b) => a.universeId - b.universeId || a.address - b.address)
+    .map((f) => previewOf(modes.get(f.id)!, values[f.id]))
+    .filter((p) => p.intensity > 0.01)
+    .map((p) => ({ color: rgbToCss(p.color), intensity: p.intensity }));
+}
+
+/** Library mode of every patched fixture whose type and mode exist. */
+export function modesOf(fixtures: Fixture[], typeOf: (id: string) => { modes: Mode[] } | undefined): Map<number, Mode> {
+  const result = new Map<number, Mode>();
+  for (const fixture of fixtures) {
+    const mode = typeOf(fixture.fixtureTypeId)?.modes.find((m) => m.name === fixture.mode);
+    if (mode) result.set(fixture.id, mode);
+  }
+  return result;
 }

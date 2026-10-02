@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { locateValues, nextFreeAddress, numberedNames, occupancy } from './patch';
-import type { Fixture, Mode } from './types';
+import { channelOwners, locateValues, nextFreeAddress, numberedNames, occupancy } from './patch';
+import type { Channel, Fixture, Mode } from './types';
 
 function fixture(id: number, address: number, channelCount: number | null): Fixture {
   return {
@@ -79,5 +79,24 @@ describe('locateValues', () => {
     };
 
     expect(locateValues(mode)).toEqual({ dimmer: 1, red: 1, green: 1, blue: 1 });
+  });
+});
+
+describe('channelOwners', () => {
+  it('maps every DMX channel to its fixture and profile channel', () => {
+    const head = { ...fixture(1, 10, 3), name: 'Spot' };
+    const channel = (name: string, offset: number, dmxChannelCount: number) =>
+      ({ name, offset, dmxChannelCount }) as Channel;
+    const modes = new Map<number, Mode>([
+      [1, { name: '3ch', dmxChannelCount: 3, channels: [channel('Pan', 0, 2), channel('Dimmer', 2, 1)] }],
+    ]);
+
+    const owners = channelOwners([head], modes);
+
+    expect(owners[8]).toBeNull();
+    expect(owners[9]).toEqual({ fixture: head, channel: 'Pan' });
+    expect(owners[10]?.channel).toBe('Pan fine');
+    expect(owners[11]?.channel).toBe('Dimmer');
+    expect(owners[12]).toBeNull();
   });
 });

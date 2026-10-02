@@ -29,6 +29,16 @@ class AppState {
     }
   }
 
+  async reloadLibrary() {
+    try {
+      const [library, issues] = await Promise.all([api.library.fixtureTypes(), api.library.issues()]);
+      this.library = library;
+      this.libraryIssues = issues;
+    } catch (e) {
+      showError(e);
+    }
+  }
+
   async reloadProjects() {
     try {
       this.projects = await api.projects.list();

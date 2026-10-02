@@ -28,6 +28,11 @@ class LiveState {
   mode = $state<OperatingMode>('setup');
   /** false until the server reported its mode, so a reload in show mode does not bounce to setup first */
   modeKnown = $state(false);
+  /** attribute values as sent to the fixtures (before grand master), while a view watches 'output' */
+  output = $state<Record<number, AttributeValues>>({});
+  /** raw DMX per universe number, while a view watches 'dmx:<n>' */
+  dmx = $state<Record<number, number[]>>({});
+  libraryRevision = $state(0);
   /** render loop and Art-Net status, pushed every second */
   health = $state<OutputHealth | null>(null);
 
@@ -37,6 +42,8 @@ class LiveState {
   private pendingMaster: number | null = null;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private localEdits = new Map<number, { values: AttributeValues; until: number }>();
+  /** live output topics → number of views watching them */
+  private watchers = new Map<string, number>();
 
   connect() {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
@@ -50,6 +57,8 @@ class LiveState {
       this.scenesRevision++;
       this.nodesRevision++;
       this.accessRevision++;
+      this.libraryRevision++;
+      this.sendSubscriptions();
     };
     socket.onmessage = (event) => this.receive(JSON.parse(event.data));
     socket.onclose = () => {
@@ -58,6 +67,27 @@ class LiveState {
       const delay = Math.min(5000, 500 * 2 ** this.retries++);
       setTimeout(() => this.connect(), delay);
     };
+  }
+
+  /**
+   * Receives live output while a view is shown: 'output' (values per fixture) or 'dmx:<universe number>'.
+   * Returns a function that stops watching.
+   */
+  watch(topic: string): () => void {
+    this.watchers.set(topic, (this.watchers.get(topic) ?? 0) + 1);
+    this.sendSubscriptions();
+    return () => {
+      const count = (this.watchers.get(topic) ?? 1) - 1;
+      if (count > 0) this.watchers.set(topic, count);
+      else this.watchers.delete(topic);
+      this.sendSubscriptions();
+    };
+  }
+
+  private sendSubscriptions() {
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'subscribe', topics: [...this.watchers.keys()] }));
+    }
   }
 
   /** Reconnects, e.g. after unlocking setup, so the server sees the new session. */
@@ -102,6 +132,15 @@ class LiveState {
       case 'mode':
         this.mode = message.mode as OperatingMode;
         this.modeKnown = true;
+        break;
+      case 'output':
+        this.output = message.values as Record<number, AttributeValues>;
+        break;
+      case 'dmx':
+        this.dmx = { ...this.dmx, [message.universe as number]: message.values as number[] };
+        break;
+      case 'library':
+        this.libraryRevision++;
         break;
       case 'access':
         this.accessRevision++;

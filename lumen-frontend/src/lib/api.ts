@@ -14,6 +14,7 @@ import type {
   OperatingMode,
   PlaybackStatus,
   PatchIssue,
+  Position,
   Project,
   ProjectRequest,
   Scene,
@@ -36,10 +37,11 @@ export class ApiError extends Error {
 async function request<T>(method: string, url: string, body?: unknown): Promise<T> {
   let response: Response;
   try {
+    const raw = body instanceof Blob;
     response = await fetch(url, {
       method,
-      headers: body === undefined ? {} : { 'Content-Type': 'application/json' },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      headers: body === undefined ? {} : { 'Content-Type': raw ? body.type : 'application/json' },
+      body: body === undefined ? undefined : raw ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError('Lumen server is not reachable', 0);
@@ -67,6 +69,7 @@ const del = (url: string) => request<void>('DELETE', url);
 
 export const api = {
   library: {
+    reload: () => post<void>('/api/library/reload'),
     fixtureTypes: () => get<FixtureType[]>('/api/library/fixture-types'),
     issues: () => get<LibraryIssue[]>('/api/library/issues'),
   },
@@ -109,6 +112,13 @@ export const api = {
     record: (projectId: number, id: number) => post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`),
     load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
+  },
+  stage: {
+    place: (projectId: number, positions: Record<number, Position | null>) =>
+      put<void>(`/api/projects/${projectId}/fixtures/positions`, { positions }),
+    planUrl: (projectId: number, version: number) => `/api/projects/${projectId}/stage/plan?v=${version}`,
+    uploadPlan: (projectId: number, image: Blob) => put<void>(`/api/projects/${projectId}/stage/plan`, image),
+    removePlan: (projectId: number) => del(`/api/projects/${projectId}/stage/plan`),
   },
   patchIssues: (projectId: number) => get<PatchIssue[]>(`/api/projects/${projectId}/patch/issues`),
   programmer: {

@@ -1,0 +1,479 @@
+<script lang="ts">
+  import { api } from '../lib/api';
+  import { modesOf, previewOf, rgbToCss } from '../lib/color';
+  import { live } from '../lib/live.svelte';
+  import { beamOffset, DEFAULT_ASPECT, freeSpots, toStage } from '../lib/stage';
+  import { app } from '../lib/state.svelte';
+  import { notify, showError } from '../lib/toasts.svelte';
+  import type { Fixture, Position } from '../lib/types';
+
+  let fixtures = $state<Fixture[]>([]);
+  let planVersion = $state(0);
+  let hasPlan = $state(false);
+  let aspect = $state(DEFAULT_ASPECT);
+  let stageElement: HTMLElement | undefined = $state();
+  let fileInput: HTMLInputElement | undefined = $state();
+  let selectedId = $state<number | null>(null);
+
+  /** fixture being dragged: where it would land, null while outside the stage */
+  let drag = $state<{ id: number; at: Position | null; x: number; y: number } | null>(null);
+
+  const projectId = $derived(app.active?.id ?? null);
+  const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
+  const placed = $derived(fixtures.filter((f) => f.position !== null));
+  const unplaced = $derived(fixtures.filter((f) => f.position === null));
+  const masterLevel = $derived(live.master.blackout ? 0 : live.master.level);
+
+  $effect(() => {
+    void live.patchRevision;
+    if (projectId !== null) load(projectId);
+  });
+
+  // live output only while the stage is visible
+  $effect(() => live.watch('output'));
+
+  async function load(id: number) {
+    try {
+      fixtures = await api.fixtures.list(id);
+      planVersion++;
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  function label(fixture: Fixture): string {
+    return fixture.shortName ?? fixture.name;
+  }
+
+  function glow(fixture: Fixture): { color: string; intensity: number; movable: boolean } {
+    const mode = modes.get(fixture.id);
+    if (!mode) return { color: 'rgb(255 255 255)', intensity: 0, movable: false };
+    const preview = previewOf(mode, live.output[fixture.id] ?? {}, masterLevel);
+    const movable = mode.channels.some((c) => c.function === 'pan' || c.function === 'tilt');
+    return { color: rgbToCss(preview.color), intensity: preview.intensity, movable };
+  }
+
+  async function place(positions: Record<number, Position | null>) {
+    if (projectId === null) return;
+    // move at once on screen, the server confirms via the patch event
+    fixtures = fixtures.map((f) => (f.id in positions ? { ...f, position: positions[f.id] } : f));
+    try {
+      await api.stage.place(projectId, positions);
+    } catch (e) {
+      showError(e);
+      await load(projectId);
+    }
+  }
+
+  function startDrag(event: PointerEvent, fixture: Fixture) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    selectedId = fixture.id;
+    (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
+    drag = { id: fixture.id, at: fixture.position, x: event.clientX, y: event.clientY };
+  }
+
+  function moveDrag(event: PointerEvent) {
+    if (!drag || !stageElement) return;
+    const rect = stageElement.getBoundingClientRect();
+    const inside = event.clientX >= rect.left && event.clientX <= rect.right
+      && event.clientY >= rect.top && event.clientY <= rect.bottom;
+    drag = { ...drag, at: inside ? toStage(event.clientX, event.clientY, rect) : null, x: event.clientX, y: event.clientY };
+  }
+
+  function endDrag() {
+    if (!drag) return;
+    const { id, at } = drag;
+    drag = null;
+    const fixture = fixtures.find((f) => f.id === id);
+    if (!fixture) return;
+    const unchanged = at === null ? fixture.position === null
+      : fixture.position !== null && fixture.position.x === at.x && fixture.position.y === at.y;
+    if (!unchanged) place({ [id]: at });
+  }
+
+  function placeRemaining() {
+    const spots = freeSpots(unplaced.length, placed.map((f) => f.position!));
+    place(Object.fromEntries(unplaced.map((f, i) => [f.id, spots[i]])));
+  }
+
+  function removeSelected() {
+    if (selectedId !== null) place({ [selectedId]: null });
+    selectedId = null;
+  }
+
+  function onkeydown(event: KeyboardEvent) {
+    if ((event.target as HTMLElement).closest('input, textarea, select')) return;
+    if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId !== null) {
+      event.preventDefault();
+      removeSelected();
+    }
+  }
+
+  async function uploadPlan(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file || projectId === null) return;
+    try {
+      await api.stage.uploadPlan(projectId, file);
+      planVersion++;
+      notify('Floor plan uploaded');
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  async function removePlan() {
+    if (projectId === null) return;
+    try {
+      await api.stage.removePlan(projectId);
+      planVersion++;
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  function planLoaded(event: Event) {
+    const image = event.currentTarget as HTMLImageElement;
+    hasPlan = true;
+    if (image.naturalWidth > 0 && image.naturalHeight > 0) aspect = image.naturalWidth / image.naturalHeight;
+  }
+
+  function planMissing() {
+    hasPlan = false;
+    aspect = DEFAULT_ASPECT;
+  }
+
+  function positionOf(fixture: Fixture): Position | null {
+    return drag?.id === fixture.id ? drag.at : fixture.position;
+  }
+</script>
+
+<svelte:window {onkeydown} />
+
+<section class="view">
+  <header class="head">
+    <div>
+      <h1>Stage</h1>
+      <p class="dim">Drag fixtures to where they hang. They glow like the light on stage right now.</p>
+    </div>
+    <div class="actions">
+      <button class="btn ghost" type="button" onclick={() => fileInput?.click()} disabled={projectId === null}>
+        {hasPlan ? 'Replace floor plan…' : 'Floor plan…'}
+      </button>
+      {#if hasPlan}
+        <button class="btn ghost danger" type="button" onclick={removePlan}>Remove plan</button>
+      {/if}
+      <input class="hidden" type="file" accept="image/png,image/jpeg,image/webp" bind:this={fileInput}
+        onchange={uploadPlan} aria-label="Floor plan image" />
+    </div>
+  </header>
+
+  {#if !app.active}
+    <div class="glass empty">Activate a project to arrange its fixtures.</div>
+  {:else}
+    <div class="layout">
+      <aside class="glass tray">
+        <header class="tray-head">
+          <h3>Not on stage</h3>
+          <button class="btn small" type="button" onclick={placeRemaining} disabled={unplaced.length === 0}>
+            Place all
+          </button>
+        </header>
+        {#if unplaced.length === 0}
+          <p class="dim small">All fixtures are on stage. Drag one out of the stage to take it off.</p>
+        {/if}
+        <ul>
+          {#each unplaced as fixture (fixture.id)}
+            {@const g = glow(fixture)}
+            <li>
+              <button type="button" class="tray-item" class:dragging={drag?.id === fixture.id}
+                style="--glow: {g.color}; --intensity: {g.intensity}"
+                onpointerdown={(e) => startDrag(e, fixture)} onpointermove={moveDrag} onpointerup={endDrag}
+                onpointercancel={() => (drag = null)} title="Drag onto the stage">
+                <span class="dot"></span>
+                <span class="name">{fixture.name}</span>
+                <span class="mono dim small">{fixture.address}</span>
+              </button>
+            </li>
+          {/each}
+        </ul>
+        {#if selectedId !== null && placed.some((f) => f.id === selectedId)}
+          <button class="btn small ghost" type="button" onclick={removeSelected}>Take selected off stage</button>
+        {/if}
+      </aside>
+
+      <div class="stage-wrap glass">
+        <div class="stage" class:plan={hasPlan} style="aspect-ratio: {aspect}; width: min(100%, calc((100vh - 310px) * {aspect}))" bind:this={stageElement}
+          role="presentation" onpointerdown={(e) => { if (e.target === stageElement) selectedId = null; }}>
+          {#if projectId !== null}
+            <img class="plan-image" class:hidden={!hasPlan} src={api.stage.planUrl(projectId, planVersion)} alt=""
+              onload={planLoaded} onerror={planMissing} draggable="false" />
+          {/if}
+          <span class="edge upstage">Upstage</span>
+          <span class="edge downstage">Audience</span>
+
+          {#each fixtures as fixture (fixture.id)}
+            {@const at = positionOf(fixture)}
+            {#if at}
+              {@const g = glow(fixture)}
+              {@const beam = beamOffset(live.output[fixture.id], g.movable)}
+              <span class="pool" aria-hidden="true"
+                style="left: {(at.x + beam.x) * 100}%; top: {(at.y + beam.y) * 100}%; --glow: {g.color}; --intensity: {g.intensity}"></span>
+              <button type="button" class="fixture" class:selected={selectedId === fixture.id}
+                class:dragging={drag?.id === fixture.id}
+                style="left: {at.x * 100}%; top: {at.y * 100}%; --glow: {g.color}; --intensity: {g.intensity}"
+                onpointerdown={(e) => startDrag(e, fixture)} onpointermove={moveDrag} onpointerup={endDrag}
+                onpointercancel={() => (drag = null)}
+                title="{fixture.name} · {Math.round(g.intensity * 100)} %">
+                <span class="lens"></span>
+                <span class="label">{label(fixture)}</span>
+              </button>
+            {/if}
+          {/each}
+        </div>
+      </div>
+    </div>
+  {/if}
+
+  {#if drag && drag.at === null}
+    <!-- dragging outside the stage: drop to take the fixture off -->
+    <div class="drag-ghost" style="left: {drag.x}px; top: {drag.y}px">Off stage</div>
+  {/if}
+</section>
+
+<style>
+  .view {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 12px 8px;
+    min-height: 0;
+  }
+
+  .head {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+
+  .head p {
+    margin: 6px 0 0;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .hidden {
+    display: none;
+  }
+
+  .small {
+    font-size: 12px;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr);
+    gap: 12px;
+    align-items: start;
+  }
+
+  .tray {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding: 12px;
+    max-height: calc(100vh - 230px);
+    overflow: auto;
+  }
+
+  .tray-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .tray ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .tray-item {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-raised);
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .tray-item.dragging {
+    opacity: 0.4;
+  }
+
+  .tray-item .name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 1px solid var(--border-strong);
+    background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), transparent);
+    box-shadow: 0 0 calc(12px * var(--intensity)) var(--glow);
+  }
+
+  .stage-wrap {
+    padding: 12px;
+  }
+
+  .stage {
+    position: relative;
+    min-width: 280px;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border-strong);
+    background:
+      linear-gradient(rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 5% 10%,
+      linear-gradient(90deg, rgba(255, 255, 255, 0.035) 1px, transparent 1px) 0 0 / 5% 10%,
+      #07080c;
+    touch-action: none;
+    user-select: none;
+  }
+
+  .plan-image {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    opacity: 0.45;
+    filter: grayscale(0.6) brightness(0.8);
+    pointer-events: none;
+  }
+
+  .edge {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--text-faint);
+    pointer-events: none;
+  }
+
+  .upstage {
+    top: 6px;
+  }
+
+  .downstage {
+    bottom: 6px;
+  }
+
+  .pool {
+    position: absolute;
+    width: 18%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    background: radial-gradient(circle, color-mix(in srgb, var(--glow) 70%, transparent) 0%, transparent 65%);
+    opacity: var(--intensity);
+    mix-blend-mode: screen;
+    pointer-events: none;
+    transition: left 0.1s linear, top 0.1s linear;
+  }
+
+  .fixture {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    font: inherit;
+    transform: translate(-50%, -14px);
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .fixture.dragging {
+    cursor: grabbing;
+    z-index: 2;
+  }
+
+  .lens {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), #111);
+    box-shadow:
+      0 0 calc(30px * var(--intensity)) var(--glow),
+      0 0 calc(60px * var(--intensity)) color-mix(in srgb, var(--glow) 50%, transparent);
+  }
+
+  .fixture.selected .lens {
+    border-color: var(--accent);
+    outline: 3px solid var(--accent-soft);
+  }
+
+  .label {
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(0, 0, 0, 0.6);
+    font-size: 11px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .drag-ghost {
+    position: fixed;
+    z-index: 50;
+    transform: translate(12px, 12px);
+    padding: 4px 10px;
+    border-radius: 999px;
+    background: var(--panel-solid);
+    border: 1px solid var(--danger);
+    color: var(--danger);
+    font-size: 12px;
+    pointer-events: none;
+  }
+
+  @media (max-width: 900px) {
+    .layout {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .tray {
+      order: 2;
+      max-height: none;
+    }
+  }
+</style>
