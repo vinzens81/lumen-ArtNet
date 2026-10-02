@@ -64,6 +64,9 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   - Gruppen zuweisen.
 - **Stage:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild). Oben ist die
   Hinterbühne, unten das Publikum. Die Fixtures leuchten wie die echte Ausgabe; nicht platzierte stehen links.
+- **Compositions:** Bibliothek der Kompositionen (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern,
+  Schrittfolge) mit Editor, Live-Vorschau und „Show on stage“. Eingefügt werden sie im Szenen-Editor (Abschnitt
+  „Compositions“), jede Szene bekommt eine eigene Kopie. Siehe [COMPOSITIONS.md](COMPOSITIONS.md).
 - **DMX:** Monitor aller 512 Kanäle eines Universes, live.
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen.

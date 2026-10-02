@@ -1,6 +1,7 @@
 # Kompositionen & dynamische Szenen
 
-> **Status:** K1 (Engine, Datenbank, REST-API) ist umgesetzt, Editor/Vorschau (K2) und Extra-Tasten (K3) folgen
+> **Status:** K1 (Engine, Datenbank, REST-API) und K2 (Editor, Vorschau, Szenen-Editor) sind umgesetzt,
+> Extra-Tasten und Erweiterungen (K3) folgen
 > (siehe [ROADMAP.md](ROADMAP.md), Iteration K). Abweichungen vom ursprünglichen Konzept stehen unter
 > [Umsetzung K1](#umsetzung-k1).
 
@@ -279,6 +280,23 @@ composition_step_value                          -- Werte pro Schritt, normalisie
    "target": {"groupId": 3}, "level": 1, "speedFactor": 1, "restart": false}
   ```
 - **Schrittfolgen mit Gruppen-Ziel** (offene Frage unten): vorerst Werte pro Fixture, wie aufgenommen.
+
+## Umsetzung K2
+
+- **Editor** (Komponente `CompositionEditor`, für Bibliothek und Kopien in Szenen gleich): Name, Ziel (Gruppe oder
+  Fixtures in Reihenfolge), Parameter je Typ, Level und Tempo, bei Kopien „Restart at GO“. Änderungen werden nach
+  kurzer Pause automatisch gespeichert; Fehler zeigt der Editor direkt an.
+- **Schrittfolgen:** „Record step“ übernimmt alle Fixtures mit Programmer-Werten als neuen Schritt; pro Schritt
+  Fade/Hold, „Load“ (Schritt in den Programmer), „Update“ (aus dem Programmer), Duplizieren, Umsortieren, Löschen.
+- **Vorschau im Editor:** rechnet der Server mit der echten Engine und schickt sie per WebSocket-Abo `preview:<id>`
+  (höchstens 10×/s). Relative Kompositionen (Flackern) werden dabei über voller Intensität gezeigt. Die Bühne bleibt
+  unberührt.
+- **Auf der Bühne zeigen:** `POST /api/projects/{id}/compositions/{cid}/stage-preview` legt eine Komposition als Ebene
+  mit Priorität 75 über das Playback (unter dem Programmer); `GET/DELETE /api/compositions/stage-preview`. Der Start des
+  Betriebsmodus beendet die Vorschau, im Betriebsmodus lässt sie sich nicht starten (409).
+- **Hinweise:** Überschneidungen in einer Szene („B overrides A on …“), Geräte ohne passende Kanäle (Farbe ohne
+  RGB, Intensität ohne Dimmer) und schnelles Blitzen (Lauflicht/Welle unter 333 ms mit großem Hub, „defekte Röhre“).
+- **Szenenlisten** (Konfiguration und Betrieb) zeigen die Typ-Symbole der Kompositionen einer Szene.
 
 ## Noch offen (vor dem Start klären)
 

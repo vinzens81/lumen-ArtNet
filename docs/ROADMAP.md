@@ -161,13 +161,18 @@ und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
   Projekt-Export mit. Der Durchlauftest spielt jetzt Szenen mit Lauflicht, Farbwechsel und durchlaufendem Flackern
   (ca. 50 µs pro Frame, Heap konstant). Noch ohne Oberfläche: bedienbar ist K1 bisher nur über die REST-API
 
-**K2 – Editor & Vorschau**
+**✅ K2 – Editor & Vorschau**
 - Neuer Tab „Compositions“ (Bibliothek): Vorlage wählen, Ziel und Reihenfolge, Parameter, animierte Vorschau
 - Schrittfolgen-Editor: Schritte aus dem Programmer aufnehmen/aktualisieren, Zeiten, Umsortieren
 - Live-Vorschau auf der Bühne als eigene Ausgabe-Ebene (im Show-Modus gesperrt)
 - Szenen-Editor: aus der Bibliothek einfügen (Kopie), anpassen, Reihenfolge, Level, Tempo-Faktor, „Neu starten“,
   „aus Bibliothek neu laden“ / „in Bibliothek übernehmen“; Hinweise bei Überschneidungen und unpassenden Geräten
 - Szenenliste: Symbol und animierte Farbvorschau für dynamische Szenen
+- Umgesetzt: Tab „Compositions“ mit Editor für alle Typen (speichert automatisch). Die Vorschau im Editor rechnet der
+  Server und schickt sie per WebSocket (`preview:<id>`), die Bühne bleibt dabei unberührt; „Show on stage“ legt die
+  Komposition als eigene Ebene (Priorität 75) über das Playback. Szenen-Editor mit Abschnitt „Compositions“,
+  Hinweise auf Überschneidungen, unpassende Geräte und schnelles Blitzen (⚡, ab ca. 3 Hz). Abweichung: Die
+  Szenenlisten zeigen Typ-Symbole statt einer animierten Farbvorschau
 
 **K3 – Extra-Tasten & Erweiterungen**
 - **Extra-Tasten im Betriebsmodus:** Kompositionen unabhängig von der Szene zuschalten (Toggle/Flash, Tasten `1`–`8`,
