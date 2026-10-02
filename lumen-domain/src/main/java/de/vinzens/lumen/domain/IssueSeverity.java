@@ -1,4 +1,4 @@
-package de.vinzens.lumen.domain.library;
+package de.vinzens.lumen.domain;
 
 public enum IssueSeverity {
 	/** Der betroffene Gerätetyp bzw. die Datei wird nicht geladen. */

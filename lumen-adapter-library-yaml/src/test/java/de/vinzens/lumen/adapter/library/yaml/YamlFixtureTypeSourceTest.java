@@ -4,7 +4,7 @@ import de.vinzens.lumen.application.library.port.out.SourcedFixtureType;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.library.FadeBehavior;
 import de.vinzens.lumen.domain.library.FixtureCategory;
-import de.vinzens.lumen.domain.library.IssueSeverity;
+import de.vinzens.lumen.domain.IssueSeverity;
 import de.vinzens.lumen.domain.library.LibraryIssue;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;

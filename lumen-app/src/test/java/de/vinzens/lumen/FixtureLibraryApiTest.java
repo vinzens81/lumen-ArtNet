@@ -11,7 +11,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * Lädt die echten Beispielprofile aus {@code fixture-types/} im Projekt-Root.
  */
-@SpringBootTest(properties = "lumen.fixture-library-dir=../fixture-types")
+@SpringBootTest
 @AutoConfigureMockMvc
 class FixtureLibraryApiTest {
 

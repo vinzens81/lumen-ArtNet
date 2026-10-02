@@ -1,5 +1,7 @@
 package de.vinzens.lumen.domain.library;
 
+import de.vinzens.lumen.domain.IssueSeverity;
+
 import java.util.Objects;
 import java.util.Optional;
 

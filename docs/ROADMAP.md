@@ -25,10 +25,10 @@ Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
 
 **DoD:** Beispielprofile werden geladen, eine fehlerhafte YAML erzeugt verständliche Issues, ohne den Start zu verhindern.
 
-## ⬜ Iteration 2 – Projekte & Patch in SQLite
-- Adapter `sqlite`: sqlite-jdbc, Flyway `V1__init.sql` (siehe [PROJECT-DATA.md](PROJECT-DATA.md)), JdbcClient
+## ✅ Iteration 2 – Projekte & Patch in SQLite
+- Adapter `sqlite`: sqlite-jdbc, Flyway `V1__projects_and_patch.sql` (siehe [PROJECT-DATA.md](PROJECT-DATA.md)), JdbcClient
 - Domain: `Project`, `Universe`, `PatchedFixture`, `Group` + Patch-Validierung
-- REST: Projekte (CRUD, aktivieren), Universen, Fixtures, Gruppen, Patch-Issues
+- REST: Projekte (CRUD, aktivieren), Universen, Fixtures, Gruppen, Patch-Issues unter `/api/projects/{id}/…`
 - Tests: Repository-Tests gegen temporäre SQLite-Datei
 
 **DoD:** Projekt per REST anlegen und mit Geräten patchen, Daten überleben einen Neustart, Überschneidungen werden gemeldet.

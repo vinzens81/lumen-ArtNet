@@ -30,6 +30,10 @@
 		</dependency>
 		<dependency>
 			<groupId>de.vinzens.lumen</groupId>
+			<artifactId>lumen-adapter-sqlite</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>de.vinzens.lumen</groupId>
 			<artifactId>lumen-adapter-web</artifactId>
 		</dependency>
 		<dependency>

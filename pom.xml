@@ -19,6 +19,7 @@
 		<module>lumen-domain</module>
 		<module>lumen-application</module>
 		<module>lumen-adapter-library-yaml</module>
+		<module>lumen-adapter-sqlite</module>
 		<module>lumen-adapter-web</module>
 		<module>lumen-app</module>
 	</modules>
@@ -45,6 +46,11 @@
 			<dependency>
 				<groupId>de.vinzens.lumen</groupId>
 				<artifactId>lumen-adapter-library-yaml</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.vinzens.lumen</groupId>
+				<artifactId>lumen-adapter-sqlite</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

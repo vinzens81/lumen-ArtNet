@@ -12,7 +12,9 @@ der aktuelle Stand steht in `docs/ROADMAP.md`. Doku und UI-Texte sind auf Deutsc
 ```
 
 Java 26, Spring Boot 4.1 (Jackson 3: `tools.jackson.*`), Maven Multi-Module (Parent: `pom.xml`,
-Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` beziehen sich auf das Projekt-Root.
+Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` und `data/lumen.db` (SQLite, wird beim
+Start angelegt, nicht eingecheckt) beziehen sich auf das Projekt-Root. Tests in `lumen-app` nutzen
+`src/test/resources/config/application.yml` (eigene DB unter `target/test-data/`).
 
 ## Architekturregeln (hexagonal)
 
@@ -24,4 +26,6 @@ Basis-Package `de.vinzens.lumen`). Relative Pfade wie `fixture-types/` beziehen 
 - Adapter hängen nicht voneinander ab; Domain/Application kennen weder Spring noch Jackson.
 - `ArchitectureTest` (in `lumen-app`) prüft die Regeln; neue Adapter-Module dort als Abhängigkeit aufnehmen.
 - REST-Antworten sind DTOs im Web-Adapter, Domain-Objekte werden nicht direkt serialisiert.
+- Schema-Änderungen nur als neue Flyway-Migration (`lumen-adapter-sqlite/src/main/resources/db/migration`),
+  bestehende Migrationen nie ändern.
 - Zeitabhängige Logik (Fades, Auto-Follow) bekommt eine `Clock` injiziert und wird ohne Spring getestet.

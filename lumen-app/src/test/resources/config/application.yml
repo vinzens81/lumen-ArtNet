@@ -1,0 +1,5 @@
+# Testeinstellungen: Tests laufen im Modulordner lumen-app/
+lumen:
+  fixture-library-dir: ../fixture-types
+  # eigene Datenbank pro Spring-Kontext, wird mit 'mvn clean' entfernt
+  database-file: target/test-data/${random.uuid}.db

@@ -17,11 +17,12 @@ und welche Szenen es gibt.
   als Backup und um eine Show auf einen anderen Rechner mitzunehmen.
 - **Zugriff:** `sqlite-jdbc` (xerial) + Spring `JdbcClient`, kein JPA (SQLite und Hibernate passen schlecht zusammen,
   und das Schema ist überschaubar).
-- **Migrationen:** Flyway (`db/migration/V1__init.sql`, …).
+- **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
+  Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), Szenen, `app_setting` und `playback_state` folgen.
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
-## Schema (V1)
+## Schema (Zielbild)
 
 ```
 project
@@ -51,7 +52,7 @@ fixture                                         -- gepatchte Instanz
   short_name      TEXT                          -- für die Bühnenansicht, z.B. "FL"
   fixture_type_id TEXT NOT NULL                 -- Referenz in die YAML-Bibliothek
   mode_name       TEXT NOT NULL
-  universe_id     FK → universe
+  universe_id     FK → universe ON DELETE RESTRICT   -- Universe mit Geräten kann nicht gelöscht werden
   address         INTEGER NOT NULL              -- 1–512
   pos_x, pos_y    REAL                          -- 0..1, Bühnenansicht
   sort_order      INTEGER
@@ -62,6 +63,7 @@ fixture_group
 fixture_group_member
   group_id        FK → fixture_group ON DELETE CASCADE
   fixture_id      FK → fixture ON DELETE CASCADE
+  position        INTEGER NOT NULL              -- Reihenfolge der Mitglieder
   PRIMARY KEY(group_id, fixture_id)
 
 scene

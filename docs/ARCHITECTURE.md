@@ -119,14 +119,17 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | Endpunkt | Zweck |
 |---|---|
 | `GET /api/library/fixture-types`, `GET /api/library/issues` | Gerätebibliothek |
-| `GET/POST/PUT/DELETE /api/projects`, `POST /api/projects/{id}/activate` | Projekte verwalten |
+| `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) |
 | `GET /api/projects/{id}/export`, `POST /api/projects/import` | Backup / Mitnehmen |
-| `PUT /api/project/settings` | u.a. globale Fade-Zeiten |
-| `CRUD /api/project/universes` | Universen & Art-Net-Ziele |
-| `CRUD /api/project/fixtures`, `GET /api/project/patch/issues` | Patch |
-| `CRUD /api/project/groups` | Gruppen |
-| `CRUD /api/project/scenes`, `PUT /api/project/scenes/order` | Szenenliste |
-| `POST /api/project/scenes/{id}/record` | Programmer-Werte in Szene speichern |
+| `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele |
+| `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
+| `CRUD /api/projects/{id}/groups` | Gruppen |
+| `CRUD /api/projects/{id}/scenes`, `PUT /api/projects/{id}/scenes/order` | Szenenliste |
+| `POST /api/projects/{id}/scenes/{sceneId}/record` | Programmer-Werte in Szene speichern |
+
+Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
+`CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
+Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 | `PATCH /api/programmer/fixtures/{id}` · `PATCH /api/programmer/groups/{id}` · `DELETE /api/programmer` | Live-Werte |
 
 **Betrieb**

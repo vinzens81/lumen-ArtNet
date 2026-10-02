@@ -1,5 +1,6 @@
 package de.vinzens.lumen.domain.library;
 
+import de.vinzens.lumen.domain.IssueSeverity;
 import org.junit.jupiter.api.Test;
 
 import java.util.Collections;

@@ -16,3 +16,5 @@ management:
 lumen:
   # Gerätebibliothek (YAML), relativ zum Arbeitsverzeichnis
   fixture-library-dir: fixture-types
+  # Projektdaten (SQLite), wird beim ersten Start angelegt
+  database-file: data/lumen.db
