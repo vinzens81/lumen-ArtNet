@@ -145,6 +145,9 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN-Status dieses Browsers, entsperren (403 falsche PIN, 429 nach 5 Fehlversuchen), sperren |
 | `PUT /api/access/pin` `{pin\|null}` · `PUT /api/access/network` `{enabled}` | PIN setzen/ändern/entfernen · Netzwerkzugriff (wirkt nach Neustart) |
 | `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
+| `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Bühnenpositionen (0–1) mehrerer Fixtures auf einmal, `null` = nicht auf der Bühne |
+| `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
+| `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
 | `CRUD /api/projects/{id}/groups` | Gruppen |
@@ -177,8 +180,9 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"
 
 | Richtung | Nachricht |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
-| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`) |
+| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` (Client lädt per REST neu); nach einem Abo
+`{"type":"output","values":{…}}` (Werte wie gesendet, vor dem Master) und `{"type":"dmx","universe":n,"values":[…512]}`, `{"type":"error","message":…}` |
+| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"subscribe","topics":["output","dmx:1"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung) |
 
 Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status, Modus und Health. `programmer.set` braucht
 bei gesetzter PIN einen entsperrten Browser; nach dem Entsperren verbindet sich der Client neu. Den Fade-Fortschritt

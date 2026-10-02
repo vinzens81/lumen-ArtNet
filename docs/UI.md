@@ -62,7 +62,9 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
     Anzahl). Die nächste freie Adresse wird vorgeschlagen.
   - **Adress-Raster** (512 Zellen pro Universe) zeigt belegte Bereiche farbig, Überschneidungen rot.
   - Gruppen zuweisen.
-- **Bühne:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild).
+- **Stage:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild). Oben ist die
+  Hinterbühne, unten das Publikum. Die Fixtures leuchten wie die echte Ausgabe; nicht platzierte stehen links.
+- **DMX:** Monitor aller 512 Kanäle eines Universes, live.
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen.
 - **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und

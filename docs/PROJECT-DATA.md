@@ -19,7 +19,7 @@ und welche Szenen es gibt.
   und das Schema ist überschaubar).
 - **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
   Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
-  V3 = `app_setting` und `playback_state` (Iteration 8).
+  V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -87,6 +87,11 @@ app_setting                                     -- projektübergreifende Einstel
   key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
   value           TEXT NOT NULL
 
+stage_plan                                      -- optionaler Grundriss hinter der Bühnenansicht
+  project_id      PK, FK → project ON DELETE CASCADE
+  content_type    TEXT NOT NULL                 -- image/png, image/jpeg oder image/webp (kein SVG)
+  data            BLOB NOT NULL                 -- höchstens 5 MB
+
 playback_state                                  -- für Wiederaufnahme nach Absturz/Neustart
   project_id      PK, FK → project ON DELETE CASCADE
   current_scene_id FK → scene ON DELETE SET NULL   -- NULL = dunkel (vor Szene 1 oder nach dem Ende)
@@ -105,7 +110,8 @@ playback_state                                  -- für Wiederaufnahme nach Abst
                    "mode": "8ch", "universeId": 1, "address": 1, "position": null, "sortOrder": 0 } ],
   "groups":    [ { "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],
   "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
-                   "values": { "7": { "dimmer": 1.0, "blue": 0.8 } } } ]
+                   "values": { "7": { "dimmer": 1.0, "blue": 0.8 } } } ],
+  "stagePlan": { "contentType": "image/png", "data": "<Base64>" }
 }
 ```
 

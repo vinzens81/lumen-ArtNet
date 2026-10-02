@@ -16,6 +16,11 @@ fixture-types/                   (Ordner konfigurierbar über lumen.fixture-libr
 Alle `*.yml` / `*.yaml` im Ordner und in Unterordnern werden geladen (Unterordner z.B. pro Hersteller). Die `id` muss eindeutig sein – über sie referenziert ein
 Projekt den Gerätetyp.
 
+Änderungen an den Dateien übernimmt Lumen im laufenden Betrieb: Der Ordner wird alle 2 s geprüft
+(`lumen.fixture-library-watch-interval`), neu geladen wird, sobald sich die Dateien eine Runde lang nicht mehr ändern.
+Patch, Ausgabe und alle Browser übernehmen das neue Profil sofort. Ein fehlerhaftes Profil wird übersprungen und
+erscheint als Issue.
+
 ---
 
 ## Beispiel: LED-PAR mit zwei Modi

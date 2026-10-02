@@ -124,14 +124,22 @@ ein Doppel-GO erzeugt keinen Sprung.
 Geprüft mit `ResumeAfterRestartTest`: zwei App-Starts auf derselben Datenbank. Nach dem Neustart steht der Server
 wieder im Betriebsmodus, das Licht ist dunkel, und nach „Resume“ liegt Szene 4 wieder auf dem DMX-Ausgang.
 
-## ⬜ Iteration 9 – Bühnenansicht & Komfort
-- 2D-Bühne mit Positionen, Drag & Drop, optionales Grundriss-Bild, Glow und Lichtkegel
-- Farbvorschau pro Szene in der Liste
-- Hot Reload der Gerätebibliothek (`WatchService`)
-- DMX-Monitor (512er-Raster)
-- Responsive: Tablet als Pult, Handy als Fernbedienung (nur GO/Back im Betrieb)
+## ✅ Iteration 9 – Bühnenansicht & Komfort 🎪
+- Tab **Stage**: Fixtures per Drag & Drop (Pointer Events, auch per Touch) auf die Bühne ziehen, aus der Bühne
+  hinausziehen nimmt sie herunter, „Place all“ verteilt den Rest. Optionaler Grundriss (PNG/JPEG/WebP bis 5 MB,
+  Tabelle `stage_plan`, Flyway `V4`, reist im Projekt-Export mit). Fixtures leuchten mit der **echten Ausgabe**
+  (Programmer + Playback + Master); Lichtkegel als Lichtfleck, bei Moving Heads grob nach Pan/Tilt versetzt
+- Live-Ausgabe per WebSocket-Abo (`output`, `dmx:<n>`), höchstens 10×/s und nur bei Änderungen
+- Farbvorschau pro Szene jetzt auch in der Szenenliste des Betriebsmodus
+- Hot Reload der Gerätebibliothek: Polling alle 2 s statt `WatchService` (der pollt auf macOS ohnehin nur etwa alle
+  10 s), geladen wird erst, wenn die Dateien eine Runde lang unverändert sind; zusätzlich `POST /api/library/reload`
+- Tab **DMX**: Monitor mit 512er-Raster pro Universe, Kanalzuordnung (Fixture + Kanalname), Prozent-Anzeige
+- Responsive: Tablet hochkant zeigt im Betrieb Status und GO oben, die Liste darunter; auf dem Handy nur Jetzt/Nächste,
+  GO und Back (kein Master/Blackout, kein Pause)
 
 **DoD:** Auf dem Tablet ist die Show komfortabel einrichtbar und spielbar.
+Geprüft im Browser (Desktop, Tablet-Hochformat 820 px, Handy 390 px): Bühne einrichten per Ziehen, Live-Glow bei
+Szenenwechsel, DMX-Monitor, Show-Steuerung. Auf einem echten Tablet noch nicht ausprobiert.
 
 ## ⬜ Iteration K – Kompositionen & dynamische Szenen 🌈 (nach Iteration 9)
 Konzept und Entscheidungen: [COMPOSITIONS.md](COMPOSITIONS.md). Szenen bestehen danach aus einer **statischen Basis**
