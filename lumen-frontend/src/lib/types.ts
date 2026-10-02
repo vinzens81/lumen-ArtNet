@@ -65,6 +65,9 @@ export interface ArtNet {
   universe: number;
 }
 
+/** auto: nodes found via ArtPoll (+ manual IPs) · unicast: only manual IPs · broadcast: everybody */
+export type DeliveryMode = 'auto' | 'unicast' | 'broadcast';
+
 export interface Universe {
   id: number;
   number: number;
@@ -72,14 +75,28 @@ export interface Universe {
   displayName: string;
   artnet: ArtNet;
   portAddress: number;
-  target: string;
+  mode: DeliveryMode;
+  ipAddresses: string[];
 }
 
 export interface UniverseRequest {
   number: number;
   name: string | null;
   artnet: ArtNet;
-  target: string;
+  mode: DeliveryMode;
+  ipAddresses: string[];
+}
+
+export interface ArtNetNode {
+  ipAddress: string;
+  bindIndex: number;
+  shortName: string;
+  longName: string;
+  macAddress: string;
+  portAddresses: number[];
+  nodeReport: string;
+  lastSeen: string;
+  online: boolean;
 }
 
 export interface Position {

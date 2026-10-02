@@ -33,7 +33,7 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code patch}, {@code scenes},
- * {@code projects} (the last three ask the client to reload via REST). Client → server: {@code programmer.set} and
+ * {@code nodes}, {@code projects} (the last four ask the client to reload via REST). Client → server: {@code programmer.set} and
  * {@code master.set} for low-latency fader control.
  */
 @Component
@@ -104,6 +104,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			}
 			case PATCH -> message.put("type", "patch");
 			case SCENES -> message.put("type", "scenes");
+			case NODES -> message.put("type", "nodes");
 			case PROJECTS -> message.put("type", "projects");
 		}
 		return message;

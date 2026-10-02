@@ -4,6 +4,7 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.bind.DefaultValue;
 
 import java.nio.file.Path;
+import java.time.Duration;
 
 /**
  * Technical settings of Lumen ({@code lumen.*} in application.yml).
@@ -37,15 +38,19 @@ public record LumenProperties(
 	}
 
 	/**
-	 * @param enabled          send Art-Net packets at all (disabled in tests)
-	 * @param bindAddress      local address to send from
-	 * @param port             destination UDP port
-	 * @param broadcastAddress destination for universes with target {@code broadcast}
+	 * @param enabled          send Art-Net packets and discover nodes at all (disabled in tests)
+	 * @param bindAddress      local address to send from and listen on
+	 * @param port             destination UDP port of nodes
+	 * @param broadcastAddress destination for broadcast universes and ArtPoll
+	 * @param listenPort       local port for ArtPollReply (nodes answer to 6454)
+	 * @param pollInterval     how often nodes are discovered via ArtPoll
 	 */
 	public record ArtNet(
 			@DefaultValue("true") boolean enabled,
 			@DefaultValue("0.0.0.0") String bindAddress,
 			@DefaultValue("6454") int port,
-			@DefaultValue("255.255.255.255") String broadcastAddress) {
+			@DefaultValue("255.255.255.255") String broadcastAddress,
+			@DefaultValue("6454") int listenPort,
+			@DefaultValue("3s") Duration pollInterval) {
 	}
 }

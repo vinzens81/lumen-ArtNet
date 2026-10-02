@@ -64,11 +64,19 @@ class ProjectPatchApiTest {
 		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 3}")).hasStatus(201).bodyJson()
 				.satisfies(json -> {
 					assertThat(json).extractingPath("$.portAddress").isEqualTo(2);
-					assertThat(json).extractingPath("$.target").isEqualTo("broadcast");
+					assertThat(json).extractingPath("$.mode").isEqualTo("auto");
+					assertThat(json).extractingPath("$.ipAddresses").asArray().isEmpty();
 				});
 		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 3}")).hasStatus(409);
 		assertThat(post("/api/projects/" + project + "/universes",
-				"{\"number\": 4, \"target\": \"192.168.1.300\"}")).hasStatus(400);
+				"{\"number\": 4, \"mode\": \"unicast\", \"ipAddresses\": [\"192.168.1.300\"]}")).hasStatus(400);
+		assertThat(post("/api/projects/" + project + "/universes",
+				"{\"number\": 5, \"mode\": \"unicast\"}")).hasStatus(400);
+		assertThat(post("/api/projects/" + project + "/universes",
+				"{\"number\": 6, \"mode\": \"auto\", \"ipAddresses\": [\"10.0.0.5\"]}")).hasStatus(201)
+				.bodyJson().extractingPath("$.ipAddresses[0]").isEqualTo("10.0.0.5");
+		assertThat(post("/api/projects/" + project + "/universes",
+				"{\"number\": 7, \"mode\": \"multicast\"}")).hasStatus(400);
 	}
 
 	@Test
@@ -118,7 +126,7 @@ class ProjectPatchApiTest {
 	private long createUniverse(long project, int number) throws Exception {
 		return id(post("/api/projects/" + project + "/universes",
 				"{\"number\": " + number + ", \"name\": \"Stage\", \"artnet\": {\"net\": 0, \"subnet\": 0, "
-						+ "\"universe\": " + (number - 1) + "}, \"target\": \"broadcast\"}"));
+						+ "\"universe\": " + (number - 1) + "}, \"mode\": \"broadcast\"}"));
 	}
 
 	private MvcTestResult createFixture(long project, long universe, String name, int address) {

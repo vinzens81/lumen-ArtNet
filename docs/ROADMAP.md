@@ -79,18 +79,20 @@ Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem H
 
 **DoD:** Eine Show mit 5 Szenen ist programmiert und nach einem Neustart vollständig vorhanden.
 
-## ⬜ Iteration 6b – Art-Net Discovery & Unicast 📡
+## ✅ Iteration 6b – Art-Net Discovery & Unicast 📡
 Anlass: echte Hardware (eigener ESP8266-Dimmer, 1 Kanal, im WLAN). Broadcast schickt die Pakete **aller** Universen an
 **alle** Geräte und ist im WLAN unzuverlässig (keine Bestätigung, langsamste Funkrate).
 - Adapter `artnet`: **ArtPoll** periodisch senden (z.B. alle 3 s), **ArtPollReply** auswerten: IP, Name, gemeldete
   Port-Adressen; Nodes ohne Antwort nach ~10 s als offline markieren
 - Neuer Ausgabe-Modus pro Universe: **Auto (Discovery)** – Pakete per Unicast an alle Nodes, die dieses Universe melden
 - Mehrere **manuelle Ziel-IPs** pro Universe; Broadcast bleibt als Option
-- Migration: `universe.target` → Ziel-Liste bzw. Modus (Flyway V2)
+- Keine Migration nötig: `universe.target` speichert `auto`, `auto,<ips>`, `<ips>` oder `broadcast`; bestehende Werte bleiben gültig
 - UI: Liste der gefundenen Nodes (Name, IP, Universen, online/offline), Zuordnung im Universe-Dialog
 - Hinweis im UI, wenn ein Universe an keinen Node geht bzw. ein Node ein Universe meldet, das es im Projekt nicht gibt
 
 **DoD:** Der ESP-Dimmer wird automatisch gefunden und bekommt seine Pakete per Unicast, ohne dass eine IP eingetragen ist.
+Geprüft: Der echte ESP (192.168.0.150, Port-Adresse 0) wurde per ArtPoll gefunden; der Unicast an gefundene Nodes ist
+mit einem simulierten ESP (gleiches ArtPollReply-Format wie die Firmware) end-to-end getestet.
 
 ## ⬜ Iteration 7 – Playback-Engine & Betriebsmodus 🎭
 - Domain: `Playback`, `Crossfade` mit Snapshot, HTP/LTP-Mischung, Pause, injizierte `Clock`

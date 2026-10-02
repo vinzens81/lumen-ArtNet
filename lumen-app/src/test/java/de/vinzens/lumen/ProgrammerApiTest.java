@@ -116,6 +116,11 @@ class ProgrammerApiTest {
 	}
 
 	@Test
+	void artNetNodesAreEmptyWhenArtNetIsDisabled() {
+		assertThat(mvc.get().uri("/api/artnet/nodes")).hasStatusOk().bodyJson().extractingPath("$").asArray().isEmpty();
+	}
+
+	@Test
 	void patchChangesAreAppliedToTheOutput() {
 		patch("/api/programmer/fixtures/" + dimmer, "{\"dimmer\": 1}");
 

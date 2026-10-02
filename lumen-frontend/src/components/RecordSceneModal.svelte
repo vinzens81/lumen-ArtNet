@@ -48,7 +48,7 @@
   </form>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (open = false)}>Cancel</button>
-    <button class="btn primary" type="submit" form="record-scene-form">⏺ Record</button>
+    <button class="btn record" type="submit" form="record-scene-form">⏺ Record</button>
   {/snippet}
 </Modal>
 

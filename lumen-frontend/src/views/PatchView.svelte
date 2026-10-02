@@ -26,6 +26,8 @@
   let addressTouched = $state(false);
 
   const project = $derived(app.active);
+  // effects depend on the id only: reloading the project list yields new objects for the same project
+  const projectId = $derived(app.active?.id ?? null);
   const universeFixtures = $derived(
     [...fixtures.filter((f) => f.universeId === universeId)].sort((a, b) => a.address - b.address || a.id - b.id),
   );
@@ -55,12 +57,12 @@
   });
 
   $effect(() => {
-    if (project) loadAll(project.id, true);
+    if (projectId !== null) loadAll(projectId, true);
   });
 
   // changes from other clients
   $effect(() => {
-    if (live.patchRevision > 0 && project) loadAll(project.id);
+    if (live.patchRevision > 0 && projectId !== null) loadAll(projectId);
   });
 
   async function loadAll(projectId: number, resetSelection = false) {

@@ -20,6 +20,7 @@ class LiveState {
   patchRevision = $state(0);
   projectsRevision = $state(0);
   scenesRevision = $state(0);
+  nodesRevision = $state(0);
 
   private socket: WebSocket | null = null;
   private retries = 0;
@@ -38,6 +39,7 @@ class LiveState {
       this.patchRevision++;
       this.projectsRevision++;
       this.scenesRevision++;
+      this.nodesRevision++;
     };
     socket.onmessage = (event) => this.receive(JSON.parse(event.data));
     socket.onclose = () => {
@@ -73,6 +75,9 @@ class LiveState {
         break;
       case 'scenes':
         this.scenesRevision++;
+        break;
+      case 'nodes':
+        this.nodesRevision++;
         break;
       case 'error':
         showError(new Error(String(message.message)));

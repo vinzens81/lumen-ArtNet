@@ -1,5 +1,6 @@
 package de.vinzens.lumen.adapter.web.project;
 
+import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
@@ -27,29 +28,52 @@ final class PatchDtos {
 	}
 
 	/**
-	 * Without {@code artnet}, port address {@code number - 1} is used; without {@code target}, broadcast.
+	 * Without {@code artnet}, port address {@code number - 1} is used.
+	 *
+	 * @param mode        {@code auto} (default: nodes found via ArtPoll plus {@code ipAddresses}),
+	 *                    {@code unicast} (only {@code ipAddresses}) or {@code broadcast}
+	 * @param ipAddresses manual node addresses
 	 */
-	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String target) {
+	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses) {
 
 		UniverseSpec toSpec() {
 			var n = Objects.requireNonNullElse(number, 0);
 			var address = artnet != null
 					? new ArtNetAddress(artnet.net(), artnet.subnet(), artnet.universe())
 					: ArtNetAddress.fromPortAddress(Math.max(n - 1, 0));
-			var artNetTarget = target != null ? ArtNetTarget.parse(target) : new ArtNetTarget.Broadcast();
-			return new UniverseSpec(n, Optional.ofNullable(name), address, artNetTarget);
+			return new UniverseSpec(n, Optional.ofNullable(name), address, target());
+		}
+
+		private ArtNetTarget target() {
+			var ips = Objects.requireNonNullElse(ipAddresses, List.<String>of());
+			return switch (Objects.requireNonNullElse(mode, MODE_AUTO)) {
+				case MODE_AUTO -> new ArtNetTarget.Unicast(true, ips);
+				case MODE_UNICAST -> new ArtNetTarget.Unicast(false, ips);
+				case MODE_BROADCAST -> new ArtNetTarget.Broadcast();
+				default -> throw new DomainValidationException(List.of(
+						"mode must be auto, unicast or broadcast, was '" + mode + "'"));
+			};
 		}
 	}
 
+	static final String MODE_AUTO = "auto";
+	static final String MODE_UNICAST = "unicast";
+	static final String MODE_BROADCAST = "broadcast";
+
 	record UniverseResponse(long id, int number, String name, String displayName, ArtNetDto artnet,
-			int portAddress, String target) {
+			int portAddress, String mode, List<String> ipAddresses) {
 
 		static UniverseResponse from(Universe universe) {
 			var spec = universe.spec();
 			var artNet = spec.artNet();
+			var mode = switch (spec.target()) {
+				case ArtNetTarget.Broadcast broadcast -> MODE_BROADCAST;
+				case ArtNetTarget.Unicast unicast -> unicast.discovered() ? MODE_AUTO : MODE_UNICAST;
+			};
+			var ips = spec.target() instanceof ArtNetTarget.Unicast unicast ? unicast.ipAddresses() : List.<String>of();
 			return new UniverseResponse(universe.id(), spec.number(), spec.name().orElse(null),
 					universe.displayName(), new ArtNetDto(artNet.net(), artNet.subnet(), artNet.universe()),
-					artNet.portAddress(), spec.target().asText());
+					artNet.portAddress(), mode, ips);
 		}
 	}
 

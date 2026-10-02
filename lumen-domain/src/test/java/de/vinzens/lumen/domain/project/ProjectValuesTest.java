@@ -31,8 +31,24 @@ class ProjectValuesTest {
 	void parsesArtNetTargets() {
 		assertThat(ArtNetTarget.parse("broadcast")).isInstanceOf(ArtNetTarget.Broadcast.class);
 		assertThat(ArtNetTarget.parse(" 192.168.1.50 ").asText()).isEqualTo("192.168.1.50");
+		assertThat(ArtNetTarget.parse("auto")).isEqualTo(ArtNetTarget.auto());
+		assertThat(ArtNetTarget.parse("auto, 10.0.0.5,10.0.0.6,10.0.0.5")).isEqualTo(
+				new ArtNetTarget.Unicast(true, List.of("10.0.0.5", "10.0.0.6")));
+		assertThat(ArtNetTarget.parse("auto,10.0.0.5").asText()).isEqualTo("auto,10.0.0.5");
 		assertThatThrownBy(() -> ArtNetTarget.parse("192.168.1.300")).isInstanceOf(DomainValidationException.class);
 		assertThatThrownBy(() -> ArtNetTarget.parse("node.local")).isInstanceOf(DomainValidationException.class);
+		assertThatThrownBy(() -> new ArtNetTarget.Unicast(false, List.of()))
+				.hasMessageContaining("at least one IP address");
+	}
+
+	@Test
+	void nodeIsOnlineForTenSecondsAfterItsLastReply() {
+		var seen = java.time.Instant.parse("2026-10-02T12:00:00Z");
+		var node = new ArtNetNode("10.0.0.5", 0, "Dimmer", "Dimmer node", "aa:bb", List.of(0), "", seen);
+
+		assertThat(node.isOnline(seen.plusSeconds(9))).isTrue();
+		assertThat(node.isOnline(seen.plusSeconds(10))).isFalse();
+		assertThat(node.outputs(0)).isTrue();
 	}
 
 	@Test

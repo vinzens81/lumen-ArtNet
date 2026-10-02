@@ -23,6 +23,10 @@ cd lumen-frontend && PATH="$PWD/node:$PATH" npm run dev     # → http://localho
 PATH="$PWD/node:$PATH" npm test                              # Vitest
 ```
 
+Die App lauscht auf UDP 6454 (Art-Net-Discovery). Der eigene ESP8266-Dimmer (Firmware in
+`~/Documents/PlatformIO/Projects/Artnet`) ist die Test-Hardware; `EspNodeSimulator` im Art-Net-Adapter bildet sein
+ArtPollReply-Format nach. Beim Testen mit laufender App keine DMX-Werte an echte Geräte schicken, ohne zu fragen.
+
 Hinweis: Das Projekt liegt in `~/Documents`. Synchronisiert iCloud diesen Ordner, können Duplikate wie
 `Klasse 2.class` in `target/` entstehen („Unable to find a single main class“). Dann hilft `./mvnw clean`.
 

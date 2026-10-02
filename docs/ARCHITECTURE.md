@@ -107,9 +107,16 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 
 - UDP Port **6454**, Paket **ArtDmx** (OpCode `0x5000`, Protokollversion 14), 512 Byte Daten.
 - 15-Bit-Port-Adresse: `Net (7) | SubNet (4) | Universe (4)`.
-- Ziel pro Universe: **Unicast** an die Node-IP oder **Broadcast**.
+- Ziel pro Universe:
+  - **Auto** (Standard): Unicast an alle Nodes, die dieses Universe in ihrem ArtPollReply melden, plus optionale
+    manuelle IPs (für Nodes ohne ArtPoll-Unterstützung)
+  - **Feste IPs**: Unicast nur an die eingetragenen Adressen
+  - **Broadcast**: an alle – jedes Gerät bekommt jedes Universe; im WLAN unzuverlässig
 - Sequence-Nummer pro Universe (1–255).
-- Später: **ArtPoll/ArtPollReply** zur Discovery, Nodes im Konfigurationsmodus auswählbar.
+- **Discovery:** ArtPoll alle 3 s an die Broadcast-Adresse; Nodes antworten per ArtPollReply an Port **6454**
+  des Controllers. Lumen lauscht dort (mit `SO_REUSEADDR`/`SO_REUSEPORT`, damit z.B. QLC+ parallel laufen kann).
+  Ein Node gilt 10 s nach seiner letzten Antwort als offline und wird nach 5 min vergessen. Lässt sich der Port
+  nicht öffnen, bleibt die Discovery leer und der Rest läuft weiter.
 - Gesendet wird von einem zufälligen lokalen Port; Ziel-Port, Bind-Adresse und Broadcast-Adresse stehen in
   `application.yml` unter `lumen.artnet.*`. In Tests ist die Ausgabe abgeschaltet (`lumen.artnet.enabled: false`).
 
@@ -134,7 +141,8 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `GET /api/library/fixture-types`, `GET /api/library/issues` | Gerätebibliothek |
 | `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) |
 | `GET /api/projects/{id}/export`, `POST /api/projects/import` | Backup / Mitnehmen |
-| `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele |
+| `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
+| `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
 | `CRUD /api/projects/{id}/groups` | Gruppen |
 | `CRUD /api/projects/{id}/scenes` | Szenenliste, sortiert nach Nummer; `POST` mit `"record": true` übernimmt den Programmer, ohne `number` die nächste ganze Zahl |
@@ -163,7 +171,7 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 
 | Richtung | Nachricht |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"patch"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
+| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
 | Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}` |
 
 Beim Verbinden bekommt ein Client sofort Programmer und Master. Später kommen Playback-Status (aktuelle/nächste Szene,

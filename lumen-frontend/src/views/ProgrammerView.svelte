@@ -47,10 +47,12 @@
   let recordOpen = $state(false);
 
   const project = $derived(app.active);
+  // effects depend on the id only: reloading the project list yields new objects for the same project
+  const projectId = $derived(app.active?.id ?? null);
 
   $effect(() => {
     void live.patchRevision;
-    if (project) load(project.id);
+    if (projectId !== null) load(projectId);
   });
 
   async function load(projectId: number) {
@@ -235,7 +237,7 @@
       <span class="dim">{Object.keys(live.programmer).length} fixtures with programmer values</span>
       <button class="btn small ghost" type="button" onclick={() => live.clear(Object.keys(live.programmer).map(Number))}
         disabled={Object.keys(live.programmer).length === 0}>Clear programmer</button>
-      <button class="btn small primary" type="button" onclick={() => (recordOpen = true)}
+      <button class="btn small record" type="button" onclick={() => (recordOpen = true)}
         disabled={Object.keys(live.programmer).length === 0}>⏺ Record scene</button>
     </div>
     <section class="cards">

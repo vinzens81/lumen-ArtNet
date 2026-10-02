@@ -33,5 +33,9 @@ lumen:
     bind-address: 0.0.0.0
     # destination UDP port (Art-Net standard: 6454)
     port: 6454
-    # destination for universes with target 'broadcast', e.g. 2.255.255.255 or the directed broadcast of your network
+    # destination for broadcast universes and ArtPoll, e.g. 2.255.255.255 or the directed broadcast of your network
     broadcast-address: 255.255.255.255
+    # nodes answer ArtPoll on this port (Art-Net standard: 6454)
+    listen-port: 6454
+    # how often nodes are discovered
+    poll-interval: 3s

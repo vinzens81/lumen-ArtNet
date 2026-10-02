@@ -18,6 +18,8 @@
   --accent-glow: rgba(60, 240, 255, 0.45);
   --danger: #ff4d6d;
   --danger-soft: rgba(255, 77, 109, 0.14);
+  --record: #ff3b4f;
+  --record-glow: rgba(255, 59, 79, 0.5);
   --warning: #ffb547;
   --warning-soft: rgba(255, 181, 71, 0.14);
   --ok: #4dffa6;
@@ -161,6 +163,29 @@ a {
 
 .btn.danger:hover:not(:disabled) {
   border-color: var(--danger);
+  box-shadow: 0 0 0 3px var(--danger-soft);
+}
+
+.btn.record {
+  background: var(--record);
+  border-color: var(--record);
+  color: #fff;
+  box-shadow: 0 0 18px var(--record-glow);
+}
+
+.btn.record:hover:not(:disabled) {
+  border-color: var(--record);
+  box-shadow: 0 0 26px var(--record-glow), 0 0 0 3px var(--danger-soft);
+}
+
+/* outlined variant, e.g. "update from programmer" which overwrites an existing scene */
+.btn.record-outline {
+  border-color: rgba(255, 59, 79, 0.6);
+  color: var(--record);
+}
+
+.btn.record-outline:hover:not(:disabled) {
+  border-color: var(--record);
   box-shadow: 0 0 0 3px var(--danger-soft);
 }
 

@@ -42,7 +42,7 @@ universe                                        -- ersetzt die frühere outputs.
   artnet_net      INTEGER NOT NULL DEFAULT 0    -- 0–127
   artnet_subnet   INTEGER NOT NULL DEFAULT 0    -- 0–15
   artnet_universe INTEGER NOT NULL DEFAULT 0    -- 0–15
-  target          TEXT NOT NULL                 -- IP oder 'broadcast'
+  target          TEXT NOT NULL                 -- 'auto', 'auto,10.0.0.5', '10.0.0.5,10.0.0.6' oder 'broadcast'
   UNIQUE(project_id, number)
 
 fixture                                         -- gepatchte Instanz

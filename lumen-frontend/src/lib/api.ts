@@ -1,4 +1,5 @@
 import type {
+  ArtNetNode,
   AttributeValues,
   Fixture,
   FixtureRequest,
@@ -113,6 +114,9 @@ export const api = {
     master: () => get<MasterState>('/api/output/master'),
     setMaster: (level: number) => put<MasterState>('/api/output/master', { level }),
     setBlackout: (active: boolean) => put<MasterState>('/api/output/blackout', { active }),
+  },
+  artnet: {
+    nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),
   },
   health: () => get<{ status: string }>('/actuator/health'),
 };

@@ -12,6 +12,8 @@ public enum StateTopic {
 	SCENES,
 	/** Programmer values changed. */
 	PROGRAMMER,
+	/** Art-Net nodes appeared, changed or went offline. */
+	NODES,
 	/** Grand master or blackout changed. */
 	OUTPUT
 }

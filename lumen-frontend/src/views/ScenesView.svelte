@@ -19,6 +19,10 @@
   let fades = $state({ fadeIn: 3, fadeOut: 3 });
 
   const project = $derived(app.active);
+  // effects depend on the id only: reloading the project list yields new objects for the same project
+  const projectId = $derived(app.active?.id ?? null);
+  const fadeInMs = $derived(app.active?.fadeInMs ?? null);
+  const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
   const modes = $derived.by(() => {
     const result = new Map<number, Mode>();
@@ -35,11 +39,12 @@
   $effect(() => {
     void live.scenesRevision;
     void live.patchRevision;
-    if (project) load(project.id);
+    if (projectId !== null) load(projectId);
   });
 
   $effect(() => {
-    if (project) fades = { fadeIn: project.fadeInMs / 1000, fadeOut: project.fadeOutMs / 1000 };
+    // only when the stored fade times change, so unsaved edits survive unrelated project reloads
+    if (fadeInMs !== null && fadeOutMs !== null) fades = { fadeIn: fadeInMs / 1000, fadeOut: fadeOutMs / 1000 };
   });
 
   async function load(projectId: number) {
@@ -172,7 +177,7 @@
       </form>
       <div class="actions">
         <button class="btn" type="button" onclick={addEmpty}>+ Empty scene</button>
-        <button class="btn primary" type="button" onclick={() => (recordOpen = true)} disabled={!programmerHasValues}
+        <button class="btn record" type="button" onclick={() => (recordOpen = true)} disabled={!programmerHasValues}
           title={programmerHasValues ? '' : 'Set some values in the programmer first'}>⏺ Record scene</button>
       </div>
     </header>
@@ -231,7 +236,7 @@
             <h3>Look</h3>
             <div class="buttons">
               <button class="btn" type="button" onclick={() => selected && loadIntoProgrammer(selected)}>Load into programmer</button>
-              <button class="btn" type="button" onclick={() => (overwriteOpen = true)} disabled={!programmerHasValues}>⏺ Update from programmer</button>
+              <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)} disabled={!programmerHasValues}>⏺ Update from programmer</button>
             </div>
             <ul class="fixtures">
               {#each fixtures.filter((f) => selected?.values[f.id]) as fixture (fixture.id)}
@@ -263,7 +268,7 @@
   <p>Replace the look of scene <strong>{selected?.number} “{selected?.name}”</strong> with the current programmer values?</p>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (overwriteOpen = false)}>Cancel</button>
-    <button class="btn primary" type="button" onclick={overwrite}>Update</button>
+    <button class="btn record" type="button" onclick={overwrite}>⏺ Update</button>
   {/snippet}
 </Modal>
 
