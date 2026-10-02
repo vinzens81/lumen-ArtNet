@@ -1,5 +1,6 @@
 package de.vinzens.lumen.adapter.artnet;
 
+import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
@@ -66,6 +67,7 @@ class ArtNetDmxOutputTest {
 		assertThat(Byte.toUnsignedInt(first[18 + 9])).as("channel 10").isEqualTo(200);
 		assertThat(first[12]).as("sequence").isEqualTo((byte) 1);
 		assertThat(second[12]).as("sequence").isEqualTo((byte) 2);
+		assertThat(output.counters()).isEqualTo(new DmxOutputPort.Counters(true, 2, 0));
 	}
 
 	@Test

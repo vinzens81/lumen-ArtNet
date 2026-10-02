@@ -13,4 +13,19 @@ public interface DmxOutputPort {
 	};
 
 	void send(Universe universe, DmxFrame frame);
+
+	/** Totals since start, for the health display. */
+	default Counters counters() {
+		return Counters.INACTIVE;
+	}
+
+	/**
+	 * @param active      whether packets are sent into the network at all
+	 * @param packetsSent packets handed to the network
+	 * @param sendErrors  packets that could not be sent
+	 */
+	record Counters(boolean active, long packetsSent, long sendErrors) {
+
+		public static final Counters INACTIVE = new Counters(false, 0, 0);
+	}
 }

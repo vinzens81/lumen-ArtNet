@@ -3,6 +3,7 @@
   import MasterBar from './components/MasterBar.svelte';
   import Modal from './components/Modal.svelte';
   import Toasts from './components/Toasts.svelte';
+  import { outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
@@ -24,6 +25,7 @@
   ];
 
   const showMode = $derived(isShowMode(router.route));
+  const output = $derived(outputIndicator(live.health, live.connected));
   let leaveShowOpen = $state(false);
 
   // the operating mode is server state: every connected client follows it
@@ -106,7 +108,11 @@
       {/if}
     </nav>
 
-    <div class="status" class:offline={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
+    <div class="status tone-{output.tone}" title={output.details}>
+      <span class="dot"></span>{output.label}
+    </div>
+
+    <div class="status" class:tone-error={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
       <span class="dot"></span>{app.online ? 'Online' : 'Offline'}
     </div>
 
@@ -249,9 +255,23 @@
     box-shadow: 0 0 8px var(--ok);
   }
 
-  .status.offline .dot {
+  .status.tone-error {
+    color: var(--danger);
+  }
+
+  .status.tone-error .dot {
     background: var(--danger);
     box-shadow: 0 0 8px var(--danger);
+  }
+
+  .status.tone-warning .dot {
+    background: var(--warning);
+    box-shadow: 0 0 8px var(--warning);
+  }
+
+  .status.tone-off .dot {
+    background: var(--text-dim);
+    box-shadow: none;
   }
 
   .mode {

@@ -19,5 +19,7 @@ public enum StateTopic {
 	/** Setup/show mode changed. */
 	MODE,
 	/** Grand master or blackout changed. */
-	OUTPUT
+	OUTPUT,
+	/** New measurement of render loop and Art-Net output (every second). */
+	HEALTH
 }

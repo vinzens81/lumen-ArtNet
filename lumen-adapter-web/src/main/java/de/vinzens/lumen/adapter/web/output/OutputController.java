@@ -1,6 +1,7 @@
 package de.vinzens.lumen.adapter.web.output;
 
 import de.vinzens.lumen.application.output.port.in.ControlMasterUseCase;
+import de.vinzens.lumen.application.output.port.in.QueryHealthUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryOutputUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.output.MasterState;
@@ -19,10 +20,18 @@ class OutputController {
 
 	private final QueryOutputUseCase output;
 	private final ControlMasterUseCase master;
+	private final QueryHealthUseCase health;
 
-	OutputController(QueryOutputUseCase output, ControlMasterUseCase master) {
+	OutputController(QueryOutputUseCase output, ControlMasterUseCase master, QueryHealthUseCase health) {
 		this.output = output;
 		this.master = master;
+		this.health = health;
+	}
+
+	/** Render loop and Art-Net status, updated every second (also pushed via WebSocket). */
+	@GetMapping("/health")
+	HealthResponse health() {
+		return HealthResponse.from(health.health());
 	}
 
 	/**

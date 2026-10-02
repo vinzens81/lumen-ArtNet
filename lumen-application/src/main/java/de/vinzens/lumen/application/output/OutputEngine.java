@@ -114,6 +114,11 @@ public class OutputEngine
 		return new ActivePatch(project.id(), projectUniverses, renderFixtures);
 	}
 
+	/** Number of universes of the active project. */
+	public int universeCount() {
+		return patch.get().universes().size();
+	}
+
 	/** Renders all universes of the active project and sends them. Called by the render loop. */
 	public void tick() {
 		var current = patch.get();

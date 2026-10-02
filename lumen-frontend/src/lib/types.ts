@@ -192,3 +192,18 @@ export interface PlaybackStatus {
   /** scene that was on stage before a server restart and can be resumed */
   resumeSceneId: number | null;
 }
+
+/** Health of the light output, measured by the server every second. */
+export interface OutputHealth {
+  level: 'ok' | 'warning' | 'error';
+  problems: string[];
+  renderRateHz: number;
+  targetRateHz: number;
+  renderErrors: number;
+  lastRenderError: string | null;
+  watchdogRestarts: number;
+  artNetActive: boolean;
+  packetsPerSecond: number;
+  sendErrorsPerSecond: number;
+  universes: number;
+}

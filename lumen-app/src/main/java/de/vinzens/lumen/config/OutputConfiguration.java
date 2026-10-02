@@ -9,6 +9,7 @@ import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.ArtNetNodeService;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
+import de.vinzens.lumen.application.output.OutputHealthService;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
@@ -115,5 +116,13 @@ class OutputConfiguration {
 		loop.start();
 		log.info("Render loop running at {} Hz", properties.output().rateHz());
 		return loop;
+	}
+
+	@Bean(destroyMethod = "close")
+	OutputHealthService outputHealthService(RenderLoop renderLoop, DmxOutputPort dmxOutput, OutputEngine engine,
+			StateEvents stateEvents) {
+		var health = new OutputHealthService(renderLoop, dmxOutput, engine::universeCount, stateEvents);
+		health.start();
+		return health;
 	}
 }

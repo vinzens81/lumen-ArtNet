@@ -1,6 +1,6 @@
 import { api } from './api';
 import { showError } from './toasts.svelte';
-import type { AttributeValues, MasterState, OperatingMode, PlaybackStatus } from './types';
+import type { AttributeValues, MasterState, OperatingMode, OutputHealth, PlaybackStatus } from './types';
 
 const SEND_INTERVAL_MS = 33;
 /** Incoming snapshots are overlaid with local edits for this long, so faders do not jump back. */
@@ -27,6 +27,8 @@ class LiveState {
   mode = $state<OperatingMode>('setup');
   /** false until the server reported its mode, so a reload in show mode does not bounce to setup first */
   modeKnown = $state(false);
+  /** render loop and Art-Net status, pushed every second */
+  health = $state<OutputHealth | null>(null);
 
   private socket: WebSocket | null = null;
   private retries = 0;
@@ -92,6 +94,9 @@ class LiveState {
       case 'mode':
         this.mode = message.mode as OperatingMode;
         this.modeKnown = true;
+        break;
+      case 'health':
+        this.health = message.health as OutputHealth;
         break;
       case 'error':
         showError(new Error(String(message.message)));

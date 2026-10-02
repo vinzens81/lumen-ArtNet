@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Sends DMX frames as ArtDmx packets via UDP: by unicast to discovered and/or manually configured nodes, or by
@@ -37,6 +38,8 @@ public class ArtNetDmxOutput implements DmxOutputPort, AutoCloseable {
 	private final DatagramSocket socket;
 	private final Map<Integer, Integer> sequences = new HashMap<>();
 	private final Map<String, InetAddress> resolved = new HashMap<>();
+	private final AtomicLong packetsSent = new AtomicLong();
+	private final AtomicLong sendErrors = new AtomicLong();
 	private long lastErrorLog;
 
 	public ArtNetDmxOutput(ArtNetSettings settings) {
@@ -66,10 +69,17 @@ public class ArtNetDmxOutput implements DmxOutputPort, AutoCloseable {
 		for (var destination : destinations) {
 			try {
 				socket.send(new DatagramPacket(data, data.length, resolve(destination), settings.port()));
+				packetsSent.incrementAndGet();
 			} catch (IOException e) {
+				sendErrors.incrementAndGet();
 				logError("Sending Art-Net to " + destination + " failed: " + e.getMessage());
 			}
 		}
+	}
+
+	@Override
+	public Counters counters() {
+		return new Counters(true, packetsSent.get(), sendErrors.get());
 	}
 
 	/** IP addresses (or the broadcast address) a universe is sent to. */
