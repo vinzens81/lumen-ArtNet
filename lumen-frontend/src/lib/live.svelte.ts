@@ -21,6 +21,7 @@ class LiveState {
   projectsRevision = $state(0);
   scenesRevision = $state(0);
   nodesRevision = $state(0);
+  accessRevision = $state(0);
   playback = $state<PlaybackStatus | null>(null);
   /** performance.now() when the playback status arrived, to interpolate fades locally */
   playbackReceivedAt = $state(0);
@@ -48,6 +49,7 @@ class LiveState {
       this.projectsRevision++;
       this.scenesRevision++;
       this.nodesRevision++;
+      this.accessRevision++;
     };
     socket.onmessage = (event) => this.receive(JSON.parse(event.data));
     socket.onclose = () => {
@@ -56,6 +58,12 @@ class LiveState {
       const delay = Math.min(5000, 500 * 2 ** this.retries++);
       setTimeout(() => this.connect(), delay);
     };
+  }
+
+  /** Reconnects, e.g. after unlocking setup, so the server sees the new session. */
+  reconnect() {
+    this.retries = 0;
+    this.socket?.close();
   }
 
   private receive(message: { type: string; [key: string]: unknown }) {
@@ -94,6 +102,9 @@ class LiveState {
       case 'mode':
         this.mode = message.mode as OperatingMode;
         this.modeKnown = true;
+        break;
+      case 'access':
+        this.accessRevision++;
         break;
       case 'health':
         this.health = message.health as OutputHealth;

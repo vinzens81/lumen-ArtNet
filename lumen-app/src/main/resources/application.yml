@@ -9,7 +9,7 @@ spring:
           no-cache: true
 
 server:
-  # Only reachable locally by default; network access will be enabled via a setting later
+  # Only reachable locally by default; network access is enabled in Settings (or with lumen.network-access)
   address: 127.0.0.1
   port: 8080
 
@@ -20,6 +20,8 @@ management:
         include: health,info
 
 lumen:
+  # true = accept connections from tablets/phones regardless of the setting in the UI
+  network-access: false
   # Fixture library (YAML), relative to the working directory
   fixture-library-dir: fixture-types
   # Project data (SQLite), created on first start

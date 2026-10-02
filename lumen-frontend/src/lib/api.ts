@@ -1,4 +1,5 @@
 import type {
+  AccessStatus,
   ArtNetNode,
   Backup,
   Backups,
@@ -49,6 +50,10 @@ async function request<T>(method: string, url: string, body?: unknown): Promise<
   const text = await response.text();
   const json = text ? JSON.parse(text) : undefined;
   if (!response.ok) {
+    if (response.status === 403 && json?.locked) {
+      // setup is locked for this browser: App asks for the PIN
+      window.dispatchEvent(new CustomEvent('lumen:locked'));
+    }
     throw new ApiError(json?.detail ?? `Request failed (${response.status})`, response.status, json?.errors ?? []);
   }
   return json as T;
@@ -136,6 +141,13 @@ export const api = {
   },
   artnet: {
     nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),
+  },
+  access: {
+    status: () => get<AccessStatus>('/api/access'),
+    unlock: (pin: string) => post<AccessStatus>('/api/access/unlock', { pin }),
+    lock: () => post<void>('/api/access/lock'),
+    setPin: (pin: string | null) => put<AccessStatus>('/api/access/pin', { pin }),
+    setNetworkAccess: (enabled: boolean) => put<AccessStatus>('/api/access/network', { enabled }),
   },
   backups: {
     list: () => get<Backups>('/api/backups'),

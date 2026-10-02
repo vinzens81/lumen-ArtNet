@@ -1,10 +1,12 @@
 package de.vinzens.lumen.adapter.web.playback;
 
+import de.vinzens.lumen.adapter.web.access.ConfigLock;
 import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.output.OperatingMode;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,10 +22,12 @@ class PlaybackController {
 
 	private final ControlPlaybackUseCase playback;
 	private final ControlModeUseCase mode;
+	private final ConfigLock lock;
 
-	PlaybackController(ControlPlaybackUseCase playback, ControlModeUseCase mode) {
+	PlaybackController(ControlPlaybackUseCase playback, ControlModeUseCase mode, ConfigLock lock) {
 		this.playback = playback;
 		this.mode = mode;
+		this.lock = lock;
 	}
 
 	@GetMapping("/api/playback")
@@ -76,15 +80,23 @@ class PlaybackController {
 		return new ModeResponse(mode.mode().name().toLowerCase(Locale.ROOT));
 	}
 
-	/** Switching to show mode clears and locks the programmer. */
+	/**
+	 * Switching to show mode clears and locks the programmer. Leaving show mode needs an unlocked client if a PIN
+	 * is set.
+	 */
 	@PutMapping("/api/mode")
-	ModeResponse setMode(@RequestBody ModeResponse request) {
-		var value = request.mode() == null ? "" : request.mode().toUpperCase(Locale.ROOT);
+	ModeResponse setMode(@RequestBody ModeResponse body, HttpServletRequest request) {
+		var value = body.mode() == null ? "" : body.mode().toUpperCase(Locale.ROOT);
+		OperatingMode target;
 		try {
-			return new ModeResponse(mode.setMode(OperatingMode.valueOf(value)).name().toLowerCase(Locale.ROOT));
+			target = OperatingMode.valueOf(value);
 		} catch (IllegalArgumentException e) {
-			throw new DomainValidationException(List.of("mode must be setup or show, was '" + request.mode() + "'"));
+			throw new DomainValidationException(List.of("mode must be setup or show, was '" + body.mode() + "'"));
 		}
+		if (target != OperatingMode.SHOW && mode.mode() == OperatingMode.SHOW) {
+			lock.requireUnlocked(request.getSession(false));
+		}
+		return new ModeResponse(mode.setMode(target).name().toLowerCase(Locale.ROOT));
 	}
 
 	record NextRequest(Long sceneId) {

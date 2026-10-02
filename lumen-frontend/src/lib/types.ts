@@ -219,3 +219,17 @@ export interface Backups {
   directory: string;
   backups: Backup[];
 }
+
+export interface AccessStatus {
+  pinSet: boolean;
+  /** this browser may change the setup */
+  unlocked: boolean;
+  /** setting: accept other devices (after a restart) */
+  networkAccess: boolean;
+  /** the running server accepts other devices */
+  networkAccessActive: boolean;
+  /** switched on in the server configuration, cannot be changed in the UI */
+  networkAccessForced: boolean;
+  /** addresses for tablets and phones while network access is active */
+  urls: string[];
+}

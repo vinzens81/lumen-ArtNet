@@ -1,5 +1,6 @@
 package de.vinzens.lumen.adapter.web.live;
 
+import de.vinzens.lumen.adapter.web.access.ConfigLock;
 import de.vinzens.lumen.adapter.web.output.HealthResponse;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
@@ -39,8 +40,8 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
- * {@code health} (every second), {@code patch}, {@code scenes},
- * {@code nodes}, {@code projects} (the last four ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code health} (every second), {@code access}, {@code patch}, {@code scenes},
+ * {@code nodes}, {@code projects} (the last five ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
  */
 @Component
@@ -56,6 +57,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private final ControlPlaybackUseCase playback;
 	private final ControlModeUseCase mode;
 	private final QueryHealthUseCase health;
+	private final ConfigLock lock;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
 	private final Set<StateTopic> dirty = EnumSet.noneOf(StateTopic.class);
@@ -66,12 +68,13 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	});
 
 	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
-			ControlModeUseCase mode, QueryHealthUseCase health, StateEvents events, JsonMapper json) {
+			ControlModeUseCase mode, QueryHealthUseCase health, ConfigLock lock, StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
 		this.playback = playback;
 		this.mode = mode;
 		this.health = health;
+		this.lock = lock;
 		this.json = json;
 		events.subscribe(this::markDirty);
 		flusher.scheduleWithFixedDelay(this::flush, FLUSH_INTERVAL_MS, FLUSH_INTERVAL_MS, TimeUnit.MILLISECONDS);
@@ -127,6 +130,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				message.put("mode", mode.mode().name().toLowerCase(Locale.ROOT));
 			}
 			case PROJECTS -> message.put("type", "projects");
+			case ACCESS -> message.put("type", "access");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));
@@ -168,9 +172,11 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		try {
 			var command = json.readValue(message.getPayload(), Command.class);
 			switch (command.type() == null ? "" : command.type()) {
-				case "programmer.set" -> programmer.setValues(
-						command.fixtureIds() == null ? List.of() : command.fixtureIds(),
-						ValuesJson.fromJson(command.values()));
+				case "programmer.set" -> {
+					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
+					programmer.setValues(command.fixtureIds() == null ? List.of() : command.fixtureIds(),
+							ValuesJson.fromJson(command.values()));
+				}
 				case "master.set" -> {
 					if (command.level() == null) {
 						throw new DomainValidationException(List.of("level is missing"));

@@ -2,7 +2,9 @@
   import { onMount } from 'svelte';
   import MasterBar from './components/MasterBar.svelte';
   import Modal from './components/Modal.svelte';
+  import PinPrompt from './components/PinPrompt.svelte';
   import Toasts from './components/Toasts.svelte';
+  import { access } from './lib/access.svelte';
   import { outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
@@ -45,6 +47,32 @@
     leaveShowOpen = false;
     await live.setMode('setup');
   }
+
+  /** With a PIN, entering it is the confirmation; without, a confirmation dialog asks. */
+  function requestLeaveShow() {
+    if (access.locked) access.requestUnlock(leaveShow);
+    else leaveShowOpen = true;
+  }
+
+  function toggleLock() {
+    if (access.locked) access.requestUnlock();
+    else access.lock();
+  }
+
+  // PIN set or removed, or all browsers locked (show mode started)
+  $effect(() => {
+    void live.accessRevision;
+    access.load();
+  });
+
+  onMount(() => {
+    const onLocked = () => {
+      access.load();
+      if (!access.promptOpen) access.requestUnlock();
+    };
+    window.addEventListener('lumen:locked', onLocked);
+    return () => window.removeEventListener('lumen:locked', onLocked);
+  });
 
   $effect(() => {
     document.documentElement.dataset.mode = showMode ? 'show' : 'setup';
@@ -114,12 +142,19 @@
       <span class="dot"></span>{output.label}
     </div>
 
+    {#if access.status?.pinSet && !showMode}
+      <button type="button" class="lock" class:locked={access.locked} onclick={toggleLock}
+        title={access.locked ? 'Setup is locked – click to enter the PIN' : 'Setup is unlocked – click to lock it'}>
+        {access.locked ? '🔒 Locked' : '🔓 Unlocked'}
+      </button>
+    {/if}
+
     <div class="status" class:tone-error={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
       <span class="dot"></span>{app.online ? 'Online' : 'Offline'}
     </div>
 
     <div class="mode" role="group" aria-label="Mode">
-      <button type="button" class:on={!showMode} onclick={() => showMode && (leaveShowOpen = true)}>Setup</button>
+      <button type="button" class:on={!showMode} onclick={() => showMode && requestLeaveShow()}>Setup</button>
       <button type="button" class:on={showMode} onclick={() => !showMode && enterShow()}>Show</button>
     </div>
   </header>
@@ -160,6 +195,8 @@
     <button class="btn primary" type="button" onclick={leaveShow}>Leave show mode</button>
   {/snippet}
 </Modal>
+
+<PinPrompt />
 
 <Toasts />
 
@@ -276,6 +313,23 @@
   .status.tone-off .dot {
     background: var(--text-dim);
     box-shadow: none;
+  }
+
+  .lock {
+    min-height: 28px;
+    padding: 0 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .lock.locked {
+    border-color: var(--warning);
+    color: var(--warning);
   }
 
   .mode {

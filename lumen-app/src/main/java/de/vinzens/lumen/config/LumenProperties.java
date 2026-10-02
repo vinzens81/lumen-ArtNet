@@ -13,6 +13,7 @@ import java.time.Duration;
  * @param fixtureLibraryDir directory of the fixture library (YAML)
  * @param databaseFile      SQLite file containing the project data
  * @param backup            automatic database backups
+ * @param networkAccess     accept connections from other devices regardless of the setting in the UI
  */
 @ConfigurationProperties("lumen")
 public record LumenProperties(
@@ -20,7 +21,8 @@ public record LumenProperties(
 		@DefaultValue("data/lumen.db") String databaseFile,
 		@DefaultValue Output output,
 		@DefaultValue ArtNet artnet,
-		@DefaultValue Backup backup) {
+		@DefaultValue Backup backup,
+		@DefaultValue("false") boolean networkAccess) {
 
 	// bound as String: Spring's String → Path conversion resolves through the servlet context in a running
 	// web server and rejects relative paths like "../fixture-types"

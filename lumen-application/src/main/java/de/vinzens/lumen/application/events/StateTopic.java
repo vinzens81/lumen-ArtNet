@@ -21,5 +21,7 @@ public enum StateTopic {
 	/** Grand master or blackout changed. */
 	OUTPUT,
 	/** New measurement of render loop and Art-Net output (every second). */
-	HEALTH
+	HEALTH,
+	/** PIN or network access changed, or all clients were locked. */
+	ACCESS
 }
