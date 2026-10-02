@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import KeyBar from '../components/KeyBar.svelte';
+  import DmxMonitorView from './DmxMonitorView.svelte';
   import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
@@ -17,6 +18,27 @@
   let now = $state(performance.now());
   let lastGo = 0;
   let listElement: HTMLElement | undefined = $state();
+
+  const TAB_KEY = 'lumen.showTab';
+  /** left side of the show view: the cue list or the live DMX values; GO and the keys stay on the right */
+  let tab = $state<'cues' | 'dmx'>(readTab());
+
+  function readTab(): 'cues' | 'dmx' {
+    try {
+      return localStorage.getItem(TAB_KEY) === 'dmx' ? 'dmx' : 'cues';
+    } catch {
+      return 'cues';
+    }
+  }
+
+  function showTab(next: 'cues' | 'dmx') {
+    tab = next;
+    try {
+      localStorage.setItem(TAB_KEY, next);
+    } catch {
+      // only a convenience
+    }
+  }
 
   const projectId = $derived(app.active?.id ?? null);
   const status = $derived(live.playback);
@@ -141,9 +163,17 @@
 <section class="show">
   <div class="list glass" bind:this={listElement}>
     <header class="list-head">
-      <h3>Scenes</h3>
+      <div class="tabs" role="tablist" aria-label="Show view">
+        <button type="button" role="tab" aria-selected={tab === 'cues'} class:active={tab === 'cues'}
+          onclick={() => showTab('cues')}>Scenes</button>
+        <button type="button" role="tab" aria-selected={tab === 'dmx'} class:active={tab === 'dmx'}
+          onclick={() => showTab('dmx')}>DMX</button>
+      </div>
       <span class="dim small">{app.active?.name}</span>
     </header>
+    {#if tab === 'dmx'}
+      <div class="dmx"><DmxMonitorView embedded /></div>
+    {:else}
     {#if scenes.length === 0}
       <p class="dim pad">This project has no scenes yet. Record some in setup mode.</p>
     {/if}
@@ -171,6 +201,7 @@
         <span class="number mono">■</span><span class="text"><span class="name">End – fade to black</span></span>
         {#if status?.nextIsEnd}<span class="tag next">NEXT</span>{/if}
       </div>
+    {/if}
     {/if}
   </div>
 
@@ -272,6 +303,35 @@
     padding: 8px;
     min-height: 0;
     overflow: auto;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 4px;
+  }
+
+  .tabs button {
+    padding: 6px 12px;
+    border: 0;
+    border-radius: var(--radius-sm);
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    cursor: pointer;
+  }
+
+  .tabs button.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+    box-shadow: inset 0 -2px 0 var(--accent);
+  }
+
+  .dmx {
+    padding: 0 6px 6px;
   }
 
   .list-head {

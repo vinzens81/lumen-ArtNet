@@ -141,6 +141,11 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 `Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen ·
 `1`–`8` Extra-Tasten (Flash: solange gedrückt)
 
+### DMX im Betrieb
+Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt die 512 Kanalwerte
+live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
+der Browser.
+
 ### Extra-Tasten (Betrieb)
 Unter GO liegt die Tastenleiste mit den belegten Extra-Tasten (Name, Typ-Symbol, an/aus). Sie leuchten beim Ein- und
 Ausblenden mit. In der aktuellen Szene nicht freigeschaltete Tasten sind ausgegraut. Auf dem Handy ist die Leiste

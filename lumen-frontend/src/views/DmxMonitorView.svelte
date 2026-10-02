@@ -7,6 +7,9 @@
   import { showError } from '../lib/toasts.svelte';
   import type { Fixture, Universe } from '../lib/types';
 
+  /** embedded in the show view: without page heading, inside the show's panel */
+  let { embedded = false }: { embedded?: boolean } = $props();
+
   let universes = $state<Universe[]>([]);
   let fixtures = $state<Fixture[]>([]);
   let universeNumber = $state<number | null>(null);
@@ -53,12 +56,14 @@
   }
 </script>
 
-<section class="view">
+<section class="view" class:embedded>
   <header class="head">
-    <div>
-      <h1>DMX monitor</h1>
-      <p class="dim">The 512 channel values Lumen sends right now, after programmer, playback and grand master.</p>
-    </div>
+    {#if !embedded}
+      <div>
+        <h1>DMX monitor</h1>
+        <p class="dim">The 512 channel values Lumen sends right now, after programmer, playback and grand master.</p>
+      </div>
+    {/if}
     <div class="controls">
       {#if universes.length > 0}
         <label class="field">Universe
@@ -79,7 +84,7 @@
   {:else if universes.length === 0}
     <div class="glass empty">This project has no universes yet.</div>
   {:else}
-    <div class="glass panel">
+    <div class="panel" class:glass={!embedded}>
       <p class="small dim">
         {#if values}{active} of {UNIVERSE_SIZE} channels above 0{:else}Waiting for data…{/if}
       </p>
@@ -152,10 +157,40 @@
     margin: 0;
   }
 
+  .panel {
+    container-type: inline-size;
+  }
+
+  /* as many channels per row as fit: 32 on a wide screen, fewer in the show view or on a tablet */
   .grid {
     display: grid;
-    grid-template-columns: repeat(32, minmax(0, 1fr));
+    grid-template-columns: repeat(8, minmax(0, 1fr));
     gap: 2px;
+  }
+
+  @container (min-width: 440px) {
+    .grid {
+      grid-template-columns: repeat(16, minmax(0, 1fr));
+    }
+  }
+
+  @container (min-width: 900px) {
+    .grid {
+      grid-template-columns: repeat(32, minmax(0, 1fr));
+    }
+  }
+
+  .view.embedded {
+    padding: 0;
+    gap: 10px;
+  }
+
+  .view.embedded .head {
+    justify-content: flex-start;
+  }
+
+  .view.embedded .panel {
+    padding: 0;
   }
 
   .cell {
@@ -189,15 +224,4 @@
     font-weight: 600;
   }
 
-  @media (max-width: 1100px) {
-    .grid {
-      grid-template-columns: repeat(16, minmax(0, 1fr));
-    }
-  }
-
-  @media (max-width: 560px) {
-    .grid {
-      grid-template-columns: repeat(8, minmax(0, 1fr));
-    }
-  }
 </style>

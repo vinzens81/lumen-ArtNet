@@ -42,3 +42,9 @@ data/
 ### Frontend ###
 lumen-frontend/node/
 lumen-frontend/node_modules/
+
+# copies that iCloud creates when it sees a sync conflict ("pom 2.xml", "src/main 2", …)
+* [0-9]
+* [0-9].*
+* [0-9][0-9]
+* [0-9][0-9].*
