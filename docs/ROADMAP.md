@@ -7,8 +7,9 @@ Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
 
 ---
 
-## ⬜ Iteration 0 – Projektgerüst
-- Maven Multi-Module (siehe [ARCHITECTURE.md](ARCHITECTURE.md)), Java 26, Spring Boot 4.x
+## ✅ Iteration 0 – Projektgerüst
+- Maven Multi-Module (siehe [ARCHITECTURE.md](ARCHITECTURE.md)), Java 26, Spring Boot 4.1.1 (via Spring Initializr)
+- Angelegt: `lumen-domain`, `lumen-application`, `lumen-app`; Adapter-Module folgen in ihren Iterationen
 - `lumen-app` startet, `/actuator/health` antwortet
 - ArchUnit-Test: Domain/Application hängen nicht von Spring oder Adaptern ab
 - `.gitignore`, `git init`, `CLAUDE.md` mit Build-Befehlen

@@ -45,6 +45,8 @@ lumen/
 └── lumen-app/                    Spring Boot Main, Verdrahtung, application.yml
 ```
 
+Adapter- und Frontend-Module werden erst in der Iteration angelegt, in der sie gebraucht werden.
+
 Nur `lumen-app` und die Adapter kennen Spring. Die Use Cases werden in `lumen-app` als Beans verdrahtet,
 damit `lumen-application` frameworkfrei bleibt.
 
