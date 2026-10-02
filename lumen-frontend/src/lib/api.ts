@@ -25,6 +25,8 @@ import type {
   UniverseRequest,
 } from './types';
 
+type StagePreviewStatus = { compositionId: number | null; sceneId: number | null };
+
 /** Error returned by the backend as RFC 9457 problem details. */
 export class ApiError extends Error {
   constructor(
@@ -133,10 +135,14 @@ export const api = {
       post<Composition>(`/api/projects/${projectId}/compositions/${id}/reload-from-library`),
     saveToLibrary: (projectId: number, id: number) =>
       post<Composition>(`/api/projects/${projectId}/compositions/${id}/save-to-library`),
-    stagePreview: () => get<{ compositionId: number | null }>('/api/compositions/stage-preview'),
-    showOnStage: (projectId: number, id: number) =>
-      post<{ compositionId: number | null }>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
-    stopStagePreview: () => request<{ compositionId: number | null }>('DELETE', '/api/compositions/stage-preview'),
+  },
+  stagePreview: {
+    status: () => get<StagePreviewStatus>('/api/stage-preview'),
+    showComposition: (projectId: number, id: number) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
+    showScene: (projectId: number, sceneId: number) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/stage-preview`),
+    stop: () => request<StagePreviewStatus>('DELETE', '/api/stage-preview'),
   },
   stage: {
     place: (projectId: number, positions: Record<number, Position | null>) =>

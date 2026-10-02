@@ -10,6 +10,7 @@
   import { notify, showError } from '../lib/toasts.svelte';
   import { kindIcon } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
+  import { stagePreview } from '../lib/stagePreview.svelte';
   import type { Fixture, Group, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
@@ -328,8 +329,18 @@
             <h3>Look</h3>
             <div class="buttons">
               <button class="btn" type="button" onclick={() => selected && loadIntoProgrammer(selected)}>Load into programmer</button>
+              {#if stagePreview.status.sceneId === selected.id}
+                <button class="btn primary" type="button" onclick={() => stagePreview.stop()}
+                  title="Stop playing this scene on stage">■ Stop showing</button>
+              {:else}
+                <button class="btn" type="button" onclick={() => projectId !== null && stagePreview.showScene(projectId, selected.id)}
+                  title="Play the scene with its compositions on stage, above the playback">▶ Show on stage</button>
+              {/if}
               <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)} disabled={!programmerHasValues}>⏺ Update from programmer</button>
             </div>
+            {#if stagePreview.status.sceneId === selected.id && programmerHasValues}
+              <p class="hint warning-text">The programmer is on top of the stage preview – clear it to see the scene as it is.</p>
+            {/if}
             <ul class="fixtures">
               {#each fixtures.filter((f) => selected?.values[f.id]) as fixture (fixture.id)}
                 {@const preview = previewOf(modes.get(fixture.id) ?? { name: '', dmxChannelCount: 0, channels: [] }, selected.values[fixture.id])}
@@ -377,6 +388,10 @@
 </Modal>
 
 <style>
+  .warning-text {
+    color: var(--warning);
+  }
+
   .view {
     display: flex;
     flex-direction: column;

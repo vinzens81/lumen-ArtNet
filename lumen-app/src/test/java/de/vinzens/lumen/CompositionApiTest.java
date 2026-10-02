@@ -151,7 +151,7 @@ class CompositionApiTest {
 		var chase = id(post(base + "/compositions", """
 				{"name": "Fair chase", "kind": "chase", "params": {"stepMs": 60000}, "target": {"groupId": %d}}"""
 				.formatted(ramp)));
-		assertThat(mvc.get().uri("/api/compositions/stage-preview")).bodyJson()
+		assertThat(mvc.get().uri("/api/stage-preview")).bodyJson()
 				.extractingPath("$.compositionId").isNull();
 
 		assertThat(post(base + "/compositions/" + chase + "/stage-preview", "")).hasStatusOk().bodyJson()
@@ -159,13 +159,24 @@ class CompositionApiTest {
 		Thread.sleep(100); // a render tick
 		assertThat(dmx()[0]).as("first fixture of the chase").isEqualTo(255);
 
-		assertThat(mvc.delete().uri("/api/compositions/stage-preview")).hasStatusOk().bodyJson()
+		assertThat(mvc.delete().uri("/api/stage-preview")).hasStatusOk().bodyJson()
 				.extractingPath("$.compositionId").isNull();
 		assertThat(dmx()[0]).isZero();
 
+		// a whole scene: its static value and its compositions
+		var scene = id(post(base + "/scenes", "{\"name\": \"Fair\"}"));
+		id(post(base + "/scenes/" + scene + "/compositions", "{\"libraryId\": " + chase + "}"));
+		assertThat(post(base + "/scenes/" + scene + "/stage-preview", "")).hasStatusOk().bodyJson()
+				.satisfies(json -> {
+					assertThat(json).extractingPath("$.sceneId").isEqualTo((int) scene);
+					assertThat(json).extractingPath("$.compositionId").isNull();
+				});
+		Thread.sleep(100);
+		assertThat(dmx()[0]).isEqualTo(255);
+
 		assertThat(post(base + "/compositions/" + chase + "/stage-preview", "")).hasStatusOk();
 		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
-		assertThat(mvc.get().uri("/api/compositions/stage-preview")).as("show mode stops it").bodyJson()
+		assertThat(mvc.get().uri("/api/stage-preview")).as("show mode stops it").bodyJson()
 				.extractingPath("$.compositionId").isNull();
 	}
 

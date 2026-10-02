@@ -291,9 +291,13 @@ composition_step_value                          -- Werte pro Schritt, normalisie
 - **Vorschau im Editor:** rechnet der Server mit der echten Engine und schickt sie per WebSocket-Abo `preview:<id>`
   (höchstens 10×/s). Relative Kompositionen (Flackern) werden dabei über voller Intensität gezeigt. Die Bühne bleibt
   unberührt.
-- **Auf der Bühne zeigen:** `POST /api/projects/{id}/compositions/{cid}/stage-preview` legt eine Komposition als Ebene
-  mit Priorität 75 über das Playback (unter dem Programmer); `GET/DELETE /api/compositions/stage-preview`. Der Start des
-  Betriebsmodus beendet die Vorschau, im Betriebsmodus lässt sie sich nicht starten (409).
+- **Auf der Bühne zeigen:** `POST /api/projects/{id}/compositions/{cid}/stage-preview` legt eine Komposition,
+  `POST /api/projects/{id}/scenes/{sid}/stage-preview` eine ganze Szene (feste Werte plus ihre Kompositionen, wie nach
+  dem Fade-In im Playback) als Ebene mit Priorität 75 über das Playback (unter dem Programmer). Es läuft immer nur eine
+  Vorschau; eine neue ersetzt die alte. `GET/DELETE /api/stage-preview` liefert bzw. beendet sie
+  (`{compositionId, sceneId}`). Der Start des Betriebsmodus beendet die Vorschau, im Betriebsmodus lässt sie sich nicht
+  starten (409). Im Szenen-Editor: „▶ Show on stage“ / „■ Stop showing“ neben „Load into programmer“; solange eine
+  Vorschau läuft, zeigt die Kopfleiste „On stage … ■ Stop“.
 - **Hinweise:** Überschneidungen in einer Szene („B overrides A on …“), Geräte ohne passende Kanäle (Farbe ohne
   RGB, Intensität ohne Dimmer) und schnelles Blitzen (Lauflicht/Welle unter 333 ms mit großem Hub, „defekte Röhre“).
 - **Szenenlisten** (Konfiguration und Betrieb) zeigen die Typ-Symbole der Kompositionen einer Szene.

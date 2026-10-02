@@ -4,6 +4,7 @@
   import { previewOf, rgbToCss } from '../lib/color';
   import { isFast, kindIcon, kindLabel, targetFixtures, unsuitableFixtures } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
+  import { stagePreview } from '../lib/stagePreview.svelte';
   import { showError } from '../lib/toasts.svelte';
   import type { AttributeValues, Composition, CompositionStep, Fixture, Group, Mode } from '../lib/types';
   import PreviewStrip from './PreviewStrip.svelte';
@@ -29,7 +30,6 @@
   // initial values; later changes of the prop are taken over by the effect below
   let draft = $state<Composition>(untrack(() => structuredClone($state.snapshot(composition))));
   let saved = untrack(() => JSON.stringify(composition));
-  let stageCompositionId = $state<number | null>(null);
   let errors = $state<string[]>([]);
   let timer: ReturnType<typeof setTimeout> | null = null;
   let addFixture = $state('');
@@ -41,7 +41,7 @@
   const targetIds = $derived(targetFixtures(draft, groups));
   const unsuitable = $derived(unsuitableFixtures(draft.kind, targetIds, modes));
   const fast = $derived(isFast(draft));
-  const onStage = $derived(stageCompositionId === composition.id);
+  const onStage = $derived(stagePreview.status.compositionId === composition.id);
 
   // a different composition, or a change from elsewhere while nothing is pending here
   $effect(() => {
@@ -62,11 +62,6 @@
   });
 
   $effect(() => live.watch(`preview:${composition.id}`));
-
-  $effect(() => {
-    void live.compositionsRevision;
-    api.compositions.stagePreview().then((s) => (stageCompositionId = s.compositionId)).catch(() => {});
-  });
 
   async function save() {
     timer = null;
@@ -93,15 +88,9 @@
     }
   }
 
-  async function toggleStage() {
-    try {
-      const result = onStage
-        ? await api.compositions.stopStagePreview()
-        : await api.compositions.showOnStage(projectId, composition.id);
-      stageCompositionId = result.compositionId;
-    } catch (e) {
-      showError(e);
-    }
+  function toggleStage() {
+    if (onStage) stagePreview.stop();
+    else stagePreview.showComposition(projectId, composition.id);
   }
 
   // --- target ------------------------------------------------------------------------------------------------
@@ -228,7 +217,7 @@
     {/if}
     <button class="btn small" class:primary={onStage} type="button" onclick={toggleStage}
       title="Play this composition on the real stage, above the playback">
-      {onStage ? '■ Stop on stage' : '▶ Show on stage'}
+      {onStage ? '■ Stop showing' : '▶ Show on stage'}
     </button>
   </header>
 

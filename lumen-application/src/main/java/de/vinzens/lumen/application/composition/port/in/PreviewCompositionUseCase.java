@@ -6,7 +6,8 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Lets a composition run for the editor: as values for an on-screen preview, and if wanted on the real stage.
+ * Lets a composition run for the editor: as values for an on-screen preview, and if wanted on the real stage –
+ * alone or as part of its scene.
  */
 public interface PreviewCompositionUseCase {
 
@@ -19,7 +20,12 @@ public interface PreviewCompositionUseCase {
 	/** Plays the composition on stage above the playback (setup mode only). */
 	void showOnStage(long projectId, long compositionId);
 
+	/** Plays a whole scene – its values and its compositions – on stage above the playback (setup mode only). */
+	void showSceneOnStage(long projectId, long sceneId);
+
 	void stopOnStage();
 
 	Optional<Long> compositionOnStage();
+
+	Optional<Long> sceneOnStage();
 }

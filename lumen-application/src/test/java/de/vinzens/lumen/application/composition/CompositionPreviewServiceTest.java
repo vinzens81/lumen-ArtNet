@@ -6,6 +6,7 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
+import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
@@ -16,9 +17,13 @@ import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelDefinition;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.library.Mode;
+import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
+import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneSpec;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -44,9 +49,12 @@ class CompositionPreviewServiceTest {
 
 	private final Composition chase = composition(1, new Chase(1, 1, Chase.Direction.FORWARD, 0, 0, 1));
 	private final Composition flicker = composition(2, new Flicker(Flicker.Character.CANDLE, 0.5, 1, 1));
-	private final CompositionPreviewService preview = new CompositionPreviewService(
-			new FixedCompositions(Map.of(9L, List.of(chase, flicker))),
-			new CompositionResolver(new FixedCompositions(Map.of()), groups()), mode(), clock(), events);
+	private final FixedCompositions stored = new FixedCompositions(Map.of(9L, List.of(chase, flicker)));
+	/** scene 9: fixture 3 at 30 %, with the chase and the flicker on fixtures 1 and 2 */
+	private final Scene scene = new Scene(9, 1, new SceneSpec(SceneNumber.of(1), "Fair", Optional.empty(),
+			Optional.empty()), Map.of(3L, new FixtureValues(Map.of(DIMMER, 0.3))));
+	private final CompositionPreviewService preview = new CompositionPreviewService(stored, scenes(),
+			new CompositionResolver(stored, groups()), mode(), clock(), events);
 
 	@Test
 	void previewRunsOnItsOwnClockWithoutTouchingTheStage() {
@@ -72,6 +80,53 @@ class CompositionPreviewServiceTest {
 		events.publish(StateTopic.MODE);
 		assertThat(preview.compositionOnStage()).isEmpty();
 		assertThatThrownBy(() -> preview.showOnStage(1, 1)).isInstanceOf(ConflictException.class);
+	}
+
+	@Test
+	void wholeSceneRunsOnStageWithItsValuesAndCompositions() {
+		preview.showSceneOnStage(1, 9);
+		assertThat(preview.sceneOnStage()).contains(9L);
+		assertThat(preview.compositionOnStage()).isEmpty();
+
+		var modes = Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE, 3L, DIMMER_MODE);
+		var look = preview.layer(now, modes).fixtures();
+		assertThat(look.get(3L).get(DIMMER)).as("static value of the scene").contains(0.3);
+		assertThat(look.get(1L).get(DIMMER).orElseThrow()).as("chase on, then the flicker over it").isBetween(0.5, 1.0);
+		now = now.plusSeconds(1);
+		assertThat(preview.layer(now, modes).fixtures().get(2L).get(DIMMER).orElseThrow()).isGreaterThan(0.4);
+
+		preview.showOnStage(1, 1);
+		assertThat(preview.sceneOnStage()).as("one preview at a time").isEmpty();
+		preview.stopOnStage();
+		assertThat(preview.layer(now, modes).fixtures()).isEmpty();
+	}
+
+	private SceneRepository scenes() {
+		return new SceneRepository() {
+			public List<Scene> findByProject(long projectId) {
+				return List.of(scene);
+			}
+
+			public Optional<Scene> findById(long id) {
+				return Optional.of(scene).filter(s -> s.id() == id);
+			}
+
+			public Scene create(long projectId, SceneSpec spec, Map<Long, FixtureValues> values) {
+				throw new UnsupportedOperationException();
+			}
+
+			public Scene updateSpec(long id, SceneSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			public Scene replaceValues(long id, Map<Long, FixtureValues> values) {
+				throw new UnsupportedOperationException();
+			}
+
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+		};
 	}
 
 	private static Composition composition(long id, Pattern pattern) {

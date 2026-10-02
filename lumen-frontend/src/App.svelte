@@ -7,6 +7,7 @@
   import { access } from './lib/access.svelte';
   import { outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
+  import { stagePreview } from './lib/stagePreview.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
@@ -98,6 +99,12 @@
     if (live.projectsRevision > 0) app.reloadProjects();
   });
 
+  // a stage preview was started or stopped (by this or another browser)
+  $effect(() => {
+    void live.compositionsRevision;
+    stagePreview.load();
+  });
+
   // fixture profiles changed on disk (or the connection came back)
   $effect(() => {
     if (live.libraryRevision > 1) app.reloadLibrary();
@@ -150,6 +157,14 @@
     <div class="status tone-{output.tone}" title={output.details}>
       <span class="dot"></span>{output.label}
     </div>
+
+    {#if stagePreview.active && !showMode}
+      <button type="button" class="preview-pill" onclick={() => stagePreview.stop()}
+        title="A {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} is playing on stage above the playback – click to stop">
+        <span class="pulse" aria-hidden="true"></span>
+        On stage: {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} <strong>■ Stop</strong>
+      </button>
+    {/if}
 
     {#if access.status?.pinSet && !showMode}
       <button type="button" class="lock" class:locked={access.locked} onclick={toggleLock}
@@ -326,6 +341,36 @@
   .status.tone-off .dot {
     background: var(--text-dim);
     box-shadow: none;
+  }
+
+  .preview-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-height: 28px;
+    padding: 0 12px;
+    border-radius: 999px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .pulse {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes pulse {
+    50% {
+      opacity: 0.3;
+    }
   }
 
   .lock {
