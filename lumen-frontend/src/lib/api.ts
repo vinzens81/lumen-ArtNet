@@ -3,6 +3,8 @@ import type {
   ArtNetNode,
   Backup,
   Backups,
+  Composition,
+  CompositionRequest,
   AttributeValues,
   Fixture,
   FixtureRequest,
@@ -112,6 +114,29 @@ export const api = {
     record: (projectId: number, id: number) => post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`),
     load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
+  },
+  compositions: {
+    library: (projectId: number) => get<Composition[]>(`/api/projects/${projectId}/compositions`),
+    get: (projectId: number, id: number) => get<Composition>(`/api/projects/${projectId}/compositions/${id}`),
+    create: (projectId: number, composition: CompositionRequest) =>
+      post<Composition>(`/api/projects/${projectId}/compositions`, composition),
+    update: (projectId: number, id: number, composition: CompositionRequest) =>
+      put<Composition>(`/api/projects/${projectId}/compositions/${id}`, composition),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/compositions/${id}`),
+    ofScene: (projectId: number, sceneId: number) =>
+      get<Composition[]>(`/api/projects/${projectId}/scenes/${sceneId}/compositions`),
+    insert: (projectId: number, sceneId: number, libraryId: number) =>
+      post<Composition>(`/api/projects/${projectId}/scenes/${sceneId}/compositions`, { libraryId }),
+    reorder: (projectId: number, sceneId: number, ids: number[]) =>
+      put<Composition[]>(`/api/projects/${projectId}/scenes/${sceneId}/compositions/order`, { ids }),
+    reloadFromLibrary: (projectId: number, id: number) =>
+      post<Composition>(`/api/projects/${projectId}/compositions/${id}/reload-from-library`),
+    saveToLibrary: (projectId: number, id: number) =>
+      post<Composition>(`/api/projects/${projectId}/compositions/${id}/save-to-library`),
+    stagePreview: () => get<{ compositionId: number | null }>('/api/compositions/stage-preview'),
+    showOnStage: (projectId: number, id: number) =>
+      post<{ compositionId: number | null }>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
+    stopStagePreview: () => request<{ compositionId: number | null }>('DELETE', '/api/compositions/stage-preview'),
   },
   stage: {
     place: (projectId: number, positions: Record<number, Position | null>) =>

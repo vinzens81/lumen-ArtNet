@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * The composition library of a project and the copies of compositions in scenes.
@@ -21,6 +22,9 @@ public interface ManageCompositionsUseCase {
 
 	/** Deleting a library composition keeps its copies; they only lose their origin. */
 	void delete(long projectId, long compositionId);
+
+	/** Copies in all scenes of the project: scene id → copies in their order. */
+	Map<Long, List<Composition>> sceneCompositions(long projectId);
 
 	/** Copies in the scene, in their order (later ones win on the same attribute). */
 	List<Composition> sceneCompositions(long projectId, long sceneId);

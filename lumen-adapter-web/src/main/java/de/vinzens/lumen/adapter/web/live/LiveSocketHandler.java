@@ -4,6 +4,8 @@ import de.vinzens.lumen.adapter.web.access.ConfigLock;
 import de.vinzens.lumen.adapter.web.output.HealthResponse;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
+import de.vinzens.lumen.application.NotFoundException;
+import de.vinzens.lumen.application.composition.port.in.PreviewCompositionUseCase;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.port.in.ControlMasterUseCase;
@@ -47,9 +49,10 @@ import java.util.concurrent.TimeUnit;
  * {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last seven ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
  *
- * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1"]}} a client gets {@code output}
- * (attribute values as sent, before the grand master) and {@code dmx} (512 channel values of a universe) at most
- * every {@value #STREAM_INTERVAL_MS} ms, only when they changed.
+ * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
+ * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
+ * and {@code preview} (a composition evaluated for the editor, not on stage) at most every
+ * {@value #STREAM_INTERVAL_MS} ms, only when they changed.
  */
 @Component
 class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
@@ -67,6 +70,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private final ControlModeUseCase mode;
 	private final QueryHealthUseCase health;
 	private final QueryOutputUseCase output;
+	private final PreviewCompositionUseCase preview;
 	private final ConfigLock lock;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -79,14 +83,15 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	});
 
 	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
-			ControlModeUseCase mode, QueryHealthUseCase health, QueryOutputUseCase output, ConfigLock lock,
-			StateEvents events, JsonMapper json) {
+			ControlModeUseCase mode, QueryHealthUseCase health, QueryOutputUseCase output,
+			PreviewCompositionUseCase preview, ConfigLock lock, StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
 		this.playback = playback;
 		this.mode = mode;
 		this.health = health;
 		this.output = output;
+		this.preview = preview;
 		this.lock = lock;
 		this.json = json;
 		events.subscribe(this::markDirty);
@@ -133,6 +138,15 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			message.put("type", "dmx");
 			message.put("universe", universe);
 			message.put("values", frame.get().toIntArray());
+		} else if (topic.startsWith("preview:")) {
+			var compositionId = Long.parseLong(topic.substring(8));
+			try {
+				message.put("type", "preview");
+				message.put("compositionId", compositionId);
+				message.put("values", ValuesJson.toJson(preview.previewValues(compositionId)));
+			} catch (NotFoundException e) {
+				return null;
+			}
 		} else {
 			return null;
 		}
@@ -266,7 +280,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private void subscribe(WebSocketSession session, List<String> topics) {
 		var valid = new LinkedHashSet<String>();
 		for (var topic : topics == null ? List.<String>of() : topics) {
-			if (!topic.equals("output") && !topic.matches("dmx:\\d{1,4}")) {
+			if (!topic.equals("output") && !topic.matches("dmx:\\d{1,4}") && !topic.matches("preview:\\d{1,18}")) {
 				throw new DomainValidationException(List.of("Unknown live topic '" + topic + "'"));
 			}
 			valid.add(topic);

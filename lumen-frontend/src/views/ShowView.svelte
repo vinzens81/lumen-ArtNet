@@ -3,6 +3,7 @@
   import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
+  import { kindIcon } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -153,6 +154,11 @@
           {#if scene.cueNote}<span class="note">{scene.cueNote}</span>{/if}
         </span>
         <Swatches swatches={swatches.get(scene.id) ?? []} max={10} />
+        {#if scene.compositions.length > 0}
+          <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
+            {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
+          </span>
+        {/if}
         {#if scene.autoFollowMs !== null}<span class="badge">⟳ {seconds(scene.autoFollowMs)}</span>{/if}
         {#if rowState(scene, i) === 'current'}<span class="tag now">NOW</span>{/if}
         {#if rowState(scene, i) === 'next'}<span class="tag next">NEXT</span>{/if}

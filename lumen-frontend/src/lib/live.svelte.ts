@@ -33,6 +33,9 @@ class LiveState {
   /** raw DMX per universe number, while a view watches 'dmx:<n>' */
   dmx = $state<Record<number, number[]>>({});
   libraryRevision = $state(0);
+  compositionsRevision = $state(0);
+  /** composition id → values of its on-screen preview, while a view watches 'preview:<id>' */
+  previews = $state<Record<number, Record<number, AttributeValues>>>({});
   /** render loop and Art-Net status, pushed every second */
   health = $state<OutputHealth | null>(null);
 
@@ -58,6 +61,7 @@ class LiveState {
       this.nodesRevision++;
       this.accessRevision++;
       this.libraryRevision++;
+      this.compositionsRevision++;
       this.sendSubscriptions();
     };
     socket.onmessage = (event) => this.receive(JSON.parse(event.data));
@@ -138,6 +142,15 @@ class LiveState {
         break;
       case 'dmx':
         this.dmx = { ...this.dmx, [message.universe as number]: message.values as number[] };
+        break;
+      case 'preview':
+        this.previews = {
+          ...this.previews,
+          [message.compositionId as number]: message.values as Record<number, AttributeValues>,
+        };
+        break;
+      case 'compositions':
+        this.compositionsRevision++;
         break;
       case 'library':
         this.libraryRevision++;

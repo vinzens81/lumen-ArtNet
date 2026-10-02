@@ -166,6 +166,8 @@ export interface Scene {
   autoFollowMs: number | null;
   fixtureCount: number;
   values: Record<number, AttributeValues>;
+  /** compositions running in the scene, in their order */
+  compositions: { id: number; name: string; kind: CompositionKind }[];
 }
 
 export interface SceneRequest {
@@ -232,4 +234,91 @@ export interface AccessStatus {
   networkAccessForced: boolean;
   /** addresses for tablets and phones while network access is active */
   urls: string[];
+}
+
+export type CompositionKind = 'chase' | 'color_cycle' | 'rainbow' | 'wave' | 'flicker' | 'steps';
+
+export interface ChaseParams {
+  stepMs: number;
+  width: number;
+  direction: 'forward' | 'backward' | 'ping_pong' | 'random';
+  softness: number;
+  min: number;
+  max: number;
+}
+
+export interface ColorCycleParams {
+  colors: string[];
+  holdMs: number;
+  fadeMs: number;
+  spread: number;
+  intensity: number;
+}
+
+export interface RainbowParams {
+  cycleMs: number;
+  saturation: number;
+  spread: number;
+  intensity: number;
+}
+
+export interface WaveParams {
+  shape: 'sine' | 'triangle' | 'sawtooth' | 'square';
+  periodMs: number;
+  min: number;
+  max: number;
+  spread: number;
+}
+
+export interface FlickerParams {
+  character: 'candle' | 'fire' | 'broken_tube';
+  strength: number;
+  speed: number;
+  seed: number;
+}
+
+export interface StepsParams {
+  playMode: 'loop' | 'ping_pong';
+}
+
+export type CompositionParams = ChaseParams | ColorCycleParams | RainbowParams | WaveParams | FlickerParams | StepsParams;
+
+export interface CompositionTarget {
+  groupId?: number | null;
+  fixtureIds?: number[] | null;
+}
+
+export interface CompositionStep {
+  holdMs: number;
+  fadeMs: number;
+  values: Record<number, AttributeValues>;
+}
+
+export interface Composition {
+  id: number;
+  /** scene of a copy, null in the library */
+  sceneId: number | null;
+  /** library origin of a copy */
+  sourceId: number | null;
+  position: number;
+  name: string;
+  kind: CompositionKind;
+  params: CompositionParams;
+  /** null for step sequences */
+  target: CompositionTarget | null;
+  steps: CompositionStep[] | null;
+  level: number;
+  speedFactor: number;
+  restart: boolean;
+}
+
+export interface CompositionRequest {
+  name: string;
+  kind: CompositionKind;
+  params: Partial<CompositionParams>;
+  target: CompositionTarget | null;
+  steps?: CompositionStep[] | null;
+  level?: number;
+  speedFactor?: number;
+  restart?: boolean;
 }

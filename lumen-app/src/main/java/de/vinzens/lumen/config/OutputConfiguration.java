@@ -4,6 +4,8 @@ import de.vinzens.lumen.adapter.artnet.ArtNetDiscovery;
 import de.vinzens.lumen.adapter.artnet.ArtNetDmxOutput;
 import de.vinzens.lumen.adapter.artnet.ArtNetSettings;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
+import de.vinzens.lumen.application.composition.CompositionPreviewService;
+import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
@@ -99,20 +101,34 @@ class OutputConfiguration {
 	}
 
 	@Bean
-	PlaybackService playbackService(SqliteRepositories repositories, ExecutorService playbackStateWriter, Clock clock,
-			StateEvents stateEvents, OutputEngine outputEngine) {
-		var playback = new PlaybackService(repositories.projects(), repositories.scenes(),
-				repositories.compositions(), repositories.groups(), repositories.playbackStates(), playbackStateWriter,
-				clock, stateEvents);
+	CompositionResolver compositionResolver(SqliteRepositories repositories) {
+		return new CompositionResolver(repositories.compositions(), repositories.groups());
+	}
+
+	@Bean
+	PlaybackService playbackService(SqliteRepositories repositories, CompositionResolver compositionResolver,
+			ExecutorService playbackStateWriter, Clock clock, StateEvents stateEvents, OutputEngine outputEngine) {
+		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), compositionResolver,
+				repositories.playbackStates(), playbackStateWriter, clock, stateEvents);
 		outputEngine.addLayerSource(playback);
 		playback.status().resumeSceneId().ifPresent(sceneId ->
 				log.info("Show can be resumed at scene id {}", sceneId));
 		return playback;
 	}
 
+	@Bean
+	CompositionPreviewService compositionPreviewService(SqliteRepositories repositories,
+			CompositionResolver compositionResolver, OutputEngine outputEngine, Clock clock, StateEvents stateEvents) {
+		var preview = new CompositionPreviewService(repositories.compositions(), compositionResolver, outputEngine,
+				clock, stateEvents);
+		outputEngine.addLayerSource(preview);
+		return preview;
+	}
+
 	@Bean(destroyMethod = "close")
-	// depends on the playback so its layer is registered before the first tick
-	RenderLoop renderLoop(PlaybackService playbackService, OutputEngine engine, LumenProperties properties) {
+	// depends on the playback and the preview so their layers are registered before the first tick
+	RenderLoop renderLoop(PlaybackService playbackService, CompositionPreviewService compositionPreviewService,
+			OutputEngine engine, LumenProperties properties) {
 		var loop = new RenderLoop(engine, properties.output().rateHz());
 		loop.start();
 		log.info("Render loop running at {} Hz", properties.output().rateHz());

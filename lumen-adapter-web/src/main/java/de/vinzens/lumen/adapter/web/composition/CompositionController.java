@@ -3,6 +3,7 @@ package de.vinzens.lumen.adapter.web.composition;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionRequest;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
 import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCase;
+import de.vinzens.lumen.application.composition.port.in.PreviewCompositionUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -27,11 +28,21 @@ import java.util.List;
 class CompositionController {
 
 	private final ManageCompositionsUseCase compositions;
+	private final PreviewCompositionUseCase preview;
 	private final JsonMapper json;
 
-	CompositionController(ManageCompositionsUseCase compositions, JsonMapper json) {
+	CompositionController(ManageCompositionsUseCase compositions, PreviewCompositionUseCase preview, JsonMapper json) {
 		this.compositions = compositions;
+		this.preview = preview;
 		this.json = json;
+	}
+
+	/** Plays the composition on stage above the playback until stopped (setup mode only). */
+	@PostMapping("/compositions/{compositionId}/stage-preview")
+	StagePreviewController.StagePreviewResponse showOnStage(@PathVariable long projectId,
+			@PathVariable long compositionId) {
+		preview.showOnStage(projectId, compositionId);
+		return StagePreviewController.StagePreviewResponse.of(preview);
 	}
 
 	@GetMapping("/compositions")

@@ -1,5 +1,6 @@
 package de.vinzens.lumen.application;
 
+import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Color;
@@ -93,7 +94,7 @@ class ShowSoakTest {
 		var events = new StateEvents();
 		var engine = new OutputEngine(projects(), universes(), fixtures(), groups(), library(),
 				(universe, frame) -> framesSent++, events, clock);
-		var playback = new PlaybackService(projects(), scenes(), new FixedCompositions(compositions()), groups(),
+		var playback = new PlaybackService(projects(), scenes(), new CompositionResolver(new FixedCompositions(compositions()), groups()),
 				states(), Runnable::run, clock, events);
 		engine.addLayerSource(playback);
 		engine.patchChanged();

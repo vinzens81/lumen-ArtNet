@@ -9,6 +9,7 @@
   import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
+  import CompositionsView from './views/CompositionsView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
   import PatchView from './views/PatchView.svelte';
   import ProgrammerView from './views/ProgrammerView.svelte';
@@ -25,6 +26,7 @@
     { route: '/setup/patch', label: 'Patch' },
     { route: '/setup/programmer', label: 'Programmer' },
     { route: '/setup/stage', label: 'Stage' },
+    { route: '/setup/compositions', label: 'Compositions' },
     { route: '/setup/scenes', label: 'Scenes' },
     { route: '/setup/dmx', label: 'DMX' },
     { route: '/setup/settings', label: 'Settings' },
@@ -181,6 +183,8 @@
       <StageView />
     {:else if router.route === '/setup/scenes'}
       <ScenesView />
+    {:else if router.route === '/setup/compositions'}
+      <CompositionsView />
     {:else if router.route === '/setup/dmx'}
       <DmxMonitorView />
     {:else if router.route === '/setup/settings'}

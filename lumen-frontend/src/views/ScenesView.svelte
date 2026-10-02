@@ -1,16 +1,19 @@
 <script lang="ts">
   import Modal from '../components/Modal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
+  import SceneCompositions from '../components/SceneCompositions.svelte';
   import { api } from '../lib/api';
   import { modesOf, previewOf, rgbToCss, swatchesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { Fixture, Mode, Scene } from '../lib/types';
+  import { kindIcon } from '../lib/compositions';
+  import type { Fixture, Group, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
+  let groups = $state<Group[]>([]);
   let selectedId = $state<number | null>(null);
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
@@ -32,6 +35,7 @@
   $effect(() => {
     void live.scenesRevision;
     void live.patchRevision;
+    void live.compositionsRevision;
     if (projectId !== null) load(projectId);
   });
 
@@ -42,7 +46,11 @@
 
   async function load(projectId: number) {
     try {
-      [scenes, fixtures] = await Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId)]);
+      [scenes, fixtures, groups] = await Promise.all([
+        api.scenes.list(projectId),
+        api.fixtures.list(projectId),
+        api.groups.list(projectId),
+      ]);
       if (selectedId !== null && !scenes.some((s) => s.id === selectedId)) selectedId = null;
     } catch (e) {
       showError(e);
@@ -192,6 +200,11 @@
                 <span class="dark">dark</span>
               {/each}
             </span>
+            {#if scene.compositions.length > 0}
+              <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
+                {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
+              </span>
+            {/if}
             {#if scene.autoFollowMs !== null}
               <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{i === scenes.length - 1 ? ' (last – ignored)' : ''}</span>
             {/if}
@@ -238,6 +251,10 @@
               {/each}
             </ul>
           </section>
+
+          {#if projectId !== null}
+            <SceneCompositions {projectId} sceneId={selected.id} {fixtures} {groups} {modes} />
+          {/if}
 
           <section>
             <button class="btn small danger" type="button" onclick={() => (deleteOpen = true)}>Delete scene</button>

@@ -147,6 +147,29 @@ class CompositionApiTest {
 	}
 
 	@Test
+	void stagePreviewRunsAboveThePlaybackUntilStopped() throws Exception {
+		var chase = id(post(base + "/compositions", """
+				{"name": "Fair chase", "kind": "chase", "params": {"stepMs": 60000}, "target": {"groupId": %d}}"""
+				.formatted(ramp)));
+		assertThat(mvc.get().uri("/api/compositions/stage-preview")).bodyJson()
+				.extractingPath("$.compositionId").isNull();
+
+		assertThat(post(base + "/compositions/" + chase + "/stage-preview", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.compositionId").isEqualTo((int) chase);
+		Thread.sleep(100); // a render tick
+		assertThat(dmx()[0]).as("first fixture of the chase").isEqualTo(255);
+
+		assertThat(mvc.delete().uri("/api/compositions/stage-preview")).hasStatusOk().bodyJson()
+				.extractingPath("$.compositionId").isNull();
+		assertThat(dmx()[0]).isZero();
+
+		assertThat(post(base + "/compositions/" + chase + "/stage-preview", "")).hasStatusOk();
+		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
+		assertThat(mvc.get().uri("/api/compositions/stage-preview")).as("show mode stops it").bodyJson()
+				.extractingPath("$.compositionId").isNull();
+	}
+
+	@Test
 	void compositionsTravelWithTheProjectExport() throws Exception {
 		var chase = id(post(base + "/compositions", """
 				{"name": "Fair chase", "kind": "chase", "target": {"groupId": %d}}""".formatted(ramp)));

@@ -19,6 +19,7 @@ import de.vinzens.lumen.domain.project.PatchedFixture;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -76,6 +77,12 @@ public class CompositionService implements ManageCompositionsUseCase {
 		var existing = composition(projectId, compositionId);
 		compositions.delete(compositionId);
 		changed(existing);
+	}
+
+	@Override
+	public Map<Long, List<Composition>> sceneCompositions(long projectId) {
+		requireProject(projectId);
+		return compositions.findByScenes(projectId);
 	}
 
 	@Override

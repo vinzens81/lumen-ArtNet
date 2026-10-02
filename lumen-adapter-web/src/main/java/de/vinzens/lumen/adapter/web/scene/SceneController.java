@@ -1,7 +1,9 @@
 package de.vinzens.lumen.adapter.web.scene;
 
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
+import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCase;
 import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase;
+import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
@@ -27,13 +29,23 @@ class SceneController {
 
 	private final ManageScenesUseCase scenes;
 
-	SceneController(ManageScenesUseCase scenes) {
+	private final ManageCompositionsUseCase compositions;
+
+	SceneController(ManageScenesUseCase scenes, ManageCompositionsUseCase compositions) {
 		this.scenes = scenes;
+		this.compositions = compositions;
 	}
 
 	@GetMapping
 	List<SceneResponse> scenes(@PathVariable long projectId) {
-		return scenes.scenes(projectId).stream().map(SceneResponse::from).toList();
+		var copies = compositions.sceneCompositions(projectId);
+		return scenes.scenes(projectId).stream()
+				.map(scene -> SceneResponse.from(scene, copies.getOrDefault(scene.id(), List.of())))
+				.toList();
+	}
+
+	private SceneResponse response(Scene scene) {
+		return SceneResponse.from(scene, compositions.sceneCompositions(scene.projectId(), scene.id()));
 	}
 
 	/**
@@ -43,7 +55,7 @@ class SceneController {
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	SceneResponse create(@PathVariable long projectId, @RequestBody SceneRequest request) {
-		return SceneResponse.from(scenes.create(projectId,
+		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
 				Boolean.TRUE.equals(request.record())));
@@ -54,14 +66,14 @@ class SceneController {
 		if (request.number() == null) {
 			throw new DomainValidationException(List.of("number is missing"));
 		}
-		return SceneResponse.from(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
+		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request)));
 	}
 
 	/** Overwrites the scene with the current programmer values. */
 	@PostMapping("/{sceneId}/record")
 	SceneResponse record(@PathVariable long projectId, @PathVariable long sceneId) {
-		return SceneResponse.from(scenes.record(projectId, sceneId));
+		return response(scenes.record(projectId, sceneId));
 	}
 
 	/** Loads the scene into the programmer to preview and edit it. */
@@ -91,14 +103,20 @@ class SceneController {
 	/**
 	 * @param values programmer-style values per fixture id
 	 */
+	/** @param compositions compositions running in the scene, in their order */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, int fixtureCount,
-			Map<Long, Map<String, Double>> values) {
+			Map<Long, Map<String, Double>> values, List<CompositionSummary> compositions) {
 
-		static SceneResponse from(Scene scene) {
+		static SceneResponse from(Scene scene, List<Composition> compositions) {
 			var spec = scene.spec();
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), scene.values().size(),
-					ValuesJson.toJson(scene.values()));
+					ValuesJson.toJson(scene.values()), compositions.stream()
+							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
+							.toList());
 		}
+	}
+
+	record CompositionSummary(long id, String name, String kind) {
 	}
 }

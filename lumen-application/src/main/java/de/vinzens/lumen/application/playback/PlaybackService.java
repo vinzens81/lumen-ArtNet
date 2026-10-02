@@ -1,20 +1,16 @@
 package de.vinzens.lumen.application.playback;
 
 import de.vinzens.lumen.application.ConflictException;
-import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
+import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.OutputLayerSource;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
-import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
-import de.vinzens.lumen.domain.composition.ActiveComposition;
-import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
-import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.playback.FadeBehaviors;
@@ -26,8 +22,6 @@ import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -50,8 +44,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	private final ProjectRepository projects;
 	private final SceneRepository scenes;
-	private final CompositionRepository compositions;
-	private final GroupRepository groups;
+	private final CompositionResolver compositions;
 	private final PlaybackStateRepository states;
 	private final Executor stateWriter;
 	private final Clock clock;
@@ -69,13 +62,11 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	/**
 	 * @param stateWriter runs the saving of the playback state, e.g. a single background thread
 	 */
-	public PlaybackService(ProjectRepository projects, SceneRepository scenes, CompositionRepository compositions,
-			GroupRepository groups, PlaybackStateRepository states, Executor stateWriter, Clock clock,
-			StateEvents events) {
+	public PlaybackService(ProjectRepository projects, SceneRepository scenes, CompositionResolver compositions,
+			PlaybackStateRepository states, Executor stateWriter, Clock clock, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
-		this.groups = Objects.requireNonNull(groups, "groups");
 		this.states = Objects.requireNonNull(states, "states");
 		this.stateWriter = Objects.requireNonNull(stateWriter, "stateWriter");
 		this.clock = Objects.requireNonNull(clock, "clock");
@@ -102,7 +93,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		} else {
 			var project = active.get();
 			var cueList = scenes.findByProject(project.id());
-			var running = resolveCompositions(project.id());
+			var running = compositions.scenes(project.id());
 			var fadeIn = project.spec().fadeIn();
 			var fadeOut = project.spec().fadeOut();
 			if (playback == null || !Objects.equals(projectId, project.id())) {
@@ -130,25 +121,6 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			events.publish(StateTopic.PLAYBACK);
 		}
 		return new LayerOutput(PLAYBACK_PRIORITY, playback.output(now, behaviors));
-	}
-
-	/** Compositions of every scene with their targets resolved; group targets follow the current group members. */
-	private Map<Long, List<ActiveComposition>> resolveCompositions(long projectId) {
-		var members = new HashMap<Long, List<Long>>();
-		groups.findByProject(projectId).forEach(group -> members.put(group.id(), group.spec().fixtureIds()));
-		var result = new HashMap<Long, List<ActiveComposition>>();
-		compositions.findByScenes(projectId).forEach((sceneId, copies) -> result.put(sceneId, copies.stream()
-				.map(copy -> ActiveComposition.of(copy, targetFixtures(copy, members)))
-				.toList()));
-		return result;
-	}
-
-	private static List<Long> targetFixtures(Composition composition, Map<Long, List<Long>> groupMembers) {
-		return switch (composition.spec().target()) {
-			case Target.Group group -> groupMembers.getOrDefault(group.groupId(), List.of());
-			case Target.Fixtures fixtures -> fixtures.fixtureIds();
-			case Target.Steps steps -> List.of();
-		};
 	}
 
 	@Override

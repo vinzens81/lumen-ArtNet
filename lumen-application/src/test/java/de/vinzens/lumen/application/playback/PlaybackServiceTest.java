@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.playback;
 
 import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.FixedCompositions;
+import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
@@ -129,7 +130,7 @@ class PlaybackServiceTest {
 				writes.add(sceneId);
 			}
 		};
-		return new PlaybackService(projects(), sceneRepository(), FixedCompositions.NONE, groups(), states,
+		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(FixedCompositions.NONE, groups()), states,
 				Runnable::run, clock, events);
 	}
 

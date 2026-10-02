@@ -4,9 +4,10 @@
   let {
     open = $bindable(false),
     title,
+    wide = false,
     children,
     actions,
-  }: { open?: boolean; title: string; children: Snippet; actions?: Snippet } = $props();
+  }: { open?: boolean; title: string; wide?: boolean; children: Snippet; actions?: Snippet } = $props();
 
   let dialog: HTMLDialogElement | undefined = $state();
 
@@ -17,7 +18,7 @@
   });
 </script>
 
-<dialog bind:this={dialog} class="glass" onclose={() => (open = false)} aria-label={title}>
+<dialog bind:this={dialog} class="glass" class:wide onclose={() => (open = false)} aria-label={title}>
   {#if open}
     <header>
       <h2>{title}</h2>
@@ -33,9 +34,16 @@
 <style>
   dialog {
     width: min(520px, calc(100vw - 32px));
+    max-height: calc(100vh - 32px);
     padding: 0;
     color: var(--text);
     background: var(--panel-solid);
+  }
+
+  /* header and footer stay visible, the body scrolls */
+  dialog:modal {
+    display: flex;
+    flex-direction: column;
   }
 
   dialog::backdrop {
@@ -66,5 +74,11 @@
     flex-direction: column;
     gap: 14px;
     padding: 20px;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  dialog.wide {
+    width: min(820px, calc(100vw - 32px));
   }
 </style>
