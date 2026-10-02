@@ -1,23 +1,22 @@
 package de.vinzens.lumen.adapter.web.output;
 
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
-import de.vinzens.lumen.domain.DomainValidationException;
-import de.vinzens.lumen.domain.library.Attribute;
-import de.vinzens.lumen.domain.output.FixtureValues;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-import java.util.TreeMap;
+
+import static de.vinzens.lumen.adapter.web.output.ValuesJson.fromJson;
+import static de.vinzens.lumen.adapter.web.output.ValuesJson.toJson;
 
 /**
  * Live values of fixtures in the active project. Values are normalized (0.0–1.0) and keyed by attribute id,
@@ -35,14 +34,24 @@ class ProgrammerController {
 
 	@GetMapping
 	Map<Long, Map<String, Double>> values() {
-		var result = new TreeMap<Long, Map<String, Double>>();
-		programmer.programmerValues().forEach((fixtureId, values) -> result.put(fixtureId, toJson(values)));
-		return result;
+		return toJson(programmer.programmerValues());
 	}
 
 	@PatchMapping("/fixtures/{fixtureId}")
 	Map<String, Double> setValues(@PathVariable long fixtureId, @RequestBody Map<String, Double> body) {
 		return toJson(programmer.setValues(fixtureId, fromJson(body)));
+	}
+
+	/** Sets values for a selection; each fixture only receives the attributes it has. */
+	@PatchMapping("/fixtures")
+	Map<Long, Map<String, Double>> setSelectionValues(@RequestBody SelectionRequest request) {
+		return toJson(programmer.setValues(request.fixtureIds() == null ? List.of() : request.fixtureIds(),
+				fromJson(request.values())));
+	}
+
+	@PatchMapping("/groups/{groupId}")
+	Map<Long, Map<String, Double>> setGroupValues(@PathVariable long groupId, @RequestBody Map<String, Double> body) {
+		return toJson(programmer.setGroupValues(groupId, fromJson(body)));
 	}
 
 	@DeleteMapping("/fixtures/{fixtureId}")
@@ -51,31 +60,22 @@ class ProgrammerController {
 		programmer.clearFixture(fixtureId);
 	}
 
+	/** Removes the programmer values of the given fixtures. */
+	@PostMapping("/clear")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void clearFixtures(@RequestBody ClearRequest request) {
+		programmer.clearFixtures(request.fixtureIds() == null ? List.of() : request.fixtureIds());
+	}
+
 	@DeleteMapping
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void clear() {
 		programmer.clear();
 	}
 
-	private static FixtureValues fromJson(Map<String, Double> body) {
-		var values = new HashMap<Attribute, Double>();
-		var errors = new ArrayList<String>();
-		body.forEach((id, value) -> {
-			try {
-				values.put(Attribute.parse(id), value);
-			} catch (DomainValidationException e) {
-				errors.addAll(e.errors());
-			}
-		});
-		if (!errors.isEmpty()) {
-			throw new DomainValidationException(errors);
-		}
-		return new FixtureValues(values);
+	record SelectionRequest(List<Long> fixtureIds, Map<String, Double> values) {
 	}
 
-	private static Map<String, Double> toJson(FixtureValues values) {
-		var result = new TreeMap<String, Double>();
-		values.values().forEach((attribute, value) -> result.put(attribute.id(), value));
-		return result;
+	record ClearRequest(List<Long> fixtureIds) {
 	}
 }

@@ -79,6 +79,43 @@ class ProgrammerApiTest {
 	}
 
 	@Test
+	void selectionAndGroupsReceiveOnlySupportedAttributes() throws Exception {
+		assertThat(patch("/api/programmer/fixtures", """
+				{"fixtureIds": [%d, %d], "values": {"dimmer": 1, "red": 1}}""".formatted(par, dimmer)))
+				.hasStatusOk().bodyJson()
+				.satisfies(json -> {
+					assertThat(json).extractingPath("$['%d'].red".formatted(par)).isEqualTo(1.0);
+					assertThat(json).extractingPath("$['%d']".formatted(dimmer)).asMap().containsOnlyKeys("dimmer");
+				});
+
+		var group = id(post("/api/projects/" + project + "/groups", """
+				{"name": "All", "fixtureIds": [%d, %d]}""".formatted(par, dimmer)));
+		assertThat(patch("/api/programmer/groups/" + group, "{\"dimmer\": 0}")).hasStatusOk();
+		assertThat(mvc.get().uri("/api/output/universes/1/dmx")).bodyJson()
+				.extractingPath("$.values[0]").isEqualTo(0);
+
+		assertThat(post("/api/programmer/clear", "{\"fixtureIds\": [%d]}".formatted(par))).hasStatus(204);
+		assertThat(mvc.get().uri("/api/programmer")).bodyJson().extractingPath("$").asMap()
+				.containsOnlyKeys(String.valueOf(dimmer));
+	}
+
+	@Test
+	void grandMasterAndBlackout() {
+		patch("/api/programmer/fixtures/" + dimmer, "{\"dimmer\": 1}");
+
+		assertThat(put("/api/output/master", "{\"level\": 0.5}")).hasStatusOk();
+		assertThat(mvc.get().uri("/api/output/universes/1/dmx")).bodyJson().extractingPath("$.values[0]").isEqualTo(128);
+
+		assertThat(put("/api/output/blackout", "{\"active\": true}")).hasStatusOk().bodyJson()
+				.extractingPath("$.level").isEqualTo(0.5);
+		assertThat(mvc.get().uri("/api/output/universes/1/dmx")).bodyJson().extractingPath("$.values[0]").isEqualTo(0);
+
+		assertThat(put("/api/output/master", "{\"level\": 2}")).hasStatus(400);
+		put("/api/output/blackout", "{\"active\": false}");
+		put("/api/output/master", "{\"level\": 1}");
+	}
+
+	@Test
 	void patchChangesAreAppliedToTheOutput() {
 		patch("/api/programmer/fixtures/" + dimmer, "{\"dimmer\": 1}");
 

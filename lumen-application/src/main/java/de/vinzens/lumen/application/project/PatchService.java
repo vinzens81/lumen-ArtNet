@@ -148,20 +148,21 @@ public class PatchService implements ManagePatchUseCase {
 	public Group createGroup(long projectId, GroupSpec spec) {
 		requireProject(projectId);
 		requireMembersInProject(projectId, spec);
-		return groups.create(projectId, spec);
+		return notifying(groups.create(projectId, spec));
 	}
 
 	@Override
 	public Group updateGroup(long projectId, long groupId, GroupSpec spec) {
 		requireGroup(projectId, groupId);
 		requireMembersInProject(projectId, spec);
-		return groups.update(groupId, spec);
+		return notifying(groups.update(groupId, spec));
 	}
 
 	@Override
 	public void deleteGroup(long projectId, long groupId) {
 		requireGroup(projectId, groupId);
 		groups.delete(groupId);
+		listener.patchChanged();
 	}
 
 	private void requireMembersInProject(long projectId, GroupSpec spec) {

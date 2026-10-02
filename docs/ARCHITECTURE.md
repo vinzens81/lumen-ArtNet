@@ -144,7 +144,8 @@ Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein ver
 `CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
 Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 | `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live-Werte (aktives Projekt) |
-| `PATCH /api/programmer/groups/{id}` | Live-Werte für eine Gruppe (Iteration 5) |
+| `PATCH /api/programmer/fixtures` `{fixtureIds, values}` · `POST /api/programmer/clear` `{fixtureIds}` | Auswahl setzen/löschen; jedes Gerät bekommt nur seine Attribute |
+| `PATCH /api/programmer/groups/{id}` | Live-Werte für alle Mitglieder einer Gruppe |
 
 **Betrieb**
 
@@ -152,15 +153,22 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 404, 409.
 |---|---|
 | `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern |
 | `POST /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
-| `POST /api/output/master` · `/blackout` | Grand Master / Blackout |
+| `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand Master / Blackout |
 | `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor), `n` = Universe-Nummer im aktiven Projekt |
 
 **Attributwerte** sind normalisiert (0.0–1.0) und werden über die Attribut-ID adressiert, z.B.
 `{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`.
 
-**WebSocket `/ws`:** Der Server pusht Playback-Status (aktuelle/nächste Szene, Fade-Fortschritt), Programmer-Änderungen
-und Ausgabewerte (gedrosselt auf ~30 Nachrichten/s). Clients können GO und Fader-Änderungen auch über den WebSocket
-senden, für geringste Latenz.
+**WebSocket `/ws`:** Der Server sammelt Änderungen und schickt sie höchstens alle 33 ms (JSON):
+
+| Richtung | Nachricht |
+|---|---|
+| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"patch"}` / `{"type":"projects"}` (Client lädt per REST neu), `{"type":"error","message":…}` |
+| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}` |
+
+Beim Verbinden bekommt ein Client sofort Programmer und Master. Später kommen Playback-Status (aktuelle/nächste Szene,
+Fade-Fortschritt) dazu. Intern veröffentlicht die Application-Schicht Änderungen über `StateEvents`; der Web-Adapter
+abonniert sie – so bleibt die Abhängigkeitsrichtung nach innen.
 
 ## Betriebssicherheit (Theater!)
 

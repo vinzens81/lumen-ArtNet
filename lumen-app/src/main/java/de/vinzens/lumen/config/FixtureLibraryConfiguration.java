@@ -15,7 +15,7 @@ class FixtureLibraryConfiguration {
 
 	@Bean
 	FixtureTypeSource fixtureTypeSource(LumenProperties properties) {
-		return new YamlFixtureTypeSource(properties.fixtureLibraryDir());
+		return new YamlFixtureTypeSource(properties.fixtureLibraryPath());
 	}
 
 	@Bean
@@ -23,7 +23,7 @@ class FixtureLibraryConfiguration {
 		var service = new FixtureLibraryService(source);
 		service.reload();
 		log.info("Fixture library loaded from '{}': {} fixture types",
-				properties.fixtureLibraryDir().toAbsolutePath().normalize(), service.fixtureTypes().size());
+				properties.fixtureLibraryPath().toAbsolutePath().normalize(), service.fixtureTypes().size());
 		service.issues().forEach(issue -> {
 			var message = "{}{}: {}";
 			var typeId = issue.fixtureTypeId().map(id -> " [" + id + "]").orElse("");

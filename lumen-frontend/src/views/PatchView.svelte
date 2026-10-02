@@ -4,6 +4,7 @@
   import { api } from '../lib/api';
   import { fixtureHue, footprint, locateValues, nextFreeAddress, numberedNames } from '../lib/patch';
   import { navigate } from '../lib/router.svelte';
+  import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Fixture, FixtureType, PatchIssue, Universe } from '../lib/types';
@@ -55,6 +56,11 @@
 
   $effect(() => {
     if (project) loadAll(project.id, true);
+  });
+
+  // changes from other clients
+  $effect(() => {
+    if (live.patchRevision > 0 && project) loadAll(project.id);
   });
 
   async function loadAll(projectId: number, resetSelection = false) {

@@ -1,9 +1,12 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import MasterBar from './components/MasterBar.svelte';
   import Toasts from './components/Toasts.svelte';
+  import { live } from './lib/live.svelte';
   import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import PatchView from './views/PatchView.svelte';
+  import ProgrammerView from './views/ProgrammerView.svelte';
   import ProjectsView from './views/ProjectsView.svelte';
   import ShowView from './views/ShowView.svelte';
   import SoonView from './views/SoonView.svelte';
@@ -13,6 +16,7 @@
     { route: '/setup/projects', label: 'Projects' },
     { route: '/setup/universes', label: 'Universes' },
     { route: '/setup/patch', label: 'Patch' },
+    { route: '/setup/programmer', label: 'Programmer' },
     { route: '/setup/stage', label: 'Stage', soon: true },
     { route: '/setup/scenes', label: 'Scenes', soon: true },
   ];
@@ -29,9 +33,24 @@
         navigate('/setup/projects');
       }
     });
+    live.connect();
     const timer = setInterval(() => app.checkHealth(), 5000);
     return () => clearInterval(timer);
   });
+
+  // other clients changed projects: refresh the project list
+  $effect(() => {
+    if (live.projectsRevision > 0) app.reloadProjects();
+  });
+
+  function onkeydown(event: KeyboardEvent) {
+    const target = event.target as HTMLElement;
+    if (target.closest('input, textarea, select, [contenteditable]') || event.metaKey || event.ctrlKey) return;
+    if (event.key === 'b' || event.key === 'B') {
+      event.preventDefault();
+      live.setBlackout(!live.master.blackout);
+    }
+  }
 
   function onProjectChange(event: Event) {
     const id = Number((event.currentTarget as HTMLSelectElement).value);
@@ -87,6 +106,8 @@
       <UniversesView />
     {:else if router.route === '/setup/patch'}
       <PatchView />
+    {:else if router.route === '/setup/programmer'}
+      <ProgrammerView />
     {:else if router.route === '/setup/stage'}
       <SoonView title="Stage view" text="Place fixtures on a stage plan and watch them glow in their real colors." />
     {:else if router.route === '/setup/scenes'}
@@ -95,7 +116,13 @@
       <ShowView />
     {/if}
   </main>
+
+  {#if app.active}
+    <MasterBar />
+  {/if}
 </div>
+
+<svelte:window {onkeydown} />
 
 <Toasts />
 

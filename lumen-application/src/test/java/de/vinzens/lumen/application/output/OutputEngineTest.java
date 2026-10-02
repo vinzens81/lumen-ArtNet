@@ -1,8 +1,11 @@
 package de.vinzens.lumen.application.output;
 
 import de.vinzens.lumen.application.NotFoundException;
+import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
+import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
@@ -19,6 +22,8 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
+import de.vinzens.lumen.domain.project.Group;
+import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
@@ -42,14 +47,21 @@ class OutputEngineTest {
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 	private static final Attribute RED = Attribute.of(ChannelFunction.RED);
 
+	private static final Attribute PAN = Attribute.of(ChannelFunction.PAN);
+
 	private static final FixtureType PAR = new FixtureType("par", "Generic", "Par", FixtureCategory.PAR,
 			PhysicalProperties.NONE, List.of(new Mode("2ch", List.of(
 					channel(ChannelFunction.DIMMER), channel(ChannelFunction.RED)))));
+	private static final FixtureType HEAD = new FixtureType("head", "Generic", "Head", FixtureCategory.MOVING_HEAD,
+			PhysicalProperties.NONE, List.of(new Mode("2ch", List.of(
+					channel(ChannelFunction.PAN), channel(ChannelFunction.DIMMER)))));
 
 	private final List<Project> projects = new ArrayList<>();
 	private final List<Universe> universes = new ArrayList<>();
 	private final List<PatchedFixture> fixtures = new ArrayList<>();
+	private final List<Group> groups = new ArrayList<>();
 	private final List<Sent> sent = new ArrayList<>();
+	private final List<StateTopic> published = new ArrayList<>();
 	private OutputEngine engine;
 
 	@BeforeEach
@@ -59,9 +71,15 @@ class OutputEngineTest {
 		universes.add(universe(11, 1, 2));
 		fixtures.add(new PatchedFixture(100, 1, new FixtureSpec("PAR", Optional.empty(), "par", "2ch", 10, 5,
 				Optional.empty(), 0)));
-		engine = new OutputEngine(projectRepository(), universeRepository(), fixtureRepository(), library(),
-				(universe, frame) -> sent.add(new Sent(universe.spec().number(), frame)));
+		fixtures.add(new PatchedFixture(101, 1, new FixtureSpec("Head", Optional.empty(), "head", "2ch", 10, 20,
+				Optional.empty(), 0)));
+		groups.add(new Group(7, 1, new GroupSpec("All", Optional.empty(), 0, List.of(100L, 101L))));
+		var events = new StateEvents();
+		events.subscribe(published::add);
+		engine = new OutputEngine(projectRepository(), universeRepository(), fixtureRepository(), groupRepository(),
+				library(), (universe, frame) -> sent.add(new Sent(universe.spec().number(), frame)), events);
 		engine.patchChanged();
+		published.clear();
 	}
 
 	@Test
@@ -74,6 +92,44 @@ class OutputEngineTest {
 		assertThat(sent.getFirst().frame().get(5)).isEqualTo(255);
 		assertThat(sent.getFirst().frame().get(6)).isEqualTo(128);
 		assertThat(sent.get(1).frame()).isEqualTo(DmxFrame.BLACK);
+	}
+
+	@Test
+	void selectionOnlyReceivesSupportedAttributes() {
+		var result = engine.setValues(List.of(100L, 101L), new FixtureValues(Map.of(DIMMER, 1.0, RED, 1.0, PAN, 0.5)));
+
+		assertThat(result.get(100L).values()).containsOnlyKeys(DIMMER, RED);
+		assertThat(result.get(101L).values()).containsOnlyKeys(DIMMER, PAN);
+		assertThat(published).containsExactly(StateTopic.PROGRAMMER);
+	}
+
+	@Test
+	void attributeNoFixtureHasIsRejected() {
+		assertThatThrownBy(() -> engine.setValues(List.of(100L), new FixtureValues(Map.of(PAN, 0.5))))
+				.isInstanceOf(DomainValidationException.class)
+				.hasMessageContaining("[pan]");
+	}
+
+	@Test
+	void groupValuesGoToAllMembers() {
+		engine.setGroupValues(7, new FixtureValues(Map.of(DIMMER, 0.5)));
+
+		assertThat(engine.programmerValues()).containsOnlyKeys(100L, 101L);
+		assertThatThrownBy(() -> engine.setGroupValues(8, FixtureValues.EMPTY)).isInstanceOf(NotFoundException.class);
+	}
+
+	@Test
+	void grandMasterAndBlackoutScaleTheOutput() {
+		engine.setValues(100, new FixtureValues(Map.of(DIMMER, 1.0, RED, 1.0)));
+
+		engine.setMasterLevel(0.5);
+		assertThat(engine.frame(1).get(5)).isEqualTo(128);
+		assertThat(engine.frame(1).get(6)).as("color is not scaled").isEqualTo(255);
+
+		engine.setBlackout(true);
+		assertThat(engine.frame(1).get(5)).isZero();
+		assertThat(engine.master().level()).isEqualTo(0.5);
+		assertThat(published).endsWith(StateTopic.OUTPUT, StateTopic.OUTPUT);
 	}
 
 	@Test
@@ -137,7 +193,7 @@ class OutputEngineTest {
 
 			@Override
 			public Optional<FixtureType> fixtureType(String id) {
-				return Optional.of(PAR).filter(type -> type.id().equals(id));
+				return List.of(PAR, HEAD).stream().filter(type -> type.id().equals(id)).findFirst();
 			}
 
 			@Override
@@ -200,6 +256,35 @@ class OutputEngineTest {
 
 			@Override
 			public Universe update(long id, UniverseSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public void delete(long id) {
+				throw new UnsupportedOperationException();
+			}
+		};
+	}
+
+	private GroupRepository groupRepository() {
+		return new GroupRepository() {
+			@Override
+			public List<Group> findByProject(long projectId) {
+				return groups.stream().filter(g -> g.projectId() == projectId).toList();
+			}
+
+			@Override
+			public Optional<Group> findById(long id) {
+				return groups.stream().filter(g -> g.id() == id).findFirst();
+			}
+
+			@Override
+			public Group create(long projectId, GroupSpec spec) {
+				throw new UnsupportedOperationException();
+			}
+
+			@Override
+			public Group update(long id, GroupSpec spec) {
 				throw new UnsupportedOperationException();
 			}
 

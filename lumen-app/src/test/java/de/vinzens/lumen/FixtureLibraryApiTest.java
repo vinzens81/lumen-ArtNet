@@ -29,11 +29,12 @@ class FixtureLibraryApiTest {
 		var response = assertThat(mvc.get().uri("/api/library/fixture-types")).hasStatusOk().bodyJson();
 
 		response.extractingPath("$[*].id").asArray()
-				.containsExactly("example-moving-head-spot", "generic-dimmer", "generic-rgbw-par");
-		response.extractingPath("$[0].modes[0].dmxChannelCount").isEqualTo(13);
+				.containsExactly("diy-esp8266-artnet-dimmer", "example-moving-head-spot", "generic-dimmer",
+						"generic-rgbw-par");
+		response.extractingPath("$[1].modes[0].dmxChannelCount").isEqualTo(13);
 		// tilt follows the 16-bit pan channel and therefore starts at offset 3
-		response.extractingPath("$[0].modes[0].channels[1].offset").isEqualTo(3);
-		response.extractingPath("$[0].modes[0].channels[5].fade").isEqualTo("snap");
+		response.extractingPath("$[1].modes[0].channels[1].offset").isEqualTo(3);
+		response.extractingPath("$[1].modes[0].channels[5].fade").isEqualTo("snap");
 	}
 
 	@Test

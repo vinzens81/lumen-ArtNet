@@ -120,3 +120,23 @@ export interface PatchIssue {
 }
 
 export type AttributeValues = Record<string, number>;
+
+export interface MasterState {
+  level: number;
+  blackout: boolean;
+}
+
+export interface Group {
+  id: number;
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  fixtureIds: number[];
+}
+
+export interface GroupRequest {
+  name: string;
+  color: string | null;
+  sortOrder: number;
+  fixtureIds: number[];
+}

@@ -2,6 +2,7 @@
   import Modal from '../components/Modal.svelte';
   import { api } from '../lib/api';
   import { navigate } from '../lib/router.svelte';
+  import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Universe } from '../lib/types';
@@ -14,6 +15,7 @@
   const project = $derived(app.active);
 
   $effect(() => {
+    void live.patchRevision;
     if (project) load(project.id);
   });
 

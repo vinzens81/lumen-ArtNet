@@ -3,6 +3,7 @@ package de.vinzens.lumen.config;
 import de.vinzens.lumen.adapter.artnet.ArtNetDmxOutput;
 import de.vinzens.lumen.adapter.artnet.ArtNetSettings;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
+import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
@@ -30,10 +31,15 @@ class OutputConfiguration {
 	}
 
 	@Bean
+	StateEvents stateEvents() {
+		return new StateEvents();
+	}
+
+	@Bean
 	OutputEngine outputEngine(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
-			DmxOutputPort dmxOutput) {
+			DmxOutputPort dmxOutput, StateEvents stateEvents) {
 		var engine = new OutputEngine(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				library, dmxOutput);
+				repositories.groups(), library, dmxOutput, stateEvents);
 		engine.patchChanged();
 		return engine;
 	}

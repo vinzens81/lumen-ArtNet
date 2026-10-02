@@ -4,11 +4,20 @@ export type Route =
   | '/setup/projects'
   | '/setup/universes'
   | '/setup/patch'
+  | '/setup/programmer'
   | '/setup/stage'
   | '/setup/scenes'
   | '/show';
 
-const ROUTES: Route[] = ['/setup/projects', '/setup/universes', '/setup/patch', '/setup/stage', '/setup/scenes', '/show'];
+const ROUTES: Route[] = [
+  '/setup/projects',
+  '/setup/universes',
+  '/setup/patch',
+  '/setup/programmer',
+  '/setup/stage',
+  '/setup/scenes',
+  '/show',
+];
 
 function parse(hash: string): Route | null {
   const path = hash.replace(/^#/, '');

@@ -3,7 +3,10 @@ import type {
   Fixture,
   FixtureRequest,
   FixtureType,
+  Group,
+  GroupRequest,
   LibraryIssue,
+  MasterState,
   PatchIssue,
   Project,
   ProjectRequest,
@@ -78,11 +81,27 @@ export const api = {
       put<Fixture>(`/api/projects/${projectId}/fixtures/${id}`, fixture),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/fixtures/${id}`),
   },
+  groups: {
+    list: (projectId: number) => get<Group[]>(`/api/projects/${projectId}/groups`),
+    create: (projectId: number, group: GroupRequest) => post<Group>(`/api/projects/${projectId}/groups`, group),
+    update: (projectId: number, id: number, group: GroupRequest) =>
+      put<Group>(`/api/projects/${projectId}/groups/${id}`, group),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/groups/${id}`),
+  },
   patchIssues: (projectId: number) => get<PatchIssue[]>(`/api/projects/${projectId}/patch/issues`),
   programmer: {
     set: (fixtureId: number, values: AttributeValues) =>
       patch<AttributeValues>(`/api/programmer/fixtures/${fixtureId}`, values),
+    setSelection: (fixtureIds: number[], values: AttributeValues) =>
+      patch<Record<number, AttributeValues>>('/api/programmer/fixtures', { fixtureIds, values }),
     clearFixture: (fixtureId: number) => del(`/api/programmer/fixtures/${fixtureId}`),
+    clearFixtures: (fixtureIds: number[]) => post<void>('/api/programmer/clear', { fixtureIds }),
+    clearAll: () => del('/api/programmer'),
+  },
+  output: {
+    master: () => get<MasterState>('/api/output/master'),
+    setMaster: (level: number) => put<MasterState>('/api/output/master', { level }),
+    setBlackout: (active: boolean) => put<MasterState>('/api/output/blackout', { active }),
   },
   health: () => get<{ status: string }>('/actuator/health'),
 };

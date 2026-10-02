@@ -45,13 +45,16 @@ public class ProjectService implements ManageProjectsUseCase {
 		if (activeProject().isEmpty()) {
 			return activate(created.id());
 		}
+		listener.patchChanged();
 		return created;
 	}
 
 	@Override
 	public Project update(long id, ProjectSpec spec) {
 		project(id);
-		return projects.update(id, spec, clock.instant());
+		var updated = projects.update(id, spec, clock.instant());
+		listener.patchChanged();
+		return updated;
 	}
 
 	@Override

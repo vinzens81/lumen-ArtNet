@@ -20,7 +20,7 @@ class PersistenceConfiguration {
 
 	@Bean
 	SqliteRepositories sqliteRepositories(LumenProperties properties) {
-		var file = properties.databaseFile().toAbsolutePath().normalize();
+		var file = properties.databasePath().toAbsolutePath().normalize();
 		log.info("Project database: {}", file);
 		return new SqliteRepositories(SqliteDatabase.open(file));
 	}

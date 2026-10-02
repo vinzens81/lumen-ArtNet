@@ -56,11 +56,15 @@ Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem H
 
 **DoD:** Ein komplettes Projekt lässt sich im Browser anlegen und patchen.
 
-## ⬜ Iteration 5 – Programmer & Live-Sync
+## ✅ Iteration 5 – Programmer & Live-Sync
 - WebSocket `/ws`, `StateNotifier`, Throttling, Reconnect
 - Dynamischer Programmer (Farbrad, Farbknöpfe, XY-Pad, Range-Fader, Rohkanäle)
 - Gruppen, Mehrfachauswahl, Grand Master, Blackout
 - Geräte-Karten mit Glow
+
+- Umgesetzt als eigener Tab **Programmer**: Gruppen links, leuchtende Gerätekarten (Farbe/Helligkeit wie das echte
+  Licht, inkl. Grand Master), dynamisches Panel rechts; Master-Leiste mit Blackout (Taste `B`) unten
+- WebSocket: Server bündelt Änderungen (max. ~30/s), Client sendet Fader-Bewegungen gedrosselt, Fallback auf REST
 
 **DoD:** Licht ist im Browser frei steuerbar, ein zweiter Browser zeigt alle Änderungen live.
 
@@ -71,6 +75,19 @@ Ohne Hardware geprüft: Die echte App sendet ~40 ArtDmx-Pakete/s mit korrektem H
 - Einstellungen: **globale Fade-In-/Fade-Out-Zeit**
 
 **DoD:** Eine Show mit 5 Szenen ist programmiert und nach einem Neustart vollständig vorhanden.
+
+## ⬜ Iteration 6b – Art-Net Discovery & Unicast 📡
+Anlass: echte Hardware (eigener ESP8266-Dimmer, 1 Kanal, im WLAN). Broadcast schickt die Pakete **aller** Universen an
+**alle** Geräte und ist im WLAN unzuverlässig (keine Bestätigung, langsamste Funkrate).
+- Adapter `artnet`: **ArtPoll** periodisch senden (z.B. alle 3 s), **ArtPollReply** auswerten: IP, Name, gemeldete
+  Port-Adressen; Nodes ohne Antwort nach ~10 s als offline markieren
+- Neuer Ausgabe-Modus pro Universe: **Auto (Discovery)** – Pakete per Unicast an alle Nodes, die dieses Universe melden
+- Mehrere **manuelle Ziel-IPs** pro Universe; Broadcast bleibt als Option
+- Migration: `universe.target` → Ziel-Liste bzw. Modus (Flyway V2)
+- UI: Liste der gefundenen Nodes (Name, IP, Universen, online/offline), Zuordnung im Universe-Dialog
+- Hinweis im UI, wenn ein Universe an keinen Node geht bzw. ein Node ein Universe meldet, das es im Projekt nicht gibt
+
+**DoD:** Der ESP-Dimmer wird automatisch gefunden und bekommt seine Pakete per Unicast, ohne dass eine IP eingetragen ist.
 
 ## ⬜ Iteration 7 – Playback-Engine & Betriebsmodus 🎭
 - Domain: `Playback`, `Crossfade` mit Snapshot, HTP/LTP-Mischung, Pause, injizierte `Clock`
@@ -116,7 +133,8 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 ## ⬜ Iteration 10 – Backlog (nach Bedarf)
 - Fade-Zeiten pro Szene überschreiben, Delay
 - Externe GO-Taste: USB-Fußschalter (als Tastatur), OSC (z.B. aus QLab); MIDI siehe eigene Iteration
-- Art-Net Discovery (ArtPoll), sACN als zweiter `DmxOutputPort`
+- sACN als zweiter `DmxOutputPort`
+- Hostnamen (mDNS, z.B. `artnet-dimmer.local`) als Art-Net-Ziel – noch offen, ob gewünscht
 - Einfache Theater-Effekte als Szenen-Attribut (Kerzen-/Feuerflackern, Blitz) – nutzt die Effekt-Engine aus Iteration 11
 - PWA, Docker / Raspberry Pi als alternativer Betriebsort
 - Import von Open-Fixture-Library-Profilen
@@ -160,6 +178,6 @@ Bis dahin: nur statische Pan/Tilt-Positionen (XY-Pad).
 | Name | **Lumen**, Basis-Package `de.vinzens.lumen` |
 
 ## Offene Fragen
-- Welche Geräte und welcher Art-Net-Node sind konkret vorhanden? Bis dahin generische Beispielprofile
+- Weitere Geräte außer dem eigenen ESP8266-Dimmer (Profil `fixture-types/diy/`)? Bis dahin generische Beispielprofile
   (RGBW-PAR, Dimmer, Moving Head).
 - Welcher MIDI-Controller? Bis dahin generisches MIDI.

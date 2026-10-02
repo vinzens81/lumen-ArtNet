@@ -1,0 +1,14 @@
+# Self-built Art-Net dimmer node: WeMos D1 mini (ESP8266) driving an LR7843 MOSFET via PWM.
+# Firmware: ~/Documents/PlatformIO/Projects/Artnet
+# - the node applies its own gamma curve (2.2), so Lumen sends linear values
+# - set "Fade ms" in the node's web UI to 0, Lumen does the fades
+# - "Universe" in the node's web UI is the full 15-bit Art-Net port address of the Lumen universe
+id: diy-esp8266-artnet-dimmer
+manufacturer: DIY
+model: ESP8266 Art-Net Dimmer
+category: dimmer
+
+modes:
+  - name: 1ch
+    channels:
+      - function: dimmer

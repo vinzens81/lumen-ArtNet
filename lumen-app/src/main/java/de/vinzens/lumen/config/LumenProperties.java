@@ -14,10 +14,21 @@ import java.nio.file.Path;
  */
 @ConfigurationProperties("lumen")
 public record LumenProperties(
-		@DefaultValue("fixture-types") Path fixtureLibraryDir,
-		@DefaultValue("data/lumen.db") Path databaseFile,
+		@DefaultValue("fixture-types") String fixtureLibraryDir,
+		@DefaultValue("data/lumen.db") String databaseFile,
 		@DefaultValue Output output,
 		@DefaultValue ArtNet artnet) {
+
+	// bound as String: Spring's String → Path conversion resolves through the servlet context in a running
+	// web server and rejects relative paths like "../fixture-types"
+
+	public Path fixtureLibraryPath() {
+		return Path.of(fixtureLibraryDir);
+	}
+
+	public Path databasePath() {
+		return Path.of(databaseFile);
+	}
 
 	/**
 	 * @param rateHz render loop rate; Art-Net allows at most 44 frames per second
