@@ -1,0 +1,182 @@
+# Robe Robin MiniMe (and MiniMe DV): moving head with a built-in video projector – the "gobos" are pictures and
+# videos from its media server. Channel layout from "Robin MiniMe – DMX protocol, version 1.6" (one mode, 24 ch).
+#
+# Light needs the dimmer and an open shutter; the shutter defaults to open. Colour comes from the CMY channels or
+# the virtual colour wheel. Long effect lists (colour effects, transitions) are summarised in groups here – the
+# exact single values are in the DMX chart.
+id: robe-robin-minime
+manufacturer: Robe
+model: Robin MiniMe
+category: moving-head
+
+physical:
+  pan-range: 450
+  tilt-range: 270
+
+modes:
+  - name: 24ch
+    channels:
+      - function: pan
+        resolution: 16
+        default: 32768
+      - function: tilt
+        resolution: 16
+        default: 32768
+      - function: speed
+        name: Pan/tilt speed
+        default: 0
+        ranges:
+          - { from: 0, to: 0,   label: Standard }
+          - { from: 1, to: 1,   label: Max. speed }
+          - { from: 2, to: 255, label: Speed max. → min. (or time 0.2–25.5 s) }
+      # values only act after being held for 3 s; most of them also need the shutter closed (0–31)
+      - function: reset
+        name: Special functions
+        default: 0
+        ranges:
+          - { from: 0,   to: 49,  label: Reserved }
+          - { from: 50,  to: 59,  label: Pan/tilt speed mode }
+          - { from: 60,  to: 69,  label: Pan/tilt time mode }
+          - { from: 70,  to: 79,  label: Blackout while pan/tilt moving }
+          - { from: 80,  to: 89,  label: No blackout while pan/tilt moving }
+          - { from: 90,  to: 94,  label: Ceiling projection on }
+          - { from: 95,  to: 99,  label: Ceiling projection off }
+          - { from: 100, to: 104, label: Rear projection on }
+          - { from: 105, to: 109, label: Rear projection off }
+          - { from: 110, to: 129, label: Reserved }
+          - { from: 130, to: 134, label: Keep aspect ratio on }
+          - { from: 135, to: 139, label: Keep aspect ratio off }
+          - { from: 140, to: 149, label: Pan/tilt reset }
+          - { from: 150, to: 179, label: Reserved }
+          - { from: 180, to: 189, label: Focus reset }
+          - { from: 190, to: 199, label: Graphic engine reset }
+          - { from: 200, to: 209, label: Total reset }
+          - { from: 210, to: 219, label: Internal HDMI }
+          - { from: 220, to: 229, label: External HDMI }
+          - { from: 230, to: 234, label: Save auto keystoning }
+          - { from: 235, to: 239, label: Reserved }
+          - { from: 240, to: 244, label: Sync local NAS content }
+          - { from: 245, to: 255, label: Reserved }
+      - function: zoom
+        name: Digital zoom
+        default: 128
+        ranges:
+          - { from: 0,   to: 127, label: Min. → real size }
+          - { from: 128, to: 128, label: Real size }
+          - { from: 129, to: 255, label: Real size → max. }
+      - function: focus
+        default: 128
+      - function: generic
+        name: Keystone vertical
+        default: 128
+      - function: generic
+        name: Keystone horizontal
+        default: 128
+      - function: cyan
+      - function: magenta
+      - function: yellow
+      - function: color-wheel
+        name: Virtual colour wheel
+        default: 0
+        ranges:
+          - { from: 0,   to: 15,  label: White (8000 K), color: "#ffffff" }
+          - { from: 16,  to: 16,  label: Blue,           color: "#0000ff" }
+          - { from: 17,  to: 55,  label: Blue → cyan,    color: "#0080ff" }
+          - { from: 56,  to: 56,  label: Cyan,           color: "#00ffff" }
+          - { from: 57,  to: 95,  label: Cyan → green,   color: "#00ff80" }
+          - { from: 96,  to: 96,  label: Green,          color: "#00ff00" }
+          - { from: 97,  to: 134, label: Green → yellow, color: "#80ff00" }
+          - { from: 135, to: 135, label: Yellow,         color: "#ffff00" }
+          - { from: 136, to: 174, label: Yellow → red,   color: "#ff8000" }
+          - { from: 175, to: 175, label: Red,            color: "#ff0000" }
+          - { from: 176, to: 214, label: Red → magenta,  color: "#ff0080" }
+          - { from: 215, to: 215, label: Magenta,        color: "#ff00ff" }
+          - { from: 216, to: 246, label: Magenta → blue, color: "#8000ff" }
+          - { from: 247, to: 247, label: Blue,           color: "#0000ff" }
+          - { from: 248, to: 255, label: Reserved }
+      - function: macro
+        name: Colour effect wheel
+        default: 0
+        ranges:
+          - { from: 0,   to: 0,   label: No function }
+          - { from: 1,   to: 42,  label: Static shades (one per value) }
+          - { from: 43,  to: 46,  label: RGBW / CMYW / RGBY / RMBG shades }
+          - { from: 47,  to: 49,  label: Reserved }
+          - { from: 50,  to: 65,  label: Colour changing (one per value) }
+          - { from: 66,  to: 69,  label: Reserved }
+          - { from: 70,  to: 175, label: Dynamic shade effects (one per value) }
+          - { from: 176, to: 255, label: Reserved }
+      - function: generic
+        name: Gobo wheel selection
+        default: 0
+        fade: snap
+        ranges:
+          - { from: 0,   to: 31,  label: Factory gobos }
+          - { from: 32,  to: 63,  label: Internal custom gobos }
+          - { from: 64,  to: 95,  label: External custom gobos (USB stick) }
+          - { from: 96,  to: 127, label: Local NAS content }
+          - { from: 128, to: 143, label: Remote NAS content }
+          - { from: 144, to: 255, label: Reserved }
+      - function: gobo
+        name: Digital gobo / video
+        default: 0
+        ranges:
+          - { from: 0,   to: 0,   label: Open }
+          - { from: 1,   to: 59,  label: Black and white gobos (factory) }
+          - { from: 60,  to: 202, label: Colour pictures (factory) }
+          - { from: 203, to: 216, label: Animations (factory) }
+          - { from: 217, to: 250, label: Gobos/videos (custom wheels) }
+          - { from: 251, to: 251, label: "Gobo presentation, random" }
+          - { from: 252, to: 252, label: "Gobo presentation, alphabetical" }
+          - { from: 253, to: 255, label: Reserved }
+      - function: generic
+        name: Video speed
+        default: 0
+        ranges:
+          - { from: 0,   to: 0,   label: Original speed }
+          - { from: 1,   to: 1,   label: Pause }
+          - { from: 2,   to: 127, label: 1/4 → original speed }
+          - { from: 128, to: 255, label: Original → 4× speed }
+      # channels 19 + 20 (coarse + fine); ranges refer to the coarse channel
+      - function: gobo-rotation
+        name: Gobo indexing/rotation
+        resolution: 16
+        default: 0
+        ranges:
+          - { from: 0,   to: 127, label: Indexing }
+          - { from: 128, to: 191, label: Rotation forwards fast → slow }
+          - { from: 192, to: 193, label: No rotation }
+          - { from: 194, to: 255, label: Rotation backwards slow → fast }
+      - function: generic
+        name: Effect wheel
+        default: 0
+        fade: snap
+        ranges:
+          - { from: 0,   to: 0,   label: Open }
+          - { from: 1,   to: 48,  label: Transitions between gobos }
+          - { from: 49,  to: 79,  label: Reserved }
+          - { from: 80,  to: 89,  label: Kaleidoscopes }
+          - { from: 90,  to: 99,  label: Reserved }
+          - { from: 100, to: 108, label: Iris / negative / pixeling }
+          - { from: 109, to: 179, label: Reserved }
+          - { from: 180, to: 186, label: Iris and masks (manual) }
+          - { from: 187, to: 189, label: Reserved }
+          - { from: 190, to: 195, label: "Mixing effects (crossfade, addition, …)" }
+          - { from: 196, to: 255, label: Reserved }
+      # meaning depends on the effect chosen on the effect wheel (time, speed, iris, mask, …)
+      - function: generic
+        name: Effect speed/time
+        default: 0
+      - function: shutter
+        default: 32
+        ranges:
+          - { from: 0,   to: 31,  label: Closed }
+          - { from: 32,  to: 63,  label: Open }
+          - { from: 64,  to: 95,  label: Strobe slow → fast }
+          - { from: 96,  to: 127, label: Open }
+          - { from: 128, to: 143, label: Opening pulses slow → fast }
+          - { from: 144, to: 159, label: Closing pulses fast → slow }
+          - { from: 160, to: 191, label: Open }
+          - { from: 192, to: 223, label: Random strobe slow → fast }
+          - { from: 224, to: 255, label: Open }
+      - function: dimmer
