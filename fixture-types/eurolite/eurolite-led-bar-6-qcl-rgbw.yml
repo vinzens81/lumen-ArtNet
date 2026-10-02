@@ -1,0 +1,126 @@
+# EUROLITE LED BAR-6 QCL RGBW (art. no. 51930399): 60 cm bar, 6 × 4 W RGBW LEDs, all LEDs controlled together.
+# Mode is selected on the display (CH2/CH4/CH5/CH6/CH9); 6ch is the factory default.
+# The same manual (00107338, version 1.0) covers the LED BAR-12 QCL RGBW (51930398) with identical tables.
+id: eurolite-led-bar-6-qcl-rgbw
+manufacturer: Eurolite
+model: LED BAR-6 QCL RGBW
+category: bar
+
+modes:
+  # factory default
+  - name: 6ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: dimmer
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0,  to: 0,   label: No function }
+          - { from: 1,  to: 5,   label: Sound control }
+          - { from: 6,  to: 10,  label: No function }
+          - { from: 11, to: 255, label: Strobe slow → fast }
+
+  # no dimmer channel: Lumen dims through red/green/blue/white (virtual dimmer)
+  - name: 4ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+
+  - name: 9ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: macro
+        name: Color temperature
+        default: 0
+        ranges:
+          - { from: 0,   to: 9,   label: Off (mix from red/green/blue/white) }
+          - { from: 10,  to: 29,  label: 2700 K, color: "#ffa757" }
+          - { from: 30,  to: 49,  label: 3200 K, color: "#ffb46b" }
+          - { from: 50,  to: 69,  label: 3400 K, color: "#ffb872" }
+          - { from: 70,  to: 89,  label: 4200 K, color: "#ffcb98" }
+          - { from: 90,  to: 109, label: 4900 K, color: "#ffdab4" }
+          # the manual prints "110 – 029", meant is 110 – 129
+          - { from: 110, to: 129, label: 5600 K, color: "#ffe6cd" }
+          - { from: 130, to: 149, label: 6000 K, color: "#ffeddb" }
+          - { from: 150, to: 169, label: 6500 K, color: "#fff9fb" }
+          - { from: 170, to: 189, label: 7500 K, color: "#eeefff" }
+          - { from: 190, to: 255, label: 8000 K, color: "#e5e9ff" }
+      - function: dimmer
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0,  to: 9,   label: Off }
+          - { from: 10, to: 255, label: Strobe slow → fast }
+      - function: program
+        default: 0
+        ranges:
+          - { from: 0,   to: 9,   label: Off }
+          - { from: 10,  to: 119, label: Auto programs }
+          - { from: 120, to: 255, label: Sound programs }
+      - function: speed
+        name: Program speed
+        default: 0
+
+  - name: 5ch
+    channels:
+      - function: dimmer
+      - function: macro
+        name: Color presets
+        default: 0
+        ranges:
+          - { from: 0,   to: 9,   label: Off }
+          - { from: 10,  to: 19,  label: Red,         color: "#ff0000" }
+          - { from: 20,  to: 29,  label: Green,       color: "#00ff00" }
+          - { from: 30,  to: 39,  label: Blue,        color: "#0000ff" }
+          - { from: 40,  to: 49,  label: White,       color: "#ffffff" }
+          - { from: 50,  to: 59,  label: Green yellow, color: "#adff2f" }
+          - { from: 60,  to: 69,  label: Cyan,        color: "#00ffff" }
+          - { from: 70,  to: 79,  label: Magenta,     color: "#ff00ff" }
+          - { from: 80,  to: 89,  label: Yellow,      color: "#ffff00" }
+          - { from: 90,  to: 99,  label: Turquoise,   color: "#40e0d0" }
+          - { from: 100, to: 109, label: Magenta 2,   color: "#e000c0" }
+          - { from: 110, to: 119, label: Orange,      color: "#ff8000" }
+          - { from: 120, to: 129, label: Light green, color: "#90ee90" }
+          - { from: 130, to: 139, label: Magenta 3,   color: "#c000ff" }
+          - { from: 140, to: 149, label: Pink,        color: "#ff80c0" }
+          - { from: 150, to: 159, label: Light green 2, color: "#b0ffb0" }
+          - { from: 160, to: 169, label: Light blue,  color: "#80c0ff" }
+          - { from: 170, to: 179, label: Salmon,      color: "#fa8072" }
+          - { from: 180, to: 189, label: Cold white,  color: "#e8f0ff" }
+          - { from: 190, to: 199, label: Warm white,  color: "#ffd8a0" }
+          - { from: 200, to: 255, label: Lavender,    color: "#b080ff" }
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0,  to: 9,   label: Off }
+          - { from: 10, to: 255, label: Strobe slow → fast }
+      - function: program
+        default: 0
+        ranges:
+          - { from: 0,   to: 9,   label: Off }
+          - { from: 10,  to: 119, label: Auto programs }
+          - { from: 120, to: 255, label: Sound programs }
+      - function: speed
+        name: Program speed
+        default: 0
+
+  # programs only, no direct color control
+  - name: 2ch
+    channels:
+      - function: program
+        default: 0
+        ranges:
+          - { from: 0,   to: 9,   label: Off }
+          - { from: 10,  to: 119, label: Auto programs }
+          - { from: 120, to: 255, label: Sound programs }
+      - function: speed
+        name: Program speed
+        default: 0
