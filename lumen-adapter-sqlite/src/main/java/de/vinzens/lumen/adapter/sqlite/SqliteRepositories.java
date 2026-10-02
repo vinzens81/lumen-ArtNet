@@ -19,7 +19,10 @@ public final class SqliteRepositories {
 	private final SqliteSettingsRepository settings;
 	private final SqlitePlaybackStateRepository playbackStates;
 
+	private final DataSource dataSource;
+
 	public SqliteRepositories(DataSource dataSource) {
+		this.dataSource = dataSource;
 		var jdbc = JdbcClient.create(dataSource);
 		var transactions = new TransactionTemplate(new DataSourceTransactionManager(dataSource));
 		this.projects = new SqliteProjectRepository(jdbc, transactions);
@@ -29,6 +32,10 @@ public final class SqliteRepositories {
 		this.scenes = new SqliteSceneRepository(jdbc, transactions);
 		this.settings = new SqliteSettingsRepository(jdbc);
 		this.playbackStates = new SqlitePlaybackStateRepository(jdbc);
+	}
+
+	public DataSource dataSource() {
+		return dataSource;
 	}
 
 	public SqliteProjectRepository projects() {

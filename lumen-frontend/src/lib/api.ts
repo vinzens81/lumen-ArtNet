@@ -1,5 +1,7 @@
 import type {
   ArtNetNode,
+  Backup,
+  Backups,
   AttributeValues,
   Fixture,
   FixtureRequest,
@@ -69,6 +71,7 @@ export const api = {
     update: (id: number, project: ProjectRequest) => put<Project>(`/api/projects/${id}`, project),
     remove: (id: number) => del(`/api/projects/${id}`),
     activate: (id: number) => post<Project>(`/api/projects/${id}/activate`),
+    import: (file: unknown) => post<Project>('/api/projects/import', file),
   },
   universes: {
     list: (projectId: number) => get<Universe[]>(`/api/projects/${projectId}/universes`),
@@ -133,6 +136,10 @@ export const api = {
   },
   artnet: {
     nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),
+  },
+  backups: {
+    list: () => get<Backups>('/api/backups'),
+    create: () => post<Backup>('/api/backups'),
   },
   health: () => get<{ status: string }>('/actuator/health'),
 };

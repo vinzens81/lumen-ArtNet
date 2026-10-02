@@ -207,3 +207,15 @@ export interface OutputHealth {
   sendErrorsPerSecond: number;
   universes: number;
 }
+
+export interface Backup {
+  name: string;
+  createdAt: string;
+  sizeBytes: number;
+}
+
+export interface Backups {
+  /** where the backup files are stored on the server */
+  directory: string;
+  backups: Backup[];
+}

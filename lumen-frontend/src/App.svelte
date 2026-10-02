@@ -11,6 +11,7 @@
   import ProgrammerView from './views/ProgrammerView.svelte';
   import ProjectsView from './views/ProjectsView.svelte';
   import ScenesView from './views/ScenesView.svelte';
+  import SettingsView from './views/SettingsView.svelte';
   import ShowView from './views/ShowView.svelte';
   import SoonView from './views/SoonView.svelte';
   import UniversesView from './views/UniversesView.svelte';
@@ -22,6 +23,7 @@
     { route: '/setup/programmer', label: 'Programmer' },
     { route: '/setup/stage', label: 'Stage', soon: true },
     { route: '/setup/scenes', label: 'Scenes' },
+    { route: '/setup/settings', label: 'Settings' },
   ];
 
   const showMode = $derived(isShowMode(router.route));
@@ -137,6 +139,8 @@
       <SoonView title="Stage view" text="Place fixtures on a stage plan and watch them glow in their real colors." />
     {:else if router.route === '/setup/scenes'}
       <ScenesView />
+    {:else if router.route === '/setup/settings'}
+      <SettingsView />
     {:else}
       <ShowView />
     {/if}

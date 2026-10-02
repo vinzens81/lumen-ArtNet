@@ -63,6 +63,28 @@
     }
   }
 
+  let importInput: HTMLInputElement | undefined = $state();
+
+  async function importFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      let content: unknown;
+      try {
+        content = JSON.parse(await file.text());
+      } catch {
+        throw new Error(`${file.name} is not a Lumen project file`);
+      }
+      const created = await api.projects.import(content);
+      notify(`Imported "${created.name}"`);
+      await app.reloadProjects();
+    } catch (e) {
+      showError(e);
+    }
+  }
+
   function seconds(ms: number): string {
     return `${(ms / 1000).toFixed(ms % 1000 === 0 ? 0 : 1)} s`;
   }
@@ -74,7 +96,12 @@
       <h1>Projects</h1>
       <p class="dim">A project is one show: its universes, patch and scenes. The active project drives the light.</p>
     </div>
-    <button class="btn primary" type="button" onclick={openCreate}>+ New project</button>
+    <div class="head-actions">
+      <button class="btn ghost" type="button" onclick={() => importInput?.click()}>Import…</button>
+      <button class="btn primary" type="button" onclick={openCreate}>+ New project</button>
+    </div>
+    <input class="hidden" type="file" accept=".json,application/json" bind:this={importInput} onchange={importFile}
+      aria-label="Project file to import" />
   </header>
 
   {#if app.projects.length === 0}
@@ -103,6 +130,8 @@
               <button class="btn small" type="button" onclick={() => app.activate(project.id)}>Activate</button>
             {/if}
             <button class="btn small ghost" type="button" onclick={() => openEdit(project)}>Edit</button>
+            <a class="btn small ghost" href={`/api/projects/${project.id}/export`} download
+              title="Download the project with patch, groups and scenes">Export</a>
             <button class="btn small ghost danger" type="button"
               onclick={() => { deleting = project; deleteOpen = true; }}>Delete</button>
           </div>
@@ -137,6 +166,15 @@
 </Modal>
 
 <style>
+  .head-actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  .hidden {
+    display: none;
+  }
+
   .view {
     display: flex;
     flex-direction: column;

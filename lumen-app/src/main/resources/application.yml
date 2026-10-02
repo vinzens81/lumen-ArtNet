@@ -24,6 +24,11 @@ lumen:
   fixture-library-dir: fixture-types
   # Project data (SQLite), created on first start
   database-file: data/lumen.db
+  backup:
+    # copies of the database, created on start, when show mode starts and when another project is activated
+    dir: data/backups
+    # older backups are deleted
+    keep: 30
   output:
     # render loop rate (Art-Net allows at most 44 frames per second)
     rate-hz: 40

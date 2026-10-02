@@ -12,13 +12,15 @@ import java.time.Duration;
  *
  * @param fixtureLibraryDir directory of the fixture library (YAML)
  * @param databaseFile      SQLite file containing the project data
+ * @param backup            automatic database backups
  */
 @ConfigurationProperties("lumen")
 public record LumenProperties(
 		@DefaultValue("fixture-types") String fixtureLibraryDir,
 		@DefaultValue("data/lumen.db") String databaseFile,
 		@DefaultValue Output output,
-		@DefaultValue ArtNet artnet) {
+		@DefaultValue ArtNet artnet,
+		@DefaultValue Backup backup) {
 
 	// bound as String: Spring's String → Path conversion resolves through the servlet context in a running
 	// web server and rejects relative paths like "../fixture-types"
@@ -29,6 +31,17 @@ public record LumenProperties(
 
 	public Path databasePath() {
 		return Path.of(databaseFile);
+	}
+
+	/**
+	 * @param dir  directory for backup files
+	 * @param keep how many backups are kept; older ones are deleted
+	 */
+	public record Backup(@DefaultValue("data/backups") String dir, @DefaultValue("30") int keep) {
+
+		public Path path() {
+			return Path.of(dir);
+		}
 	}
 
 	/**

@@ -126,6 +126,7 @@ a {
   color: var(--text);
   font: inherit;
   font-weight: 500;
+  text-decoration: none;
   cursor: pointer;
   transition: background 0.15s, border-color 0.15s, box-shadow 0.15s, transform 0.05s;
   white-space: nowrap;

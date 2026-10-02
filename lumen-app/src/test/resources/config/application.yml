@@ -6,3 +6,5 @@ lumen:
   artnet:
     # never send packets into the network from tests
     enabled: false
+  backup:
+    dir: target/test-data/backups/${random.uuid}
