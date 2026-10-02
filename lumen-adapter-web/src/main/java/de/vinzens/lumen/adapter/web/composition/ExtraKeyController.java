@@ -9,6 +9,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -81,6 +82,17 @@ class ExtraKeyController {
 		var slots = new HashSet<>(request.slots() == null ? List.<Integer>of() : request.slots());
 		return new SceneKeysResponse(keys.setSceneKeys(projectId, sceneId, Set.copyOf(slots)).stream().sorted()
 				.toList());
+	}
+
+	/**
+	 * Makes another scene (e.g. one only for extra keys) playable in this scene; it goes on the first free key if no
+	 * key plays it yet.
+	 */
+	@PostMapping("/scenes/{sceneId}/extra-keys/scenes/{keySceneId}")
+	SceneKeysResponse enableKeyScene(@PathVariable long projectId, @PathVariable long sceneId,
+			@PathVariable long keySceneId) {
+		keys.enableKeyScene(projectId, sceneId, keySceneId);
+		return sceneKeys(projectId, sceneId);
 	}
 
 	/**

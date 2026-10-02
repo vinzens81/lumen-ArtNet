@@ -1,5 +1,6 @@
 package de.vinzens.lumen.application.composition;
 
+import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.composition.port.in.ManageExtraKeysUseCase;
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
@@ -18,6 +19,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.TreeSet;
+import java.util.stream.IntStream;
 
 public class ExtraKeyService implements ManageExtraKeysUseCase {
 
@@ -125,6 +127,29 @@ public class ExtraKeyService implements ManageExtraKeysUseCase {
 		compositions.saveSceneKeys(sceneId, Set.copyOf(slots));
 		events.publish(StateTopic.SCENES);
 		return sceneKeys(projectId, sceneId);
+	}
+
+	@Override
+	public ExtraKey enableKeyScene(long projectId, long sceneId, long keySceneId) {
+		requireScene(projectId, sceneId);
+		requireScene(projectId, keySceneId);
+		if (sceneId == keySceneId) {
+			throw new DomainValidationException(List.of("A scene cannot play itself on an extra key"));
+		}
+		var keys = compositions.findKeys(projectId);
+		var key = keys.stream().filter(k -> k.sceneId().equals(Optional.of(keySceneId))).findFirst()
+				.orElseGet(() -> {
+					var used = new HashSet<Integer>();
+					keys.forEach(k -> used.add(k.slot()));
+					var free = IntStream.rangeClosed(1, ExtraKey.SLOTS).filter(slot -> !used.contains(slot)).findFirst()
+							.orElseThrow(() -> new ConflictException("All " + ExtraKey.SLOTS
+									+ " extra keys are in use – free one in the Compositions tab"));
+					return compositions.saveSceneKey(projectId, free, keySceneId, KeyMode.TOGGLE, Duration.ZERO);
+				});
+		var slots = new TreeSet<>(compositions.findSceneKeys(projectId).getOrDefault(sceneId, Set.of()));
+		slots.add(key.slot());
+		compositions.saveSceneKeys(sceneId, slots);
+		return changed(key);
 	}
 
 	private ExtraKey changed(ExtraKey key) {

@@ -276,6 +276,25 @@ class CompositionApiTest {
 	}
 
 	@Test
+	void keyOnlyScenesArePickedDirectlyInAScene() throws Exception {
+		var scenes = base + "/scenes";
+		var act1 = id(post(scenes, "{\"number\": \"1\", \"name\": \"Act 1\"}"));
+		var act2 = id(post(scenes, "{\"number\": \"2\", \"name\": \"Act 2\"}"));
+		var police = id(post(scenes, "{\"number\": \"90\", \"name\": \"Police\", \"keyOnly\": true}"));
+
+		assertThat(post(scenes + "/" + act2 + "/extra-keys/scenes/" + police, "")).hasStatusOk()
+				.bodyJson().extractingPath("$.slots").asArray().containsExactly(1);
+		var keys = body(base + "/extra-keys");
+		assertThat(JsonPath.<Integer>read(keys, "$[0].sceneId")).isEqualTo((int) police);
+		assertThat(body(scenes + "/" + act1 + "/extra-keys")).as("only where it was picked").isEqualTo("{\"slots\":[]}");
+
+		assertThat(post(scenes + "/" + act1 + "/extra-keys/scenes/" + police, "")).hasStatusOk()
+				.bodyJson().extractingPath("$.slots").asArray().as("same key, no second one").containsExactly(1);
+		assertThat(JsonPath.<List<Object>>read(body(base + "/extra-keys"), "$")).hasSize(1);
+		assertThat(post(scenes + "/" + police + "/extra-keys/scenes/" + police, "")).hasStatus(400);
+	}
+
+	@Test
 	void compositionsTravelWithTheProjectExport() throws Exception {
 		var chase = id(post(base + "/compositions", """
 				{"name": "Fair chase", "kind": "chase", "target": {"groupId": %d}}""".formatted(ramp)));

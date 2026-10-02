@@ -34,4 +34,12 @@ public interface ManageExtraKeysUseCase {
 	Set<Integer> sceneKeys(long projectId, long sceneId);
 
 	Set<Integer> setSceneKeys(long projectId, long sceneId, Set<Integer> slots);
+
+	/**
+	 * Makes another scene (usually one only for extra keys) playable while the scene is on stage: if no key plays it
+	 * yet, it goes on the first free key (toggle, no fade) – enabled only in this scene.
+	 *
+	 * @return the key that plays the other scene
+	 */
+	ExtraKey enableKeyScene(long projectId, long sceneId, long keySceneId);
 }

@@ -330,6 +330,9 @@ composition_step_value                          -- Werte pro Schritt, normalisie
   behalten ihr Licht.
 - **Szenen nur für Extra-Tasten** (`scene.key_only`): GO überspringt sie, sie stehen in der Szenenliste in einem
   eigenen Abschnitt, bekommen selbst keine Tasten und vererben keine. Ihre Nummer bleibt (eindeutig im Projekt).
+  Im Szenen-Editor jeder anderen Szene stehen sie unter „Extra keys in this scene“ direkt zum Anhaken: Liegt die
+  Szene noch auf keiner Taste, bekommt sie die erste freie (Toggle, ohne Fade) und ist nur in dieser Szene frei
+  (`POST /api/projects/{id}/scenes/{sid}/extra-keys/scenes/{keySceneId}`). Sind alle 8 Tasten belegt: 409.
 - **Export:** Tasten (`extraKeys`, mit `composition` oder `sceneNumber`), die Tasten jeder Szene
   (`scenes[].extraKeys`) und `scenes[].keyOnly` reisen im Projekt-Export mit.
 

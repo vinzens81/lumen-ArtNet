@@ -149,6 +149,8 @@ export const api = {
     clear: (projectId: number, slot: number) => del(`/api/projects/${projectId}/extra-keys/${slot}`),
     ofScene: (projectId: number, sceneId: number) =>
       get<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`),
+    enableKeyScene: (projectId: number, sceneId: number, keySceneId: number) =>
+      post<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys/scenes/${keySceneId}`),
     setForScene: (projectId: number, sceneId: number, slots: number[]) =>
       put<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`, { slots }),
   },
