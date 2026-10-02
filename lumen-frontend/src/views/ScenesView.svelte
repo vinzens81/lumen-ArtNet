@@ -21,7 +21,7 @@
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
-  let form = $state({ number: '', name: '', cueNote: '', autoFollow: false, autoFollowSeconds: 5 });
+  let form = $state({ number: '', name: '', cueNote: '', autoFollow: false, autoFollowSeconds: 5, keyOnly: false });
   let fades = $state({ fadeIn: 3, fadeOut: 3 });
 
   const project = $derived(app.active);
@@ -30,6 +30,9 @@
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
+  /** the cue list played by GO, and the scenes that only extra keys play */
+  const cueScenes = $derived(scenes.filter((s) => !s.keyOnly));
+  const keyScenes = $derived(scenes.filter((s) => s.keyOnly));
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const nextNumber = $derived(
     scenes.length === 0 ? '1' : String(Math.floor(Number(scenes[scenes.length - 1].number)) + 1),
@@ -68,6 +71,7 @@
       cueNote: scene.cueNote ?? '',
       autoFollow: scene.autoFollowMs !== null,
       autoFollowSeconds: scene.autoFollowMs !== null ? scene.autoFollowMs / 1000 : 5,
+      keyOnly: scene.keyOnly,
     };
   }
 
@@ -83,6 +87,7 @@
         name: form.name,
         cueNote: form.cueNote || null,
         autoFollowMs: form.autoFollow ? Math.round(form.autoFollowSeconds * 1000) : null,
+        keyOnly: form.keyOnly,
       });
       notify(`Saved scene ${scene.number}`);
       await load(project.id);
@@ -118,7 +123,8 @@
     if (!project) return;
     let number: string | null = null;
     if (selected) {
-      const next = scenes[scenes.indexOf(selected) + 1];
+      const list = selected.keyOnly ? keyScenes : cueScenes;
+      const next = list[list.indexOf(selected) + 1];
       number = numberBetween(selected.number, next?.number ?? null);
       if (number === null) {
         showError(new Error(`No free scene number after ${selected.number} – renumber the next scene first`));
@@ -126,7 +132,13 @@
       }
     }
     try {
-      const scene = await api.scenes.create(project.id, { number, name: 'Blackout', cueNote: null, autoFollowMs: null });
+      const scene = await api.scenes.create(project.id, {
+        number,
+        name: selected?.keyOnly ? 'Key look' : 'Blackout',
+        cueNote: null,
+        autoFollowMs: null,
+        keyOnly: selected?.keyOnly ?? false,
+      });
       await load(project.id);
       select(scene);
     } catch (e) {
@@ -149,7 +161,7 @@
 
   function moveDrag(event: PointerEvent) {
     if (!drag || !listElement) return;
-    const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row')];
+    const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row:not(.key-row)')];
     // position among the other scenes: count rows (except the dragged one) whose middle is above the pointer
     let to = 0;
     rows.forEach((row, i) => {
@@ -171,13 +183,14 @@
     if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
     event.preventDefault();
     const to = index + (event.key === 'ArrowUp' ? -1 : 1);
-    if (to >= 0 && to < scenes.length) moveTo(scene.id, to);
+    if (to >= 0 && to < cueScenes.length) moveTo(scene.id, to);
   }
 
   async function moveTo(sceneId: number, to: number) {
     const scene = scenes.find((s) => s.id === sceneId);
     if (!project || !scene) return;
-    const others = scenes.filter((s) => s.id !== sceneId).map((s) => s.number);
+    // only among the cue list; scenes for extra keys keep their numbers
+    const others = cueScenes.filter((s) => s.id !== sceneId).map((s) => s.number);
     const number = numberAt(others, to);
     if (number === null) {
       showError(new Error('No free scene number at that place – renumber a neighbor first'));
@@ -236,6 +249,35 @@
   const programmerHasValues = $derived(Object.keys(live.programmer).length > 0);
 </script>
 
+{#snippet cueContent(scene: Scene, i: number)}
+            <span class="number mono">{scene.number}</span>
+            <span class="text">
+              <span class="name">{scene.name}</span>
+              {#if scene.cueNote}<span class="note">{scene.cueNote}</span>{/if}
+            </span>
+            <span class="swatches" aria-hidden="true">
+              {#each swatches(scene) as swatch, j (j)}
+                <span class="swatch" style="--color: {swatch.color}; --intensity: {swatch.intensity}"></span>
+              {:else}
+                <span class="dark">dark</span>
+              {/each}
+            </span>
+            {#if stagePreview.status.sceneId === scene.id}
+              <span class="on-stage-tag" title="This scene is playing on stage (preview)">
+                <span class="pulse" aria-hidden="true"></span>ON STAGE
+              </span>
+            {/if}
+            {#if scene.compositions.length > 0}
+              <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
+                {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
+              </span>
+            {/if}
+            {#if scene.autoFollowMs !== null}
+              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{!scene.keyOnly && i === cueScenes.length - 1 ? ' (last – ignored)' : ''}</span>
+            {/if}
+          {/snippet}
+
+
 {#if !project}
   <div class="glass empty">
     <h2>No active project</h2>
@@ -273,7 +315,7 @@
             <button class="btn primary" type="button" onclick={() => navigate('/setup/programmer')}>Open programmer</button>
           </div>
         {/if}
-        {#each scenes as scene, i (scene.id)}
+        {#each cueScenes as scene, i (scene.id)}
           <div class="cue-row" class:dragging={drag?.id === scene.id} class:drop-before={dropBefore(i)}>
           <button type="button" class="handle" aria-label="Move scene {scene.number} (drag, or Alt+↑/↓)"
             title="Drag to move – the scene gets a number between its new neighbors"
@@ -281,35 +323,23 @@
             onpointercancel={() => (drag = null)} onkeydown={(e) => onHandleKey(e, i, scene)}>⋮⋮</button>
           <button type="button" class="cue" class:selected={scene.id === selectedId}
             class:on-stage={stagePreview.status.sceneId === scene.id} onclick={() => select(scene)}>
-            <span class="number mono">{scene.number}</span>
-            <span class="text">
-              <span class="name">{scene.name}</span>
-              {#if scene.cueNote}<span class="note">{scene.cueNote}</span>{/if}
-            </span>
-            <span class="swatches" aria-hidden="true">
-              {#each swatches(scene) as swatch, j (j)}
-                <span class="swatch" style="--color: {swatch.color}; --intensity: {swatch.intensity}"></span>
-              {:else}
-                <span class="dark">dark</span>
-              {/each}
-            </span>
-            {#if stagePreview.status.sceneId === scene.id}
-              <span class="on-stage-tag" title="This scene is playing on stage (preview)">
-                <span class="pulse" aria-hidden="true"></span>ON STAGE
-              </span>
-            {/if}
-            {#if scene.compositions.length > 0}
-              <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
-                {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
-              </span>
-            {/if}
-            {#if scene.autoFollowMs !== null}
-              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{i === scenes.length - 1 ? ' (last – ignored)' : ''}</span>
-            {/if}
+            {@render cueContent(scene, i)}
           </button>
           </div>
         {/each}
-        {#if drag && drag.to !== drag.from && drag.to === scenes.length - 1}<div class="drop-end"></div>{/if}
+        {#if drag && drag.to !== drag.from && drag.to === cueScenes.length - 1}<div class="drop-end"></div>{/if}
+        {#if keyScenes.length > 0}
+          <h3 class="key-scenes-head" title="GO skips these scenes – they are played by extra keys">Scenes for extra keys</h3>
+          {#each keyScenes as scene, i (scene.id)}
+            <div class="cue-row key-row">
+              <span class="handle-space" aria-hidden="true"></span>
+              <button type="button" class="cue" class:selected={scene.id === selectedId}
+                class:on-stage={stagePreview.status.sceneId === scene.id} onclick={() => select(scene)}>
+                {@render cueContent(scene, i)}
+              </button>
+            </div>
+          {/each}
+        {/if}
       </div>
 
       <aside class="editor glass">
@@ -329,6 +359,10 @@
                 disabled={!form.autoFollow} /> s
             </label>
             <p class="hint dim">The time starts when the fade-in has finished. Without it the scene stays until GO.</p>
+            <label class="check">
+              <input type="checkbox" bind:checked={form.keyOnly} />
+              Only for extra keys <span class="hint dim">(GO skips this scene)</span>
+            </label>
             <button class="btn primary" type="submit">Save</button>
           </form>
 
@@ -364,7 +398,9 @@
 
           {#if projectId !== null}
             <SceneCompositions {projectId} sceneId={selected.id} {fixtures} {groups} {modes} />
-            <SceneExtraKeys {projectId} sceneId={selected.id} />
+            {#if !selected.keyOnly}
+              <SceneExtraKeys {projectId} sceneId={selected.id} />
+            {/if}
           {/if}
 
           <section>
@@ -517,6 +553,19 @@
   .drop-end {
     position: relative;
     top: 0;
+  }
+
+  .key-scenes-head {
+    margin: 18px 10px 6px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .handle-space {
+    flex: none;
+    width: 26px;
   }
 
   .handle {

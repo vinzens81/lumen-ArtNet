@@ -323,7 +323,15 @@ composition_step_value                          -- Werte pro Schritt, normalisie
 - **Einmalige Abläufe:** Schalter „Run once“ (`once`) an jeder Komposition. Lauflicht vorwärts/rückwärts bleibt am
   letzten Gerät, Farbwechsel bei der letzten Farbe, Welle nach einer Periode (Sägezahn oben), Schrittfolge beim
   letzten Schritt. Flackern und zufälliges Lauflicht haben kein Ende.
-- **Export:** Tasten (`extraKeys`) und die Tasten jeder Szene (`scenes[].extraKeys`) reisen im Projekt-Export mit.
+- **Ganze Szenen auf Tasten:** Eine Taste spielt entweder ihre Kopie einer Komposition oder eine **Szene** des
+  Projekts (Tabelle `extra_key_scene`, Flyway `V7`). Die Szene bleibt verknüpft: Änderungen wirken sofort, wird sie
+  gelöscht, ist die Taste leer. Eingeschaltet wird die Szene samt ihrer Kompositionen als ein Look über das Playback
+  gelegt: Intensität HTP, übrige Attribute mit dem Tasten-Level eingeblendet; Geräte, die nicht in der Szene sind,
+  behalten ihr Licht.
+- **Szenen nur für Extra-Tasten** (`scene.key_only`): GO überspringt sie, sie stehen in der Szenenliste in einem
+  eigenen Abschnitt, bekommen selbst keine Tasten und vererben keine. Ihre Nummer bleibt (eindeutig im Projekt).
+- **Export:** Tasten (`extraKeys`, mit `composition` oder `sceneNumber`), die Tasten jeder Szene
+  (`scenes[].extraKeys`) und `scenes[].keyOnly` reisen im Projekt-Export mit.
 
 ## Noch offen (vor dem Start klären)
 

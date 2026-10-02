@@ -168,11 +168,14 @@ export interface Scene {
   values: Record<number, AttributeValues>;
   /** compositions running in the scene, in their order */
   compositions: { id: number; name: string; kind: CompositionKind }[];
+  /** only played by extra keys, GO skips it */
+  keyOnly: boolean;
 }
 
 export interface SceneRequest {
   number?: string | null;
   name: string;
+  keyOnly?: boolean;
   cueNote: string | null;
   autoFollowMs: number | null;
   record?: boolean;
@@ -202,7 +205,8 @@ export type KeyMode = 'toggle' | 'flash';
 export interface KeyStatus {
   slot: number;
   name: string;
-  kind: CompositionKind;
+  /** 'scene' if the key plays a scene */
+  kind: CompositionKind | 'scene';
   mode: KeyMode;
   /** switched on (possibly still fading in) */
   on: boolean;
@@ -216,7 +220,10 @@ export interface ExtraKey {
   slot: number;
   mode: KeyMode;
   fadeMs: number;
-  composition: Composition;
+  /** the key's own composition, or null if it plays a scene */
+  composition: Composition | null;
+  /** the scene the key plays, or null */
+  sceneId: number | null;
 }
 
 /** Health of the light output, measured by the server every second. */

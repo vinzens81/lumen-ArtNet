@@ -3,7 +3,7 @@
   import { kindIcon } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, ExtraKey, Fixture, Group, KeyMode, Mode } from '../lib/types';
+  import type { Composition, ExtraKey, Fixture, Group, KeyMode, Mode, Scene } from '../lib/types';
   import CompositionEditor from './CompositionEditor.svelte';
   import Modal from './Modal.svelte';
 
@@ -19,24 +19,45 @@
   const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 
   let keys = $state<ExtraKey[]>([]);
+  let scenes = $state<Scene[]>([]);
   let editingSlot = $state<number | null>(null);
 
   const bySlot = $derived(new Map(keys.map((k) => [k.slot, k])));
-  const editing = $derived(editingSlot !== null ? (bySlot.get(editingSlot) ?? null) : null);
+  const editing = $derived(editingSlot !== null ? (bySlot.get(editingSlot)?.composition ?? null) : null);
+  const sceneById = $derived(new Map(scenes.map((scene) => [scene.id, scene])));
+  /** scenes for extra keys first, then the cue list */
+  const sceneChoices = $derived([...scenes].sort((a, b) => Number(b.keyOnly) - Number(a.keyOnly)));
 
   $effect(() => {
     void live.compositionsRevision;
-    api.extraKeys.list(projectId).then((list) => (keys = list)).catch(showError);
+    void live.scenesRevision;
+    Promise.all([api.extraKeys.list(projectId), api.scenes.list(projectId)])
+      .then(([keyList, sceneList]) => {
+        keys = keyList;
+        scenes = sceneList;
+      })
+      .catch(showError);
   });
 
+  function label(key: ExtraKey): string {
+    if (key.composition) return `${kindIcon(key.composition.kind)} ${key.composition.name}`;
+    const scene = key.sceneId !== null ? sceneById.get(key.sceneId) : undefined;
+    return `${kindIcon('scene')} ${scene ? `${scene.number} ${scene.name}` : 'Scene'}`;
+  }
+
+  /** The choice is "c:<composition id>" or "s:<scene id>". */
   async function assign(slot: number, event: Event) {
     const select = event.currentTarget as HTMLSelectElement;
-    const libraryId = Number(select.value);
+    const [type, id] = select.value.split(':');
     select.value = '';
-    if (!libraryId) return;
+    if (!id) return;
     const current = bySlot.get(slot);
+    const mode = current?.mode ?? 'toggle';
+    const fade = current?.fadeMs ?? 0;
     try {
-      const key = await api.extraKeys.assign(projectId, slot, libraryId, current?.mode ?? 'toggle', current?.fadeMs ?? 0);
+      const key = type === 's'
+        ? await api.extraKeys.assignScene(projectId, slot, Number(id), mode, fade)
+        : await api.extraKeys.assign(projectId, slot, Number(id), mode, fade);
       keys = [...keys.filter((k) => k.slot !== slot), key].sort((a, b) => a.slot - b.slot);
     } catch (e) {
       showError(e);
@@ -62,7 +83,7 @@
   }
 
   function saved(composition: Composition) {
-    keys = keys.map((k) => (k.composition.id === composition.id ? { ...k, composition } : k));
+    keys = keys.map((k) => (k.composition?.id === composition.id ? { ...k, composition } : k));
   }
 </script>
 
@@ -70,8 +91,9 @@
   <header>
     <h2>Extra keys</h2>
     <p class="dim">
-      In show mode, keys 1–8 switch these compositions on over any scene – a thunderstorm, a police light. Each key
-      plays its own copy. Choose in the scene editor in which scenes a key can be used.
+      In show mode, keys 1–8 switch a composition or a whole scene on over the scene on stage – a thunderstorm, a
+      police light. A composition on a key is its own copy; a scene stays linked (mark it “only for extra keys” in
+      the Scenes tab so GO skips it). Choose in the scene editor in which scenes a key can be used.
     </p>
   </header>
   <div class="slots">
@@ -80,9 +102,13 @@
       <div class="slot" class:assigned={key}>
         <span class="number mono">{slot}</span>
         {#if key}
-          <button type="button" class="name" onclick={() => (editingSlot = slot)} title="Edit the composition of this key">
-            {kindIcon(key.composition.kind)} {key.composition.name}
-          </button>
+          {#if key.composition}
+            <button type="button" class="name" onclick={() => (editingSlot = slot)} title="Edit the composition of this key">
+              {label(key)}
+            </button>
+          {:else}
+            <span class="name" title="Plays this scene – edit it in the Scenes tab">{label(key)}</span>
+          {/if}
           <div class="settings">
             <label class="mini">
               <span class="sr-only">Mode</span>
@@ -97,21 +123,43 @@
             </label>
           </div>
           <div class="actions">
-            <select aria-label="Put another composition on key {slot}" onchange={(e) => assign(slot, e)}>
+            <select aria-label="Put something else on key {slot}" onchange={(e) => assign(slot, e)}>
               <option value="">Replace…</option>
-              {#each library as composition (composition.id)}
-                <option value={String(composition.id)}>{kindIcon(composition.kind)} {composition.name}</option>
-              {/each}
+              {#if library.length > 0}
+                <optgroup label="Compositions">
+                  {#each library as composition (composition.id)}
+                    <option value={`c:${composition.id}`}>{kindIcon(composition.kind)} {composition.name}</option>
+                  {/each}
+                </optgroup>
+              {/if}
+              {#if sceneChoices.length > 0}
+                <optgroup label="Scenes">
+                  {#each sceneChoices as scene (scene.id)}
+                    <option value={`s:${scene.id}`}>▣ {scene.number} {scene.name}{scene.keyOnly ? ' (key only)' : ''}</option>
+                  {/each}
+                </optgroup>
+              {/if}
             </select>
             <button class="btn small ghost danger" type="button" onclick={() => clear(key)} aria-label="Clear key {slot}">✕</button>
           </div>
         {:else}
-          <select class="assign" aria-label="Put a composition on key {slot}" onchange={(e) => assign(slot, e)}
-            disabled={library.length === 0}>
+          <select class="assign" aria-label="Put a composition or scene on key {slot}" onchange={(e) => assign(slot, e)}
+            disabled={library.length === 0 && scenes.length === 0}>
             <option value="">Empty – choose…</option>
-            {#each library as composition (composition.id)}
-              <option value={String(composition.id)}>{kindIcon(composition.kind)} {composition.name}</option>
-            {/each}
+              {#if library.length > 0}
+                <optgroup label="Compositions">
+                  {#each library as composition (composition.id)}
+                    <option value={`c:${composition.id}`}>{kindIcon(composition.kind)} {composition.name}</option>
+                  {/each}
+                </optgroup>
+              {/if}
+              {#if sceneChoices.length > 0}
+                <optgroup label="Scenes">
+                  {#each sceneChoices as scene (scene.id)}
+                    <option value={`s:${scene.id}`}>▣ {scene.number} {scene.name}{scene.keyOnly ? ' (key only)' : ''}</option>
+                  {/each}
+                </optgroup>
+              {/if}
           </select>
         {/if}
       </div>
@@ -121,7 +169,7 @@
 
 <Modal wide bind:open={() => editing !== null, (open) => { if (!open) editingSlot = null; }} title="Composition on key {editingSlot}">
   {#if editing}
-    <CompositionEditor {projectId} composition={editing.composition} {fixtures} {groups} {modes} onSaved={saved} />
+    <CompositionEditor {projectId} composition={editing} {fixtures} {groups} {modes} onSaved={saved} />
     <p class="hint dim">Changes apply to this key only, not to the library.</p>
   {/if}
   {#snippet actions()}
@@ -195,8 +243,22 @@
     gap: 8px;
   }
 
-  .actions select {
+  .slot {
+    min-width: 0;
+  }
+
+  /* long composition and scene names must not push the buttons out of the tile */
+  .actions select,
+  .assign {
     flex: 1;
+    min-width: 0;
+    width: 100%;
+  }
+
+  .name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   select,

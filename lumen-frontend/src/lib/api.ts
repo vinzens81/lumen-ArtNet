@@ -142,6 +142,8 @@ export const api = {
     list: (projectId: number) => get<ExtraKey[]>(`/api/projects/${projectId}/extra-keys`),
     assign: (projectId: number, slot: number, libraryId: number, mode: KeyMode, fadeMs: number) =>
       put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { libraryId, mode, fadeMs }),
+    assignScene: (projectId: number, slot: number, sceneId: number, mode: KeyMode, fadeMs: number) =>
+      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { sceneId, mode, fadeMs }),
     update: (projectId: number, slot: number, mode: KeyMode, fadeMs: number) =>
       put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { mode, fadeMs }),
     clear: (projectId: number, slot: number) => del(`/api/projects/${projectId}/extra-keys/${slot}`),

@@ -55,7 +55,8 @@
     if (projectId !== null) {
       Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId)])
         .then(([sceneList, fixtureList]) => {
-          scenes = sceneList;
+          // scenes only for extra keys are not part of the cue list
+          scenes = sceneList.filter((scene) => !scene.keyOnly);
           fixtures = fixtureList;
         })
         .catch(showError);

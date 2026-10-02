@@ -9,6 +9,7 @@
 
   let keys = $state<ExtraKey[]>([]);
   let enabled = $state<number[]>([]);
+  let sceneNames = $state(new Map<number, string>());
 
   $effect(() => {
     void live.compositionsRevision;
@@ -18,8 +19,13 @@
 
   async function load(project: number, scene: number) {
     try {
-      const [list, slots] = await Promise.all([api.extraKeys.list(project), api.extraKeys.ofScene(project, scene)]);
+      const [list, slots, scenes] = await Promise.all([
+        api.extraKeys.list(project),
+        api.extraKeys.ofScene(project, scene),
+        api.scenes.list(project),
+      ]);
       keys = list;
+      sceneNames = new Map(scenes.map((s) => [s.id, `${s.number} ${s.name}`]));
       enabled = slots.slots;
     } catch (e) {
       showError(e);
@@ -46,7 +52,7 @@
           <input type="checkbox" checked={enabled.includes(key.slot)}
             onchange={(e) => toggle(key.slot, e.currentTarget.checked)} />
           <span class="mono slot">{key.slot}</span>
-          {kindIcon(key.composition.kind)} {key.composition.name}
+          {#if key.composition}{kindIcon(key.composition.kind)} {key.composition.name}{:else}{kindIcon('scene')} {sceneNames.get(key.sceneId ?? 0) ?? 'Scene'}{/if}
         </label>
       {/each}
     </div>

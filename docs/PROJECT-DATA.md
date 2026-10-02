@@ -21,7 +21,8 @@ und welche Szenen es gibt.
   Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
   V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9), V5 = Kompositionen
   (Iteration K, Schema in [COMPOSITIONS.md](COMPOSITIONS.md#datenmodell-entwurf-neue-flyway-migration)),
-  V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`).
+  V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
+  V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 

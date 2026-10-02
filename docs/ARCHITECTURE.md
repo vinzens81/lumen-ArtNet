@@ -149,7 +149,7 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
 | `CRUD /api/projects/{id}/compositions` · `/scenes/{sceneId}/compositions` | Kompositions-Bibliothek und Kopien in Szenen, siehe [COMPOSITIONS.md](COMPOSITIONS.md#umsetzung-k1) |
 | `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Komposition oder ganze Szene zum Ausprobieren auf der Bühne zeigen (nur Konfigurationsmodus) |
-| `GET /api/projects/{id}/extra-keys` · `PUT/DELETE …/extra-keys/{slot}` · `GET/PUT …/scenes/{sid}/extra-keys` | Extra-Tasten belegen (`{libraryId, mode, fadeMs}`) und pro Szene freischalten (`{slots}`) |
+| `GET /api/projects/{id}/extra-keys` · `PUT/DELETE …/extra-keys/{slot}` · `GET/PUT …/scenes/{sid}/extra-keys` | Extra-Tasten belegen (`{libraryId}` oder `{sceneId}`, dazu `mode`, `fadeMs`) und pro Szene freischalten (`{slots}`) |
 | `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |

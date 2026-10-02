@@ -72,7 +72,8 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   aufnehmen. Umsortieren per Drag & Drop am Griff ⋮⋮ (oder Alt+↑/↓): Die Reihenfolge bleibt die Nummer, die gezogene
   Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
   Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
-  dazwischen), ohne Markierung am Ende. „▶ Show on stage“ spielt die Szene samt Kompositionen auf der echten Bühne
+  dazwischen), ohne Markierung am Ende. Szenen mit „Only for extra keys“ stehen unter der Cue-Liste im Abschnitt
+  „Scenes for extra keys“; GO überspringt sie, gespielt werden sie über Extra-Tasten. „▶ Show on stage“ spielt die Szene samt Kompositionen auf der echten Bühne
   (über dem Playback, unter dem Programmer), „■ Stop showing“ bzw. „■ Stop“ in der Kopfleiste beendet das.
 - **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
   „Back up now“. Die globalen Fade-Zeiten stehen beim Projekt. Später Tastenkürzel und MIDI-Mapping mit MIDI-Learn

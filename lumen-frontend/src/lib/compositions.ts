@@ -21,7 +21,8 @@ export function kindLabel(kind: CompositionKind): string {
   return KINDS.find((k) => k.kind === kind)?.label ?? kind;
 }
 
-export function kindIcon(kind: CompositionKind): string {
+export function kindIcon(kind: CompositionKind | 'scene'): string {
+  if (kind === 'scene') return '▣';
   return KINDS.find((k) => k.kind === kind)?.icon ?? '✦';
 }
 
