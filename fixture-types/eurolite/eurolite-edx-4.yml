@@ -1,0 +1,28 @@
+# EUROLITE EDX-4 DMX RDM LED dimmer pack (art. no. 70064068): 4 outputs for 230 V LED lamps.
+#
+# Patch one fixture per output – each output drives its own lamp:
+#   4 CH mode:     4 × "1ch" at consecutive addresses (patch with count 4)
+#   ind 4CH mode:  4 × "1ch", each at the start address set for its output on the pack
+#   1 CH mode:     1 × "1ch" – all four outputs follow this channel
+#   6 CH mode:     4 × "1ch" for the outputs, plus 1 × "6ch programs" at start address + 4
+#
+# Switch mode (set on the pack) turns an output on above 50 % (DMX 128) and off below.
+# The pack is for LED lamps only, not for incandescent bulbs (manual).
+id: eurolite-edx-4
+manufacturer: Eurolite
+model: EDX-4 DMX RDM LED dimmer pack
+category: dimmer
+
+modes:
+  - name: 1ch
+    channels:
+      - function: dimmer
+
+  # channels 5 and 6 of the 6 CH mode
+  - name: 6ch programs
+    channels:
+      - function: program
+        default: 0
+      - function: speed
+        name: Program speed (fast → slow)
+        default: 0

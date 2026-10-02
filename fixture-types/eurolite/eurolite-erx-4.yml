@@ -1,0 +1,23 @@
+# EUROLITE ERX-4 DMX switch pack (art. no. 70064210): 4 relay outputs, 5 A each.
+#
+# Patch one fixture per output – each output switches its own lamp:
+#   DIP switch 10 = 0 (4 channels):    4 × "1ch" at consecutive addresses (patch with count 4)
+#   DIP switch 10 = 1 (one address):   1 × "1ch" – all four outputs follow this channel
+# The start address is set with DIP switches 1–9 (1, 2, 4, … 256).
+#
+# A relay only knows on and off. The manual does not state the switching point; Eurolite packs switch at
+# 50 % (DMX 128), like the switch mode of the EDX-4 – check it on the pack. In a fade the output switches
+# when the level passes 50 %.
+id: eurolite-erx-4
+manufacturer: Eurolite
+model: ERX-4 DMX switch pack
+category: dimmer
+
+modes:
+  - name: 1ch
+    channels:
+      - function: dimmer
+        name: Switch
+        ranges:
+          - { from: 0,   to: 127, label: Off }
+          - { from: 128, to: 255, label: On }
