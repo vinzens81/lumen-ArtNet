@@ -117,9 +117,8 @@ public class CompositionService implements ManageCompositionsUseCase {
 		var source = copy.sourceId().flatMap(compositions::findById)
 				.orElseThrow(() -> new ConflictException("The library composition of this copy no longer exists"));
 		var spec = source.spec();
-		var own = copy.spec();
-		return changed(compositions.update(copyId, new CompositionSpec(spec.name(), spec.pattern(), spec.target(),
-				own.level(), own.speedFactor(), own.restart())));
+		return changed(compositions.update(copyId, copy.spec().withContent(spec.name(), spec.pattern(),
+				spec.target())));
 	}
 
 	@Override
@@ -128,12 +127,11 @@ public class CompositionService implements ManageCompositionsUseCase {
 		var spec = copy.spec();
 		var source = copy.sourceId().flatMap(compositions::findById);
 		if (source.isPresent()) {
-			var library = source.get().spec();
-			return changed(compositions.update(source.get().id(), new CompositionSpec(spec.name(), spec.pattern(),
-					spec.target(), library.level(), library.speedFactor(), library.restart())));
+			return changed(compositions.update(source.get().id(), source.get().spec().withContent(spec.name(),
+					spec.pattern(), spec.target())));
 		}
 		return changed(compositions.create(projectId, Optional.empty(), Optional.empty(),
-				new CompositionSpec(spec.name(), spec.pattern(), spec.target(), 1, 1, false)));
+				CompositionSpec.of(spec.name(), spec.pattern(), spec.target())));
 	}
 
 	// --- checks ----------------------------------------------------------------------------------------------

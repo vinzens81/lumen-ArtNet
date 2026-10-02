@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.scene;
 
 import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.NotFoundException;
+import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
@@ -26,13 +27,15 @@ public class SceneService implements ManageScenesUseCase {
 	private final ProjectRepository projects;
 	private final SceneRepository scenes;
 	private final ControlProgrammerUseCase programmer;
+	private final CompositionRepository compositions;
 	private final StateEvents events;
 
 	public SceneService(ProjectRepository projects, SceneRepository scenes, ControlProgrammerUseCase programmer,
-			StateEvents events) {
+			CompositionRepository compositions, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.programmer = Objects.requireNonNull(programmer, "programmer");
+		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.events = Objects.requireNonNull(events, "events");
 	}
 
@@ -57,7 +60,19 @@ public class SceneService implements ManageScenesUseCase {
 		requireFreeNumber(existing, sceneNumber, null);
 		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow);
 		var values = recordFromProgrammer ? programmerSnapshot() : Map.<Long, FixtureValues>of();
-		return published(scenes.create(projectId, spec, values));
+		var created = scenes.create(projectId, spec, values);
+		inheritExtraKeys(projectId, existing, created);
+		return published(created);
+	}
+
+	/** A new scene can use the same extra keys as the scene before it, so inserting a scene keeps e.g. a storm key. */
+	private void inheritExtraKeys(long projectId, List<Scene> existing, Scene created) {
+		existing.stream()
+				.filter(scene -> scene.spec().number().compareTo(created.spec().number()) < 0)
+				.reduce((first, second) -> second)
+				.map(previous -> compositions.findSceneKeys(projectId).get(previous.id()))
+				.filter(slots -> !slots.isEmpty())
+				.ifPresent(slots -> compositions.saveSceneKeys(created.id(), slots));
 	}
 
 	@Override

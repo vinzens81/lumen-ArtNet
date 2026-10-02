@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.Validation;
 import de.vinzens.lumen.domain.output.FixtureValues;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * Intensity rising and falling periodically. Every shape starts at {@code min}.
@@ -28,6 +29,12 @@ public record Wave(Shape shape, double periodSeconds, double min, double max, do
 	@Override
 	public PatternKind kind() {
 		return PatternKind.WAVE;
+	}
+
+	/** One period; a sawtooth ends at its high, a sine back at its low. */
+	@Override
+	public Optional<Double> onceSeconds(int count) {
+		return Optional.of(Pattern.justBefore(periodSeconds));
 	}
 
 	@Override

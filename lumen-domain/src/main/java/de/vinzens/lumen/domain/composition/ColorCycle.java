@@ -46,6 +46,12 @@ public record ColorCycle(List<Color> colors, double holdSeconds, double fadeSeco
 		return Values.color(color);
 	}
 
+	/** Until the last color is reached; it then stays. */
+	@Override
+	public Optional<Double> onceSeconds(int count) {
+		return Optional.of((colors.size() - 1) * (holdSeconds + fadeSeconds));
+	}
+
 	@Override
 	public Optional<Double> fallbackIntensity() {
 		return Optional.of(intensity);

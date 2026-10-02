@@ -26,7 +26,7 @@ public final class CompositionMixer {
 			FixtureAttributes attributes) {
 		var result = new HashMap<Long, FixtureValues>();
 		var fixtures = composition.fixtureIds();
-		var scaled = seconds * composition.speedFactor();
+		var scaled = composition.patternSeconds(seconds);
 		for (int i = 0; i < fixtures.size(); i++) {
 			var fixtureId = fixtures.get(i);
 			var values = composition.pattern().valuesAt(scaled, i, fixtures.size(), fixtureId);

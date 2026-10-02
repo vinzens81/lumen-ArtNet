@@ -9,6 +9,7 @@ import de.vinzens.lumen.domain.output.OperatingMode;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -65,6 +66,18 @@ class PlaybackController {
 	@DeleteMapping("/api/playback/resume")
 	PlaybackResponse dismissResume() {
 		return PlaybackResponse.from(playback.dismissResume());
+	}
+
+	/** Extra key pressed (toggle: on/off, flash: on). Show operation – no PIN needed. */
+	@PostMapping("/api/playback/keys/{slot}/press")
+	PlaybackResponse pressKey(@PathVariable int slot) {
+		return PlaybackResponse.from(playback.pressKey(slot));
+	}
+
+	/** Extra key released (flash: off). */
+	@PostMapping("/api/playback/keys/{slot}/release")
+	PlaybackResponse releaseKey(@PathVariable int slot) {
+		return PlaybackResponse.from(playback.releaseKey(slot));
 	}
 
 	@PutMapping("/api/playback/next")

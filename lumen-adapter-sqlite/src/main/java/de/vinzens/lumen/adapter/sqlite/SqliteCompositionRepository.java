@@ -5,6 +5,8 @@ import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.composition.Flicker;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.PatternKind;
@@ -21,6 +23,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.sql.ResultSet;
+import java.time.Duration;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,7 +31,10 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Locale;
+import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
 
 import static de.vinzens.lumen.adapter.sqlite.GeneratedKeys.generatedId;
 
@@ -92,11 +98,12 @@ public class SqliteCompositionRepository implements CompositionRepository {
 			var keys = new GeneratedKeyHolder();
 			jdbc.sql("""
 					INSERT INTO composition (project_id, scene_id, source_id, name, kind, params, target, group_id,
-					    position, level, speed_factor, restart)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					    position, level, speed_factor, restart, once)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, sceneId.orElse(null), sourceId.orElse(null), spec.name(),
 							spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
-							groupId(spec.target()), position, spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0)
+							groupId(spec.target()), position, spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
+							spec.once() ? 1 : 0)
 					.update(keys);
 			var compositionId = generatedId(keys);
 			insertDetails(compositionId, spec);
@@ -110,10 +117,11 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		transactions.executeWithoutResult(status -> {
 			jdbc.sql("""
 					UPDATE composition SET name = ?, kind = ?, params = ?, target = ?, group_id = ?, level = ?,
-					    speed_factor = ?, restart = ?
+					    speed_factor = ?, restart = ?, once = ?
 					WHERE id = ?""")
 					.params(spec.name(), spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
-							groupId(spec.target()), spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0, id)
+							groupId(spec.target()), spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
+							spec.once() ? 1 : 0, id)
 					.update();
 			jdbc.sql("DELETE FROM composition_target WHERE composition_id = ?").param(id).update();
 			jdbc.sql("DELETE FROM composition_step WHERE composition_id = ?").param(id).update();
@@ -135,6 +143,76 @@ public class SqliteCompositionRepository implements CompositionRepository {
 						.params(i, ids.get(i), sceneId).update();
 			}
 		});
+	}
+
+	// --- extra keys --------------------------------------------------------------------------------------------
+
+	@Override
+	public List<ExtraKey> findKeys(long projectId) {
+		var rows = jdbc.sql("SELECT * FROM composition WHERE project_id = ? AND key_slot IS NOT NULL ORDER BY key_slot")
+				.param(projectId).query(this::row).list();
+		return rows.stream().map(row -> new ExtraKey(row.keySlot(), KeyMode.valueOf(row.keyMode().toUpperCase(
+				Locale.ROOT)), Duration.ofMillis(row.keyFadeMs() == null ? 0 : row.keyFadeMs()),
+				toComposition(row))).toList();
+	}
+
+	@Override
+	public ExtraKey saveKey(long projectId, int slot, Optional<Long> sourceId, KeyMode mode, Duration fade,
+			CompositionSpec spec) {
+		transactions.executeWithoutResult(status -> {
+			deleteKey(projectId, slot);
+			var keys = new GeneratedKeyHolder();
+			jdbc.sql("""
+					INSERT INTO composition (project_id, key_slot, key_mode, key_fade_ms, source_id, name, kind, params,
+					    target, group_id, level, speed_factor, restart, once)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					.params(projectId, slot, mode.id(), fade.toMillis(), sourceId.orElse(null), spec.name(),
+							spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
+							groupId(spec.target()), spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
+							spec.once() ? 1 : 0)
+					.update(keys);
+			insertDetails(generatedId(keys), spec);
+		});
+		return key(projectId, slot);
+	}
+
+	@Override
+	public ExtraKey updateKeySettings(long projectId, int slot, KeyMode mode, Duration fade) {
+		jdbc.sql("UPDATE composition SET key_mode = ?, key_fade_ms = ? WHERE project_id = ? AND key_slot = ?")
+				.params(mode.id(), fade.toMillis(), projectId, slot).update();
+		return key(projectId, slot);
+	}
+
+	@Override
+	public void deleteKey(long projectId, int slot) {
+		jdbc.sql("DELETE FROM composition WHERE project_id = ? AND key_slot = ?").params(projectId, slot).update();
+	}
+
+	@Override
+	public Map<Long, Set<Integer>> findSceneKeys(long projectId) {
+		var result = new HashMap<Long, Set<Integer>>();
+		jdbc.sql("""
+				SELECT k.scene_id, k.key_slot FROM scene_extra_key k JOIN scene s ON s.id = k.scene_id
+				WHERE s.project_id = ?""")
+				.param(projectId)
+				.query(rs -> {
+					result.computeIfAbsent(rs.getLong("scene_id"), id -> new TreeSet<>()).add(rs.getInt("key_slot"));
+				});
+		return result;
+	}
+
+	@Override
+	public void saveSceneKeys(long sceneId, Set<Integer> slots) {
+		transactions.executeWithoutResult(status -> {
+			jdbc.sql("DELETE FROM scene_extra_key WHERE scene_id = ?").param(sceneId).update();
+			for (var slot : slots) {
+				jdbc.sql("INSERT INTO scene_extra_key (scene_id, key_slot) VALUES (?, ?)").params(sceneId, slot).update();
+			}
+		});
+	}
+
+	private ExtraKey key(long projectId, int slot) {
+		return findKeys(projectId).stream().filter(k -> k.slot() == slot).findFirst().orElseThrow();
 	}
 
 	// --- writing ---------------------------------------------------------------------------------------------
@@ -203,7 +281,8 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		};
 		return new Composition(row.id(), row.projectId(), Optional.ofNullable(row.sceneId()),
 				Optional.ofNullable(row.sourceId()), row.position(),
-				new CompositionSpec(row.name(), pattern, target, row.level(), row.speedFactor(), row.restart()));
+				new CompositionSpec(row.name(), pattern, target, row.level(), row.speedFactor(), row.restart(),
+						row.once()));
 	}
 
 	private List<Step> steps(long compositionId) {
@@ -229,7 +308,8 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		return new Row(rs.getLong("id"), rs.getLong("project_id"), nullableLong(rs, "scene_id"),
 				nullableLong(rs, "source_id"), rs.getString("name"), rs.getString("kind"), rs.getString("params"),
 				rs.getString("target"), nullableLong(rs, "group_id"), rs.getInt("position"), rs.getDouble("level"),
-				rs.getDouble("speed_factor"), rs.getInt("restart") == 1);
+				rs.getDouble("speed_factor"), rs.getInt("restart") == 1, rs.getInt("once") == 1,
+				nullableInt(rs, "key_slot"), rs.getString("key_mode"), nullableLong(rs, "key_fade_ms"));
 	}
 
 	private static Long nullableLong(ResultSet rs, String column) throws SQLException {
@@ -237,7 +317,13 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		return rs.wasNull() ? null : value;
 	}
 
+	private static Integer nullableInt(ResultSet rs, String column) throws SQLException {
+		var value = rs.getInt(column);
+		return rs.wasNull() ? null : value;
+	}
+
 	private record Row(long id, long projectId, Long sceneId, Long sourceId, String name, String kind, String params,
-			String target, Long groupId, int position, double level, double speedFactor, boolean restart) {
+			String target, Long groupId, int position, double level, double speedFactor, boolean restart,
+			boolean once, Integer keySlot, String keyMode, Long keyFadeMs) {
 	}
 }

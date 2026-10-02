@@ -5,6 +5,7 @@ import de.vinzens.lumen.adapter.sqlite.SqliteDatabase;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.backup.BackupService;
 import de.vinzens.lumen.application.composition.CompositionService;
+import de.vinzens.lumen.application.composition.ExtraKeyService;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
@@ -103,6 +104,13 @@ class PersistenceConfiguration {
 
 	@Bean
 	SceneService sceneService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents) {
-		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine, stateEvents);
+		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine,
+				repositories.compositions(), stateEvents);
+	}
+
+	@Bean
+	ExtraKeyService extraKeyService(SqliteRepositories repositories, StateEvents stateEvents) {
+		return new ExtraKeyService(repositories.projects(), repositories.scenes(), repositories.compositions(),
+				stateEvents);
 	}
 }

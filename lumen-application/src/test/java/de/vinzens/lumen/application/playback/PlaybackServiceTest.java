@@ -8,7 +8,15 @@ import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.KeyMode;
+import de.vinzens.lumen.domain.composition.Target;
+import de.vinzens.lumen.domain.composition.Wave;
 import de.vinzens.lumen.domain.library.Attribute;
+import de.vinzens.lumen.domain.library.ChannelDefinition;
+import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.Group;
@@ -31,6 +39,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -44,6 +53,7 @@ class PlaybackServiceTest {
 	private final Map<Long, Optional<Long>> saved = new HashMap<>();
 	private final List<Optional<Long>> writes = new ArrayList<>();
 	private final StateEvents events = new StateEvents();
+	private FixedCompositions compositions = FixedCompositions.NONE;
 
 	@BeforeEach
 	void setUp() {
@@ -117,6 +127,41 @@ class PlaybackServiceTest {
 		assertThat(service().status().resumeSceneId()).isEmpty();
 	}
 
+	@Test
+	void extraKeysWorkOnlyInTheirScenesAndGoOffAfterwards() {
+		// key 1: full intensity on fixture 9, usable in scenes 1 and 2
+		var storm = new Composition(50, 1, Optional.empty(), Optional.empty(), 0, CompositionSpec.of("Storm",
+				new Wave(Wave.Shape.SQUARE, 3600, 1, 1, 0), new Target.Fixtures(List.of(9L))));
+		compositions = new FixedCompositions(Map.of(),
+				List.of(new ExtraKey(1, KeyMode.TOGGLE, Duration.ZERO, storm)), Map.of(1L, Set.of(1), 2L, Set.of(1)));
+		var service = service();
+
+		service.pressKey(1);
+		assertThat(keyDimmer(service)).as("no scene on stage yet").isZero();
+
+		go(service);
+		var status = service.pressKey(1);
+		assertThat(status.keys()).singleElement().satisfies(key -> {
+			assertThat(key.on()).isTrue();
+			assertThat(key.available()).isTrue();
+			assertThat(key.name()).isEqualTo("Storm");
+		});
+		assertThat(keyDimmer(service)).isEqualTo(1.0);
+
+		go(service); // scene 2: still usable
+		assertThat(keyDimmer(service)).isEqualTo(1.0);
+		go(service); // scene 3: not enabled – off
+		assertThat(keyDimmer(service)).isZero();
+		assertThat(service.status().keys().getFirst().available()).isFalse();
+	}
+
+	private double keyDimmer(PlaybackService service) {
+		var dimmer = new Mode("1ch", List.of(new ChannelDefinition(ChannelFunction.DIMMER, Optional.empty(), 8, 0, false,
+				List.of(), Optional.empty())));
+		return service.layer(clock.instant(), Map.of(9L, dimmer)).fixtures().getOrDefault(9L, FixtureValues.EMPTY)
+				.get(DIMMER).orElse(0.0);
+	}
+
 	private PlaybackService service() {
 		PlaybackStateRepository states = new PlaybackStateRepository() {
 			@Override
@@ -130,7 +175,7 @@ class PlaybackServiceTest {
 				writes.add(sceneId);
 			}
 		};
-		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(FixedCompositions.NONE, groups()), states,
+		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(compositions, groups()), states,
 				Runnable::run, clock, events);
 	}
 

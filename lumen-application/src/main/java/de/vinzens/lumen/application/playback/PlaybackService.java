@@ -10,6 +10,7 @@ import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.domain.composition.ExtraKeys;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.LayerOutput;
@@ -25,6 +26,7 @@ import java.time.Instant;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executor;
 
 /**
@@ -58,6 +60,9 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	private Optional<Long> savedSceneId = Optional.empty();
 	/** Scene the show can be resumed at after a restart, until the operator resumes, dismisses or plays on. */
 	private Optional<Long> resumeSceneId = Optional.empty();
+	/** Extra keys: laid over the playback output, usable only in the scenes they are enabled for. */
+	private ExtraKeys keys = new ExtraKeys();
+	private Map<Long, Set<Integer>> sceneKeys = Map.of();
 
 	/**
 	 * @param stateWriter runs the saving of the playback state, e.g. a single background thread
@@ -72,7 +77,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.events = Objects.requireNonNull(events, "events");
 		events.subscribe(topic -> {
-			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS) {
+			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS || topic == StateTopic.COMPOSITIONS) {
 				reload();
 			}
 		});
@@ -90,6 +95,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			playback = null;
 			savedSceneId = Optional.empty();
 			resumeSceneId = Optional.empty();
+			keys = new ExtraKeys();
 		} else {
 			var project = active.get();
 			var cueList = scenes.findByProject(project.id());
@@ -101,10 +107,15 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback = new Playback(cueList, running, fadeIn, fadeOut);
 				savedSceneId = states.currentScene(project.id());
 				resumeSceneId = savedSceneId;
+				keys = new ExtraKeys();
 			} else {
 				playback.reload(cueList, running, fadeIn, fadeOut, clock.instant());
 			}
 			resumeSceneId = resumeSceneId.filter(id -> cueList.stream().anyMatch(scene -> scene.id() == id));
+			var now = clock.instant();
+			keys.configure(compositions.keys(project.id()), now);
+			sceneKeys = compositions.sceneKeys(project.id());
+			updateKeyAvailability(now);
 		}
 		events.publish(StateTopic.PLAYBACK);
 	}
@@ -115,12 +126,17 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			return new LayerOutput(PLAYBACK_PRIORITY, Map.of());
 		}
 		behaviors = FadeBehaviors.of(modes);
-		playback.useFixtures(FixtureAttributes.of(modes));
+		var attributes = FixtureAttributes.of(modes);
+		playback.useFixtures(attributes);
 		if (playback.tick(now, behaviors)) {
 			saveState(now);
+			updateKeyAvailability(now);
 			events.publish(StateTopic.PLAYBACK);
 		}
-		return new LayerOutput(PLAYBACK_PRIORITY, playback.output(now, behaviors));
+		if (keys.tick(now)) {
+			events.publish(StateTopic.PLAYBACK);
+		}
+		return new LayerOutput(PLAYBACK_PRIORITY, keys.apply(playback.output(now, behaviors), now, attributes));
 	}
 
 	@Override
@@ -151,6 +167,26 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		var now = clock.instant();
 		current.restore(sceneId, now);
 		return played(now);
+	}
+
+	@Override
+	public synchronized PlaybackStatus pressKey(int slot) {
+		requirePlayback();
+		var now = clock.instant();
+		return keys.press(slot, now) ? changed(now) : status(now);
+	}
+
+	@Override
+	public synchronized PlaybackStatus releaseKey(int slot) {
+		requirePlayback();
+		var now = clock.instant();
+		return keys.release(slot, now) ? changed(now) : status(now);
+	}
+
+	/** Keys are usable in the scenes they are enabled for; before the first scene and at the end none. */
+	private void updateKeyAvailability(Instant now) {
+		var scene = playback.currentScene();
+		keys.setAvailable(scene.map(s -> sceneKeys.getOrDefault(s.id(), Set.of())).orElse(Set.of()), now);
 	}
 
 	@Override
@@ -187,6 +223,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	private PlaybackStatus played(Instant now) {
 		resumeSceneId = Optional.empty();
 		saveState(now);
+		updateKeyAvailability(now);
 		return changed(now);
 	}
 
@@ -226,6 +263,6 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		return new PlaybackStatus(true, playback.position(), playback.sceneCount(),
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
-				resumeSceneId.filter(id -> playback.position() == Playback.READY));
+				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now));
 	}
 }

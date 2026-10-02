@@ -181,6 +181,57 @@ class CompositionApiTest {
 	}
 
 	@Test
+	void extraKeysPlayOverTheSceneOnlyWhereTheyAreEnabled() throws Exception {
+		var storm = id(post(base + "/compositions", """
+				{"name": "Storm", "kind": "wave", "params": {"shape": "square", "periodMs": 3600000, "min": 1, "max": 1},
+				 "target": {"groupId": %d}, "once": true}""".formatted(ramp)));
+		var first = id(post(base + "/scenes", "{\"name\": \"Act 1\"}"));
+		var second = id(post(base + "/scenes", "{\"name\": \"Act 2\"}"));
+
+		assertThat(put(base + "/extra-keys/3", "{\"libraryId\": " + storm + ", \"mode\": \"toggle\", \"fadeMs\": 0}"))
+				.hasStatusOk().bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.slot").isEqualTo(3);
+					assertThat(json).extractingPath("$.composition.sourceId").isEqualTo((int) storm);
+					assertThat(json).extractingPath("$.composition.once").isEqualTo(true);
+				});
+		assertThat(put(base + "/extra-keys/9", "{\"libraryId\": " + storm + "}")).hasStatus(400);
+		assertThat(body(base + "/scenes/" + second + "/extra-keys")).as("new key: usable everywhere")
+				.isEqualTo("{\"slots\":[3]}");
+		var third = id(post(base + "/scenes", "{\"name\": \"Act 3\"}"));
+		assertThat(body(base + "/scenes/" + third + "/extra-keys")).as("inherited from Act 2").isEqualTo("{\"slots\":[3]}");
+		assertThat(put(base + "/scenes/" + second + "/extra-keys", "{\"slots\": []}")).hasStatusOk();
+		assertThat(put(base + "/scenes/" + first + "/extra-keys", "{\"slots\": [5]}")).as("empty key").hasStatus(400);
+
+		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
+		assertThat(post("/api/playback/go", "")).hasStatusOk();
+		assertThat(post("/api/playback/keys/3/press", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.keys[0].on").isEqualTo(true);
+		Thread.sleep(100);
+		assertThat(dmx()[0]).as("storm over Act 1").isEqualTo(255);
+
+		Thread.sleep(250); // double-GO guard
+		assertThat(post("/api/playback/go", "")).hasStatusOk().bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$.keys[0].available").isEqualTo(false);
+			assertThat(json).extractingPath("$.keys[0].on").isEqualTo(false);
+		});
+		Thread.sleep(100);
+		assertThat(dmx()[0]).as("Act 2 has no storm key").isZero();
+		put("/api/mode", "{\"mode\": \"setup\"}");
+
+		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
+		var copy = "/api/projects/" + id(post("/api/projects/import", file));
+		var keys = body(copy + "/extra-keys");
+		assertThat(JsonPath.<Integer>read(keys, "$[0].slot")).isEqualTo(3);
+		assertThat(JsonPath.<Boolean>read(keys, "$[0].composition.once")).isTrue();
+		var copiedScenes = JsonPath.<List<Integer>>read(body(copy + "/scenes"), "$[*].id");
+		assertThat(body(copy + "/scenes/" + copiedScenes.get(0) + "/extra-keys")).isEqualTo("{\"slots\":[3]}");
+		assertThat(body(copy + "/scenes/" + copiedScenes.get(1) + "/extra-keys")).isEqualTo("{\"slots\":[]}");
+
+		assertThat(mvc.delete().uri(base + "/extra-keys/3")).hasStatus(204);
+		assertThat(body(base + "/scenes/" + first + "/extra-keys")).isEqualTo("{\"slots\":[]}");
+	}
+
+	@Test
 	void compositionsTravelWithTheProjectExport() throws Exception {
 		var chase = id(post(base + "/compositions", """
 				{"name": "Fair chase", "kind": "chase", "target": {"groupId": %d}}""".formatted(ramp)));

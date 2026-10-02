@@ -2,7 +2,10 @@ package de.vinzens.lumen.adapter.web.playback;
 
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase.PlaybackStatus;
 
+import de.vinzens.lumen.domain.composition.ExtraKeys.KeyStatus;
+
 import java.time.Duration;
+import java.util.List;
 
 /**
  * JSON form of the playback status. Times are milliseconds; clients interpolate fade progress and the
@@ -17,10 +20,11 @@ public final class PlaybackDtos {
 	 * @param position     -1 before the first scene, sceneCount at the end of the show
 	 * @param autoFollowInMs time until the next scene starts automatically, null without auto-follow
 	 * @param resumeSceneId  scene that was on stage before a restart and can be resumed, otherwise null
+	 * @param keys           assigned extra keys
 	 */
 	public record PlaybackResponse(boolean available, int position, int sceneCount, Long currentSceneId,
 			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs,
-			Long resumeSceneId) {
+			Long resumeSceneId, List<KeyResponse> keys) {
 
 		public static PlaybackResponse from(PlaybackStatus status) {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
@@ -28,7 +32,21 @@ public final class PlaybackDtos {
 					status.fade().map(f -> new FadeResponse(f.fromSceneId().orElse(null), f.elapsed().toMillis(),
 							f.fadeIn().toMillis(), f.fadeOut().toMillis())).orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
-					status.resumeSceneId().orElse(null));
+					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList());
+		}
+	}
+
+	/**
+	 * @param on        switched on (possibly still fading in)
+	 * @param level     current fade level 0–1
+	 * @param available can be used in the scene on stage
+	 */
+	public record KeyResponse(int slot, String name, String kind, String mode, boolean on, double level,
+			boolean available) {
+
+		static KeyResponse from(KeyStatus key) {
+			return new KeyResponse(key.slot(), key.name(), key.kind().id(), key.mode().id(), key.on(),
+					Math.round(key.level() * 1000) / 1000.0, key.available());
 		}
 	}
 

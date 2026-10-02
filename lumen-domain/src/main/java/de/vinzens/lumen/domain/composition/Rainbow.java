@@ -34,6 +34,12 @@ public record Rainbow(double cycleSeconds, double saturation, double spread, dou
 		return Values.color(Color.hsv(hue, saturation, 1));
 	}
 
+	/** One round through the color circle. */
+	@Override
+	public Optional<Double> onceSeconds(int count) {
+		return Optional.of(Pattern.justBefore(cycleSeconds));
+	}
+
 	@Override
 	public Optional<Double> fallbackIntensity() {
 		return Optional.of(intensity);

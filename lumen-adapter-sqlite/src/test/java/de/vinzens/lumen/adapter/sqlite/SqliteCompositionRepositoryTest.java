@@ -5,6 +5,7 @@ import de.vinzens.lumen.domain.composition.Color;
 import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.Flicker;
+import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.StepSequence.Step;
 import de.vinzens.lumen.domain.composition.Target;
@@ -29,6 +30,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -68,7 +70,7 @@ class SqliteCompositionRepositoryTest {
 		var chase = CompositionSpec.of("Ramp chase", new Chase(0.4, 2, Chase.Direction.PING_PONG, 0.3, 0.1, 0.9),
 				new Target.Group(group));
 		var cycle = new CompositionSpec("Booths", new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0.5, 1)),
-				2, 1, 0.5, 0.8), new Target.Fixtures(List.of(b, a)), 0.7, 1.5, true);
+				2, 1, 0.5, 0.8), new Target.Fixtures(List.of(b, a)), 0.7, 1.5, true, true);
 		var steps = CompositionSpec.of("Steps", new StepSequence(List.of(
 				new Step(1, 0.5, Map.of(a, new FixtureValues(Map.of(DIMMER, 1.0, RED, 0.25)))),
 				new Step(2, 0, Map.of(b, new FixtureValues(Map.of(DIMMER, 0.5))))), StepSequence.PlayMode.PING_PONG),
@@ -111,6 +113,35 @@ class SqliteCompositionRepositoryTest {
 
 		repos.scenes().delete(scene);
 		assertThat(repos.compositions().findByScenes(project)).isEmpty();
+	}
+
+	@Test
+	void extraKeysAndTheirScenes() {
+		var library = repos.compositions().create(project, Optional.empty(), Optional.empty(), flicker("Storm"));
+		var spec = CompositionSpec.of("Storm", flicker("x").pattern(), new Target.Group(group));
+
+		var key = repos.compositions().saveKey(project, 3, Optional.of(library.id()), KeyMode.FLASH,
+				Duration.ofMillis(250), spec);
+		assertThat(key.slot()).isEqualTo(3);
+		assertThat(key.mode()).isEqualTo(KeyMode.FLASH);
+		assertThat(key.fade()).isEqualTo(Duration.ofMillis(250));
+		assertThat(key.composition().sourceId()).contains(library.id());
+		assertThat(key.composition().spec()).isEqualTo(spec);
+		assertThat(repos.compositions().findLibrary(project)).as("keys are not in the library").hasSize(1);
+		assertThat(repos.compositions().findByScenes(project)).isEmpty();
+
+		repos.compositions().saveKey(project, 3, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, spec);
+		assertThat(repos.compositions().findKeys(project)).as("replaced").singleElement()
+				.satisfies(k -> assertThat(k.composition().sourceId()).isEmpty());
+		assertThat(repos.compositions().updateKeySettings(project, 3, KeyMode.FLASH, Duration.ofSeconds(1)).fade())
+				.isEqualTo(Duration.ofSeconds(1));
+
+		repos.compositions().saveSceneKeys(scene, Set.of(3, 5));
+		assertThat(repos.compositions().findSceneKeys(project)).containsEntry(scene, Set.of(3, 5));
+		repos.compositions().deleteKey(project, 3);
+		assertThat(repos.compositions().findKeys(project)).isEmpty();
+		repos.scenes().delete(scene);
+		assertThat(repos.compositions().findSceneKeys(project)).isEmpty();
 	}
 
 	@Test

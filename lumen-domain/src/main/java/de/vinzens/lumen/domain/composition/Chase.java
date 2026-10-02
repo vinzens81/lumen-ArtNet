@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.Validation;
 import de.vinzens.lumen.domain.output.FixtureValues;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
  * A light running along the target: {@code width} fixtures are on at a time, the head moves one fixture per step.
@@ -54,6 +55,16 @@ public record Chase(double stepSeconds, int width, Direction direction, double s
 			level = hard * (1 - softness) + soft * softness;
 		}
 		return Values.intensity(min + (max - min) * level);
+	}
+
+	/** Forward/backward: until the head reaches the last fixture; ping-pong: there and back. */
+	@Override
+	public Optional<Double> onceSeconds(int count) {
+		return switch (direction) {
+			case FORWARD, BACKWARD -> Optional.of(Math.max(0, count - 1) * stepSeconds);
+			case PING_PONG -> Optional.of(Math.max(0, 2 * count - 2) * stepSeconds);
+			case RANDOM -> Optional.empty();
+		};
 	}
 
 	/** Index of the first fixture that is on in the given step. */

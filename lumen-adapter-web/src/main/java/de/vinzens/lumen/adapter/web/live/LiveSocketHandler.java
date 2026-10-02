@@ -47,7 +47,8 @@ import java.util.concurrent.TimeUnit;
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
  * {@code health} (every second), {@code compositions}, {@code library}, {@code access},
  * {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last seven ask the client to reload via REST). Client → server: {@code programmer.set},
- * {@code master.set}, {@code blackout.set} and {@code playback.go/back/pause/finish} for low latency.
+ * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish} and {@code keys.press/release}
+ * (with {@code slot}) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -261,6 +262,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				}
 				case "blackout.set" -> master.setBlackout(Boolean.TRUE.equals(command.active()));
 				case "subscribe" -> subscribe(session, command.topics());
+				case "keys.press" -> playback.pressKey(requireSlot(command));
+				case "keys.release" -> playback.releaseKey(requireSlot(command));
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();
 				case "playback.pause" -> playback.togglePause();
@@ -292,6 +295,13 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		}
 	}
 
+	private static int requireSlot(Command command) {
+		if (command.slot() == null) {
+			throw new DomainValidationException(List.of("slot is missing"));
+		}
+		return command.slot();
+	}
+
 	private void reply(WebSocketSession session, String error) {
 		var target = sessions.getOrDefault(session.getId(), session);
 		send(target, new TextMessage(json.writeValueAsString(Map.of("type", "error", "message", error))));
@@ -303,7 +313,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	}
 
 	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
-			List<String> topics) {
+			List<String> topics, Integer slot) {
 	}
 
 	/** @param lastSent topic → message last sent to this client */

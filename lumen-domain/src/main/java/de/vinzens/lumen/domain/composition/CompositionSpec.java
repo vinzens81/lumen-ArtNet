@@ -11,9 +11,10 @@ import java.util.Objects;
  * @param speedFactor multiplies the tempo (2 = twice as fast)
  * @param restart     in a scene: start from the beginning at GO instead of continuing a running composition of the
  *                    same origin
+ * @param once        run through once and stay at the end (e.g. a sunrise) instead of repeating
  */
 public record CompositionSpec(String name, Pattern pattern, Target target, double level, double speedFactor,
-		boolean restart) {
+		boolean restart, boolean once) {
 
 	public CompositionSpec {
 		Objects.requireNonNull(pattern, "pattern");
@@ -31,8 +32,13 @@ public record CompositionSpec(String name, Pattern pattern, Target target, doubl
 		name = name.strip();
 	}
 
-	/** A new composition with level 100 % and normal speed. */
+	/** A new, repeating composition with level 100 % and normal speed. */
 	public static CompositionSpec of(String name, Pattern pattern, Target target) {
-		return new CompositionSpec(name, pattern, target, 1, 1, false);
+		return new CompositionSpec(name, pattern, target, 1, 1, false, false);
+	}
+
+	/** The same composition with other pattern and target (e.g. taken from the library), keeping the rest. */
+	public CompositionSpec withContent(String newName, Pattern newPattern, Target newTarget) {
+		return new CompositionSpec(newName, newPattern, newTarget, level, speedFactor, restart, once);
 	}
 }

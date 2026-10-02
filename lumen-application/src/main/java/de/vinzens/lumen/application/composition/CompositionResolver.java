@@ -4,12 +4,14 @@ import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
 import de.vinzens.lumen.domain.composition.Target;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 /**
  * Turns stored compositions into playable ones: group targets become the current members of the group, in order.
@@ -32,6 +34,20 @@ public class CompositionResolver {
 				.map(copy -> ActiveComposition.of(copy, targetFixtures(copy, members)))
 				.toList()));
 		return result;
+	}
+
+	/** Assigned extra keys of the project, ready to play. */
+	public List<PlayableKey> keys(long projectId) {
+		var members = groupMembers(projectId);
+		return compositions.findKeys(projectId).stream()
+				.map(key -> new PlayableKey(key.slot(), key.mode(), key.fade(), key.composition().spec().name(),
+						ActiveComposition.of(key.composition(), targetFixtures(key.composition(), members))))
+				.toList();
+	}
+
+	/** Extra keys usable per scene: scene id → slots. */
+	public Map<Long, Set<Integer>> sceneKeys(long projectId) {
+		return compositions.findSceneKeys(projectId);
 	}
 
 	public ActiveComposition resolve(Composition composition) {

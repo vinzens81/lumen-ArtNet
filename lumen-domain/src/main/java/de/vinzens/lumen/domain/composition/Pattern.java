@@ -33,6 +33,21 @@ public sealed interface Pattern permits Chase, ColorCycle, Rainbow, Wave, Flicke
 		return Optional.empty();
 	}
 
+	/**
+	 * Time after which a composition that runs only once stands still at its end, e.g. a sunrise that stays up.
+	 * Empty for patterns without an end (random chase, flicker).
+	 *
+	 * @param count number of fixtures in the target
+	 */
+	default Optional<Double> onceSeconds(int count) {
+		return Optional.empty();
+	}
+
+	/** A moment before {@code seconds}: the end of a cycle without wrapping around to its start. */
+	static double justBefore(double seconds) {
+		return Math.max(0, seconds - 1e-6);
+	}
+
 	/** Fixtures the pattern itself defines (step sequences); otherwise the composition target is used. */
 	default Optional<List<Long>> ownFixtures() {
 		return Optional.empty();

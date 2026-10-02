@@ -58,6 +58,13 @@ public record StepSequence(List<Step> steps, PlayMode playMode) implements Patte
 		return Optional.of(List.copyOf(ids));
 	}
 
+	/** Once through all steps; the last step stays (ping-pong: without going back). */
+	@Override
+	public Optional<Double> onceSeconds(int count) {
+		var total = steps.stream().mapToDouble(Step::duration).sum();
+		return steps.isEmpty() ? Optional.empty() : Optional.of(Pattern.justBefore(total));
+	}
+
 	@Override
 	public FixtureValues valuesAt(double seconds, int index, int count, long fixtureId) {
 		if (steps.isEmpty()) {

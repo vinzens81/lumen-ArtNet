@@ -62,7 +62,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		var project = projects.findById(projectId).orElseThrow(() -> ProjectService.notFound(projectId));
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
 				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
-				stagePlans.find(projectId), allCompositions(projectId));
+				stagePlans.find(projectId), allCompositions(projectId), compositions.findKeys(projectId),
+				compositions.findSceneKeys(projectId));
 	}
 
 	private List<Composition> allCompositions(long projectId) {
@@ -124,6 +125,12 @@ public class ProjectTransferService implements TransferProjectUseCase {
 					composition.sourceId().map(compositionIds::get), spec);
 			compositionIds.put(composition.id(), created.id());
 		}
+		for (var key : export.keys()) {
+			var composition = key.composition();
+			compositions.saveKey(projectId, key.slot(), composition.sourceId().map(compositionIds::get), key.mode(),
+					key.fade(), remap(composition.spec(), fixtureIds, groupIds));
+		}
+		export.sceneKeys().forEach((sceneId, slots) -> compositions.saveSceneKeys(sceneIds.get(sceneId), slots));
 	}
 
 	/** The spec with fixture and group ids of the new project. */
@@ -141,7 +148,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				return new StepSequence.Step(step.holdSeconds(), step.fadeSeconds(), values);
 			}).toList(), sequence.playMode());
 		}
-		return new CompositionSpec(spec.name(), pattern, target, spec.level(), spec.speedFactor(), spec.restart());
+		return spec.withContent(spec.name(), pattern, target);
 	}
 
 	private static void validateReferences(ProjectExport export) {
@@ -191,6 +198,16 @@ public class ProjectTransferService implements TransferProjectUseCase {
 						.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
 			}
 		}
+		var slots = new HashSet<Integer>();
+		for (var key : export.keys()) {
+			if (!slots.add(key.slot())) {
+				errors.add("Extra key " + key.slot() + " is used twice");
+			}
+			key.composition().sourceId().filter(id -> !libraryIds.contains(id)).ifPresent(id ->
+					errors.add("Extra key " + key.slot() + " refers to unknown library composition " + id));
+		}
+		export.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
+				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));
 		var sceneNumbers = new HashSet<SceneNumber>();
 		for (var scene : export.scenes()) {
 			if (!sceneNumbers.add(scene.spec().number())) {

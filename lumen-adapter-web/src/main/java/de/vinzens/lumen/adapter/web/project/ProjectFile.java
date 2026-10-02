@@ -13,6 +13,8 @@ import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase.ProjectExport;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
+import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
@@ -36,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * File format of an exported project (JSON). Ids only connect the parts of the file: fixtures refer to
@@ -46,7 +49,8 @@ import java.util.Optional;
  */
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
-		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions) {
+		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions,
+		List<ExtraKeyEntry> extraKeys) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
@@ -61,9 +65,13 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.universes().stream().map(UniverseEntry::from).toList(),
 				export.fixtures().stream().map(FixtureEntry::from).toList(),
 				export.groups().stream().map(GroupEntry::from).toList(),
-				export.scenes().stream().map(SceneEntry::from).toList(),
+				export.scenes().stream()
+						.map(scene -> SceneEntry.from(scene, export.sceneKeys().getOrDefault(scene.id(), Set.of())))
+						.toList(),
 				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null),
-				export.compositions().stream().map(c -> CompositionEntry.from(c, sceneNumbers, json)).toList());
+				export.compositions().stream().map(c -> CompositionEntry.from(c, sceneNumbers, json)).toList(),
+				export.keys().stream().map(k -> new ExtraKeyEntry(k.slot(), k.mode().id(), k.fade().toMillis(),
+						CompositionEntry.from(k.composition(), sceneNumbers, json))).toList());
 	}
 
 	ProjectExport toExport(JsonMapper json) {
@@ -81,10 +89,15 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		var sceneList = list(scenes);
 		var sceneIds = new HashMap<String, Long>();
 		var exportScenes = new ArrayList<Scene>();
+		var sceneKeys = new HashMap<Long, Set<Integer>>();
 		for (int i = 0; i < sceneList.size(); i++) {
 			var scene = sceneList.get(i).toScene(i + 1);
 			sceneIds.put(scene.spec().number().toString(), scene.id());
 			exportScenes.add(scene);
+			var keys = sceneList.get(i).extraKeys();
+			if (keys != null && !keys.isEmpty()) {
+				sceneKeys.put(scene.id(), Set.copyOf(keys));
+			}
 		}
 		return new ProjectExport(project.toSpec(),
 				list(universes).stream().map(UniverseEntry::toUniverse).toList(),
@@ -93,7 +106,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				exportScenes,
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
 						plan.data() == null ? new byte[0] : plan.data())),
-				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList());
+				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList(),
+				list(extraKeys).stream().map(k -> k.toKey(sceneIds, json)).toList(), sceneKeys);
 	}
 
 	private static long require(Long id, String what) {
@@ -114,17 +128,17 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param sourceId id of the library composition a copy was made from
 	 */
 	record CompositionEntry(Long id, String sceneNumber, Long sourceId, String name, String kind, JsonNode params,
-			TargetDto target, List<StepDto> steps, Double level, Double speedFactor, Boolean restart) {
+			TargetDto target, List<StepDto> steps, Double level, Double speedFactor, Boolean restart, Boolean once) {
 
 		static CompositionEntry from(Composition composition, Map<Long, String> sceneNumbers, JsonMapper json) {
 			var api = CompositionResponse.from(composition);
 			return new CompositionEntry(api.id(), composition.sceneId().map(sceneNumbers::get).orElse(null),
 					api.sourceId(), api.name(), api.kind(), json.valueToTree(api.params()), api.target(), api.steps(),
-					api.level(), api.speedFactor(), api.restart());
+					api.level(), api.speedFactor(), api.restart(), api.once());
 		}
 
 		Composition toComposition(Map<String, Long> sceneIds, JsonMapper json) {
-			var spec = new CompositionRequest(name, kind, params, target, steps, level, speedFactor, restart)
+			var spec = new CompositionRequest(name, kind, params, target, steps, level, speedFactor, restart, once)
 					.toSpec(json);
 			Optional<Long> sceneId = Optional.empty();
 			if (sceneNumber != null) {
@@ -135,6 +149,23 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			}
 			return new Composition(Objects.requireNonNullElse(id, 0L), 0, sceneId, Optional.ofNullable(sourceId), 0,
 					spec);
+		}
+	}
+
+	/** An extra key of show mode with its own composition (mode toggle or flash). */
+	record ExtraKeyEntry(Integer slot, String mode, Long fadeMs, CompositionEntry composition) {
+
+		ExtraKey toKey(Map<String, Long> sceneIds, JsonMapper json) {
+			if (slot == null || composition == null) {
+				throw new DomainValidationException(List.of("An extra key needs slot and composition"));
+			}
+			var mode = this.mode == null ? KeyMode.TOGGLE : switch (this.mode) {
+				case "toggle" -> KeyMode.TOGGLE;
+				case "flash" -> KeyMode.FLASH;
+				default -> throw new DomainValidationException(List.of("Extra key mode must be toggle or flash"));
+			};
+			return new ExtraKey(slot, mode, Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)),
+					composition.toComposition(sceneIds, json));
 		}
 	}
 
@@ -191,13 +222,15 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	}
 
 	/** @param values normalized values (0–1) per fixture id and attribute */
+	/** @param extraKeys extra keys usable in this scene */
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs,
-			Map<Long, Map<String, Double>> values) {
+			Map<Long, Map<String, Double>> values, List<Integer> extraKeys) {
 
-		static SceneEntry from(Scene scene) {
+		static SceneEntry from(Scene scene, Set<Integer> keys) {
 			var spec = scene.spec();
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), ValuesJson.toJson(scene.values()));
+					spec.autoFollow().map(Duration::toMillis).orElse(null), ValuesJson.toJson(scene.values()),
+					keys.stream().sorted().toList());
 		}
 
 		Scene toScene(long id) {
