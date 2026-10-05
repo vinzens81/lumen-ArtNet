@@ -7,6 +7,7 @@ import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -58,7 +59,7 @@ class SceneController {
 		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly()), Boolean.TRUE.equals(request.record())));
+				Boolean.TRUE.equals(request.keyOnly()), timing(request), Boolean.TRUE.equals(request.record())));
 	}
 
 	@PutMapping("/{sceneId}")
@@ -68,7 +69,7 @@ class SceneController {
 		}
 		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly())));
+				Boolean.TRUE.equals(request.keyOnly()), timing(request)));
 	}
 
 	/** Overwrites the scene with the current programmer values. */
@@ -94,29 +95,40 @@ class SceneController {
 		return Optional.ofNullable(request.autoFollowMs()).map(Duration::ofMillis);
 	}
 
-	/**
-	 * @param number       cue number as text, e.g. "2.5"
-	 * @param autoFollowMs stay time before the next scene starts automatically, {@code null} = wait for GO
-	 */
-	/** @param keyOnly only played by extra keys, GO skips the scene */
-	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
-			Boolean record) {
+	private static SceneTiming timing(SceneRequest request) {
+		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs());
 	}
 
 	/**
-	 * @param values programmer-style values per fixture id
+	 * @param number       cue number as text, e.g. "2.5"
+	 * @param autoFollowMs stay time before the next scene starts automatically, {@code null} = wait for GO
+	 * @param keyOnly      only played by extra keys, GO skips the scene
+	 * @param fadeInMs     fade-in of the GO into this scene, {@code null} = the project's
+	 * @param fadeOutMs    fade-out of the look before at the GO into this scene, {@code null} = the project's
+	 * @param delayMs      the fade-in starts this long after GO, {@code null} = 0
 	 */
+	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
+			Long fadeInMs, Long fadeOutMs, Long delayMs, Boolean record) {
+	}
+
 	/**
 	 * @param keyOnly      only played by extra keys, not part of the cue list
+	 * @param fadeInMs     own fade-in time, {@code null} = the project's
+	 * @param fadeOutMs    own fade-out time, {@code null} = the project's
+	 * @param values       programmer-style values per fixture id
 	 * @param compositions compositions running in the scene, in their order
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
-			int fixtureCount, Map<Long, Map<String, Double>> values, List<CompositionSummary> compositions) {
+			Long fadeInMs, Long fadeOutMs, long delayMs, int fixtureCount, Map<Long, Map<String, Double>> values,
+			List<CompositionSummary> compositions) {
 
 		static SceneResponse from(Scene scene, List<Composition> compositions) {
 			var spec = scene.spec();
+			var timing = spec.timing();
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(), scene.values().size(),
+					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
+					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
+					scene.values().size(),
 					ValuesJson.toJson(scene.values()), compositions.stream()
 							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
 							.toList());

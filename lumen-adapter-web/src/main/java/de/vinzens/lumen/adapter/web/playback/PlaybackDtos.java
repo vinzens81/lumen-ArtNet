@@ -30,7 +30,7 @@ public final class PlaybackDtos {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
 					status.currentSceneId().orElse(null), status.nextSceneId().orElse(null), status.nextIsEnd(),
 					status.fade().map(f -> new FadeResponse(f.fromSceneId().orElse(null), f.elapsed().toMillis(),
-							f.fadeIn().toMillis(), f.fadeOut().toMillis())).orElse(null),
+							f.fadeIn().toMillis(), f.fadeOut().toMillis(), f.delay().toMillis())).orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
 					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList());
 		}
@@ -52,6 +52,7 @@ public final class PlaybackDtos {
 		}
 	}
 
-	public record FadeResponse(Long fromSceneId, long elapsedMs, long fadeInMs, long fadeOutMs) {
+	/** @param delayMs the fade-in starts this long after GO */
+	public record FadeResponse(Long fromSceneId, long elapsedMs, long fadeInMs, long fadeOutMs, long delayMs) {
 	}
 }

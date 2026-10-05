@@ -5,6 +5,7 @@ import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionRespo
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.StepDto;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.TargetDto;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
+import de.vinzens.lumen.adapter.web.scene.TimingJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseRequest;
@@ -238,15 +239,18 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	/** @param values normalized values (0–1) per fixture id and attribute */
 	/**
 	 * @param keyOnly   only played by extra keys
+	 * @param fadeInMs  own fade times, {@code null} = the project's (files before iteration 10 have none)
 	 * @param extraKeys extra keys usable in this scene
 	 */
-	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
-			Map<Long, Map<String, Double>> values, List<Integer> extraKeys) {
+	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly, Long fadeInMs,
+			Long fadeOutMs, Long delayMs, Map<Long, Map<String, Double>> values, List<Integer> extraKeys) {
 
 		static SceneEntry from(Scene scene, Set<Integer> keys) {
 			var spec = scene.spec();
+			var timing = spec.timing();
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
+					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					ValuesJson.toJson(scene.values()),
 					keys.stream().sorted().toList());
 		}
@@ -256,7 +260,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				throw new DomainValidationException(List.of("Scene '" + name + "' has no number"));
 			}
 			var spec = new SceneSpec(SceneNumber.parse(number), name, Optional.ofNullable(cueNote),
-					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(keyOnly));
+					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(keyOnly),
+					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs));
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));

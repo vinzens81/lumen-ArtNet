@@ -280,7 +280,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		if (playback == null) {
 			return PlaybackStatus.UNAVAILABLE;
 		}
-		var fade = playback.fade(now).map(f -> new Fade(f.fromSceneId(), f.elapsed(), f.fadeIn(), f.fadeOut()));
+		var fade = playback.fade(now).map(f -> new Fade(f.fromSceneId(), f.elapsed(), f.fadeIn(), f.fadeOut(), f.delay()));
 		return new PlaybackStatus(true, playback.position(), playback.sceneCount(),
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),

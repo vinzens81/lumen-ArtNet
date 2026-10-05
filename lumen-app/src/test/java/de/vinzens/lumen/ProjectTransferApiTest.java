@@ -37,7 +37,8 @@ class ProjectTransferApiTest {
 		var back = id(post("/api/projects/" + project + "/fixtures", fixture("Back", universe, 2)));
 		post("/api/projects/" + project + "/groups", "{\"name\": \"All\", \"fixtureIds\": [%d, %d]}".formatted(back, front));
 		var scenes = "/api/projects/" + project + "/scenes";
-		post(scenes, "{\"number\": \"2.5\", \"name\": \"Storm\", \"cueNote\": \"Thunder\", \"autoFollowMs\": 4000}");
+		post(scenes, "{\"number\": \"2.5\", \"name\": \"Storm\", \"cueNote\": \"Thunder\", \"autoFollowMs\": 4000, "
+				+ "\"fadeInMs\": 0, \"delayMs\": 1000}");
 		var dawn = id(post(scenes, "{\"number\": \"1\", \"name\": \"Dawn\"}"));
 		// scene values come from the programmer
 		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
@@ -75,6 +76,9 @@ class ProjectTransferApiTest {
 		assertThat(JsonPath.<Double>read(copiedScenes, "$[0].values['%d'].dimmer".formatted(newBack))).isEqualTo(0.5);
 		assertThat(JsonPath.<String>read(copiedScenes, "$[1].cueNote")).isEqualTo("Thunder");
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].autoFollowMs")).isEqualTo(4000);
+		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].fadeInMs")).isZero();
+		assertThat(JsonPath.<Object>read(copiedScenes, "$[1].fadeOutMs")).isNull();
+		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].delayMs")).isEqualTo(1000);
 	}
 
 	@Test

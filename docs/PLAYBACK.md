@@ -14,6 +14,7 @@ Jede Szene durchläuft drei Phasen:
 | **Fade-Out** | global `fade_out_ms` | Szene blendet auf 0 % aus |
 
 Die Fade-Zeiten gelten **projektweit** und werden im Konfigurationsmodus eingestellt (Default jeweils 3 s).
+Einzelne Szenen können sie überschreiben, siehe [Fade-Zeiten pro Szene](#fade-zeiten-pro-szene).
 
 ### Auto-Follow (optional pro Szene)
 
@@ -54,6 +55,34 @@ Szene 3           │                                         │▁▂▄▆█
 ```
 
 Sind die Zeiten unterschiedlich (z.B. In 3 s, Out 5 s), starten beide beim GO und enden zu verschiedenen Zeitpunkten.
+
+## Fade-Zeiten pro Szene
+
+Im Szenen-Editor kann jede Szene unter „Fade times of the GO into this scene“ eigene Zeiten bekommen. Ein leeres
+Feld bedeutet: Projektzeit.
+
+| Feld | Wirkung |
+|---|---|
+| **In** | Fade-In dieser Szene |
+| **Out** | Fade-Out des Bildes, das beim GO **in diese Szene** auf der Bühne steht |
+| **Delay** | Der Fade-In startet so lange nach dem GO, der Fade-Out läuft sofort los |
+
+- Die Zeiten gehören zum **Übergang in die Szene**, wie bei üblichen Lichtpulten. Für einen Blitz bekommt die
+  Blitz-Szene In 0 s und Out 0 s. Das GO danach nimmt die Zeiten der Folgeszene, also z.B. die Projektzeiten.
+- **Back** und **Springen** nehmen ebenfalls die Zeiten der Zielszene. Das „Ende“ (Fade to Black) nimmt immer die
+  Projektzeit.
+- Die Zeiten werden beim GO festgehalten: Wird die Szene während des Fades bearbeitet, läuft der Fade unverändert zu Ende.
+- Die Stay-Zeit (Auto-Follow) beginnt nach Delay + Fade-In.
+- Während des Delays behalten diskrete Kanäle (Gobo, Farbrad, …) ihren alten Wert und springen erst, wenn der
+  Fade-In beginnt.
+- Für Szenen nur für Extra-Tasten gibt es die Felder nicht, dort gilt die Fade-Zeit der Taste.
+
+```
+            GO
+            │ delay 2 s │ fade-in 3 s │
+Szene 4  ███│█▇▆▅▄▃▂▁   (fade-out 4 s, startet beim GO)
+Szene 5     │           │▁▂▄▆█████████████…
+```
 
 ## Wie die Engine mischt
 
@@ -128,6 +157,4 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 ## Mögliche Erweiterungen (Backlog)
 
 - Dynamische Szenen mit Lauflicht, Farbwechsel usw.: siehe [COMPOSITIONS.md](COMPOSITIONS.md)
-- Fade-Zeiten pro Szene überschreiben (global bleibt Default). Praktisch z.B. für einen Blitz mit 0 s Fade.
-- Verzögerung (Delay) zwischen Fade-Out und Fade-In
 - Externe GO-Taste (USB-Fußschalter / OSC); MIDI-Controller siehe [MIDI.md](MIDI.md)

@@ -11,6 +11,7 @@
   import { notify, showError } from '../lib/toasts.svelte';
   import { kindIcon } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
+  import { sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
   import { stagePreview } from '../lib/stagePreview.svelte';
   import type { Fixture, Group, Scene } from '../lib/types';
 
@@ -21,7 +22,18 @@
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
-  let form = $state({ number: '', name: '', cueNote: '', autoFollow: false, autoFollowSeconds: 5, keyOnly: false });
+  let form = $state({
+    number: '',
+    name: '',
+    cueNote: '',
+    autoFollow: false,
+    autoFollowSeconds: 5,
+    keyOnly: false,
+    // empty (null) = the project's time
+    fadeInSeconds: null as number | null,
+    fadeOutSeconds: null as number | null,
+    delaySeconds: null as number | null,
+  });
   let fades = $state({ fadeIn: 3, fadeOut: 3 });
 
   const project = $derived(app.active);
@@ -72,6 +84,9 @@
       autoFollow: scene.autoFollowMs !== null,
       autoFollowSeconds: scene.autoFollowMs !== null ? scene.autoFollowMs / 1000 : 5,
       keyOnly: scene.keyOnly,
+      fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
+      fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
+      delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
     };
   }
 
@@ -88,6 +103,9 @@
         cueNote: form.cueNote || null,
         autoFollowMs: form.autoFollow ? Math.round(form.autoFollowSeconds * 1000) : null,
         keyOnly: form.keyOnly,
+        fadeInMs: secondsToMs(form.fadeInSeconds),
+        fadeOutMs: secondsToMs(form.fadeOutSeconds),
+        delayMs: secondsToMs(form.delaySeconds),
       });
       notify(`Saved scene ${scene.number}`);
       await load(project.id);
@@ -197,12 +215,7 @@
       return;
     }
     try {
-      const updated = await api.scenes.update(project.id, scene.id, {
-        number,
-        name: scene.name,
-        cueNote: scene.cueNote,
-        autoFollowMs: scene.autoFollowMs,
-      });
+      const updated = await api.scenes.update(project.id, scene.id, { ...sceneRequestOf(scene), number });
       notify(`Scene “${updated.name}” is now number ${updated.number}`);
       await load(project.id);
       if (selectedId === updated.id) select(updated);
@@ -271,6 +284,9 @@
               <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
                 {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
               </span>
+            {/if}
+            {#if timingLabel(scene) && !scene.keyOnly}
+              <span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>
             {/if}
             {#if scene.autoFollowMs !== null}
               <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{!scene.keyOnly && i === cueScenes.length - 1 ? ' (last – ignored)' : ''}</span>
@@ -359,6 +375,21 @@
                 disabled={!form.autoFollow} /> s
             </label>
             <p class="hint dim">The time starts when the fade-in has finished. Without it the scene stays until GO.</p>
+            {#if !form.keyOnly}
+              <fieldset class="timing">
+                <legend>Fade times of the GO into this scene</legend>
+                <label>In <input class="seconds" type="number" min="0" max="600" step="0.1"
+                  bind:value={form.fadeInSeconds} placeholder={String(project.fadeInMs / 1000)} /> s</label>
+                <label>Out <input class="seconds" type="number" min="0" max="600" step="0.1"
+                  bind:value={form.fadeOutSeconds} placeholder={String(project.fadeOutMs / 1000)} /> s</label>
+                <label>Delay <input class="seconds" type="number" min="0" max="600" step="0.1"
+                  bind:value={form.delaySeconds} placeholder="0" /> s</label>
+              </fieldset>
+              <p class="hint dim">
+                Empty = the project's time. “Out” fades the scene before, “Delay” holds back the fade-in – e.g. In 0 and
+                Out 0 for a flash.
+              </p>
+            {/if}
             <label class="check">
               <input type="checkbox" bind:checked={form.keyOnly} />
               Only for extra keys <span class="hint dim">(GO skips this scene)</span>
@@ -709,6 +740,29 @@
     background: rgba(0, 0, 0, 0.25);
     color: var(--text);
     font: inherit;
+  }
+
+  .timing {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 14px;
+    margin: 0;
+    padding: 8px 10px 10px;
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    font-size: 13px;
+  }
+
+  .timing legend {
+    padding: 0 4px;
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .timing label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
   }
 
   .hint {

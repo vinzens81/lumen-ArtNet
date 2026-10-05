@@ -7,6 +7,7 @@
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
   import { kindIcon } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
+  import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
@@ -56,7 +57,11 @@
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
   const elapsed = $derived((status?.fade?.elapsedMs ?? 0) + sinceStatus);
-  const fadeInProgress = $derived(progress(elapsed, status?.fade?.fadeInMs ?? 0));
+  const fadeInProgress = $derived(
+    status?.fade ? fadeInProgressOf(elapsed, status.fade.fadeInMs, status.fade.delayMs) : 1,
+  );
+  /** The fade-in still waits for the delay of the scene. */
+  const delayLeft = $derived(status?.fade ? Math.max(0, status.fade.delayMs - elapsed) : 0);
   const fadeOutProgress = $derived(progress(elapsed, status?.fade?.fadeOutMs ?? 0));
   const autoFollowLeft = $derived(
     status?.autoFollowInMs != null ? Math.max(0, status.autoFollowInMs - sinceStatus) : null,
@@ -196,6 +201,7 @@
             {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
           </span>
         {/if}
+        {#if timingLabel(scene)}<span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>{/if}
         {#if scene.autoFollowMs !== null}<span class="badge">⟳ {seconds(scene.autoFollowMs)}</span>{/if}
         {#if rowState(scene, i) === 'current'}<span class="tag now">NOW</span>{/if}
         {#if rowState(scene, i) === 'next'}<span class="tag next">NEXT</span>{/if}
@@ -241,7 +247,13 @@
       <!-- always rendered, so the panel keeps its height when a fade ends -->
       {#if status?.fade && fadeInProgress < 1}
         <div class="bar"><span style="width: {fadeInProgress * 100}%"></span></div>
-        <div class="dim small mono">Fade in · {seconds(Math.max(0, status.fade.fadeInMs - elapsed))} left</div>
+        {#if delayLeft > 0}
+          <div class="dim small mono">Fade in starts in {seconds(delayLeft)}</div>
+        {:else}
+          <div class="dim small mono">
+            Fade in · {seconds(Math.max(0, status.fade.delayMs + status.fade.fadeInMs - elapsed))} left
+          </div>
+        {/if}
       {:else if autoFollowLeft !== null}
         <div class="bar follow"><span style="width: {(1 - autoFollowLeft / (current?.autoFollowMs ?? 1)) * 100}%"></span></div>
         <div class="small mono follow-text">Continues automatically in {seconds(autoFollowLeft)}</div>

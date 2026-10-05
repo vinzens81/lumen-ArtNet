@@ -18,9 +18,10 @@ import java.util.Set;
  * <li>intensity: HTP – {@code max(old × levelOut, new × levelIn)}</li>
  * <li>smooth attributes (color, position, …): LTP, faded from the old to the new value with the fade-in;
  * if the fixture was dark at GO the new value is taken at once (invisible, no color smearing)</li>
- * <li>snap attributes (gobo, color wheel, …): LTP, jump at GO</li>
+ * <li>snap attributes (gobo, color wheel, …): LTP, jump when the fade-in starts</li>
  * <li>attributes the new scene does not set keep their old value</li>
  * </ul>
+ * An optional delay holds back the fade-in while the fade-out starts at GO.
  */
 public final class Crossfade {
 
@@ -32,17 +33,21 @@ public final class Crossfade {
 
 	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
 			Duration elapsed, Duration fadeIn, Duration fadeOut, FadeBehaviors behaviors) {
-		return mix(from, to, elapsed, fadeIn, fadeOut, behaviors, null);
+		return mix(from, to, elapsed, fadeIn, fadeOut, Duration.ZERO, behaviors, null);
 	}
 
 	/**
+	 * @param delay    time after GO before the fade-in starts
 	 * @param darkAtGo fixtures that were dark at GO; {@code null} = decide by the intensity in {@code from}.
 	 *                 Needed when {@code from} keeps moving (running compositions).
 	 */
 	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
-			Duration elapsed, Duration fadeIn, Duration fadeOut, FadeBehaviors behaviors, Set<Long> darkAtGo) {
-		var levelIn = progress(elapsed, fadeIn);
+			Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay, FadeBehaviors behaviors,
+			Set<Long> darkAtGo) {
+		var sinceFadeIn = elapsed.minus(delay);
+		var levelIn = progress(sinceFadeIn, fadeIn);
 		var levelOut = 1 - progress(elapsed, fadeOut);
+		var fadeInStarted = !sinceFadeIn.isNegative();
 
 		var fixtures = new HashSet<>(from.keySet());
 		fixtures.addAll(to.keySet());
@@ -51,7 +56,8 @@ public final class Crossfade {
 			var old = from.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var target = to.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var wasDark = darkAtGo != null ? darkAtGo.contains(fixtureId) : isDark(old);
-			result.put(fixtureId, mixFixture(fixtureId, old, target, wasDark, levelIn, levelOut, behaviors));
+			result.put(fixtureId, mixFixture(fixtureId, old, target, wasDark, levelIn, levelOut, fadeInStarted,
+					behaviors));
 		}
 		return result;
 	}
@@ -62,7 +68,7 @@ public final class Crossfade {
 	}
 
 	private static FixtureValues mixFixture(long fixtureId, FixtureValues old, FixtureValues target, boolean wasDark,
-			double levelIn, double levelOut, FadeBehaviors behaviors) {
+			double levelIn, double levelOut, boolean fadeInStarted, FadeBehaviors behaviors) {
 		var attributes = new HashSet<>(old.values().keySet());
 		attributes.addAll(target.values().keySet());
 		attributes.add(DIMMER);
@@ -77,8 +83,10 @@ public final class Crossfade {
 				value = Math.max(oldValue.orElse(0.0) * levelOut, newValue.orElse(0.0) * levelIn);
 			} else if (newValue.isEmpty()) {
 				value = oldValue.orElseThrow();
-			} else if (oldValue.isEmpty() || wasDark || behavior == FadeBehavior.SNAP) {
+			} else if (oldValue.isEmpty() || wasDark) {
 				value = newValue.get();
+			} else if (behavior == FadeBehavior.SNAP) {
+				value = fadeInStarted ? newValue.get() : oldValue.get();
 			} else {
 				value = oldValue.get() + (newValue.get() - oldValue.get()) * levelIn;
 			}
@@ -87,13 +95,13 @@ public final class Crossfade {
 		return new FixtureValues(values);
 	}
 
-	/** 0 → 1 over the duration; a zero duration is complete at once. */
+	/** 0 → 1 over the duration; a zero duration is complete at once, a negative elapsed time (delay) is 0. */
 	static double progress(Duration elapsed, Duration duration) {
-		if (duration.isZero() || elapsed.compareTo(duration) >= 0) {
-			return 1;
-		}
 		if (elapsed.isNegative()) {
 			return 0;
+		}
+		if (duration.isZero() || elapsed.compareTo(duration) >= 0) {
+			return 1;
 		}
 		return (double) elapsed.toNanos() / duration.toNanos();
 	}

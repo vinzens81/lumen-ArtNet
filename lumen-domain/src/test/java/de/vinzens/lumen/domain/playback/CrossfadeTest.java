@@ -80,6 +80,22 @@ class CrossfadeTest {
 		assertThat(dimmer(mixed, 2)).isEqualTo(1.0);
 	}
 
+	@Test
+	void delayHoldsBackTheFadeInAndSnapAttributes() {
+		var from = Map.of(1L, values(DIMMER, 1.0, GOBO, 0.2));
+		var to = Map.of(1L, values(DIMMER, 0.0, GOBO, 0.6), 2L, values(DIMMER, 1.0));
+		var delay = Duration.ofSeconds(1);
+
+		var waiting = Crossfade.mix(from, to, Duration.ofMillis(500), IN, OUT, delay, FadeBehaviors.DEFAULTS, null);
+		assertThat(dimmer(waiting, 1)).as("fade-out runs from GO").isCloseTo(0.875, within(1e-9));
+		assertThat(dimmer(waiting, 2)).isZero();
+		assertThat(waiting.get(1L).get(GOBO)).contains(0.2);
+
+		var fading = Crossfade.mix(from, to, Duration.ofMillis(2000), IN, OUT, delay, FadeBehaviors.DEFAULTS, null);
+		assertThat(dimmer(fading, 2)).isCloseTo(0.5, within(1e-9));
+		assertThat(fading.get(1L).get(GOBO)).contains(0.6);
+	}
+
 	private static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to, long ms) {
 		return Crossfade.mix(from, to, Duration.ofMillis(ms), IN, OUT, FadeBehaviors.DEFAULTS);
 	}

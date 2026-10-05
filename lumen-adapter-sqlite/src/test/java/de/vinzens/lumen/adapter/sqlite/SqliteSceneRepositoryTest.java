@@ -12,6 +12,7 @@ import de.vinzens.lumen.domain.project.UniverseSpec;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -76,6 +77,18 @@ class SqliteSceneRepositoryTest {
 		assertThat(repos.scenes().findById(scene.id())).map(Scene::spec).contains(spec);
 		var updated = repos.scenes().updateSpec(scene.id(), spec("5", "Storm"));
 		assertThat(updated.spec().autoFollow()).isEmpty();
+	}
+
+	@Test
+	void timingRoundTripWithProjectTimesAsNull() {
+		var flash = new SceneTiming(Optional.of(Duration.ZERO), Optional.empty(), Duration.ofMillis(1500));
+		var spec = new SceneSpec(SceneNumber.parse("7"), "Flash", Optional.empty(), Optional.empty(), false, flash);
+
+		var scene = repos.scenes().create(project, spec, Map.of());
+
+		assertThat(repos.scenes().findById(scene.id())).map(s -> s.spec().timing()).contains(flash);
+		var updated = repos.scenes().updateSpec(scene.id(), spec("7", "Flash"));
+		assertThat(updated.spec().timing()).isEqualTo(SceneTiming.DEFAULT);
 	}
 
 	@Test

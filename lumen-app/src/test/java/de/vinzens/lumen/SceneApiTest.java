@@ -77,6 +77,23 @@ class SceneApiTest {
 	}
 
 	@Test
+	void fadeTimesPerSceneDefaultToTheProjectTimes() throws Exception {
+		var flash = id(post(scenes, "{\"name\": \"Flash\", \"fadeInMs\": 0, \"fadeOutMs\": 0, \"delayMs\": 500}"));
+		var plain = id(post(scenes, "{\"name\": \"Plain\"}"));
+
+		var list = assertThat(mvc.get().uri(scenes)).hasStatusOk().bodyJson();
+		list.extractingPath("$[0].fadeInMs").isEqualTo(0);
+		list.extractingPath("$[0].delayMs").isEqualTo(500);
+		list.extractingPath("$[1].fadeInMs").isNull();
+		list.extractingPath("$[1].delayMs").isEqualTo(0);
+
+		assertThat(put(scenes + "/" + flash, "{\"number\": \"1\", \"name\": \"Flash\"}")).hasStatusOk().bodyJson()
+				.extractingPath("$.fadeOutMs").isNull();
+		assertThat(put(scenes + "/" + plain, "{\"number\": \"2\", \"name\": \"Plain\", \"delayMs\": -1}"))
+				.hasStatus(400);
+	}
+
+	@Test
 	void recordingNeedsTheActiveProject() throws Exception {
 		var other = id(post("/api/projects", "{\"name\": \"Not active\"}"));
 

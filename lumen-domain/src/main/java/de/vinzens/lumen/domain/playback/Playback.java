@@ -28,6 +28,9 @@ import java.util.Set;
  * <p>A GO during a running fade freezes the current output as the outgoing look, so even a fast double GO
  * never jumps. Not thread-safe – callers synchronize.
  *
+ * <p>Each transition uses the fade times of the scene it goes to ({@link de.vinzens.lumen.domain.scene.SceneTiming}),
+ * falling back to the project's times; the fade to black at the end always uses the project's.
+ *
  * <p>Scenes may contain compositions (chases, color cycles, …). They run on the virtual clock from the GO of
  * their scene, keep running while their scene fades out, and a copy of the same origin in the next scene continues
  * with the same phase: it is not faded out and in, only its level and values glide over the fade-in time.
@@ -204,7 +207,7 @@ public final class Playback {
 	public boolean tick(Instant now, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		var changed = false;
-		if (transition != null && v.minus(transition.start()).compareTo(longestFade()) >= 0) {
+		if (transition != null && v.minus(transition.start()).compareTo(transition.times().longest()) >= 0) {
 			transition = null;
 			changed = true;
 		}
@@ -230,10 +233,12 @@ public final class Playback {
 		var from = look(transition.from(), transition.fromRunning(), v);
 		var incoming = running.stream().filter(r -> !continuing.containsKey(r.composition().id())).toList();
 		var to = look(valuesAt(transition.target()), incoming, v);
-		var mixed = Crossfade.mix(from, to, elapsed, fadeIn, fadeOut, behaviors, transition.darkAtGo());
+		var times = transition.times();
+		var mixed = Crossfade.mix(from, to, elapsed, times.fadeIn(), times.fadeOut(), times.delay(), behaviors,
+				transition.darkAtGo());
 
 		// continuing compositions are not faded out and in: they glide from their old to their new values
-		var progress = Crossfade.progress(elapsed, fadeIn);
+		var progress = Crossfade.progress(elapsed.minus(times.delay()), times.fadeIn());
 		for (var current : running) {
 			var previous = continuing.get(current.composition().id());
 			if (previous == null) {
@@ -290,8 +295,9 @@ public final class Playback {
 		if (transition == null) {
 			return Optional.empty();
 		}
+		var times = transition.times();
 		return Optional.of(new FadeStatus(transition.fromSceneId(), virtualNow(now).minus(transition.start()),
-				fadeIn, fadeOut));
+				times.fadeIn(), times.fadeOut(), times.delay()));
 	}
 
 	/** Time left until auto-follow fires, if the current scene has one. */
@@ -313,8 +319,11 @@ public final class Playback {
 	/**
 	 * @param fromSceneId scene that is fading out, empty if it was the dark start or an unrecorded look
 	 * @param elapsed     time since GO (paused time excluded)
+	 * @param fadeIn      fade-in time of this transition, starting after the delay
+	 * @param fadeOut     fade-out time of this transition, starting at GO
 	 */
-	public record FadeStatus(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut) {
+	public record FadeStatus(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut,
+			Duration delay) {
 	}
 
 	// --- internals -------------------------------------------------------------------------------------------
@@ -346,11 +355,13 @@ public final class Playback {
 		var fromRunning = fadeRunning ? running.stream().filter(r -> !taken.contains(r)).toList() : List.<Running>of();
 
 		var fromSceneId = currentScene().map(Scene::id);
-		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v);
+		var times = timesInto(target);
+		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v,
+				times);
 		running = List.copyOf(next);
 		position = target;
 		pendingNext = null;
-		stayStart = v.plus(fadeIn);
+		stayStart = v.plus(times.delay()).plus(times.fadeIn());
 		dropDeletedScene();
 	}
 
@@ -449,14 +460,28 @@ public final class Playback {
 		return -1;
 	}
 
-	private Duration longestFade() {
-		return fadeIn.compareTo(fadeOut) >= 0 ? fadeIn : fadeOut;
+	/** Fade times of the transition to a position: the scene's own, otherwise the project's. */
+	private Times timesInto(int target) {
+		if (!isScene(target)) {
+			return new Times(fadeIn, fadeOut, Duration.ZERO);
+		}
+		var timing = scenes.get(target).spec().timing();
+		return new Times(timing.fadeInOr(fadeIn), timing.fadeOutOr(fadeOut), timing.delay());
 	}
 
 	/** Time since an arbitrary origin that does not advance while paused. */
 	private Duration virtualNow(Instant now) {
 		var paused = pausedAt == null ? pausedTotal : pausedTotal.plus(Duration.between(pausedAt, now));
 		return Duration.ofSeconds(now.getEpochSecond(), now.getNano()).minus(paused);
+	}
+
+	/** Fade times of one transition, fixed at GO. */
+	private record Times(Duration fadeIn, Duration fadeOut, Duration delay) {
+
+		Duration longest() {
+			var in = delay.plus(fadeIn);
+			return in.compareTo(fadeOut) >= 0 ? in : fadeOut;
+		}
 	}
 
 	/** A composition playing since {@code startedAt} (virtual time). */
@@ -471,14 +496,14 @@ public final class Playback {
 	 */
 	private record Transition(Map<Long, FixtureValues> from, List<Running> fromRunning,
 			Map<Long, Running> continuing, Set<Long> darkAtGo, Optional<Long> fromSceneId, int target,
-			Duration start) {
+			Duration start, Times times) {
 
 		Transition withTarget(int newTarget) {
-			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start);
+			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start, times);
 		}
 
 		Transition withContinuing(Map<Long, Running> newContinuing) {
-			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start);
+			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start, times);
 		}
 	}
 }

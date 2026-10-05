@@ -22,7 +22,8 @@ und welche Szenen es gibt.
   V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9), V5 = Kompositionen
   (Iteration K, Schema in [COMPOSITIONS.md](COMPOSITIONS.md#datenmodell-entwurf-neue-flyway-migration)),
   V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
-  V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`).
+  V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
+  (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -77,6 +78,10 @@ scene
   name            TEXT NOT NULL                 -- "Akt 1 – Morgendämmerung"
   cue_note        TEXT                          -- Regiehinweis: "GO bei: '…und dann ging die Sonne auf'"
   auto_follow_ms  INTEGER NULL                  -- NULL = Stay bis GO; sonst automatisches GO nach Ablauf
+  key_only        INTEGER NOT NULL DEFAULT 0    -- 1 = nur für Extra-Tasten, GO überspringt die Szene
+  fade_in_ms      INTEGER NULL                  -- Fade-In beim GO in diese Szene, NULL = Projektzeit
+  fade_out_ms     INTEGER NULL                  -- Fade-Out des Bildes davor beim GO in diese Szene, NULL = Projektzeit
+  delay_ms        INTEGER NOT NULL DEFAULT 0    -- Fade-In startet so lange nach dem GO
   UNIQUE(project_id, number)
 
 scene_value                                     -- Werte einer Szene, normalisiert 0..1

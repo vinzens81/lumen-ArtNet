@@ -6,6 +6,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -52,10 +53,12 @@ public class SqliteSceneRepository implements SceneRepository {
 		long id = transactions.execute(status -> {
 			var keys = new GeneratedKeyHolder();
 			jdbc.sql("""
-					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, key_only)
-					VALUES (?, ?, ?, ?, ?, ?)""")
+					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, key_only, fade_in_ms,
+					                   fade_out_ms, delay_ms)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-							autoFollowMs(spec), spec.keyOnly() ? 1 : 0)
+							autoFollowMs(spec), spec.keyOnly() ? 1 : 0, millis(spec.timing().fadeIn()),
+							millis(spec.timing().fadeOut()), spec.timing().delay().toMillis())
 					.update(keys);
 			var sceneId = generatedId(keys);
 			insertValues(sceneId, values);
@@ -66,9 +69,13 @@ public class SqliteSceneRepository implements SceneRepository {
 
 	@Override
 	public Scene updateSpec(long id, SceneSpec spec) {
-		jdbc.sql("UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, key_only = ? WHERE id = ?")
+		jdbc.sql("""
+				UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, key_only = ?, fade_in_ms = ?,
+				                 fade_out_ms = ?, delay_ms = ?
+				WHERE id = ?""")
 				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), autoFollowMs(spec),
-						spec.keyOnly() ? 1 : 0, id)
+						spec.keyOnly() ? 1 : 0, millis(spec.timing().fadeIn()), millis(spec.timing().fadeOut()),
+						spec.timing().delay().toMillis(), id)
 				.update();
 		return findById(id).orElseThrow();
 	}
@@ -122,18 +129,28 @@ public class SqliteSceneRepository implements SceneRepository {
 	}
 
 	private static Long autoFollowMs(SceneSpec spec) {
-		return spec.autoFollow().map(Duration::toMillis).orElse(null);
+		return millis(spec.autoFollow());
+	}
+
+	private static Long millis(Optional<Duration> duration) {
+		return duration.map(Duration::toMillis).orElse(null);
 	}
 
 	private SceneRow row(ResultSet rs, int rowNum) throws SQLException {
-		var autoFollow = rs.getLong("auto_follow_ms");
-		var hasAutoFollow = !rs.wasNull();
+		var timing = new SceneTiming(optionalMillis(rs, "fade_in_ms"), optionalMillis(rs, "fade_out_ms"),
+				Duration.ofMillis(rs.getLong("delay_ms")));
 		return new SceneRow(rs.getLong("id"), rs.getLong("project_id"), new SceneSpec(
 				SceneNumber.parse(rs.getString("number")),
 				rs.getString("name"),
 				Optional.ofNullable(rs.getString("cue_note")),
-				hasAutoFollow ? Optional.of(Duration.ofMillis(autoFollow)) : Optional.empty(),
-				rs.getInt("key_only") == 1));
+				optionalMillis(rs, "auto_follow_ms"),
+				rs.getInt("key_only") == 1,
+				timing));
+	}
+
+	private static Optional<Duration> optionalMillis(ResultSet rs, String column) throws SQLException {
+		var value = rs.getLong(column);
+		return rs.wasNull() ? Optional.empty() : Optional.of(Duration.ofMillis(value));
 	}
 
 	private ValueRow valueRow(ResultSet rs, int rowNum) throws SQLException {

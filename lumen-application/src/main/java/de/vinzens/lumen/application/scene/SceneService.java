@@ -14,6 +14,7 @@ import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SceneTiming;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -47,7 +48,7 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean keyOnly, boolean recordFromProgrammer) {
+			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing, boolean recordFromProgrammer) {
 		if (recordFromProgrammer) {
 			requireActive(projectId);
 		} else {
@@ -58,7 +59,7 @@ public class SceneService implements ManageScenesUseCase {
 				? SceneNumber.of(1)
 				: existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
-		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly);
+		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly, timing);
 		var values = recordFromProgrammer ? programmerSnapshot() : Map.<Long, FixtureValues>of();
 		var created = scenes.create(projectId, spec, values);
 		inheritExtraKeys(projectId, existing, created);
@@ -81,10 +82,11 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean keyOnly) {
+			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing) {
 		requireScene(projectId, sceneId);
 		requireFreeNumber(scenes.findByProject(projectId), number, sceneId);
-		return published(scenes.updateSpec(sceneId, new SceneSpec(number, name, cueNote, autoFollow, keyOnly)));
+		return published(scenes.updateSpec(sceneId,
+				new SceneSpec(number, name, cueNote, autoFollow, keyOnly, timing)));
 	}
 
 	@Override

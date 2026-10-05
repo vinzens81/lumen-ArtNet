@@ -170,6 +170,12 @@ export interface Scene {
   compositions: { id: number; name: string; kind: CompositionKind }[];
   /** only played by extra keys, GO skips it */
   keyOnly: boolean;
+  /** fade-in of the GO into this scene, null = the project's */
+  fadeInMs: number | null;
+  /** fade-out of the look before at the GO into this scene, null = the project's */
+  fadeOutMs: number | null;
+  /** the fade-in starts this long after GO */
+  delayMs: number;
 }
 
 export interface SceneRequest {
@@ -178,6 +184,9 @@ export interface SceneRequest {
   keyOnly?: boolean;
   cueNote: string | null;
   autoFollowMs: number | null;
+  fadeInMs?: number | null;
+  fadeOutMs?: number | null;
+  delayMs?: number | null;
   record?: boolean;
 }
 
@@ -191,7 +200,8 @@ export interface PlaybackStatus {
   currentSceneId: number | null;
   nextSceneId: number | null;
   nextIsEnd: boolean;
-  fade: { fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number } | null;
+  /** the running transition; its fade-in starts delayMs after GO, the fade-out at GO */
+  fade: { fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number; delayMs: number } | null;
   paused: boolean;
   autoFollowInMs: number | null;
   /** scene that was on stage before a server restart and can be resumed */

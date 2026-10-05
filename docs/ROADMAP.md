@@ -102,7 +102,7 @@ mit einem simulierten ESP (gleiches ArtPollReply-Format wie die Firmware) end-to
 - Betriebsmodus-UI: Szenenliste, Jetzt/Ausblendend/Nächste mit Fortschritt, Regiehinweis, großer GO-Button,
   Tastaturkürzel, Sperre gegen Bearbeiten, Wake Lock
 - Show-Modus ist Server-Zustand: sperrt den Programmer (409), alle verbundenen Clients wechseln mit
-- Noch offen (→ später): Probe-Überblendung im Konfigurationsmodus, Fade-Zeiten pro Szene (z.B. für einen Blitz)
+- Noch offen (→ später): Probe-Überblendung im Konfigurationsmodus; Fade-Zeiten pro Szene → umgesetzt in Iteration 10
 
 **DoD:** Eine komplette Show kann per Leertaste durchgespielt werden, Fade-Out und Fade-In laufen parallel,
 ein Doppel-GO erzeugt keinen Sprung.
@@ -204,12 +204,15 @@ Konzept: [MIDI.md](MIDI.md)
 **DoD:** GO, Back, Grand Master und Blackout funktionieren über den Controller und die Button-LEDs zeigen den Zustand.
 Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 
-## ⬜ Iteration 10 – Backlog (nach Bedarf)
+## 🟨 Iteration 10 – Backlog (nach Bedarf)
+- ✅ **Fade-Zeiten pro Szene** (In, Out, Delay), siehe [PLAYBACK.md](PLAYBACK.md#fade-zeiten-pro-szene): Die Zeiten
+  gelten für das GO in die Szene, leer = Projektzeit. Flyway `V8`, reist im Projekt-Export mit. Szenen-Editor mit
+  Feldern und ⏱-Badge in beiden Szenenlisten, der Betriebsmodus zeigt „Fade in starts in …“ während des Delays.
+  Geprüft mit Domain-Tests und im Browser (Testserver: Blitz schaltet sofort, Delay hält den Fade-In zurück)
 - ✅ Nebenbei: Robustheit – Playback liest beim Reload die Datenbank außerhalb der Sperre (Render-Loop wartet nicht),
   eine während der Show gelöschte Szene bleibt bis zum nächsten GO stehen, nach dem Ende kommt keine neu angelegte
   Szene auf die Bühne. WebSocket-Watchdog (3,5 s ohne Nachricht → neu verbinden), Wake Lock mit NoSleep.js-Fallback
   für Tablets über HTTP, `caffeinate` in `run.sh`, ruhigere Test-Ausgabe
-- Fade-Zeiten pro Szene überschreiben, Delay
 - Externe GO-Taste: USB-Fußschalter (als Tastatur), OSC (z.B. aus QLab); MIDI siehe eigene Iteration
 - sACN als zweiter `DmxOutputPort`
 - Hostnamen (mDNS, z.B. `artnet-dimmer.local`) als Art-Net-Ziel – noch offen, ob gewünscht
