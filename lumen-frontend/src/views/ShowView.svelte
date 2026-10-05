@@ -97,18 +97,31 @@
     }
   });
 
+  /**
+   * Scrolls the list so the element is in its middle. Unlike scrollIntoView this moves only the list, never the page
+   * or the tabs and heading above it.
+   */
+  function center(selector: string) {
+    const element = listElement?.querySelector<HTMLElement>(selector);
+    if (!listElement || !element) return;
+    const list = listElement.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
+    const top = listElement.scrollTop + box.top - list.top - (list.height - box.height) / 2;
+    listElement.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
   // keep the current scene in view
   $effect(() => {
     const id = status?.currentSceneId;
-    if (id == null || !listElement) return;
-    listElement.querySelector(`[data-scene="${id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (id == null || tab !== 'cues') return;
+    center(`[data-scene="${id}"]`);
   });
 
   // keep the current sentence in the middle, however long the text is
   $effect(() => {
     const line = scriptLine;
-    if (tab !== 'script' || current === undefined || !listElement) return;
-    listElement.querySelector(`[data-line="${line}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (tab !== 'script' || current === undefined) return;
+    center(`[data-line="${line}"]`);
   });
 
   onMount(() => {
@@ -184,12 +197,8 @@
 
 <svelte:window {onkeydown} />
 
-{#snippet scriptView()}
-  {#if !current}
-    <p class="dim pad">
-      {atEnd ? 'End of show.' : 'The stage is dark – the script of a scene appears here as soon as it is on stage.'}
-    </p>
-  {:else}
+{#snippet scriptHead()}
+  {#if current}
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
       {#if script.lineCount > 0}
@@ -202,6 +211,15 @@
         </div>
       {/if}
     </div>
+  {/if}
+{/snippet}
+
+{#snippet scriptView()}
+  {#if !current}
+    <p class="dim pad">
+      {atEnd ? 'End of show.' : 'The stage is dark – the script of a scene appears here as soon as it is on stage.'}
+    </p>
+  {:else}
     {#if script.parts.length === 0}
       <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
     {:else}
@@ -229,7 +247,7 @@
 {/snippet}
 
 <section class="show">
-  <div class="list glass" bind:this={listElement}>
+  <div class="list glass">
     <header class="list-head">
       <div class="tabs" role="tablist" aria-label="Show view">
         <button type="button" role="tab" aria-selected={tab === 'cues'} class:active={tab === 'cues'}
@@ -246,6 +264,8 @@
       {/if}
       <span class="dim small">{app.active?.name}</span>
     </header>
+    {#if tab === 'script'}{@render scriptHead()}{/if}
+    <div class="list-body" bind:this={listElement}>
     {#if tab === 'dmx'}
       <div class="dmx"><DmxMonitorView embedded /></div>
     {:else if tab === 'script'}
@@ -281,6 +301,7 @@
       </div>
     {/if}
     {/if}
+    </div>
   </div>
 
   <div class="stage">
@@ -382,10 +403,19 @@
     gap: 12px;
   }
 
+  /* tabs and the scene heading stay, only the list body below them scrolls */
   .list {
     display: flex;
     flex-direction: column;
     padding: 8px;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .list-body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
     min-height: 0;
     overflow: auto;
   }
@@ -420,10 +450,6 @@
   }
 
   .script-head {
-    position: sticky;
-    /* the sticky area excludes the list's padding – reach over it, so no text shows above */
-    top: -8px;
-    z-index: 1;
     display: flex;
     align-items: center;
     gap: 12px;
@@ -775,8 +801,10 @@
       order: -1;
     }
 
+    /* below status and GO: a fixed height, so the list scrolls inside instead of the page */
     .list {
-      max-height: none;
+      height: 70vh;
+      min-height: 400px;
     }
   }
 
