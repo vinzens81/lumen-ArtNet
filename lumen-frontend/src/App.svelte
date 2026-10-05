@@ -25,7 +25,7 @@
   import UniversesView from './views/UniversesView.svelte';
   import type { OperatingMode } from './lib/types';
 
-  const tabs: { route: Route; label: string; soon?: boolean }[] = [
+  const tabs: { route: Route; label: string; soon?: boolean; experimental?: boolean }[] = [
     { route: '/setup/projects', label: 'Projects' },
     { route: '/setup/universes', label: 'Universes' },
     { route: '/setup/patch', label: 'Patch' },
@@ -33,7 +33,7 @@
     { route: '/setup/stage', label: 'Stage' },
     { route: '/setup/compositions', label: 'Compositions' },
     { route: '/setup/scenes', label: 'Scenes' },
-    { route: '/setup/party', label: 'Party' },
+    { route: '/setup/party', label: 'Party', experimental: true },
     { route: '/setup/dmx', label: 'DMX' },
     { route: '/setup/settings', label: 'Settings' },
   ];
@@ -169,7 +169,7 @@
       {#if !liveMode}
         {#each tabs as tab (tab.route)}
           <a href={'#' + tab.route} class:active={router.route === tab.route} class:soon={tab.soon}>
-            {tab.label}
+            {tab.label}{#if tab.experimental}<sup class="exp" title="Experimental – may change a lot">exp</sup>{/if}
           </a>
         {/each}
       {/if}
@@ -204,8 +204,8 @@
         title={blocked('show') ? 'Back to setup first, then start show mode' : ''}
         onclick={() => switchTo('show')}>Show</button>
       <button type="button" class:on={pageMode === 'party'} disabled={blocked('party')}
-        title={blocked('party') ? 'Back to setup first, then start party mode' : ''}
-        onclick={() => switchTo('party')}>Party</button>
+        title={blocked('party') ? 'Back to setup first, then start party mode' : 'Experimental – may change a lot'}
+        onclick={() => switchTo('party')}>Party<sup class="exp">exp</sup></button>
     </div>
   </header>
 
@@ -340,6 +340,15 @@
 
   nav a.soon {
     opacity: 0.55;
+  }
+
+  .exp {
+    margin-left: 3px;
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--warning);
   }
 
   .status {

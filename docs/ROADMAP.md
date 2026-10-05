@@ -3,7 +3,7 @@
 Jede Iteration endet mit einem **lauffähigen Stand** und einer klaren **Definition of Done (DoD)**.
 Reihenfolge so gewählt, dass möglichst früh echtes Licht angeht und eine Show so früh wie möglich spielbar ist.
 
-Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig
+Legende: ⬜ offen · 🟨 in Arbeit · ✅ fertig · 🧪 experimentell
 
 ---
 
@@ -229,8 +229,10 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
   Zeiten fett), Auto-Follow, laufende Kompositionen, freigeschaltete Extra-Tasten, Abhak-Kästchen; darunter die
   Extra-Tasten. PDF über „Als PDF sichern“ im Druckdialog statt einer PDF-Bibliothek im Server
 
-## 🟨 Iteration 11+ – Party-Modus 🪩
-Konzept und Entscheidungen: [PARTY-MODE.md](PARTY-MODE.md). Grob in Teilschritten:
+## 🧪 Iteration 11+ – Party-Modus 🪩 (experimentell, zurückgestellt)
+Konzept und Entscheidungen: [PARTY-MODE.md](PARTY-MODE.md). Schritt 1 ist da und im UI als „experimental“ markiert,
+überzeugt aber noch nicht. Zurückgestellt (2026-10-05): vor dem Weiterbauen wird die Bedienung neu überlegt.
+Grob in Teilschritten:
 1. ✅ **Tempo & Paletten:** dritter Betriebsmodus „Party“ (Server-Zustand, Programmer gesperrt, PIN wie im Betrieb,
    das Theater-Playback bleibt stehen und gibt nichts aus). Tap-Tempo (Taste `T`) mit BPM und Beat-Anzeige,
    10 feste Farbpaletten (RGB mit Weißanteil, Amber/UV/Warmweiß auf eigenen Emittern, sonst das nächste Farbrad-Fach),

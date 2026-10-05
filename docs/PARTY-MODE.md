@@ -1,7 +1,8 @@
 # Party-Modus (Zukunft)
 
-> **Status:** Konzept für später. Wird erst nach dem Theater-Modus umgesetzt (siehe [ROADMAP.md](ROADMAP.md),
-> Iteration 11). Die Architektur soll ihn aber von Anfang an ermöglichen.
+> **Status: experimentell, vorerst zurückgestellt (2026-10-05).** Schritt 1 ist umgesetzt und im UI als
+> „experimental“ markiert, gefällt so aber noch nicht. Die Bedienung wird vor dem Weiterbauen neu überlegt;
+> bis dahin bleibt der Stand, wie er ist (siehe [ROADMAP.md](ROADMAP.md), Iteration 11).
 
 Der Theater-Modus spielt eine **feste Szenenliste** per GO ab. Der Party-Modus ist das Gegenteil: **Live-Lichtsteuerung**
 ohne Ablauf, wie an einem klassischen Lichtpult bei Konzerten oder in der Disco („Busking“). Spontan, rhythmisch

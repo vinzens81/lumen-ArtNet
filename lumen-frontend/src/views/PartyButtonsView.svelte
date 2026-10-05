@@ -114,7 +114,7 @@
   <section class="view">
     <header class="head">
       <div>
-        <h1>Party buttons</h1>
+        <h1>Party buttons <span class="badge experimental">Experimental</span></h1>
         <p class="dim">
           Own buttons for party mode – a gobo, a prism, strobe or any other channel. Set the values in the programmer,
           then record them here. Toggle switches on and off, Flash is on while held. Keys 1–9 play the first nine.
@@ -192,7 +192,15 @@
   }
 
   h1 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin: 0 0 4px;
+  }
+
+  .experimental {
+    color: var(--warning);
+    border-color: var(--warning);
   }
 
   .head p {

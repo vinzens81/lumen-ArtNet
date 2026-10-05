@@ -165,6 +165,7 @@
         <label>Set <input type="number" min="40" max="240" step="1" bind:value={bpmInput} /></label>
       </form>
       <span class="spacer"></span>
+      <span class="badge experimental" title="Party mode is an early experiment and will change">Experimental</span>
       <button class="btn" type="button" onclick={() => run(api.party.clear())}
         title="Colors, intensities and buttons off">Clear all</button>
     </header>
@@ -354,6 +355,11 @@
 
   .spacer {
     flex: 1;
+  }
+
+  .experimental {
+    color: var(--warning);
+    border-color: var(--warning);
   }
 
   .layout {
