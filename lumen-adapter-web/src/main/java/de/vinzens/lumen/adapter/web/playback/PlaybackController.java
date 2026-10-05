@@ -80,6 +80,18 @@ class PlaybackController {
 		return PlaybackResponse.from(playback.releaseKey(slot));
 	}
 
+	/** Sets the level (0–1) of a fader, e.g. the house lights. Show operation – no PIN needed. */
+	@PutMapping("/api/playback/faders/{slot}")
+	PlaybackResponse fader(@PathVariable int slot, @RequestBody FaderLevelRequest request) {
+		if (request.level() == null) {
+			throw new DomainValidationException(List.of("level is missing"));
+		}
+		return PlaybackResponse.from(playback.setFader(slot, request.level()));
+	}
+
+	record FaderLevelRequest(Double level) {
+	}
+
 	@PutMapping("/api/playback/next")
 	PlaybackResponse next(@RequestBody NextRequest request) {
 		if (request.sceneId() == null) {

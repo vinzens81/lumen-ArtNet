@@ -256,6 +256,21 @@ export interface SceneRevision {
   presets: PresetRefs;
 }
 
+/** A fader of the show, e.g. the house lights, with its level 0–1. */
+export interface FaderStatus {
+  slot: number;
+  name: string;
+  level: number;
+}
+
+/** Which scene a fader plays. */
+export interface FaderSetup {
+  slot: number;
+  /** null = the scene's name */
+  name: string | null;
+  sceneId: number;
+}
+
 export type OperatingMode = 'setup' | 'show' | 'party';
 
 export interface PlaybackStatus {
@@ -274,6 +289,8 @@ export interface PlaybackStatus {
   resumeSceneId: number | null;
   /** assigned extra keys */
   keys: KeyStatus[];
+  /** assigned faders with their level */
+  faders: FaderStatus[];
   /** highlighted sentence of the script of the current scene (stage directions not counted), 0 after a scene change */
   scriptLine: number;
 }

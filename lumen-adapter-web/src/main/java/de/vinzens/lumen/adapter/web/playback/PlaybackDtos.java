@@ -3,6 +3,7 @@ package de.vinzens.lumen.adapter.web.playback;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase.PlaybackStatus;
 
 import de.vinzens.lumen.domain.composition.ExtraKeys.KeyStatus;
+import de.vinzens.lumen.domain.composition.Faders.FaderStatus;
 
 import java.time.Duration;
 import java.util.List;
@@ -22,10 +23,11 @@ public final class PlaybackDtos {
 	 * @param resumeSceneId  scene that was on stage before a restart and can be resumed, otherwise null
 	 * @param keys           assigned extra keys
 	 * @param scriptLine     highlighted sentence of the script of the current scene (stage directions not counted)
+	 * @param faders         assigned faders with their level
 	 */
 	public record PlaybackResponse(boolean available, int position, int sceneCount, Long currentSceneId,
 			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs,
-			Long resumeSceneId, List<KeyResponse> keys, int scriptLine) {
+			Long resumeSceneId, List<KeyResponse> keys, int scriptLine, List<FaderResponse> faders) {
 
 		public static PlaybackResponse from(PlaybackStatus status) {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
@@ -34,7 +36,7 @@ public final class PlaybackDtos {
 							f.fadeIn().toMillis(), f.fadeOut().toMillis(), f.delay().toMillis())).orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
 					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList(),
-					status.scriptLine());
+					status.scriptLine(), status.faders().stream().map(FaderResponse::from).toList());
 		}
 	}
 
@@ -51,6 +53,14 @@ public final class PlaybackDtos {
 			return new KeyResponse(key.slot(), key.name(), key.kind().map(kind -> kind.id()).orElse("scene"),
 					key.mode().id(), key.on(),
 					Math.round(key.level() * 1000) / 1000.0, key.available());
+		}
+	}
+
+	/** @param level 0–1 */
+	public record FaderResponse(int slot, String name, double level) {
+
+		static FaderResponse from(FaderStatus fader) {
+			return new FaderResponse(fader.slot(), fader.name(), fader.level());
 		}
 	}
 

@@ -15,6 +15,7 @@ import de.vinzens.lumen.application.project.ProjectService;
 import de.vinzens.lumen.application.project.ProjectTransferService;
 import de.vinzens.lumen.application.project.StageService;
 import de.vinzens.lumen.application.party.PartyButtonService;
+import de.vinzens.lumen.application.playback.FaderService;
 import de.vinzens.lumen.application.preset.PresetService;
 import de.vinzens.lumen.application.scene.SceneService;
 import org.slf4j.Logger;
@@ -61,7 +62,7 @@ class PersistenceConfiguration {
 			OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
 				repositories.groups(), repositories.scenes(), repositories.stagePlans(), repositories.compositions(),
-				repositories.partyButtons(), repositories.presets(), clock, outputEngine);
+				repositories.partyButtons(), repositories.presets(), repositories.faders(), clock, outputEngine);
 	}
 
 	@Bean
@@ -109,6 +110,11 @@ class PersistenceConfiguration {
 			Clock clock) {
 		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine,
 				repositories.compositions(), stateEvents, clock);
+	}
+
+	@Bean
+	FaderService faderService(SqliteRepositories repositories, StateEvents stateEvents) {
+		return new FaderService(repositories.projects(), repositories.scenes(), repositories.faders(), stateEvents);
 	}
 
 	@Bean

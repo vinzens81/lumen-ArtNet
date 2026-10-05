@@ -35,5 +35,7 @@ public enum StateTopic {
 	/** Party buttons of the active project were added, changed or removed. */
 	PARTY_BUTTONS,
 	/** Presets of the active project were added, changed or removed. */
-	PRESETS
+	PRESETS,
+	/** The fader setup of the active project changed. */
+	FADERS
 }

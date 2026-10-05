@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.project;
 
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.party.port.out.PartyButtonRepository;
+import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.preset.port.out.PresetRepository;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
@@ -15,6 +16,7 @@ import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.Target;
@@ -48,13 +50,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final CompositionRepository compositions;
 	private final PartyButtonRepository partyButtons;
 	private final PresetRepository presets;
+	private final FaderRepository faders;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
 			CompositionRepository compositions, PartyButtonRepository partyButtons, PresetRepository presets,
-			Clock clock, PatchChangeListener listener) {
+			FaderRepository faders, Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
@@ -64,6 +67,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.partyButtons = Objects.requireNonNull(partyButtons, "partyButtons");
 		this.presets = Objects.requireNonNull(presets, "presets");
+		this.faders = Objects.requireNonNull(faders, "faders");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -75,7 +79,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
 				stagePlans.find(projectId), allCompositions(projectId), compositions.findKeys(projectId),
 				compositions.findSceneKeys(projectId), partyButtons.findByProject(projectId),
-				presets.findByProject(projectId));
+				presets.findByProject(projectId), faders.findByProject(projectId));
 	}
 
 	private List<Composition> allCompositions(long projectId) {
@@ -156,6 +160,9 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			}
 		}
 		export.sceneKeys().forEach((sceneId, slots) -> compositions.saveSceneKeys(sceneIds.get(sceneId), slots));
+		for (var fader : export.faders()) {
+			faders.save(projectId, new Fader(fader.slot(), fader.name(), sceneIds.get(fader.sceneId())));
+		}
 		for (var button : export.partyButtons()) {
 			var values = new HashMap<Long, FixtureValues>();
 			button.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
@@ -247,6 +254,15 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		}
 		export.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
 				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));
+		var faderSlots = new HashSet<Integer>();
+		for (var fader : export.faders()) {
+			if (!faderSlots.add(fader.slot())) {
+				errors.add("Fader " + fader.slot() + " is used twice");
+			}
+			if (!sceneIds.contains(fader.sceneId())) {
+				errors.add("Fader " + fader.slot() + " refers to unknown scene " + fader.sceneId());
+			}
+		}
 		for (var button : export.partyButtons()) {
 			button.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
 					errors.add("Party button '" + button.name() + "' refers to unknown fixture " + id));

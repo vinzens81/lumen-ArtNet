@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.project.port.in;
 
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.party.PartyButton;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Group;
@@ -38,7 +39,7 @@ public interface TransferProjectUseCase {
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
 			List<Group> groups, List<Scene> scenes, Optional<StagePlan> stagePlan, List<Composition> compositions,
 			List<ExtraKey> keys, Map<Long, Set<Integer>> sceneKeys, List<PartyButton> partyButtons,
-			List<Preset> presets) {
+			List<Preset> presets, List<Fader> faders) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
@@ -51,6 +52,7 @@ public interface TransferProjectUseCase {
 			sceneKeys = Map.copyOf(sceneKeys);
 			partyButtons = List.copyOf(partyButtons);
 			presets = List.copyOf(presets);
+			faders = List.copyOf(faders);
 		}
 	}
 }

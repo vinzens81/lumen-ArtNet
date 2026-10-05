@@ -4,6 +4,7 @@ import de.vinzens.lumen.application.ConflictException;
 import de.vinzens.lumen.application.FixedCompositions;
 import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
@@ -12,6 +13,7 @@ import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.composition.Wave;
@@ -57,6 +59,7 @@ class PlaybackServiceTest {
 	private final Map<Long, Optional<Long>> saved = new HashMap<>();
 	private final List<Optional<Long>> writes = new ArrayList<>();
 	private final StateEvents events = new StateEvents();
+	private final InMemoryFaders faders = new InMemoryFaders();
 	private FixedCompositions compositions = FixedCompositions.NONE;
 	/** Runs inside every scene query, e.g. to make the database slow. */
 	private Runnable onSceneQuery = () -> {
@@ -132,6 +135,23 @@ class PlaybackServiceTest {
 		scenes.remove(2);
 
 		assertThat(service().status().resumeSceneId()).isEmpty();
+	}
+
+	@Test
+	void fadersLayTheirSceneOverTheCueListAndKeepTheirLevel() {
+		faders.save(1, new Fader(1, Optional.of("House lights"), 5));
+		var service = new PlaybackService(projects(), sceneRepository(),
+				new CompositionResolver(compositions, groups(), sceneRepository()), states(), faders, Runnable::run,
+				clock, events);
+
+		assertThat(service.status().faders()).singleElement()
+				.satisfies(f -> assertThat(f.name()).isEqualTo("House lights"));
+		service.setFader(1, 0.4);
+		assertThat(service.layer(clock.instant(), Map.of()).fixtures().get(5L).get(DIMMER)).contains(0.4);
+
+		events.publish(StateTopic.FADERS); // reload: the level stays
+		assertThat(service.status().faders().getFirst().level()).isEqualTo(0.4);
+		assertThatThrownBy(() -> service.setFader(2, 1)).hasMessageContaining("No fader on slot 2");
 	}
 
 	@Test
@@ -228,7 +248,12 @@ class PlaybackServiceTest {
 	}
 
 	private PlaybackService service() {
-		PlaybackStateRepository states = new PlaybackStateRepository() {
+		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(compositions, groups()),
+				states(), faders, Runnable::run, clock, events);
+	}
+
+	private PlaybackStateRepository states() {
+		return new PlaybackStateRepository() {
 			@Override
 			public Optional<Long> currentScene(long projectId) {
 				return saved.getOrDefault(projectId, Optional.empty());
@@ -240,8 +265,6 @@ class PlaybackServiceTest {
 				writes.add(sceneId);
 			}
 		};
-		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(compositions, groups()), states,
-				Runnable::run, clock, events);
 	}
 
 	private void go(PlaybackService service) {

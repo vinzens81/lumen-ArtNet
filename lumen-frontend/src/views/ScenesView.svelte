@@ -1,4 +1,5 @@
 <script lang="ts">
+  import FadersPanel from '../components/FadersPanel.svelte';
   import Modal from '../components/Modal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import SceneCompositions from '../components/SceneCompositions.svelte';
@@ -479,6 +480,9 @@
               </button>
             </div>
           {/each}
+        {/if}
+        {#if projectId !== null}
+          <FadersPanel {projectId} {scenes} />
         {/if}
       </div>
 

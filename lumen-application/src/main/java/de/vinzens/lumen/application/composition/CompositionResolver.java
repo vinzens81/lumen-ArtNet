@@ -8,6 +8,8 @@ import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.ExtraKeys;
 import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
+import de.vinzens.lumen.domain.composition.Fader;
+import de.vinzens.lumen.domain.composition.Faders.PlayableFader;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.composition.Target;
 
@@ -58,16 +60,30 @@ public class CompositionResolver {
 				case ExtraKey.Content.PlaysComposition plays -> result.add(new PlayableKey(key.slot(), key.mode(),
 						key.fade(), plays.composition().spec().name(),
 						ActiveComposition.of(plays.composition(), targetFixtures(plays.composition(), members))));
-				case ExtraKey.Content.PlaysScene plays -> findScene(plays.sceneId()).ifPresent(scene -> {
-					var sceneCompositions = compositions.findByScene(scene.id()).stream()
-							.map(copy -> ActiveComposition.of(copy, targetFixtures(copy, members)))
-							.toList();
-					result.add(new PlayableKey(key.slot(), key.mode(), key.fade(), scene.spec().name(),
-							new ExtraKeys.SceneLook(scene.id(), scene.values(), sceneCompositions)));
-				});
+				case ExtraKey.Content.PlaysScene plays -> findScene(plays.sceneId()).ifPresent(scene ->
+						result.add(new PlayableKey(key.slot(), key.mode(), key.fade(), scene.spec().name(),
+								sceneLook(scene, members))));
 			}
 		}
 		return result;
+	}
+
+	/** Faders ready to play; a fader whose scene no longer exists is left out. */
+	public List<PlayableFader> faders(List<Fader> faders) {
+		var result = new ArrayList<PlayableFader>();
+		for (var fader : faders) {
+			findScene(fader.sceneId()).ifPresent(scene -> result.add(new PlayableFader(fader.slot(),
+					fader.name().orElse(scene.spec().name()), sceneLook(scene, groupMembers(scene.projectId())))));
+		}
+		return result;
+	}
+
+	/** A scene with its compositions as one look. */
+	private ExtraKeys.SceneLook sceneLook(Scene scene, Map<Long, List<Long>> members) {
+		var sceneCompositions = compositions.findByScene(scene.id()).stream()
+				.map(copy -> ActiveComposition.of(copy, targetFixtures(copy, members)))
+				.toList();
+		return new ExtraKeys.SceneLook(scene.id(), scene.values(), sceneCompositions);
 	}
 
 	private Optional<Scene> findScene(long sceneId) {

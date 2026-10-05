@@ -95,7 +95,7 @@ class ShowSoakTest {
 		var engine = new OutputEngine(projects(), universes(), fixtures(), groups(), library(),
 				(universe, frame) -> framesSent++, events, clock);
 		var playback = new PlaybackService(projects(), scenes(), new CompositionResolver(new FixedCompositions(compositions()), groups()),
-				states(), Runnable::run, clock, events);
+				states(), new de.vinzens.lumen.application.playback.InMemoryFaders(), Runnable::run, clock, events);
 		engine.addLayerSource(playback);
 		engine.patchChanged();
 		engine.setMode(OperatingMode.SHOW);

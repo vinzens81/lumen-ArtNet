@@ -50,10 +50,11 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
  * {@code party} (tempo, palettes, buttons), {@code health} (every second), {@code partyButtons}, {@code compositions},
- * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects}, {@code presets}
- * (the last nine ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects}, {@code presets},
+ * {@code faders} (the last ten ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
- * {@code sceneId} and {@code line}) and {@code keys.press/release} (with {@code slot}) for low latency.
+ * {@code sceneId} and {@code line}), {@code keys.press/release} (with {@code slot}) and {@code fader.set} (with
+ * {@code slot} and {@code level}) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -225,6 +226,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			}
 			case PARTY_BUTTONS -> message.put("type", "partyButtons");
 			case PRESETS -> message.put("type", "presets");
+			case FADERS -> message.put("type", "faders");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));
@@ -282,6 +284,12 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				case "subscribe" -> subscribe(session, command.topics());
 				case "keys.press" -> playback.pressKey(requireSlot(command));
 				case "keys.release" -> playback.releaseKey(requireSlot(command));
+				case "fader.set" -> {
+					if (command.level() == null) {
+						throw new DomainValidationException(List.of("level is required"));
+					}
+					playback.setFader(requireSlot(command), command.level());
+				}
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();
 				case "playback.pause" -> playback.togglePause();

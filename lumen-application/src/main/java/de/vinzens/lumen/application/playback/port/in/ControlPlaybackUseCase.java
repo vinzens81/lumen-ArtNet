@@ -1,6 +1,7 @@
 package de.vinzens.lumen.application.playback.port.in;
 
 import de.vinzens.lumen.domain.composition.ExtraKeys.KeyStatus;
+import de.vinzens.lumen.domain.composition.Faders.FaderStatus;
 
 import java.time.Duration;
 import java.util.List;
@@ -34,6 +35,9 @@ public interface ControlPlaybackUseCase {
 	/** Extra key released: switches a flash key off. */
 	PlaybackStatus releaseKey(int slot);
 
+	/** Sets the level (0–1) of a fader, e.g. the house lights; works in setup and show mode. */
+	PlaybackStatus setFader(int slot, double level);
+
 	/** Chooses the scene that the next GO starts. */
 	PlaybackStatus setNext(long sceneId);
 
@@ -53,16 +57,20 @@ public interface ControlPlaybackUseCase {
 	 * @param resumeSceneId   scene that was on stage before a restart; offered until resumed, dismissed or GO
 	 * @param keys            assigned extra keys with their state
 	 * @param scriptLine      highlighted sentence of the script of the current scene, 0 after every scene change
+	 * @param faders          assigned faders with their level
 	 */
 	record PlaybackStatus(boolean available, int position, int sceneCount, Optional<Long> currentSceneId,
 			Optional<Long> nextSceneId, boolean nextIsEnd, Optional<Fade> fade, boolean paused,
-			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys, int scriptLine) {
+			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys, int scriptLine,
+			List<FaderStatus> faders) {
 
 		public static final PlaybackStatus UNAVAILABLE = new PlaybackStatus(false, -1, 0, Optional.empty(),
-				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of(), 0);
+				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of(), 0,
+				List.of());
 
 		public PlaybackStatus {
 			keys = List.copyOf(keys);
+			faders = List.copyOf(faders);
 		}
 	}
 

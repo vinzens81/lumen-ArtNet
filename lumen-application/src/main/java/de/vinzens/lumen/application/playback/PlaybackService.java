@@ -7,12 +7,15 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.OutputLayerSource;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
+import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.ExtraKeys;
+import de.vinzens.lumen.domain.composition.Faders;
+import de.vinzens.lumen.domain.composition.Faders.PlayableFader;
 import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.library.Mode;
@@ -55,6 +58,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	private final SceneRepository scenes;
 	private final CompositionResolver compositions;
 	private final PlaybackStateRepository states;
+	private final FaderRepository faderSetup;
 	private final Executor stateWriter;
 	private final Clock clock;
 	private final StateEvents events;
@@ -70,6 +74,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	/** Extra keys: laid over the playback output, usable only in the scenes they are enabled for. */
 	private ExtraKeys keys = new ExtraKeys();
 	private Map<Long, Set<Integer>> sceneKeys = Map.of();
+	/** Faders, e.g. the house lights: laid over playback and keys at the level they are pushed to. */
+	private Faders faders = new Faders();
 	/** Highlighted sentence of a scene's script; only counts while that scene is on stage. */
 	private ScriptLine scriptLine = ScriptLine.NONE;
 	private final AtomicLong reloads = new AtomicLong();
@@ -79,16 +85,19 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	 * @param stateWriter runs the saving of the playback state, e.g. a single background thread
 	 */
 	public PlaybackService(ProjectRepository projects, SceneRepository scenes, CompositionResolver compositions,
-			PlaybackStateRepository states, Executor stateWriter, Clock clock, StateEvents events) {
+			PlaybackStateRepository states, FaderRepository faderSetup, Executor stateWriter, Clock clock,
+			StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.states = Objects.requireNonNull(states, "states");
+		this.faderSetup = Objects.requireNonNull(faderSetup, "faderSetup");
 		this.stateWriter = Objects.requireNonNull(stateWriter, "stateWriter");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.events = Objects.requireNonNull(events, "events");
 		events.subscribe(topic -> {
-			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS || topic == StateTopic.COMPOSITIONS) {
+			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS || topic == StateTopic.COMPOSITIONS
+					|| topic == StateTopic.FADERS) {
 				reload();
 			}
 		});
@@ -109,7 +118,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		// scenes only for extra keys are not part of the cue list
 		var cueList = scenes.findByProject(project.id()).stream().filter(scene -> !scene.spec().keyOnly()).toList();
 		return new Loaded(project, cueList, compositions.scenes(project.id()), compositions.keys(project.id()),
-				compositions.sceneKeys(project.id()), states.currentScene(project.id()));
+				compositions.sceneKeys(project.id()), compositions.faders(faderSetup.findByProject(project.id())),
+				states.currentScene(project.id()));
 	}
 
 	private synchronized void apply(long sequence, Optional<Loaded> loaded) {
@@ -123,6 +133,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			savedSceneId = Optional.empty();
 			resumeSceneId = Optional.empty();
 			keys = new ExtraKeys();
+			faders = new Faders();
 		} else {
 			var data = loaded.get();
 			var project = data.project();
@@ -134,6 +145,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				savedSceneId = data.savedSceneId();
 				resumeSceneId = savedSceneId;
 				keys = new ExtraKeys();
+				faders = new Faders();
 			} else {
 				playback.reload(data.cueList(), data.running(), fadeIn, fadeOut, clock.instant());
 			}
@@ -141,6 +153,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			resumeSceneId = resumeSceneId.filter(id -> data.cueList().stream().anyMatch(scene -> scene.id() == id));
 			var now = clock.instant();
 			keys.configure(data.keys(), now);
+			faders.configure(data.faders());
 			sceneKeys = data.sceneKeys();
 			updateKeyAvailability(now);
 		}
@@ -172,7 +185,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		if (keys.tick(now)) {
 			events.publish(StateTopic.PLAYBACK);
 		}
-		return new LayerOutput(PLAYBACK_PRIORITY, keys.apply(playback.output(now, behaviors), now, attributes));
+		var withKeys = keys.apply(playback.output(now, behaviors), now, attributes);
+		return new LayerOutput(PLAYBACK_PRIORITY, faders.apply(withKeys, now, attributes));
 	}
 
 	@Override
@@ -217,6 +231,13 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		requirePlayback();
 		var now = clock.instant();
 		return keys.release(slot, now) ? changed(now) : status(now);
+	}
+
+	@Override
+	public synchronized PlaybackStatus setFader(int slot, double level) {
+		requirePlayback();
+		var now = clock.instant();
+		return faders.set(slot, level, now) ? changed(now) : status(now);
 	}
 
 	/** Keys are usable in the scenes they are enabled for; before the first scene and at the end none. */
@@ -315,7 +336,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
 				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now),
-				scriptLine.of(playback.currentScene()));
+				scriptLine.of(playback.currentScene()), faders.status());
 	}
 
 	/** A highlighted sentence; reset by every GO, Back and auto-follow, so a scene always starts at its first one. */
@@ -330,7 +351,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	/** What a reload reads from the database for the active project. */
 	private record Loaded(Project project, List<Scene> cueList, Map<Long, List<ActiveComposition>> running,
-			List<PlayableKey> keys, Map<Long, Set<Integer>> sceneKeys,
+			List<PlayableKey> keys, Map<Long, Set<Integer>> sceneKeys, List<PlayableFader> faders,
 			Optional<Long> savedSceneId) {
 	}
 }

@@ -16,6 +16,7 @@ import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase.Proje
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -57,7 +58,8 @@ import java.util.Set;
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
 		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions,
-		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons, List<PresetEntry> presets) {
+		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons, List<PresetEntry> presets,
+		List<FaderEntry> faders) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
@@ -81,7 +83,9 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 						k.composition().map(c -> CompositionEntry.from(c, sceneNumbers, json)).orElse(null),
 						k.sceneId().map(sceneNumbers::get).orElse(null))).toList(),
 				export.partyButtons().stream().map(PartyButtonEntry::from).toList(),
-				export.presets().stream().map(PresetEntry::from).toList());
+				export.presets().stream().map(PresetEntry::from).toList(),
+				export.faders().stream().map(f -> new FaderEntry(f.slot(), f.name().orElse(null),
+						sceneNumbers.get(f.sceneId()))).toList());
 	}
 
 	ProjectExport toExport(JsonMapper json) {
@@ -119,7 +123,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList(),
 				list(extraKeys).stream().map(k -> k.toKey(sceneIds, json)).toList(), sceneKeys,
 				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList(),
-				list(presets).stream().map(PresetEntry::toPreset).toList());
+				list(presets).stream().map(PresetEntry::toPreset).toList(),
+				list(faders).stream().map(f -> f.toFader(sceneIds)).toList());
 	}
 
 	/**
@@ -127,6 +132,25 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 *
 	 * @param mode toggle or flash
 	 */
+	/**
+	 * A fader of the show; files from before faders have none.
+	 *
+	 * @param scene number of the scene it plays
+	 */
+	record FaderEntry(Integer slot, String name, String scene) {
+
+		Fader toFader(Map<String, Long> sceneIds) {
+			if (slot == null || scene == null) {
+				throw new DomainValidationException(List.of("A fader has no slot or scene"));
+			}
+			var sceneId = sceneIds.get(SceneNumber.parse(scene).toString());
+			if (sceneId == null) {
+				throw new DomainValidationException(List.of("Fader " + slot + " refers to unknown scene " + scene));
+			}
+			return new Fader(slot, Optional.ofNullable(name), sceneId);
+		}
+	}
+
 	/**
 	 * A preset with its values per fixture id; files from before presets have none.
 	 *

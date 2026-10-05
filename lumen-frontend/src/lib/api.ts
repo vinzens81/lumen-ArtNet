@@ -7,6 +7,7 @@ import type {
   Composition,
   CompositionRequest,
   ExtraKey,
+  FaderSetup,
   KeyMode,
   AttributeValues,
   Fixture,
@@ -116,6 +117,12 @@ export const api = {
     update: (projectId: number, id: number, group: GroupRequest) =>
       put<Group>(`/api/projects/${projectId}/groups/${id}`, group),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/groups/${id}`),
+  },
+  faders: {
+    list: (projectId: number) => get<FaderSetup[]>(`/api/projects/${projectId}/faders`),
+    save: (projectId: number, slot: number, name: string | null, sceneId: number) =>
+      put<FaderSetup>(`/api/projects/${projectId}/faders/${slot}`, { name, sceneId }),
+    remove: (projectId: number, slot: number) => del(`/api/projects/${projectId}/faders/${slot}`),
   },
   presets: {
     list: (projectId: number) => get<Preset[]>(`/api/projects/${projectId}/presets`),
@@ -250,6 +257,7 @@ export const api = {
       put<PlaybackStatus>('/api/playback/script', { sceneId, line }),
     pressKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/press`),
     releaseKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/release`),
+    setFader: (slot: number, level: number) => put<PlaybackStatus>(`/api/playback/faders/${slot}`, { level }),
     resume: () => post<PlaybackStatus>('/api/playback/resume'),
     dismissResume: () => request<PlaybackStatus>('DELETE', '/api/playback/resume'),
   },

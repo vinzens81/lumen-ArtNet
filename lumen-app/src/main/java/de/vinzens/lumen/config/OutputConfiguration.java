@@ -119,7 +119,7 @@ class OutputConfiguration {
 	PlaybackService playbackService(SqliteRepositories repositories, CompositionResolver compositionResolver,
 			ExecutorService playbackStateWriter, Clock clock, StateEvents stateEvents, OutputEngine outputEngine) {
 		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), compositionResolver,
-				repositories.playbackStates(), playbackStateWriter, clock, stateEvents);
+				repositories.playbackStates(), repositories.faders(), playbackStateWriter, clock, stateEvents);
 		outputEngine.addLayerSource(playback);
 		playback.status().resumeSceneId().ifPresent(sceneId ->
 				log.info("Show can be resumed at scene id {}", sceneId));

@@ -58,6 +58,11 @@ class LiveState {
   /** fixture id → values not sent yet */
   private pending = new Map<number, AttributeValues>();
   private pendingMaster: number | null = null;
+  /** fader slot → level not sent yet */
+  private pendingFaders = new Map<number, number>();
+  /** fader levels set here, shown instead of the server's until it caught up */
+  private localFaders = new Map<number, { level: number; until: number }>();
+  fadersRevision = $state(0);
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private localEdits = new Map<number, { values: AttributeValues; until: number }>();
   /** live output topics → number of views watching them */
@@ -84,6 +89,7 @@ class LiveState {
       this.compositionsRevision++;
       this.partyButtonsRevision++;
       this.presetsRevision++;
+      this.fadersRevision++;
       this.sendSubscriptions();
     };
     socket.onmessage = (event) => {
@@ -174,8 +180,11 @@ class LiveState {
         this.nodesRevision++;
         break;
       case 'playback':
-        this.playback = message.status as PlaybackStatus;
+        this.playback = this.withLocalFaders(message.status as PlaybackStatus);
         this.playbackReceivedAt = performance.now();
+        break;
+      case 'faders':
+        this.fadersRevision++;
         break;
       case 'party':
         this.updateParty(message.status as PartyStatus);
@@ -233,6 +242,31 @@ class LiveState {
       this.pending.set(id, { ...this.pending.get(id), ...values });
     }
     this.scheduleFlush();
+  }
+
+  /** Moves a fader of the show, e.g. the house lights. */
+  setFader(slot: number, level: number) {
+    this.localFaders.set(slot, { level, until: Date.now() + LOCAL_EDIT_HOLD_MS });
+    if (this.playback) this.playback = this.withLocalFaders(this.playback);
+    this.pendingFaders.set(slot, level);
+    this.scheduleFlush();
+  }
+
+  private withLocalFaders(status: PlaybackStatus): PlaybackStatus {
+    const now = Date.now();
+    if (!status.faders || this.localFaders.size === 0) return status;
+    return {
+      ...status,
+      faders: status.faders.map((fader) => {
+        const local = this.localFaders.get(fader.slot);
+        if (!local) return fader;
+        if (local.until < now) {
+          this.localFaders.delete(fader.slot);
+          return fader;
+        }
+        return { ...fader, level: local.level };
+      }),
+    };
   }
 
   setMasterLevel(level: number) {
@@ -330,8 +364,10 @@ class LiveState {
     this.flushTimer = null;
     const commands = groupByValues(this.pending);
     const masterLevel = this.pendingMaster;
+    const faders = [...this.pendingFaders];
     this.pending.clear();
     this.pendingMaster = null;
+    this.pendingFaders.clear();
     const open = this.socket?.readyState === WebSocket.OPEN;
 
     for (const command of commands) {
@@ -344,6 +380,10 @@ class LiveState {
     if (masterLevel !== null) {
       if (open) this.socket!.send(JSON.stringify({ type: 'master.set', level: masterLevel }));
       else api.output.setMaster(masterLevel).catch(showError);
+    }
+    for (const [slot, level] of faders) {
+      if (open) this.socket!.send(JSON.stringify({ type: 'fader.set', slot, level }));
+      else api.playback.setFader(slot, level).catch(showError);
     }
   }
 }

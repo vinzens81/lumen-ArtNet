@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import DmxMonitorView from './DmxMonitorView.svelte';
   import Swatches from '../components/Swatches.svelte';
@@ -366,6 +367,7 @@
       <button type="button" class="btn secondary" onclick={() => live.playbackCommand('finish')} disabled={!status?.fade}>⏭ Finish fade <kbd>↵</kbd></button>
     </div>
     <div class="key-bar"><KeyBar keys={status?.keys ?? []} /></div>
+    <div class="fader-bar"><FaderBar faders={status?.faders ?? []} /></div>
     </div>
   </div>
 </section>
@@ -782,6 +784,7 @@
   @media (max-width: 600px) {
     .list,
     .key-bar,
+    .fader-bar,
     .out-panel,
     .controls .secondary,
     .go .hint,
