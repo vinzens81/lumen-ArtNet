@@ -1,6 +1,7 @@
 package de.vinzens.lumen.application.composition.port.in;
 
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.playback.Playback.FadeStatus;
 
 import java.util.Map;
 import java.util.Optional;
@@ -23,9 +24,19 @@ public interface PreviewCompositionUseCase {
 	/** Plays a whole scene – its values and its compositions – on stage above the playback (setup mode only). */
 	void showSceneOnStage(long projectId, long sceneId);
 
+	/**
+	 * Rehearses the GO into a scene on stage (setup mode only): the scene before it in the cue list – or the dark
+	 * stage for the first scene – fades into it with the fade times of the show, then the scene stays on stage.
+	 */
+	void rehearseFade(long projectId, long sceneId);
+
 	void stopOnStage();
 
 	Optional<Long> compositionOnStage();
 
+	/** The scene on stage, shown directly or as the target of a rehearsed fade. */
 	Optional<Long> sceneOnStage();
+
+	/** The running rehearsed fade, empty once it has ended. */
+	Optional<FadeStatus> fadeOnStage();
 }

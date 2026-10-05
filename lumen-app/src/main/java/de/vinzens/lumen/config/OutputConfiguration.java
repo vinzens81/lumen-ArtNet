@@ -120,7 +120,7 @@ class OutputConfiguration {
 	CompositionPreviewService compositionPreviewService(SqliteRepositories repositories,
 			CompositionResolver compositionResolver, OutputEngine outputEngine, Clock clock, StateEvents stateEvents) {
 		var preview = new CompositionPreviewService(repositories.compositions(), repositories.scenes(),
-				compositionResolver, outputEngine, clock, stateEvents);
+				repositories.projects(), compositionResolver, outputEngine, clock, stateEvents);
 		outputEngine.addLayerSource(preview);
 		return preview;
 	}

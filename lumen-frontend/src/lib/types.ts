@@ -366,3 +366,20 @@ export interface CompositionRequest {
   restart?: boolean;
   once?: boolean;
 }
+
+/** A rehearsed GO into the scene on stage; the fade-in starts delayMs after GO, the fade-out at GO. */
+export interface RehearsedFade {
+  /** the scene fading out, null for the dark stage */
+  fromSceneId: number | null;
+  elapsedMs: number;
+  fadeInMs: number;
+  fadeOutMs: number;
+  delayMs: number;
+}
+
+export interface StagePreviewStatus {
+  compositionId: number | null;
+  sceneId: number | null;
+  /** running rehearsed fade into sceneId, null if none or ended */
+  fade: RehearsedFade | null;
+}

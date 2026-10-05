@@ -8,6 +8,7 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.OutputLayerSource;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
+import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.CompositionMixer;
@@ -19,6 +20,10 @@ import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.output.OperatingMode;
+import de.vinzens.lumen.domain.playback.FadeBehaviors;
+import de.vinzens.lumen.domain.playback.Playback;
+import de.vinzens.lumen.domain.playback.Playback.FadeStatus;
+import de.vinzens.lumen.domain.scene.Scene;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -32,8 +37,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Runs compositions for the editor. The on-screen preview runs on its own clock and never reaches the stage; the
- * stage preview (one composition or a whole scene with its compositions) is an output layer between playback and
- * programmer and stops when show mode starts.
+ * stage preview (one composition, a whole scene with its compositions, or a rehearsed fade into a scene) is an
+ * output layer between playback and programmer and stops when show mode starts.
  */
 public class CompositionPreviewService implements PreviewCompositionUseCase, OutputLayerSource {
 
@@ -42,6 +47,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	private final CompositionRepository compositions;
 	private final SceneRepository scenes;
+	private final ProjectRepository projects;
 	private final CompositionResolver resolver;
 	private final ControlModeUseCase mode;
 	private final Clock clock;
@@ -54,9 +60,11 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	private volatile StagePreview onStage;
 
 	public CompositionPreviewService(CompositionRepository compositions, SceneRepository scenes,
-			CompositionResolver resolver, ControlModeUseCase mode, Clock clock, StateEvents events) {
+			ProjectRepository projects, CompositionResolver resolver, ControlModeUseCase mode, Clock clock,
+			StateEvents events) {
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
+		this.projects = Objects.requireNonNull(projects, "projects");
 		this.resolver = Objects.requireNonNull(resolver, "resolver");
 		this.mode = Objects.requireNonNull(mode, "mode");
 		this.clock = Objects.requireNonNull(clock, "clock");
@@ -115,6 +123,39 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		events.publish(StateTopic.STAGE_PREVIEW);
 	}
 
+	@Override
+	public synchronized void rehearseFade(long projectId, long sceneId) {
+		requireSetupMode();
+		var project = projects.findById(projectId)
+				.orElseThrow(() -> new NotFoundException("Project " + projectId + " does not exist"));
+		var target = scenes.findById(sceneId).filter(s -> s.projectId() == projectId)
+				.orElseThrow(() -> new NotFoundException("Scene " + sceneId + " does not exist in project "
+						+ projectId));
+		if (target.spec().keyOnly()) {
+			throw new ConflictException("Scene " + target.spec().number()
+					+ " is only played by extra keys – it has no fade from a previous scene");
+		}
+		var previous = previousInCueList(projectId, target);
+		var cueList = previous.map(p -> List.of(p, target)).orElse(List.of(target));
+		var playback = new Playback(cueList, resolver.scenes(projectId), project.spec().fadeIn(),
+				project.spec().fadeOut());
+		playback.useFixtures(FixtureAttributes.of(modes));
+		var now = clock.instant();
+		var behaviors = FadeBehaviors.of(modes);
+		previous.ifPresent(p -> playback.restore(p.id(), now));
+		playback.go(now, behaviors);
+		onStage = new FadeOnStage(projectId, sceneId, previous.map(Scene::id), playback, now);
+		events.publish(StateTopic.STAGE_PREVIEW);
+	}
+
+	/** The scene GO comes from in the show: the one before in the cue list, empty for the first (dark stage). */
+	private Optional<Scene> previousInCueList(long projectId, Scene target) {
+		return scenes.findByProject(projectId).stream()
+				.filter(scene -> !scene.spec().keyOnly())
+				.filter(scene -> scene.spec().number().compareTo(target.spec().number()) < 0)
+				.reduce((first, second) -> second);
+	}
+
 	/** Takes over changes of what is on stage (edited scene or composition); its time keeps running. */
 	private synchronized void refreshStage() {
 		switch (onStage) {
@@ -129,6 +170,21 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 							resolver.scenes(current.projectId()).getOrDefault(current.sceneId(), List.of()),
 							current.startedAt()),
 					this::stopOnStage);
+			case FadeOnStage current -> {
+				var target = scenes.findById(current.sceneId());
+				var project = projects.findById(current.projectId());
+				if (target.isEmpty() || project.isEmpty()) {
+					stopOnStage();
+					return;
+				}
+				// a deleted previous scene stays on stage until the fade has ended, like in the show
+				var cueList = current.fromSceneId().flatMap(scenes::findById)
+						.map(from -> List.of(from, target.get())).orElse(List.of(target.get()));
+				synchronized (current.playback()) {
+					current.playback().reload(cueList, resolver.scenes(current.projectId()),
+							project.get().spec().fadeIn(), project.get().spec().fadeOut(), clock.instant());
+				}
+			}
 		}
 	}
 
@@ -153,7 +209,23 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	@Override
 	public Optional<Long> sceneOnStage() {
-		return onStage instanceof SceneOnStage preview ? Optional.of(preview.sceneId()) : Optional.empty();
+		return switch (onStage) {
+			case SceneOnStage preview -> Optional.of(preview.sceneId());
+			case FadeOnStage preview -> Optional.of(preview.sceneId());
+			case null, default -> Optional.empty();
+		};
+	}
+
+	@Override
+	public Optional<FadeStatus> fadeOnStage() {
+		if (!(onStage instanceof FadeOnStage preview)) {
+			return Optional.empty();
+		}
+		synchronized (preview.playback()) {
+			var now = clock.instant();
+			preview.playback().tick(now, FadeBehaviors.of(modes));
+			return preview.playback().fade(now);
+		}
 	}
 
 	@Override
@@ -174,6 +246,14 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 					look = CompositionMixer.apply(look, composition, seconds, attributes);
 				}
 				yield look;
+			}
+			case FadeOnStage fade -> {
+				synchronized (fade.playback()) {
+					var behaviors = FadeBehaviors.of(currentModes);
+					fade.playback().useFixtures(attributes);
+					fade.playback().tick(now, behaviors);
+					yield fade.playback().output(now, behaviors);
+				}
 			}
 		});
 	}
@@ -202,5 +282,13 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	private record SceneOnStage(long projectId, long sceneId, Map<Long, FixtureValues> base,
 			List<ActiveComposition> compositions, Instant startedAt) implements StagePreview {
+	}
+
+	/**
+	 * A rehearsed GO: the previous scene of the cue list (or the dark stage) fades into the scene with the times of
+	 * the show; the scene stays on stage afterwards. Runs on its own {@link Playback}, which callers lock.
+	 */
+	private record FadeOnStage(long projectId, long sceneId, Optional<Long> fromSceneId, Playback playback,
+			Instant startedAt) implements StagePreview {
 	}
 }

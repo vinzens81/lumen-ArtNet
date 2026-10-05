@@ -174,6 +174,18 @@ class CompositionApiTest {
 		Thread.sleep(100);
 		assertThat(dmx()[0]).isEqualTo(255);
 
+		// a rehearsed GO into the first scene fades in from the dark stage with the scene's own 3 s
+		assertThat(put(base + "/scenes/" + scene, "{\"number\": \"1\", \"name\": \"Fair\", \"fadeInMs\": 3000}"))
+				.hasStatusOk();
+		assertThat(post(base + "/scenes/" + scene + "/rehearse-fade", "")).hasStatusOk().bodyJson()
+				.satisfies(json -> {
+					assertThat(json).extractingPath("$.sceneId").isEqualTo((int) scene);
+					assertThat(json).extractingPath("$.fade.fromSceneId").isNull();
+					assertThat(json).extractingPath("$.fade.fadeInMs").isEqualTo(3000);
+				});
+		Thread.sleep(100);
+		assertThat(dmx()[0]).as("still fading in").isBetween(1, 254);
+
 		assertThat(post(base + "/compositions/" + chase + "/stage-preview", "")).hasStatusOk();
 		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
 		assertThat(mvc.get().uri("/api/stage-preview")).as("show mode stops it").bodyJson()

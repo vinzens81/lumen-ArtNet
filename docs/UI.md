@@ -92,7 +92,9 @@ Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte
 2. **Vorschau:** Die Szene wird in den Programmer geladen und ist live sichtbar
 3. Im Programmer anpassen
 4. **Aufnehmen** (neue Szene) bzw. **Aktualisieren** (bestehende überschreiben)
-5. Optional **Probe-Überblendung**: von der vorherigen Szene mit den echten Fade-Zeiten abspielen
+5. Optional **Probe-Überblendung** („⇢ Rehearse fade“ im Szenen-Editor): spielt das GO in die Szene auf der Bühne –
+   von der Szene davor in der Cue-Liste (bei der ersten Szene von dunkel) mit den echten Fade-Zeiten inkl. Delay und
+   Kompositionen. Fortschritt im Editor, danach bleibt die Szene stehen, bis die Vorschau gestoppt wird
 
 ---
 

@@ -11,7 +11,7 @@
   import { notify, showError } from '../lib/toasts.svelte';
   import { kindIcon } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
-  import { sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
+  import { fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
   import { stagePreview } from '../lib/stagePreview.svelte';
   import type { Fixture, Group, Scene } from '../lib/types';
 
@@ -42,6 +42,27 @@
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
+  /** the scene GO comes from in the show – a rehearsed fade starts there */
+  const previousScene = $derived.by(() => {
+    if (!selected || selected.keyOnly) return null;
+    const index = cueScenes.indexOf(selected);
+    return index > 0 ? cueScenes[index - 1] : null;
+  });
+
+  // progress of a rehearsed fade, interpolated from the moment the status arrived
+  let now = $state(performance.now());
+  const rehearsal = $derived(stagePreview.status.fade);
+  const rehearsalElapsed = $derived(rehearsal ? rehearsal.elapsedMs + (now - stagePreview.receivedAt) : 0);
+  const rehearsalRunning = $derived(rehearsal !== null && !fadeEnded(rehearsalElapsed, rehearsal));
+
+  $effect(() => {
+    if (rehearsal === null) return;
+    let frame = requestAnimationFrame(function tick() {
+      now = performance.now();
+      if (!fadeEnded(rehearsalElapsed, rehearsal)) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  });
   /** the cue list played by GO, and the scenes that only extra keys play */
   const cueScenes = $derived(scenes.filter((s) => !s.keyOnly));
   const keyScenes = $derived(scenes.filter((s) => s.keyOnly));
@@ -408,8 +429,32 @@
                 <button class="btn" type="button" onclick={() => projectId !== null && stagePreview.showScene(projectId, selected.id)}
                   title="Play the scene with its compositions on stage, above the playback">▶ Show on stage</button>
               {/if}
+              {#if !selected.keyOnly}
+                <button class="btn" type="button"
+                  onclick={() => projectId !== null && selected && stagePreview.rehearseFade(projectId, selected.id)}
+                  title="Play the GO into this scene on stage: from {previousScene ? `scene ${previousScene.number}` : 'the dark stage'} with the fade times of the show">
+                  ⇢ Rehearse fade
+                </button>
+              {/if}
               <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)} disabled={!programmerHasValues}>⏺ Update from programmer</button>
             </div>
+            {#if rehearsal && rehearsalRunning && stagePreview.status.sceneId === selected.id}
+              {@const from = scenes.find((s) => s.id === rehearsal.fromSceneId)}
+              {@const delayLeft = Math.max(0, rehearsal.delayMs - rehearsalElapsed)}
+              <div class="rehearsal" role="status">
+                <div class="small">
+                  {from ? `${from.number} ${from.name}` : 'Dark stage'} → {selected.number} {selected.name}
+                  <span class="mono dim">
+                    · {delayLeft > 0
+                      ? `fade in starts in ${(delayLeft / 1000).toFixed(1)} s`
+                      : `${(Math.max(0, rehearsal.delayMs + rehearsal.fadeInMs - rehearsalElapsed) / 1000).toFixed(1)} s left`}
+                  </span>
+                </div>
+                <div class="bar">
+                  <span style="width: {fadeInProgress(rehearsalElapsed, rehearsal.fadeInMs, rehearsal.delayMs) * 100}%"></span>
+                </div>
+              </div>
+            {/if}
             {#if stagePreview.status.sceneId === selected.id && programmerHasValues}
               <p class="hint warning-text">The programmer is on top of the stage preview – clear it to see the scene as it is.</p>
             {/if}
@@ -740,6 +785,25 @@
     background: rgba(0, 0, 0, 0.25);
     color: var(--text);
     font: inherit;
+  }
+
+  .rehearsal {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .rehearsal .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .rehearsal .bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
   }
 
   .timing {

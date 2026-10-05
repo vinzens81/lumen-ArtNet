@@ -45,3 +45,11 @@ export function fadeInProgress(elapsedMs: number, fadeInMs: number, delayMs: num
   if (sinceStart < 0) return 0;
   return fadeInMs <= 0 ? 1 : Math.min(1, sinceStart / fadeInMs);
 }
+
+/** Whether a transition has ended: the delayed fade-in and the fade-out are both complete. */
+export function fadeEnded(
+  elapsedMs: number,
+  fade: { fadeInMs: number; fadeOutMs: number; delayMs: number },
+): boolean {
+  return elapsedMs >= Math.max(fade.delayMs + fade.fadeInMs, fade.fadeOutMs);
+}

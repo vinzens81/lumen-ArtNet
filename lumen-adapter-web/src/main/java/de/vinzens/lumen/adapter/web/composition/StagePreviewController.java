@@ -8,8 +8,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Trying out on the real stage in setup mode: a composition or a whole scene (its values and compositions) runs as a
- * layer above the playback until stopped. Only one at a time; starting show mode stops it.
+ * Trying out on the real stage in setup mode: a composition, a whole scene (its values and compositions) or a
+ * rehearsed fade into a scene runs as a layer above the playback until stopped. Only one at a time; starting show
+ * mode stops it.
  */
 @RestController
 class StagePreviewController {
@@ -44,14 +45,33 @@ class StagePreviewController {
 	}
 
 	/**
+	 * Rehearses the GO into the scene: the previous scene of the cue list fades into it with the times of the show,
+	 * then the scene stays on stage.
+	 */
+	@PostMapping("/api/projects/{projectId}/scenes/{sceneId}/rehearse-fade")
+	StagePreviewResponse rehearseFade(@PathVariable long projectId, @PathVariable long sceneId) {
+		preview.rehearseFade(projectId, sceneId);
+		return StagePreviewResponse.of(preview);
+	}
+
+	/**
 	 * @param compositionId the composition on stage, null if none
 	 * @param sceneId       the scene on stage, null if none
+	 * @param fade          the running rehearsed fade into {@code sceneId}, null if none or ended; clients
+	 *                      interpolate its progress from the moment they received it
 	 */
-	record StagePreviewResponse(Long compositionId, Long sceneId) {
+	record StagePreviewResponse(Long compositionId, Long sceneId, FadeResponse fade) {
 
 		static StagePreviewResponse of(PreviewCompositionUseCase preview) {
 			return new StagePreviewResponse(preview.compositionOnStage().orElse(null),
-					preview.sceneOnStage().orElse(null));
+					preview.sceneOnStage().orElse(null),
+					preview.fadeOnStage().map(f -> new FadeResponse(f.fromSceneId().orElse(null),
+							f.elapsed().toMillis(), f.fadeIn().toMillis(), f.fadeOut().toMillis(),
+							f.delay().toMillis())).orElse(null));
 		}
+	}
+
+	/** @param fromSceneId the scene fading out, null for the dark stage */
+	record FadeResponse(Long fromSceneId, long elapsedMs, long fadeInMs, long fadeOutMs, long delayMs) {
 	}
 }

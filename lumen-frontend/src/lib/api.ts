@@ -23,11 +23,10 @@ import type {
   ProjectRequest,
   Scene,
   SceneRequest,
+  StagePreviewStatus,
   Universe,
   UniverseRequest,
 } from './types';
-
-type StagePreviewStatus = { compositionId: number | null; sceneId: number | null };
 
 /** Error returned by the backend as RFC 9457 problem details. */
 export class ApiError extends Error {
@@ -160,6 +159,8 @@ export const api = {
       post<StagePreviewStatus>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
     showScene: (projectId: number, sceneId: number) =>
       post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/stage-preview`),
+    rehearseFade: (projectId: number, sceneId: number) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/rehearse-fade`),
     stop: () => request<StagePreviewStatus>('DELETE', '/api/stage-preview'),
   },
   stage: {

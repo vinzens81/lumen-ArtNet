@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fadeInProgress, sceneRequestOf, secondsToMs, timingLabel } from './sceneTiming';
+import { fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel } from './sceneTiming';
 import type { Scene } from './types';
 
 describe('timingLabel', () => {
@@ -45,5 +45,14 @@ describe('fadeInProgress', () => {
   it('completes a zero fade-in once the delay is over', () => {
     expect(fadeInProgress(0, 0, 0)).toBe(1);
     expect(fadeInProgress(999, 0, 1000)).toBe(0);
+  });
+});
+
+describe('fadeEnded', () => {
+  it('waits for the longer of delayed fade-in and fade-out', () => {
+    const fade = { fadeInMs: 2000, fadeOutMs: 4000, delayMs: 1000 };
+    expect(fadeEnded(3999, fade)).toBe(false);
+    expect(fadeEnded(4000, fade)).toBe(true);
+    expect(fadeEnded(4000, { ...fade, delayMs: 3000 })).toBe(false);
   });
 });

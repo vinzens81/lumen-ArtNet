@@ -102,7 +102,8 @@ mit einem simulierten ESP (gleiches ArtPollReply-Format wie die Firmware) end-to
 - Betriebsmodus-UI: Szenenliste, Jetzt/Ausblendend/Nächste mit Fortschritt, Regiehinweis, großer GO-Button,
   Tastaturkürzel, Sperre gegen Bearbeiten, Wake Lock
 - Show-Modus ist Server-Zustand: sperrt den Programmer (409), alle verbundenen Clients wechseln mit
-- Noch offen (→ später): Probe-Überblendung im Konfigurationsmodus; Fade-Zeiten pro Szene → umgesetzt in Iteration 10
+- Noch offen (→ später): Probe-Überblendung im Konfigurationsmodus und Fade-Zeiten pro Szene → beide umgesetzt in
+  Iteration 10
 
 **DoD:** Eine komplette Show kann per Leertaste durchgespielt werden, Fade-Out und Fade-In laufen parallel,
 ein Doppel-GO erzeugt keinen Sprung.
@@ -209,6 +210,10 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
   gelten für das GO in die Szene, leer = Projektzeit. Flyway `V8`, reist im Projekt-Export mit. Szenen-Editor mit
   Feldern und ⏱-Badge in beiden Szenenlisten, der Betriebsmodus zeigt „Fade in starts in …“ während des Delays.
   Geprüft mit Domain-Tests und im Browser (Testserver: Blitz schaltet sofort, Delay hält den Fade-In zurück)
+- ✅ **Probe-Überblendung** im Konfigurationsmodus: „⇢ Rehearse fade“ im Szenen-Editor spielt das GO von der Szene
+  davor (bzw. von dunkel) in die gewählte Szene, als Bühnen-Vorschau (Ebene 75) mit derselben `Playback`-Engine wie
+  im Betrieb, also mit Fade-Zeiten, Delay und Kompositionen. `POST /api/projects/{id}/scenes/{sid}/rehearse-fade`,
+  der Status der Bühnen-Vorschau enthält den laufenden Fade. Geprüft im Browser (Testserver)
 - ✅ Nebenbei: Robustheit – Playback liest beim Reload die Datenbank außerhalb der Sperre (Render-Loop wartet nicht),
   eine während der Show gelöschte Szene bleibt bis zum nächsten GO stehen, nach dem Ende kommt keine neu angelegte
   Szene auf die Bühne. WebSocket-Watchdog (3,5 s ohne Nachricht → neu verbinden), Wake Lock mit NoSleep.js-Fallback
