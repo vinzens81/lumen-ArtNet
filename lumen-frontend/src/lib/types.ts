@@ -268,6 +268,20 @@ export interface OutputHealth {
   packetsPerSecond: number;
   sendErrorsPerSecond: number;
   universes: number;
+  /** the nodes the project expects, empty while Art-Net is off */
+  nodes: NodeHealth[];
+}
+
+/** online · offline (answered before, not any more) · unchecked (manual IP that never answered ArtPoll) */
+export type NodeState = 'online' | 'offline' | 'unchecked';
+
+export interface NodeHealth {
+  ipAddress: string;
+  name: string;
+  state: NodeState;
+  /** numbers of the project's universes the node receives */
+  universes: number[];
+  lastSeen: string | null;
 }
 
 export interface Backup {

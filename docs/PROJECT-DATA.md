@@ -25,7 +25,8 @@ und welche Szenen es gibt.
   V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
   (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
   V10 = Textbuch pro Szene (`scene.script`, Iteration T), V11 = Netzwerk-Interface pro Universe
-  (`universe.network_interface`, Iteration N).
+  (`universe.network_interface`, Iteration N), V12 = erwartete Art-Net-Nodes pro Projekt (`expected_node`,
+  Iteration H; reist nicht im Projekt-Export mit, weil die Nodes zum Aufbau vor Ort gehören).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 

@@ -5,7 +5,8 @@
   import PinPrompt from './components/PinPrompt.svelte';
   import Toasts from './components/Toasts.svelte';
   import { access } from './lib/access.svelte';
-  import { outputIndicator } from './lib/health';
+  import { api } from './lib/api';
+  import { newlyMissing, nodeName, nodesIndicator, outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { stagePreview } from './lib/stagePreview.svelte';
   import { isPrintPage, modeOfRoute, navigate, router, type Route } from './lib/router.svelte';
@@ -23,7 +24,8 @@
   import ShowView from './views/ShowView.svelte';
   import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
-  import type { OperatingMode } from './lib/types';
+  import { notify, showError } from './lib/toasts.svelte';
+  import type { NodeHealth, OperatingMode, OutputHealth } from './lib/types';
 
   const tabs: { route: Route; label: string; soon?: boolean; experimental?: boolean }[] = [
     { route: '/setup/projects', label: 'Projects' },
@@ -42,6 +44,30 @@
   const pageMode = $derived(modeOfRoute(router.route));
   const liveMode = $derived(pageMode !== 'setup');
   const output = $derived(outputIndicator(live.health, live.connected));
+  const nodes = $derived(nodesIndicator(live.health, live.connected));
+  let nodesOpen = $state(false);
+
+  // during the show, say at once when a node stops answering – the pill alone is easy to miss
+  let previousHealth: OutputHealth | null = null;
+  $effect(() => {
+    const current = live.health;
+    if (live.mode === 'show') {
+      for (const node of newlyMissing(previousHealth, current)) {
+        const dark = node.universes.length > 0 ? [`Universe ${node.universes.join(', ')} may stay dark.`] : [];
+        notify(`Node ${nodeName(node)} does not answer`, 'error', dark);
+      }
+    }
+    previousHealth = current;
+  });
+
+  async function forgetNode(node: NodeHealth) {
+    try {
+      await api.artnet.forgetNode(node.ipAddress);
+      notify(`Lumen no longer expects ${nodeName(node)}`);
+    } catch (e) {
+      showError(e);
+    }
+  }
   let leaveOpen = $state(false);
 
   // the operating mode is server state: every connected client follows it
@@ -179,6 +205,38 @@
       <span class="dot"></span>{output.label}
     </div>
 
+    {#if nodes}
+      <div class="nodes">
+        <button type="button" class="status nodes-pill tone-{nodes.tone}" title={nodes.details}
+          aria-expanded={nodesOpen} onclick={() => (nodesOpen = !nodesOpen)}>
+          <span class="dot"></span>{nodes.label}
+        </button>
+        {#if nodesOpen}
+          <div class="nodes-popover glass">
+            <h3>Art-Net nodes of this project</h3>
+            {#each live.health?.nodes ?? [] as node (node.ipAddress)}
+              <div class="node-row state-{node.state}">
+                <span class="dot"></span>
+                <span class="node-name">{nodeName(node)}</span>
+                {#if node.universes.length > 0}<span class="dim mono">U {node.universes.join(', ')}</span>{/if}
+                <span class="node-state">
+                  {node.state === 'online' ? 'answers' : node.state === 'offline' ? 'missing' : 'not checkable'}
+                </span>
+                {#if node.state === 'offline' && !liveMode}
+                  <button type="button" class="btn small ghost" onclick={() => forgetNode(node)}
+                    title="Removed from the rig? Lumen stops expecting it – it is learned again if it answers.">Forget</button>
+                {/if}
+              </div>
+            {/each}
+            <p class="dim small">
+              A node is expected once it answered for a universe of this project. Manual IP addresses that never answer
+              ArtPoll cannot be checked.
+            </p>
+          </div>
+        {/if}
+      </div>
+    {/if}
+
     {#if stagePreview.active && !liveMode}
       <button type="button" class="preview-pill" onclick={() => stagePreview.stop()}
         title="A {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} is playing on stage above the playback – click to stop">
@@ -260,7 +318,7 @@
 
 <PinPrompt />
 
-<Toasts />
+<Toasts top={liveMode} />
 
 <style>
   .shell {
@@ -382,6 +440,82 @@
   }
 
   .status.tone-off .dot {
+    background: var(--text-dim);
+    box-shadow: none;
+  }
+
+  .nodes {
+    position: relative;
+  }
+
+  .nodes-pill {
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+  }
+
+  .nodes-pill:hover {
+    background: var(--panel-raised);
+  }
+
+  .nodes-popover {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    z-index: 20;
+    width: min(420px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 14px;
+    background: var(--panel-solid);
+    box-shadow: var(--shadow);
+  }
+
+  .nodes-popover h3 {
+    margin: 0;
+    font-size: 12px;
+  }
+
+  .nodes-popover p {
+    margin: 4px 0 0;
+  }
+
+  .node-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+  }
+
+  .node-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .node-state {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .node-row.state-offline .node-state {
+    color: var(--danger);
+    font-weight: 700;
+  }
+
+  .node-row.state-offline .dot {
+    background: var(--danger);
+    box-shadow: 0 0 8px var(--danger);
+  }
+
+  .node-row.state-unchecked .dot {
     background: var(--text-dim);
     box-shadow: none;
   }

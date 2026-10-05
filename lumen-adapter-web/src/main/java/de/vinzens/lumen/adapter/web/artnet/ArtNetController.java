@@ -2,9 +2,14 @@ package de.vinzens.lumen.adapter.web.artnet;
 
 import de.vinzens.lumen.application.output.port.in.QueryArtNetNodesUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryArtNetNodesUseCase.NodeStatus;
+import de.vinzens.lumen.application.output.port.in.WatchNodesUseCase;
 import de.vinzens.lumen.domain.project.LocalNetwork;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
@@ -15,15 +20,24 @@ import java.util.List;
 class ArtNetController {
 
 	private final QueryArtNetNodesUseCase nodes;
+	private final WatchNodesUseCase watch;
 
-	ArtNetController(QueryArtNetNodesUseCase nodes) {
+	ArtNetController(QueryArtNetNodesUseCase nodes, WatchNodesUseCase watch) {
 		this.nodes = nodes;
+		this.watch = watch;
 	}
 
 	/** Art-Net nodes found on the network via ArtPoll. */
 	@GetMapping("/nodes")
 	List<NodeResponse> nodes() {
 		return nodes.nodes().stream().map(NodeResponse::from).toList();
+	}
+
+	/** Stops expecting a node in the active project, e.g. one removed from the rig; it is learned again if it answers. */
+	@DeleteMapping("/expected-nodes/{ipAddress}")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void forget(@PathVariable String ipAddress) {
+		watch.forget(ipAddress);
 	}
 
 	/** IPv4 networks of this computer's interfaces – a universe can be bound to one of them. */

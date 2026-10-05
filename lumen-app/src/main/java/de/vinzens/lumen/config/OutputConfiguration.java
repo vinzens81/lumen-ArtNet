@@ -11,6 +11,7 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.ArtNetNodeService;
+import de.vinzens.lumen.application.output.NodeWatchService;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputHealthService;
 import de.vinzens.lumen.application.output.OutputEngine;
@@ -153,10 +154,18 @@ class OutputConfiguration {
 		return loop;
 	}
 
+	@Bean
+	NodeWatchService nodeWatchService(SqliteRepositories repositories, ArtNetNodeDirectory directory, Clock clock,
+			StateEvents stateEvents) {
+		return new NodeWatchService(repositories.projects(), repositories.universes(), repositories.expectedNodes(),
+				directory, clock, stateEvents);
+	}
+
 	@Bean(destroyMethod = "close")
 	OutputHealthService outputHealthService(RenderLoop renderLoop, DmxOutputPort dmxOutput, OutputEngine engine,
-			StateEvents stateEvents) {
-		var health = new OutputHealthService(renderLoop, dmxOutput, engine::universeCount, stateEvents);
+			NodeWatchService nodeWatch, StateEvents stateEvents) {
+		var health = new OutputHealthService(renderLoop, dmxOutput, engine::universeCount, nodeWatch::check,
+				stateEvents);
 		health.start();
 		return health;
 	}

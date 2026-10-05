@@ -236,13 +236,23 @@ Interfaces werden höchstens alle 3 s neu gelesen (ca. 0,5 ms), `GET /api/artnet
 Projekt-Export mit. Geprüft mit Unit-Tests (Subnetz, Broadcast, Zielauswahl, ArtPoll an alle Netze) und im Browser
 (Testserver); mit zwei echten Netzen und Art-Net an noch nicht ausprobiert.
 
-## ⬜ Iteration H – Node-Überwachung im Betrieb 🩺 (baut auf Iteration N auf)
+## ✅ Iteration H – Node-Überwachung im Betrieb 🩺 (baut auf Iteration N auf)
 - **Erwartete Nodes pro Projekt speichern** (Flyway), damit auch ein Node auffällt, der schon vor dem Start fehlt
 - Node-Status pro Universe im Gesundheitsstatus: online / offline / manuelle IP ohne ArtPollReply (nicht prüfbar)
 - Kopfleiste: „Nodes 3/3“ neben der Art-Net-Anzeige, gelb/rot sobald ein erwarteter Node fehlt, Details per Klick;
   Hinweis im Betriebsmodus, wenn während der Show ein Node wegfällt
 
 **DoD:** Den ESP-Dimmer während einer Show vom Strom nehmen: nach spätestens ~10 s zeigt die Kopfleiste ihn als fehlend.
+Umgesetzt: Ein Node wird erwartet, sobald er per ArtPollReply ein Universe des aktiven Projekts meldet (Flyway `V12`,
+gespeichert, damit er auch nach einem Neustart fehlt); dazu die manuellen IPs der Universen, die ohne ArtPollReply
+„nicht prüfbar“ bleiben. `NodeWatchService` prüft jede Sekunde mit dem Gesundheitsstatus (nur bei Art-Net an),
+fehlende Nodes sind Warnungen („Node … does not answer – universe 1 may stay dark“). Kopfleiste „Nodes 1/1“, rot bei
+fehlendem Node, Klick zeigt die Liste; „Forget“ (`DELETE /api/artnet/expected-nodes/{ip}`) nur im
+Konfigurationsmodus. Im Betrieb zusätzlich ein Hinweis, wenn ein Node wegfällt. Nebenbei: Hinweise erscheinen in
+Betriebs- und Party-Modus oben statt unten, damit sie GO, Back und die Tasten nicht verdecken.
+Geprüft mit Unit-Tests und im Browser mit einem simulierten Node auf 127.0.0.1 (Lumen nur an Loopback gebunden):
+nach dem Abschalten nach ca. 9 s „Nodes 0/1“ rot und Hinweis im Betrieb, nach dem Einschalten nach ca. 3 s wieder grün.
+Mit dem echten ESP noch nicht ausprobiert.
 
 ## ⬜ Iteration D – Mac-App 🍎
 - `jpackage` (im JDK) baut `Lumen.app` mit eingebauter Java-Laufzeit und eine `.dmg` zum Installieren: in „Programme“

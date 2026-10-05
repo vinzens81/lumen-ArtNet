@@ -93,6 +93,14 @@ class ProjectPatchApiTest {
 	}
 
 	@Test
+	void expectedNodesCanBeForgotten() throws Exception {
+		var project = createProject("Nodes");
+		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
+
+		assertThat(mvc.delete().uri("/api/artnet/expected-nodes/192.168.0.150")).hasStatus(204);
+	}
+
+	@Test
 	void universeInUseCannotBeDeleted() throws Exception {
 		var project = createProject("Delete");
 		var universe = createUniverse(project, 1);

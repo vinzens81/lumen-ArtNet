@@ -1,8 +1,11 @@
 <script lang="ts">
   import { dismiss, toasts } from '../lib/toasts.svelte';
+
+  /** below the top bar instead of at the bottom – in show and party mode GO and the keys are down there */
+  let { top = false }: { top?: boolean } = $props();
 </script>
 
-<div class="toasts" aria-live="polite">
+<div class="toasts" class:top aria-live="polite">
   {#each toasts.items as toast (toast.id)}
     <div class="toast glass" class:error={toast.kind === 'error'}>
       <div class="text">
@@ -27,6 +30,11 @@
     flex-direction: column;
     gap: 10px;
     width: min(380px, calc(100vw - 32px));
+  }
+
+  .toasts.top {
+    top: 76px;
+    bottom: auto;
   }
 
   .toast {

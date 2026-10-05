@@ -2,6 +2,7 @@ package de.vinzens.lumen.adapter.sqlite;
 
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
+import de.vinzens.lumen.domain.project.ExpectedNode;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Position;
@@ -116,6 +117,27 @@ class SqliteRepositoriesTest {
 		var bound = new UniverseSpec(2, Optional.of("Stage"), new ArtNetAddress(0, 1, 2), ArtNetTarget.auto(),
 				Optional.of("en7"));
 		assertThat(repos.universes().update(universe.id(), bound).spec()).isEqualTo(bound);
+	}
+
+	@Test
+	void expectedNodesPerProject() {
+		var project = repos.projects().create(projectSpec("P"), NOW);
+		var other = repos.projects().create(projectSpec("Other"), NOW);
+		var nodes = repos.expectedNodes();
+
+		nodes.save(project.id(), new ExpectedNode("192.168.0.150", "ESP"));
+		nodes.save(project.id(), new ExpectedNode("192.168.0.150", "ESP dimmer"));
+		nodes.save(project.id(), new ExpectedNode("10.0.0.5", ""));
+		nodes.save(other.id(), new ExpectedNode("2.0.0.1", "Other"));
+
+		assertThat(nodes.findByProject(project.id())).containsExactly(new ExpectedNode("10.0.0.5", ""),
+				new ExpectedNode("192.168.0.150", "ESP dimmer"));
+		nodes.delete(project.id(), "10.0.0.5");
+		assertThat(nodes.findByProject(project.id())).containsExactly(new ExpectedNode("192.168.0.150", "ESP dimmer"));
+
+		repos.projects().delete(project.id());
+		assertThat(nodes.findByProject(project.id())).isEmpty();
+		assertThat(nodes.findByProject(other.id())).hasSize(1);
 	}
 
 	@Test

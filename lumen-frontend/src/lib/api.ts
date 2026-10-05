@@ -234,6 +234,7 @@ export const api = {
   artnet: {
     nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),
     networks: () => get<LocalNetwork[]>('/api/artnet/networks'),
+    forgetNode: (ipAddress: string) => del(`/api/artnet/expected-nodes/${encodeURIComponent(ipAddress)}`),
   },
   access: {
     status: () => get<AccessStatus>('/api/access'),
