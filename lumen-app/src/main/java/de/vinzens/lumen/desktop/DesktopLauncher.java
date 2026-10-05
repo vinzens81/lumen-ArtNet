@@ -66,15 +66,23 @@ public final class DesktopLauncher {
 	private void start(String[] args) {
 		try {
 			var bundled = Path.of(System.getProperty("lumen.bundled-fixture-library", "fixture-types"));
-			var copied = setup.prepare(bundled);
+			var profiles = setup.prepare(bundled);
 			keepAwake();
 			var arguments = new ArrayList<>(Arrays.asList(args));
 			arguments.addAll(setup.arguments());
 			var application = new SpringApplication(LumenApplication.class);
 			application.setHeadless(false);
 			context = application.run(arguments.toArray(String[]::new));
-			if (!copied.isEmpty()) {
-				LOG.log(Level.INFO, "Copied " + copied.size() + " fixture profiles to " + setup.fixtureLibrary());
+			if (!profiles.copied().isEmpty()) {
+				LOG.log(Level.INFO, "Copied " + profiles.copied().size() + " fixture profiles to "
+						+ setup.fixtureLibrary());
+			}
+			if (!profiles.updated().isEmpty()) {
+				LOG.log(Level.INFO, "Updated shipped fixture profiles " + profiles.updated());
+			}
+			if (!profiles.kept().isEmpty()) {
+				LOG.log(Level.INFO, "Kept your changed fixture profiles " + profiles.kept()
+						+ " – the new shipped versions lie next to them as *" + DesktopSetup.SHIPPED_SUFFIX);
 			}
 			var port = context.getEnvironment().getProperty("local.server.port", "8080");
 			uri = URI.create("http://127.0.0.1:" + port + "/");

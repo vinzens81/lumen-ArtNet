@@ -33,20 +33,48 @@ class DesktopSetupTest {
 		var setup = DesktopSetup.forUser(home);
 		write(setup.fixtureLibrary().resolve("generic/par.yaml"), "my own par");
 
-		var copied = setup.prepare(bundled);
+		var profiles = setup.prepare(bundled);
 
-		assertThat(copied).containsExactly(Path.of("generic/dimmer.yaml"));
+		assertThat(profiles.copied()).containsExactly(Path.of("generic/dimmer.yaml"));
 		assertThat(setup.fixtureLibrary().resolve("generic/dimmer.yaml")).hasContent("shipped dimmer");
 		assertThat(setup.fixtureLibrary().resolve("generic/par.yaml")).hasContent("my own par");
+		assertThat(profiles.kept()).containsExactly(Path.of("generic/par.yaml"));
+		assertThat(setup.fixtureLibrary().resolve("generic/par.yaml.shipped")).hasContent("shipped par");
 		assertThat(setup.logDir()).isDirectory();
-		assertThat(setup.prepare(bundled)).as("second start").isEmpty();
+		assertThat(setup.prepare(bundled).copied()).as("second start").isEmpty();
+	}
+
+	@Test
+	void updatesShippedProfilesTheUserDidNotChange() throws IOException {
+		var bundled = home.resolve("Lumen.app/Contents/app/fixture-types");
+		write(bundled.resolve("generic/dimmer.yaml"), "dimmer v1");
+		write(bundled.resolve("generic/par.yaml"), "par v1");
+		write(bundled.resolve("generic/bar.yaml"), "bar v1");
+		var setup = DesktopSetup.forUser(home);
+		setup.prepare(bundled);
+		var library = setup.fixtureLibrary();
+		write(library.resolve("generic/par.yaml"), "my own par");
+		Files.delete(library.resolve("generic/bar.yaml"));
+
+		write(bundled.resolve("generic/dimmer.yaml"), "dimmer v2");
+		write(bundled.resolve("generic/par.yaml"), "par v2");
+		write(bundled.resolve("generic/bar.yaml"), "bar v2");
+		var profiles = setup.prepare(bundled);
+
+		assertThat(profiles.updated()).containsExactly(Path.of("generic/dimmer.yaml"));
+		assertThat(library.resolve("generic/dimmer.yaml")).hasContent("dimmer v2");
+		assertThat(profiles.kept()).containsExactly(Path.of("generic/par.yaml"));
+		assertThat(library.resolve("generic/par.yaml")).hasContent("my own par");
+		assertThat(library.resolve("generic/par.yaml.shipped")).hasContent("par v2");
+		assertThat(library.resolve("generic/bar.yaml")).as("deleted by the user").doesNotExist();
+		assertThat(profiles.copied()).isEmpty();
 	}
 
 	@Test
 	void worksWithoutShippedProfiles() {
 		var setup = DesktopSetup.forUser(home);
 
-		assertThat(setup.prepare(home.resolve("missing"))).isEmpty();
+		assertThat(setup.prepare(home.resolve("missing")).copied()).isEmpty();
 		assertThat(setup.fixtureLibrary()).isDirectory();
 	}
 
