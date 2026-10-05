@@ -29,6 +29,11 @@
   --font: 'Inter Variable', system-ui, -apple-system, sans-serif;
   --mono: 'JetBrains Mono Variable', ui-monospace, monospace;
   --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+  /* printed pages (cue list) */
+  --paper: #ffffff;
+  --paper-ink: #111318;
+  --paper-dim: #5a6070;
+  --paper-rule: #d5d8de;
 }
 
 /* Show mode: amber accent, even darker */

@@ -224,7 +224,10 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 - Blitz-Effekt als Szenen-Attribut (Kerzen-/Feuerflackern ist jetzt Teil von Iteration K)
 - PWA, Docker / Raspberry Pi als alternativer Betriebsort
 - Import von Open-Fixture-Library-Profilen
-- Druckbare Cue-Liste (PDF) für die Regie
+- ✅ **Druckbare Cue-Liste** für die Regie: „🖨 Cue list“ in der Szenenliste öffnet eine Druckseite (`#/print/cues`,
+  hell, A4, Kopfzeile wiederholt sich auf jeder Seite): Nummer, Szene, „GO on“ (Regiehinweis), In/Out/Delay (eigene
+  Zeiten fett), Auto-Follow, laufende Kompositionen, freigeschaltete Extra-Tasten, Abhak-Kästchen; darunter die
+  Extra-Tasten. PDF über „Als PDF sichern“ im Druckdialog statt einer PDF-Bibliothek im Server
 
 ## ⬜ Iteration 11+ – Party-Modus 🪩 (Zukunft)
 Konzept: [PARTY-MODE.md](PARTY-MODE.md). Grob in Teilschritten:

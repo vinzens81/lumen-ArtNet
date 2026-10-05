@@ -10,7 +10,8 @@ export type Route =
   | '/setup/scenes'
   | '/setup/dmx'
   | '/setup/settings'
-  | '/show';
+  | '/show'
+  | '/print/cues';
 
 const ROUTES: Route[] = [
   '/setup/projects',
@@ -23,6 +24,7 @@ const ROUTES: Route[] = [
   '/setup/dmx',
   '/setup/settings',
   '/show',
+  '/print/cues',
 ];
 
 function parse(hash: string): Route | null {
@@ -42,4 +44,9 @@ export function navigate(route: Route) {
 
 export function isShowMode(route: Route): boolean {
   return route === '/show';
+}
+
+/** Pages for printing: shown without the app around them, in both modes. */
+export function isPrintPage(route: Route): boolean {
+  return route.startsWith('/print/');
 }

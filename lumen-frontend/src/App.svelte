@@ -8,9 +8,10 @@
   import { outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { stagePreview } from './lib/stagePreview.svelte';
-  import { isShowMode, navigate, router, type Route } from './lib/router.svelte';
+  import { isPrintPage, isShowMode, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
+  import CuePrintView from './views/CuePrintView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
   import PatchView from './views/PatchView.svelte';
   import ProgrammerView from './views/ProgrammerView.svelte';
@@ -39,7 +40,7 @@
 
   // the operating mode is server state: every connected client follows it
   $effect(() => {
-    if (!live.modeKnown) return;
+    if (!live.modeKnown || isPrintPage(router.route)) return;
     if (live.mode === 'show' && router.route !== '/show') navigate('/show');
     if (live.mode === 'setup' && router.route === '/show') navigate('/setup/scenes');
   });
@@ -113,6 +114,7 @@
   function onkeydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
     if (target.closest('input, textarea, select, [contenteditable]') || event.metaKey || event.ctrlKey) return;
+    if (isPrintPage(router.route)) return;
     if (event.key === 'b' || event.key === 'B') {
       event.preventDefault();
       live.setBlackout(!live.master.blackout);
@@ -125,6 +127,9 @@
   }
 </script>
 
+{#if isPrintPage(router.route)}
+  <CuePrintView />
+{:else}
 <div class="shell">
   <header class="topbar glass">
     <div class="brand">
@@ -213,6 +218,7 @@
     <MasterBar />
   {/if}
 </div>
+{/if}
 
 <svelte:window {onkeydown} />
 

@@ -95,6 +95,7 @@ Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte
 5. Optional **Probe-Überblendung** („⇢ Rehearse fade“ im Szenen-Editor): spielt das GO in die Szene auf der Bühne –
    von der Szene davor in der Cue-Liste (bei der ersten Szene von dunkel) mit den echten Fade-Zeiten inkl. Delay und
    Kompositionen. Fortschritt im Editor, danach bleibt die Szene stehen, bis die Vorschau gestoppt wird
+6. **Druckbare Cue-Liste** („🖨 Cue list“): eigene Seite ohne App-Rahmen, auch als PDF über den Druckdialog
 
 ---
 

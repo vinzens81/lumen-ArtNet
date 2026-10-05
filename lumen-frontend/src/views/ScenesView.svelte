@@ -337,6 +337,8 @@
           disabled={fades.fadeIn * 1000 === project.fadeInMs && fades.fadeOut * 1000 === project.fadeOutMs}>Save</button>
       </form>
       <div class="actions">
+        <button class="btn" type="button" onclick={() => navigate('/print/cues')} disabled={scenes.length === 0}
+          title="Printable cue list for the operator – or save it as PDF">🖨 Cue list</button>
         <button class="btn" type="button" onclick={addEmpty}>+ Empty scene</button>
         <button class="btn record" type="button" onclick={() => (recordOpen = true)} disabled={!programmerHasValues}
           title={programmerHasValues ? '' : 'Set some values in the programmer first'}>⏺ Record scene</button>
