@@ -21,7 +21,7 @@ modes:
         default: 0
       - function: dimmer
       - function: shutter
-        default: 255
+        default: 8   # open; 16–255 would strobe
         ranges:
           - { from: 0,   to: 7,   label: Closed }
           - { from: 8,   to: 15,  label: Open }
