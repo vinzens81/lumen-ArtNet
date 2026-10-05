@@ -104,9 +104,10 @@ class PersistenceConfiguration {
 	}
 
 	@Bean
-	SceneService sceneService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents) {
+	SceneService sceneService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents,
+			Clock clock) {
 		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine,
-				repositories.compositions(), stateEvents);
+				repositories.compositions(), stateEvents, clock);
 	}
 
 	@Bean

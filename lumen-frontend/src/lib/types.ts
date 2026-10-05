@@ -216,6 +216,28 @@ export interface SceneRequest {
   record?: boolean;
 }
 
+/** What an attribute is about, e.g. to update only the colors of a scene. */
+export type AttributeGroup = 'intensity' | 'color' | 'position' | 'beam' | 'other';
+
+/** What “update from programmer” takes: the whole programmer, or merged (only some fixtures/groups). */
+export interface RecordRequest {
+  merge: boolean;
+  /** when merging: only these fixtures, null = all in the programmer */
+  fixtureIds?: number[] | null;
+  /** when merging: only these attribute groups, empty = all */
+  groups?: AttributeGroup[];
+}
+
+/** An earlier look of a scene, saved before it was replaced. */
+export interface SceneRevision {
+  id: number;
+  createdAt: string;
+  /** what replaced this look, e.g. "Update from programmer" */
+  reason: string;
+  fixtureCount: number;
+  values: Record<number, AttributeValues>;
+}
+
 export type OperatingMode = 'setup' | 'show' | 'party';
 
 export interface PlaybackStatus {

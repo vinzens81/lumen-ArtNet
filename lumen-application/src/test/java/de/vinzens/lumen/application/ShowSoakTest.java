@@ -407,6 +407,19 @@ class ShowSoakTest {
 			public void delete(long id) {
 				throw new UnsupportedOperationException();
 			}
+
+			public de.vinzens.lumen.domain.scene.SceneRevision saveRevision(long sceneId, java.time.Instant createdAt,
+					String reason, java.util.Map<Long, de.vinzens.lumen.domain.output.FixtureValues> values, int keep) {
+				throw new UnsupportedOperationException();
+			}
+
+			public java.util.List<de.vinzens.lumen.domain.scene.SceneRevision> findRevisions(long sceneId) {
+				return java.util.List.of();
+			}
+
+			public java.util.Optional<de.vinzens.lumen.domain.scene.SceneRevision> findRevision(long id) {
+				return java.util.Optional.empty();
+			}
 		}
 	}
 

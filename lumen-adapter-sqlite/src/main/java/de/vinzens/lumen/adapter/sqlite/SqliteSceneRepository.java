@@ -6,6 +6,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneRevision;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -15,6 +16,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -96,6 +98,60 @@ public class SqliteSceneRepository implements SceneRepository {
 		jdbc.sql("DELETE FROM scene WHERE id = ?").param(id).update();
 	}
 
+	@Override
+	public SceneRevision saveRevision(long sceneId, Instant createdAt, String reason, Map<Long, FixtureValues> values,
+			int keep) {
+		long id = transactions.execute(status -> {
+			var keys = new GeneratedKeyHolder();
+			jdbc.sql("INSERT INTO scene_revision (scene_id, created_at, reason) VALUES (?, ?, ?)")
+					.params(sceneId, createdAt.toString(), reason)
+					.update(keys);
+			var revisionId = generatedId(keys);
+			values.forEach((fixtureId, fixtureValues) -> fixtureValues.values().forEach((attribute, value) ->
+					jdbc.sql("""
+							INSERT INTO scene_revision_value (revision_id, fixture_id, attribute, value)
+							VALUES (?, ?, ?, ?)""")
+							.params(revisionId, fixtureId, attribute.id(), value)
+							.update()));
+			jdbc.sql("""
+					DELETE FROM scene_revision WHERE scene_id = ? AND id NOT IN (
+					    SELECT id FROM scene_revision WHERE scene_id = ? ORDER BY id DESC LIMIT ?)""")
+					.params(sceneId, sceneId, keep)
+					.update();
+			return revisionId;
+		});
+		return findRevision(id).orElseThrow();
+	}
+
+	@Override
+	public List<SceneRevision> findRevisions(long sceneId) {
+		var values = collect(jdbc.sql("""
+				SELECT v.* FROM scene_revision_value v JOIN scene_revision r ON r.id = v.revision_id
+				WHERE r.scene_id = ?""").param(sceneId).query(this::revisionValueRow).list());
+		return jdbc.sql("SELECT * FROM scene_revision WHERE scene_id = ? ORDER BY id DESC").param(sceneId)
+				.query((rs, rowNum) -> revision(rs, values)).list();
+	}
+
+	@Override
+	public Optional<SceneRevision> findRevision(long id) {
+		var values = collect(jdbc.sql("SELECT * FROM scene_revision_value WHERE revision_id = ?")
+				.param(id).query(this::revisionValueRow).list());
+		return jdbc.sql("SELECT * FROM scene_revision WHERE id = ?").param(id)
+				.query((rs, rowNum) -> revision(rs, values)).optional();
+	}
+
+	private static SceneRevision revision(ResultSet rs, Map<Long, Map<Long, FixtureValues>> values)
+			throws SQLException {
+		var id = rs.getLong("id");
+		return new SceneRevision(id, rs.getLong("scene_id"), Instant.parse(rs.getString("created_at")),
+				rs.getString("reason"), values.getOrDefault(id, Map.of()));
+	}
+
+	private ValueRow revisionValueRow(ResultSet rs, int rowNum) throws SQLException {
+		return new ValueRow(rs.getLong("revision_id"), rs.getLong("fixture_id"),
+				Attribute.parse(rs.getString("attribute")), rs.getDouble("value"));
+	}
+
 	private void insertValues(long sceneId, Map<Long, FixtureValues> values) {
 		values.forEach((fixtureId, fixtureValues) -> fixtureValues.values().forEach((attribute, value) ->
 				jdbc.sql("INSERT INTO scene_value (scene_id, fixture_id, attribute, value) VALUES (?, ?, ?, ?)")
@@ -114,10 +170,11 @@ public class SqliteSceneRepository implements SceneRepository {
 				.param(projectId).query(this::valueRow).list());
 	}
 
+	/** Values per owner (scene or revision) and fixture. */
 	private static Map<Long, Map<Long, FixtureValues>> collect(List<ValueRow> rows) {
 		var raw = new HashMap<Long, Map<Long, Map<Attribute, Double>>>();
 		for (var row : rows) {
-			raw.computeIfAbsent(row.sceneId(), id -> new HashMap<>())
+			raw.computeIfAbsent(row.ownerId(), id -> new HashMap<>())
 					.computeIfAbsent(row.fixtureId(), id -> new HashMap<>())
 					.put(row.attribute(), row.value());
 		}
@@ -173,6 +230,7 @@ public class SqliteSceneRepository implements SceneRepository {
 		}
 	}
 
-	private record ValueRow(long sceneId, long fixtureId, Attribute attribute, double value) {
+	/** @param ownerId the scene or revision the value belongs to */
+	private record ValueRow(long ownerId, long fixtureId, Attribute attribute, double value) {
 	}
 }

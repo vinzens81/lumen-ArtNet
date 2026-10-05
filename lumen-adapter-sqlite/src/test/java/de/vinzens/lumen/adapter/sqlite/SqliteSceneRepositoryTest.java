@@ -68,6 +68,23 @@ class SqliteSceneRepositoryTest {
 	}
 
 	@Test
+	void revisionsKeepOnlyTheNewest() {
+		var scene = repos.scenes().create(project, spec("1", "Look"), Map.of());
+		for (var level : new double[] {0.1, 0.2, 0.3}) {
+			repos.scenes().saveRevision(scene.id(), Instant.EPOCH, "Update",
+					Map.of(par, new FixtureValues(Map.of(DIMMER, level))), 2);
+		}
+
+		var revisions = repos.scenes().findRevisions(scene.id());
+		assertThat(revisions).extracting(r -> r.values().get(par).get(DIMMER).orElseThrow()).containsExactly(0.3, 0.2);
+		assertThat(repos.scenes().findRevision(revisions.getFirst().id())).get()
+				.satisfies(r -> assertThat(r.reason()).isEqualTo("Update"));
+
+		repos.scenes().delete(scene.id());
+		assertThat(repos.scenes().findRevisions(scene.id())).isEmpty();
+	}
+
+	@Test
 	void specRoundTripIncludingAutoFollow() {
 		var spec = new SceneSpec(SceneNumber.parse("4.5"), "Storm", Optional.of("GO on thunder"),
 				Optional.of(Duration.ofSeconds(8)));

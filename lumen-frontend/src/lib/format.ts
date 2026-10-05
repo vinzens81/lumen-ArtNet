@@ -22,3 +22,13 @@ export function backupReason(name: string): string {
   };
   return labels[reason] ?? reason;
 }
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+/** When something happened, in local time: "20:14" today, "5 Oct 20:14" on another day. */
+export function shortTime(date: Date, now: Date = new Date()): string {
+  const time = `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+  const sameDay = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth()
+    && date.getDate() === now.getDate();
+  return sameDay ? time : `${date.getDate()} ${MONTHS[date.getMonth()]} ${time}`;
+}

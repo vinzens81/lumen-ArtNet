@@ -22,7 +22,9 @@ import type {
   Position,
   Project,
   ProjectRequest,
+  RecordRequest,
   Scene,
+  SceneRevision,
   SceneRequest,
   PartyButton,
   PartyStatus,
@@ -117,7 +119,12 @@ export const api = {
     create: (projectId: number, scene: SceneRequest) => post<Scene>(`/api/projects/${projectId}/scenes`, scene),
     update: (projectId: number, id: number, scene: SceneRequest) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}`, scene),
-    record: (projectId: number, id: number) => post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`),
+    record: (projectId: number, id: number, request?: RecordRequest) =>
+      post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`, request),
+    revisions: (projectId: number, id: number) =>
+      get<SceneRevision[]>(`/api/projects/${projectId}/scenes/${id}/revisions`),
+    restore: (projectId: number, id: number, revisionId: number) =>
+      post<Scene>(`/api/projects/${projectId}/scenes/${id}/revisions/${revisionId}/restore`),
     duplicate: (projectId: number, id: number, number: string | null) =>
       post<Scene>(`/api/projects/${projectId}/scenes/${id}/duplicate`, { number }),
     load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),

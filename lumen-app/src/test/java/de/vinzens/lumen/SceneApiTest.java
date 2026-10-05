@@ -89,6 +89,55 @@ class SceneApiTest {
 	}
 
 	@Test
+	void mergeTakesOnlySelectedFixturesAndAttributeGroups() throws Exception {
+		var universe = id(post("/api/projects/" + project + "/universes", "{\"number\": 2}"));
+		var spot = id(post("/api/projects/" + project + "/fixtures", """
+				{"name": "Spot", "fixtureTypeId": "generic-rgbw-par", "mode": "8ch", "universeId": %d, "address": 1}
+				""".formatted(universe)));
+		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 1, \"red\": 1}");
+		patch("/api/programmer/fixtures/" + spot, "{\"dimmer\": 0.5}");
+		var scene = id(post(scenes, "{\"name\": \"Look\", \"record\": true}"));
+
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
+		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 0.2, \"blue\": 1}");
+		patch("/api/programmer/fixtures/" + spot, "{\"dimmer\": 0.9}");
+		var merged = assertThat(post(scenes + "/" + scene + "/record", """
+				{"merge": true, "fixtureIds": [%d], "groups": ["color"]}""".formatted(par))).hasStatusOk().bodyJson();
+		merged.extractingPath("$.values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
+		merged.extractingPath("$.values['%d'].red".formatted(par)).isEqualTo(1.0);
+		merged.extractingPath("$.values['%d'].blue".formatted(par)).isEqualTo(1.0);
+		merged.extractingPath("$.values['%d'].dimmer".formatted(spot)).isEqualTo(0.5);
+
+		assertThat(post(scenes + "/" + scene + "/record", "{\"groups\": [\"color\"]}")).hasStatus(400);
+		assertThat(post(scenes + "/" + scene + "/record", "{\"merge\": true, \"groups\": [\"smell\"]}"))
+				.hasStatus(400);
+	}
+
+	@Test
+	void earlierLooksCanBeRestored() throws Exception {
+		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 1}");
+		var scene = id(post(scenes, "{\"name\": \"Look\", \"record\": true}"));
+		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 0.25}");
+		post(scenes + "/" + scene + "/record", "");
+		post(scenes + "/" + scene + "/record", ""); // unchanged: no new revision
+
+		var revisions = assertThat(mvc.get().uri(scenes + "/" + scene + "/revisions")).hasStatusOk().bodyJson();
+		revisions.extractingPath("$.length()").isEqualTo(1);
+		revisions.extractingPath("$[0].reason").isEqualTo("Update from programmer");
+		revisions.extractingPath("$[0].values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
+		var revision = JsonPath.<Integer>read(body(scenes + "/" + scene + "/revisions"), "$[0].id");
+
+		assertThat(post(scenes + "/" + scene + "/revisions/" + revision + "/restore", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
+		assertThat(mvc.get().uri(scenes + "/" + scene + "/revisions")).bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$.length()").isEqualTo(2);
+			assertThat(json).extractingPath("$[0].reason").isEqualTo("Restore");
+			assertThat(json).extractingPath("$[0].values['%d'].dimmer".formatted(par)).isEqualTo(0.25);
+		});
+		assertThat(post(scenes + "/" + scene + "/revisions/999999/restore", "")).hasStatus(404);
+	}
+
+	@Test
 	void numbersMustBeUniqueAndValid() throws Exception {
 		var first = id(post(scenes, "{\"number\": \"2.50\", \"name\": \"A\"}"));
 
@@ -159,6 +208,10 @@ class SceneApiTest {
 
 	private void patch(String uri, String json) {
 		assertThat(mvc.patch().uri(uri).contentType(MediaType.APPLICATION_JSON).content(json).exchange()).hasStatusOk();
+	}
+
+	private String body(String uri) throws Exception {
+		return mvc.get().uri(uri).exchange().getResponse().getContentAsString();
 	}
 
 	private static long id(MvcTestResult result) throws Exception {

@@ -10,6 +10,7 @@
   import { hexToRgb, hsvToRgb, previewOf, rgbToCss, rgbToHsv, type Rgb } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
+  import { programmerSelection } from '../lib/selection.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { AttributeValues, Channel, Fixture, FixtureType, Group, Mode, Universe } from '../lib/types';
@@ -39,7 +40,6 @@
   let universes = $state<Universe[]>([]);
   let fixtures = $state<Fixture[]>([]);
   let groups = $state<Group[]>([]);
-  let selection = $state<number[]>([]);
   let showRaw = $state(false);
   let groupOpen = $state(false);
   let editingGroup = $state<Group | null>(null);
@@ -62,7 +62,7 @@
         api.fixtures.list(projectId),
         api.groups.list(projectId),
       ]);
-      selection = selection.filter((id) => fixtures.some((f) => f.id === id));
+      select(selection.filter((id) => fixtures.some((f) => f.id === id)));
     } catch (e) {
       showError(e);
     }
@@ -78,6 +78,8 @@
     return result.sort((a, b) => a.fixture.universeId - b.fixture.universeId || a.fixture.address - b.fixture.address);
   });
 
+  // shared with the scene editor, which can merge only the selected fixtures
+  const selection = $derived(programmerSelection.ids);
   const selected = $derived(entries.filter((e) => selection.includes(e.fixture.id)));
   const available = $derived(new Set(selected.flatMap((e) => e.attributes)));
   const universeNumber = $derived(new Map(universes.map((u) => [u.id, u.number])));
@@ -135,16 +137,20 @@
 
   // --- selection ---------------------------------------------------------------------------------------------
 
+  function select(ids: number[]) {
+    programmerSelection.ids = ids;
+  }
+
   function toggle(id: number, event: MouseEvent) {
     if (event.shiftKey || event.metaKey || event.ctrlKey) {
-      selection = selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id];
+      select(selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id]);
     } else {
-      selection = selection.length === 1 && selection[0] === id ? [] : [id];
+      select(selection.length === 1 && selection[0] === id ? [] : [id]);
     }
   }
 
   function selectGroup(group: Group) {
-    selection = group.fixtureIds.filter((id) => entries.some((e) => e.fixture.id === id));
+    select(group.fixtureIds.filter((id) => entries.some((e) => e.fixture.id === id)));
   }
 
   function preview(entry: Entry) {
@@ -191,7 +197,7 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
-    if (event.key === 'Escape' && !groupOpen) selection = [];
+    if (event.key === 'Escape' && !groupOpen) select([]);
   }
 </script>
 
@@ -213,7 +219,7 @@
     <!-- Groups ------------------------------------------------------------------------------------------ -->
     <aside class="groups glass">
       <h3>Groups</h3>
-      <button type="button" class="group" onclick={() => (selection = entries.map((e) => e.fixture.id))}>
+      <button type="button" class="group" onclick={() => select(entries.map((e) => e.fixture.id))}>
         <span class="swatch all"></span>All fixtures<span class="count mono">{entries.length}</span>
       </button>
       {#each groups as group (group.id)}

@@ -15,8 +15,18 @@
   import {
     curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
   } from '../lib/sceneTiming';
+  import { shortTime } from '../lib/format';
+  import { programmerSelection } from '../lib/selection.svelte';
   import { stagePreview } from '../lib/stagePreview.svelte';
-  import type { FadeCurve, Fixture, Group, Scene } from '../lib/types';
+  import type { AttributeGroup, FadeCurve, Fixture, Group, Scene, SceneRevision } from '../lib/types';
+
+  const ATTRIBUTE_GROUPS: { id: AttributeGroup; label: string }[] = [
+    { id: 'intensity', label: 'Intensity' },
+    { id: 'color', label: 'Color' },
+    { id: 'position', label: 'Position' },
+    { id: 'beam', label: 'Beam' },
+    { id: 'other', label: 'Other' },
+  ];
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
@@ -25,6 +35,9 @@
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
+  /** options of “update from programmer”: replace the whole look or merge parts of the programmer */
+  let update = $state({ merge: false, onlySelected: false, groups: [] as AttributeGroup[] });
+  let revisions = $state<SceneRevision[]>([]);
   let form = $state({
     number: '',
     name: '',
@@ -88,6 +101,32 @@
     void live.compositionsRevision;
     if (projectId !== null) load(projectId);
   });
+
+  $effect(() => {
+    void live.scenesRevision;
+    if (projectId !== null && selectedId !== null) loadRevisions(projectId, selectedId);
+    else revisions = [];
+  });
+
+  async function loadRevisions(projectId: number, sceneId: number) {
+    try {
+      const loaded = await api.scenes.revisions(projectId, sceneId);
+      if (selectedId === sceneId) revisions = loaded;
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  async function restore(revision: SceneRevision) {
+    if (!project || !selected) return;
+    try {
+      await api.scenes.restore(project.id, selected.id, revision.id);
+      notify(`Scene ${selected.number}: look from ${shortTime(new Date(revision.createdAt))} restored`);
+      await load(project.id);
+    } catch (e) {
+      showError(e);
+    }
+  }
 
   $effect(() => {
     // only when the stored fade times change, so unsaved edits survive unrelated project reloads
@@ -162,11 +201,18 @@
     }
   }
 
+  function openUpdate() {
+    update = { merge: false, onlySelected: false, groups: [] };
+    overwriteOpen = true;
+  }
+
   async function overwrite() {
     if (!project || !selected) return;
     try {
-      await api.scenes.record(project.id, selected.id);
-      notify(`Scene ${selected.number} updated from the programmer`);
+      await api.scenes.record(project.id, selected.id, update.merge
+        ? { merge: true, fixtureIds: update.onlySelected ? programmerSelection.ids : null, groups: update.groups }
+        : { merge: false });
+      notify(`Scene ${selected.number} ${update.merge ? 'merged with' : 'updated from'} the programmer`);
       overwriteOpen = false;
       await load(project.id);
     } catch (e) {
@@ -507,7 +553,11 @@
                   ⇢ Rehearse fade
                 </button>
               {/if}
-              <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)} disabled={!programmerHasValues}>⏺ Update from programmer</button>
+              <button class="btn record-outline" type="button" onclick={openUpdate} disabled={!programmerHasValues}>⏺ Update from programmer</button>
+              {#if revisions.length > 0}
+                <button class="btn" type="button" onclick={() => restore(revisions[0])}
+                  title="Restore the look from before “{revisions[0].reason}” ({shortTime(new Date(revisions[0].createdAt))})">↶ Undo</button>
+              {/if}
             </div>
             {#if rehearsal && rehearsalRunning && stagePreview.status.sceneId === selected.id}
               {@const from = scenes.find((s) => s.id === rehearsal.fromSceneId)}
@@ -543,6 +593,29 @@
             </ul>
           </section>
 
+          {#if revisions.length > 0}
+            <section>
+              <h3>History</h3>
+              <ul class="revisions">
+                {#each revisions as revision (revision.id)}
+                  <li>
+                    <span class="mono">{shortTime(new Date(revision.createdAt))}</span>
+                    <span class="revision-reason dim">before “{revision.reason}”</span>
+                    <span class="swatches" aria-hidden="true">
+                      {#each swatchesOf(fixtures, modes, revision.values) as swatch, j (j)}
+                        <span class="swatch" style="--color: {swatch.color}; --intensity: {swatch.intensity}"></span>
+                      {:else}
+                        <span class="dark">dark</span>
+                      {/each}
+                    </span>
+                    <button class="btn small" type="button" onclick={() => restore(revision)}
+                      title="Put this look back – the current look stays in the history">Restore</button>
+                  </li>
+                {/each}
+              </ul>
+            </section>
+          {/if}
+
           {#if projectId !== null}
             <SceneCompositions {projectId} sceneId={selected.id} {fixtures} {groups} {modes} />
             {#if !selected.keyOnly}
@@ -565,10 +638,39 @@
   onrecorded={(scene) => project && load(project.id).then(() => select(scene))} />
 
 <Modal bind:open={overwriteOpen} title="Update scene">
-  <p>Replace the look of scene <strong>{selected?.number} “{selected?.name}”</strong> with the current programmer values?</p>
+  <div class="update-options">
+    <p>Take the programmer into scene <strong>{selected?.number} “{selected?.name}”</strong>:</p>
+    <label class="check">
+      <input type="radio" name="update-mode" checked={!update.merge} onchange={() => (update.merge = false)} />
+      Replace the whole look <span class="hint dim">– fixtures without programmer values go dark</span>
+    </label>
+    <label class="check">
+      <input type="radio" name="update-mode" checked={update.merge} onchange={() => (update.merge = true)} />
+      Merge <span class="hint dim">– take only what the programmer sets, keep the rest of the scene</span>
+    </label>
+    {#if update.merge}
+      <fieldset class="merge-filter">
+        <legend>Only these attributes <span class="hint dim">(none = all)</span></legend>
+        {#each ATTRIBUTE_GROUPS as group (group.id)}
+          <label class="check">
+            <input type="checkbox" checked={update.groups.includes(group.id)} onchange={(e) => {
+              const on = (e.currentTarget as HTMLInputElement).checked;
+              update.groups = on ? [...update.groups, group.id] : update.groups.filter((g) => g !== group.id);
+            }} />
+            {group.label}
+          </label>
+        {/each}
+      </fieldset>
+      <label class="check">
+        <input type="checkbox" bind:checked={update.onlySelected} disabled={programmerSelection.ids.length === 0} />
+        Only the {programmerSelection.ids.length} fixtures selected in the programmer
+      </label>
+    {/if}
+    <p class="hint dim">The look before stays in the history of the scene – “↶ Undo” puts it back.</p>
+  </div>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (overwriteOpen = false)}>Cancel</button>
-    <button class="btn record" type="button" onclick={overwrite}>⏺ Update</button>
+    <button class="btn record" type="button" onclick={overwrite}>⏺ {update.merge ? 'Merge' : 'Replace'}</button>
   {/snippet}
 </Modal>
 
@@ -581,6 +683,50 @@
 </Modal>
 
 <style>
+  .update-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .update-options p {
+    margin: 0;
+  }
+
+  .merge-filter {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 16px;
+    margin: 0;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .revisions {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .revisions li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+  }
+
+  .revision-reason {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
   .warning-text {
     color: var(--warning);
   }

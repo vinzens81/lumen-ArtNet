@@ -13,9 +13,12 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneRevision;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
+import de.vinzens.lumen.domain.scene.SceneValues;
 
+import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
@@ -30,14 +33,16 @@ public class SceneService implements ManageScenesUseCase {
 	private final ControlProgrammerUseCase programmer;
 	private final CompositionRepository compositions;
 	private final StateEvents events;
+	private final Clock clock;
 
 	public SceneService(ProjectRepository projects, SceneRepository scenes, ControlProgrammerUseCase programmer,
-			CompositionRepository compositions, StateEvents events) {
+			CompositionRepository compositions, StateEvents events, Clock clock) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.programmer = Objects.requireNonNull(programmer, "programmer");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.events = Objects.requireNonNull(events, "events");
+		this.clock = Objects.requireNonNull(clock, "clock");
 	}
 
 	@Override
@@ -113,10 +118,38 @@ public class SceneService implements ManageScenesUseCase {
 	}
 
 	@Override
-	public Scene record(long projectId, long sceneId) {
+	public Scene record(long projectId, long sceneId, RecordOptions options) {
 		requireActive(projectId);
+		var scene = requireScene(projectId, sceneId);
+		var values = options.merge()
+				? SceneValues.merge(scene.values(), programmerSnapshot(), options.fixtureIds(), options.groups())
+				: programmerSnapshot();
+		return replaceValues(scene, values, options.merge() ? "Merge from programmer" : "Update from programmer");
+	}
+
+	@Override
+	public List<SceneRevision> revisions(long projectId, long sceneId) {
 		requireScene(projectId, sceneId);
-		return published(scenes.replaceValues(sceneId, programmerSnapshot()));
+		return scenes.findRevisions(sceneId);
+	}
+
+	@Override
+	public Scene restore(long projectId, long sceneId, long revisionId) {
+		var scene = requireScene(projectId, sceneId);
+		var revision = scenes.findRevision(revisionId)
+				.filter(r -> r.sceneId() == sceneId)
+				.orElseThrow(() -> new NotFoundException("Revision " + revisionId + " does not exist for scene "
+						+ sceneId));
+		return replaceValues(scene, revision.values(), "Restore");
+	}
+
+	/** Replaces the look of a scene, keeping the old look as a revision. */
+	private Scene replaceValues(Scene scene, Map<Long, FixtureValues> values, String reason) {
+		if (scene.values().equals(values)) {
+			return scene;
+		}
+		scenes.saveRevision(scene.id(), clock.instant(), reason, scene.values(), SceneRevision.KEEP);
+		return published(scenes.replaceValues(scene.id(), values));
 	}
 
 	@Override
