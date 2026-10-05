@@ -12,9 +12,11 @@
   import { kindIcon } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
   import { parseScript } from '../lib/script';
-  import { fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
+  import {
+    curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
+  } from '../lib/sceneTiming';
   import { stagePreview } from '../lib/stagePreview.svelte';
-  import type { Fixture, Group, Scene } from '../lib/types';
+  import type { FadeCurve, Fixture, Group, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
@@ -34,15 +36,18 @@
     fadeInSeconds: null as number | null,
     fadeOutSeconds: null as number | null,
     delaySeconds: null as number | null,
+    // empty = the project's curve
+    fadeCurve: '' as FadeCurve | '',
     script: '',
   });
-  let fades = $state({ fadeIn: 3, fadeOut: 3 });
+  let fades = $state({ fadeIn: 3, fadeOut: 3, fadeCurve: 'linear' as FadeCurve });
 
   const project = $derived(app.active);
   // effects depend on the id only: reloading the project list yields new objects for the same project
   const projectId = $derived(app.active?.id ?? null);
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
+  const fadeCurve = $derived(app.active?.fadeCurve ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
   const scriptStats = $derived.by(() => {
     const script = parseScript(form.script);
@@ -86,7 +91,9 @@
 
   $effect(() => {
     // only when the stored fade times change, so unsaved edits survive unrelated project reloads
-    if (fadeInMs !== null && fadeOutMs !== null) fades = { fadeIn: fadeInMs / 1000, fadeOut: fadeOutMs / 1000 };
+    if (fadeInMs !== null && fadeOutMs !== null && fadeCurve !== null) {
+      fades = { fadeIn: fadeInMs / 1000, fadeOut: fadeOutMs / 1000, fadeCurve };
+    }
   });
 
   async function load(projectId: number) {
@@ -114,6 +121,7 @@
       fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
       fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
+      fadeCurve: scene.fadeCurve ?? '',
       script: scene.script,
     };
   }
@@ -134,6 +142,7 @@
         fadeInMs: secondsToMs(form.fadeInSeconds),
         fadeOutMs: secondsToMs(form.fadeOutSeconds),
         delayMs: secondsToMs(form.delaySeconds),
+        fadeCurve: form.fadeCurve || null,
         script: form.script,
       });
       notify(`Saved scene ${scene.number}`);
@@ -301,6 +310,7 @@
         venue: project.venue,
         fadeInMs: Math.round(fades.fadeIn * 1000),
         fadeOutMs: Math.round(fades.fadeOut * 1000),
+        fadeCurve: fades.fadeCurve,
       });
       await app.reloadProjects();
       notify('Fade times saved');
@@ -365,8 +375,14 @@
       <form class="fades glass" onsubmit={(e) => { e.preventDefault(); saveFades(); }}>
         <label>Fade in <input type="number" min="0" max="600" step="0.1" bind:value={fades.fadeIn} /> s</label>
         <label>Fade out <input type="number" min="0" max="600" step="0.1" bind:value={fades.fadeOut} /> s</label>
+        <label>Curve
+          <select bind:value={fades.fadeCurve}>
+            {#each FADE_CURVES as curve (curve.id)}<option value={curve.id} title={curve.hint}>{curve.label}</option>{/each}
+          </select>
+        </label>
         <button class="btn small" type="submit"
-          disabled={fades.fadeIn * 1000 === project.fadeInMs && fades.fadeOut * 1000 === project.fadeOutMs}>Save</button>
+          disabled={fades.fadeIn * 1000 === project.fadeInMs && fades.fadeOut * 1000 === project.fadeOutMs
+            && fades.fadeCurve === project.fadeCurve}>Save</button>
       </form>
       <div class="actions">
         <button class="btn" type="button" onclick={() => navigate('/print/cues')} disabled={scenes.length === 0}
@@ -454,6 +470,12 @@
                   bind:value={form.fadeOutSeconds} placeholder={String(project.fadeOutMs / 1000)} /> s</label>
                 <label>Delay <input class="seconds" type="number" min="0" max="600" step="0.1"
                   bind:value={form.delaySeconds} placeholder="0" /> s</label>
+                <label>Curve
+                  <select bind:value={form.fadeCurve}>
+                    <option value="">Project's ({curveLabel(project.fadeCurve)})</option>
+                    {#each FADE_CURVES as curve (curve.id)}<option value={curve.id} title={curve.hint}>{curve.label}</option>{/each}
+                  </select>
+                </label>
               </fieldset>
               <p class="hint dim">
                 Empty = the project's time. “Out” fades the scene before, “Delay” holds back the fade-in – e.g. In 0 and

@@ -140,6 +140,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		var playback = new Playback(cueList, resolver.scenes(projectId), project.spec().fadeIn(),
 				project.spec().fadeOut());
 		playback.useFixtures(FixtureAttributes.of(modes));
+		playback.useFadeCurve(project.spec().fadeCurve());
 		var now = clock.instant();
 		var behaviors = FadeBehaviors.of(modes);
 		previous.ifPresent(p -> playback.restore(p.id(), now));
@@ -183,6 +184,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 				synchronized (current.playback()) {
 					current.playback().reload(cueList, resolver.scenes(current.projectId()),
 							project.get().spec().fadeIn(), project.get().spec().fadeOut(), clock.instant());
+					current.playback().useFadeCurve(project.get().spec().fadeCurve());
 				}
 			}
 		}

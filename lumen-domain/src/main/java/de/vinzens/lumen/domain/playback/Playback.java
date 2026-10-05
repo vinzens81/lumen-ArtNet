@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.CompositionMixer;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.Scene;
 
 import java.time.Duration;
@@ -43,6 +44,7 @@ public final class Playback {
 	private Map<Long, List<ActiveComposition>> compositions;
 	private Duration fadeIn;
 	private Duration fadeOut;
+	private FadeCurve fadeCurve = FadeCurve.LINEAR;
 	private FixtureAttributes attributes = FixtureAttributes.ALL;
 	/** Compositions of the scene at the current position, with their start time. */
 	private List<Running> running = List.of();
@@ -74,6 +76,11 @@ public final class Playback {
 	/** Which attributes the patched fixtures have; compositions only set those. */
 	public void useFixtures(FixtureAttributes fixtureAttributes) {
 		this.attributes = Objects.requireNonNull(fixtureAttributes, "fixtureAttributes");
+	}
+
+	/** The project's fade curve, for transitions into scenes without their own and the fade to black at the end. */
+	public void useFadeCurve(FadeCurve curve) {
+		this.fadeCurve = Objects.requireNonNull(curve, "curve");
 	}
 
 	/**
@@ -234,11 +241,11 @@ public final class Playback {
 		var incoming = running.stream().filter(r -> !continuing.containsKey(r.composition().id())).toList();
 		var to = look(valuesAt(transition.target()), incoming, v);
 		var times = transition.times();
-		var mixed = Crossfade.mix(from, to, elapsed, times.fadeIn(), times.fadeOut(), times.delay(), behaviors,
-				transition.darkAtGo());
+		var mixed = Crossfade.mix(from, to, elapsed, times.fadeIn(), times.fadeOut(), times.delay(), times.curve(),
+				behaviors, transition.darkAtGo());
 
 		// continuing compositions are not faded out and in: they glide from their old to their new values
-		var progress = Crossfade.progress(elapsed.minus(times.delay()), times.fadeIn());
+		var progress = times.curve().progress(Crossfade.progress(elapsed.minus(times.delay()), times.fadeIn()));
 		for (var current : running) {
 			var previous = continuing.get(current.composition().id());
 			if (previous == null) {
@@ -463,10 +470,11 @@ public final class Playback {
 	/** Fade times of the transition to a position: the scene's own, otherwise the project's. */
 	private Times timesInto(int target) {
 		if (!isScene(target)) {
-			return new Times(fadeIn, fadeOut, Duration.ZERO);
+			return new Times(fadeIn, fadeOut, Duration.ZERO, fadeCurve);
 		}
 		var timing = scenes.get(target).spec().timing();
-		return new Times(timing.fadeInOr(fadeIn), timing.fadeOutOr(fadeOut), timing.delay());
+		return new Times(timing.fadeInOr(fadeIn), timing.fadeOutOr(fadeOut), timing.delay(),
+				timing.curveOr(fadeCurve));
 	}
 
 	/** Time since an arbitrary origin that does not advance while paused. */
@@ -475,8 +483,8 @@ public final class Playback {
 		return Duration.ofSeconds(now.getEpochSecond(), now.getNano()).minus(paused);
 	}
 
-	/** Fade times of one transition, fixed at GO. */
-	private record Times(Duration fadeIn, Duration fadeOut, Duration delay) {
+	/** Fade times and curve of one transition, fixed at GO. */
+	private record Times(Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve) {
 
 		Duration longest() {
 			var in = delay.plus(fadeIn);

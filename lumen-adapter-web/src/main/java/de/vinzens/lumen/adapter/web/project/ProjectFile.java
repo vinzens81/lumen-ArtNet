@@ -64,7 +64,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		export.scenes().forEach(scene -> sceneNumbers.put(scene.id(), scene.spec().number().toString()));
 		return new ProjectFile(FORMAT, VERSION, now,
 				new ProjectRequest(spec.name(), spec.venue().orElse(null), spec.fadeIn().toMillis(),
-						spec.fadeOut().toMillis()),
+						spec.fadeOut().toMillis(), spec.fadeCurve().id()),
 				export.universes().stream().map(UniverseEntry::from).toList(),
 				export.fixtures().stream().map(FixtureEntry::from).toList(),
 				export.groups().stream().map(GroupEntry::from).toList(),
@@ -269,12 +269,13 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	/**
 	 * @param keyOnly   only played by extra keys
 	 * @param fadeInMs  own fade times, {@code null} = the project's (files before iteration 10 have none)
+	 * @param fadeCurve own fade curve, {@code null} = the project's
 	 * @param script    text spoken on stage, {@code null} in files before iteration T
 	 * @param values    normalized values (0–1) per fixture id and attribute
 	 * @param extraKeys extra keys usable in this scene
 	 */
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly, Long fadeInMs,
-			Long fadeOutMs, Long delayMs, String script, Map<Long, Map<String, Double>> values,
+			Long fadeOutMs, Long delayMs, String fadeCurve, String script, Map<Long, Map<String, Double>> values,
 			List<Integer> extraKeys) {
 
 		static SceneEntry from(Scene scene, Set<Integer> keys) {
@@ -283,7 +284,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					spec.script(), ValuesJson.toJson(scene.values()),
+					TimingJson.fadeCurve(timing), spec.script(), ValuesJson.toJson(scene.values()),
 					keys.stream().sorted().toList());
 		}
 
@@ -293,7 +294,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			}
 			var spec = new SceneSpec(SceneNumber.parse(number), name, Optional.ofNullable(cueNote),
 					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(keyOnly),
-					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs), Objects.requireNonNullElse(script, ""));
+					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs, fadeCurve), Objects.requireNonNullElse(script, ""));
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));

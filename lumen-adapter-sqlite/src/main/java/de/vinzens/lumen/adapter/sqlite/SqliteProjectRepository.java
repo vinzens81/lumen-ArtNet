@@ -3,6 +3,7 @@ package de.vinzens.lumen.adapter.sqlite;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
+import de.vinzens.lumen.domain.scene.FadeCurve;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -25,7 +26,8 @@ public class SqliteProjectRepository implements ProjectRepository {
 					rs.getString("name"),
 					Optional.ofNullable(rs.getString("venue")),
 					Duration.ofMillis(rs.getLong("fade_in_ms")),
-					Duration.ofMillis(rs.getLong("fade_out_ms"))),
+					Duration.ofMillis(rs.getLong("fade_out_ms")),
+					FadeCurve.parse(rs.getString("fade_curve"))),
 			rs.getBoolean("active"),
 			Instant.parse(rs.getString("created_at")),
 			Instant.parse(rs.getString("updated_at")));
@@ -52,10 +54,10 @@ public class SqliteProjectRepository implements ProjectRepository {
 	public Project create(ProjectSpec spec, Instant now) {
 		var keys = new GeneratedKeyHolder();
 		jdbc.sql("""
-				INSERT INTO project (name, venue, fade_in_ms, fade_out_ms, created_at, updated_at)
-				VALUES (?, ?, ?, ?, ?, ?)""")
+				INSERT INTO project (name, venue, fade_in_ms, fade_out_ms, fade_curve, created_at, updated_at)
+				VALUES (?, ?, ?, ?, ?, ?, ?)""")
 				.params(spec.name(), spec.venue().orElse(null), spec.fadeIn().toMillis(), spec.fadeOut().toMillis(),
-						now.toString(), now.toString())
+						spec.fadeCurve().id(), now.toString(), now.toString())
 				.update(keys);
 		return findById(generatedId(keys)).orElseThrow();
 	}
@@ -63,10 +65,10 @@ public class SqliteProjectRepository implements ProjectRepository {
 	@Override
 	public Project update(long id, ProjectSpec spec, Instant now) {
 		jdbc.sql("""
-				UPDATE project SET name = ?, venue = ?, fade_in_ms = ?, fade_out_ms = ?, updated_at = ?
+				UPDATE project SET name = ?, venue = ?, fade_in_ms = ?, fade_out_ms = ?, fade_curve = ?, updated_at = ?
 				WHERE id = ?""")
 				.params(spec.name(), spec.venue().orElse(null), spec.fadeIn().toMillis(), spec.fadeOut().toMillis(),
-						now.toString(), id)
+						spec.fadeCurve().id(), now.toString(), id)
 				.update();
 		return findById(id).orElseThrow();
 	}

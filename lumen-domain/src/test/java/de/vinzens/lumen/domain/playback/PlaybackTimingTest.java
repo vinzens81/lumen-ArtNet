@@ -3,6 +3,7 @@ package de.vinzens.lumen.domain.playback;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -119,6 +120,24 @@ class PlaybackTimingTest {
 		playback.reload(List.of(edited), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
 
 		assertThat(dimmer(1)).isCloseTo(0.5, within(1e-9));
+	}
+
+	@Test
+	void sceneCurveOverridesTheProjectCurve() {
+		var square = new SceneTiming(Optional.empty(), Optional.empty(), Duration.ZERO, Optional.of(FadeCurve.SQUARE));
+		play(scene(1, square, Optional.empty()), scene(2, PROJECT, Optional.empty()));
+		playback.useFadeCurve(FadeCurve.S_CURVE);
+
+		go();
+		advance(1000);
+		assertThat(dimmer(1)).as("square: (1/2)²").isCloseTo(0.25, within(1e-9));
+		advance(4000);
+
+		go();
+		advance(1000);
+		// project S-curve: fade-in 1/2 → 0.5; fade-out 1 - 1/4 = 3/4 → 0.84375
+		assertThat(dimmer(2)).isCloseTo(0.5, within(1e-9));
+		assertThat(dimmer(1)).isCloseTo(0.84375, within(1e-9));
 	}
 
 	private void play(Scene... scenes) {

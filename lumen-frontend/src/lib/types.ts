@@ -47,6 +47,8 @@ export interface Project {
   venue: string | null;
   fadeInMs: number;
   fadeOutMs: number;
+  /** shape of all fades, unless a scene has its own */
+  fadeCurve: FadeCurve;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -57,7 +59,11 @@ export interface ProjectRequest {
   venue: string | null;
   fadeInMs: number;
   fadeOutMs: number;
+  fadeCurve: FadeCurve;
 }
+
+/** Shape of a fade: linear in DMX values, gentle start and end, or square law (softer in the dark). */
+export type FadeCurve = 'linear' | 's-curve' | 'square';
 
 export interface ArtNet {
   net: number;
@@ -190,6 +196,8 @@ export interface Scene {
   fadeOutMs: number | null;
   /** the fade-in starts this long after GO */
   delayMs: number;
+  /** own fade curve, null = the project's */
+  fadeCurve: FadeCurve | null;
   /** text spoken on stage during the scene, empty if none; `**…**` marks stage directions */
   script: string;
 }
@@ -203,6 +211,7 @@ export interface SceneRequest {
   fadeInMs?: number | null;
   fadeOutMs?: number | null;
   delayMs?: number | null;
+  fadeCurve?: FadeCurve | null;
   script?: string;
   record?: boolean;
 }

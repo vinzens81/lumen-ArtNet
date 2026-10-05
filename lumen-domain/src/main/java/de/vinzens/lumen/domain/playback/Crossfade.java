@@ -4,6 +4,7 @@ import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.library.FadeBehavior;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.scene.FadeCurve;
 
 import java.time.Duration;
 import java.util.HashMap;
@@ -21,7 +22,8 @@ import java.util.Set;
  * <li>snap attributes (gobo, color wheel, …): LTP, jump when the fade-in starts</li>
  * <li>attributes the new scene does not set keep their old value</li>
  * </ul>
- * An optional delay holds back the fade-in while the fade-out starts at GO.
+ * An optional delay holds back the fade-in while the fade-out starts at GO. A {@link FadeCurve} shapes the levels
+ * and the progress of smooth attributes.
  */
 public final class Crossfade {
 
@@ -44,9 +46,18 @@ public final class Crossfade {
 	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
 			Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay, FadeBehaviors behaviors,
 			Set<Long> darkAtGo) {
+		return mix(from, to, elapsed, fadeIn, fadeOut, delay, FadeCurve.LINEAR, behaviors, darkAtGo);
+	}
+
+	/** @param curve shape of the fade */
+	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
+			Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve,
+			FadeBehaviors behaviors, Set<Long> darkAtGo) {
 		var sinceFadeIn = elapsed.minus(delay);
-		var levelIn = progress(sinceFadeIn, fadeIn);
-		var levelOut = 1 - progress(elapsed, fadeOut);
+		var linearIn = progress(sinceFadeIn, fadeIn);
+		var levelIn = curve.level(linearIn);
+		var levelOut = curve.level(1 - progress(elapsed, fadeOut));
+		var moved = curve.progress(linearIn);
 		var fadeInStarted = !sinceFadeIn.isNegative();
 
 		var fixtures = new HashSet<>(from.keySet());
@@ -56,8 +67,8 @@ public final class Crossfade {
 			var old = from.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var target = to.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var wasDark = darkAtGo != null ? darkAtGo.contains(fixtureId) : isDark(old);
-			result.put(fixtureId, mixFixture(fixtureId, old, target, wasDark, levelIn, levelOut, fadeInStarted,
-					behaviors));
+			result.put(fixtureId, mixFixture(fixtureId, old, target, wasDark, levelIn, levelOut, moved,
+					fadeInStarted, behaviors));
 		}
 		return result;
 	}
@@ -68,7 +79,7 @@ public final class Crossfade {
 	}
 
 	private static FixtureValues mixFixture(long fixtureId, FixtureValues old, FixtureValues target, boolean wasDark,
-			double levelIn, double levelOut, boolean fadeInStarted, FadeBehaviors behaviors) {
+			double levelIn, double levelOut, double moved, boolean fadeInStarted, FadeBehaviors behaviors) {
 		var attributes = new HashSet<>(old.values().keySet());
 		attributes.addAll(target.values().keySet());
 		attributes.add(DIMMER);
@@ -88,7 +99,7 @@ public final class Crossfade {
 			} else if (behavior == FadeBehavior.SNAP) {
 				value = fadeInStarted ? newValue.get() : oldValue.get();
 			} else {
-				value = oldValue.get() + (newValue.get() - oldValue.get()) * levelIn;
+				value = oldValue.get() + (newValue.get() - oldValue.get()) * moved;
 			}
 			values.put(attribute, value);
 		}

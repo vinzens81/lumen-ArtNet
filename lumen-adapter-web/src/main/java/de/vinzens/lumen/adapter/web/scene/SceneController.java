@@ -112,7 +112,7 @@ class SceneController {
 	}
 
 	private static SceneTiming timing(SceneRequest request) {
-		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs());
+		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs(), request.fadeCurve());
 	}
 
 	/**
@@ -122,11 +122,12 @@ class SceneController {
 	 * @param fadeInMs     fade-in of the GO into this scene, {@code null} = the project's
 	 * @param fadeOutMs    fade-out of the look before at the GO into this scene, {@code null} = the project's
 	 * @param delayMs      the fade-in starts this long after GO, {@code null} = 0
+	 * @param fadeCurve    "linear", "s-curve" or "square", {@code null} = the project's
 	 * @param script       text spoken on stage during the scene, {@code **…**} marks stage directions;
 	 *                     {@code null} = no text
 	 */
 	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
-			Long fadeInMs, Long fadeOutMs, Long delayMs, String script, Boolean record) {
+			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script, Boolean record) {
 	}
 
 	/** @param number cue number of the copy, {@code null} = after the last scene */
@@ -137,12 +138,13 @@ class SceneController {
 	 * @param keyOnly      only played by extra keys, not part of the cue list
 	 * @param fadeInMs     own fade-in time, {@code null} = the project's
 	 * @param fadeOutMs    own fade-out time, {@code null} = the project's
+	 * @param fadeCurve    own fade curve, {@code null} = the project's
 	 * @param script       text spoken on stage during the scene, empty if none
 	 * @param values       programmer-style values per fixture id
 	 * @param compositions compositions running in the scene, in their order
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
-			Long fadeInMs, Long fadeOutMs, long delayMs, String script, int fixtureCount,
+			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script, int fixtureCount,
 			Map<Long, Map<String, Double>> values,
 			List<CompositionSummary> compositions) {
 
@@ -152,7 +154,7 @@ class SceneController {
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					spec.script(), scene.values().size(),
+					TimingJson.fadeCurve(timing), spec.script(), scene.values().size(),
 					ValuesJson.toJson(scene.values()), compositions.stream()
 							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
 							.toList());

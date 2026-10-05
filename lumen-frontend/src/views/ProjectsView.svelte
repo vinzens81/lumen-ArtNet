@@ -4,17 +4,18 @@
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { Project } from '../lib/types';
+  import { curveLabel, FADE_CURVES } from '../lib/sceneTiming';
+  import type { FadeCurve, Project } from '../lib/types';
 
   let editing = $state<Project | null>(null);
   let formOpen = $state(false);
-  let form = $state({ name: '', venue: '', fadeIn: 3, fadeOut: 3 });
+  let form = $state({ name: '', venue: '', fadeIn: 3, fadeOut: 3, fadeCurve: 'linear' as FadeCurve });
   let deleting = $state<Project | null>(null);
   let deleteOpen = $state(false);
 
   function openCreate() {
     editing = null;
-    form = { name: '', venue: '', fadeIn: 3, fadeOut: 3 };
+    form = { name: '', venue: '', fadeIn: 3, fadeOut: 3, fadeCurve: 'linear' };
     formOpen = true;
   }
 
@@ -25,6 +26,7 @@
       venue: project.venue ?? '',
       fadeIn: project.fadeInMs / 1000,
       fadeOut: project.fadeOutMs / 1000,
+      fadeCurve: project.fadeCurve,
     };
     formOpen = true;
   }
@@ -35,6 +37,7 @@
       venue: form.venue || null,
       fadeInMs: Math.round(form.fadeIn * 1000),
       fadeOutMs: Math.round(form.fadeOut * 1000),
+      fadeCurve: form.fadeCurve,
     };
     try {
       if (editing) {
@@ -122,6 +125,7 @@
           <dl>
             <div><dt>Fade in</dt><dd class="mono">{seconds(project.fadeInMs)}</dd></div>
             <div><dt>Fade out</dt><dd class="mono">{seconds(project.fadeOutMs)}</dd></div>
+            <div><dt>Curve</dt><dd>{curveLabel(project.fadeCurve)}</dd></div>
           </dl>
           <div class="actions">
             {#if project.active}
@@ -148,6 +152,11 @@
     <div class="row">
       <label class="field">Fade in (s)<input type="number" min="0" max="600" step="0.1" bind:value={form.fadeIn} /></label>
       <label class="field">Fade out (s)<input type="number" min="0" max="600" step="0.1" bind:value={form.fadeOut} /></label>
+      <label class="field">Curve
+        <select bind:value={form.fadeCurve}>
+          {#each FADE_CURVES as curve (curve.id)}<option value={curve.id} title={curve.hint}>{curve.label}</option>{/each}
+        </select>
+      </label>
     </div>
     <p class="field"><span class="hint">Fade times apply to every scene change of this project.</span></p>
   </form>

@@ -30,7 +30,8 @@ class ProjectTransferApiTest {
 
 	@Test
 	void exportedProjectCanBeImportedAsACopy() throws Exception {
-		var project = id(post("/api/projects", "{\"name\": \"Tempest\", \"venue\": \"Globe\", \"fadeInMs\": 1500}"));
+		var project = id(post("/api/projects", "{\"name\": \"Tempest\", \"venue\": \"Globe\", \"fadeInMs\": 1500, "
+				+ "\"fadeCurve\": \"s-curve\"}"));
 		var universe = id(post("/api/projects/" + project + "/universes",
 				"{\"number\": 2, \"mode\": \"unicast\", \"ipAddresses\": [\"10.0.0.5\"], \"networkInterface\": \"en7\"}"));
 		var front = id(post("/api/projects/" + project + "/fixtures", fixture("Front", universe, 1)));
@@ -38,7 +39,7 @@ class ProjectTransferApiTest {
 		post("/api/projects/" + project + "/groups", "{\"name\": \"All\", \"fixtureIds\": [%d, %d]}".formatted(back, front));
 		var scenes = "/api/projects/" + project + "/scenes";
 		post(scenes, "{\"number\": \"2.5\", \"name\": \"Storm\", \"cueNote\": \"Thunder\", \"autoFollowMs\": 4000, "
-				+ "\"fadeInMs\": 0, \"delayMs\": 1000, \"script\": \"Hark! **Thunder**\"}");
+				+ "\"fadeInMs\": 0, \"delayMs\": 1000, \"fadeCurve\": \"square\", \"script\": \"Hark! **Thunder**\"}");
 		var dawn = id(post(scenes, "{\"number\": \"1\", \"name\": \"Dawn\"}"));
 		// scene values come from the programmer
 		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
@@ -59,6 +60,7 @@ class ProjectTransferApiTest {
 			assertThat(json).extractingPath("$.name").isEqualTo("Tempest (imported)");
 			assertThat(json).extractingPath("$.venue").isEqualTo("Globe");
 			assertThat(json).extractingPath("$.fadeInMs").isEqualTo(1500);
+			assertThat(json).extractingPath("$.fadeCurve").isEqualTo("s-curve");
 			assertThat(json).extractingPath("$.active").isEqualTo(false);
 		});
 
@@ -82,6 +84,8 @@ class ProjectTransferApiTest {
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].fadeInMs")).isZero();
 		assertThat(JsonPath.<Object>read(copiedScenes, "$[1].fadeOutMs")).isNull();
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].delayMs")).isEqualTo(1000);
+		assertThat(JsonPath.<String>read(copiedScenes, "$[1].fadeCurve")).isEqualTo("square");
+		assertThat(JsonPath.<Object>read(copiedScenes, "$[0].fadeCurve")).isNull();
 		assertThat(JsonPath.<String>read(copiedScenes, "$[1].script")).isEqualTo("Hark! **Thunder**");
 		assertThat(JsonPath.<String>read(copiedScenes, "$[0].script")).isEmpty();
 

@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
   import { cueRows, keyName, sheetSeconds, type CueRow } from '../lib/cueSheet';
+  import { curveLabel } from '../lib/sceneTiming';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import type { ExtraKey, Scene } from '../lib/types';
@@ -65,7 +66,7 @@
       </div>
       <div class="meta">
         <div>Printed {printedAt}</div>
-        <div>Project fades: in {sheetSeconds(project.fadeInMs)} · out {sheetSeconds(project.fadeOutMs)}</div>
+        <div>Project fades: in {sheetSeconds(project.fadeInMs)} · out {sheetSeconds(project.fadeOutMs)} · {curveLabel(project.fadeCurve)}</div>
         <div>{rows.length} {rows.length === 1 ? 'cue' : 'cues'}</div>
       </div>
     </header>

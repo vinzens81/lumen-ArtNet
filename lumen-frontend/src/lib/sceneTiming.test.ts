@@ -5,6 +5,7 @@ import type { Scene } from './types';
 describe('timingLabel', () => {
   it('is null for the project times', () => {
     expect(timingLabel({ fadeInMs: null, fadeOutMs: null, delayMs: 0 })).toBeNull();
+    expect(timingLabel({ fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: 's-curve' })).toBe('S-curve');
   });
 
   it('lists only what the scene sets', () => {
@@ -26,11 +27,12 @@ describe('sceneRequestOf', () => {
   it('keeps the fade times, e.g. when a scene is moved', () => {
     const scene: Scene = {
       id: 1, number: '2', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,
-      fadeInMs: 0, fadeOutMs: null, delayMs: 500, script: 'Hark.', fixtureCount: 0, values: {}, compositions: [],
+      fadeInMs: 0, fadeOutMs: null, delayMs: 500, fadeCurve: 'square', script: 'Hark.', fixtureCount: 0, values: {},
+      compositions: [],
     };
     expect({ ...sceneRequestOf(scene), number: '2.5' }).toEqual({
       number: '2.5', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,
-      fadeInMs: 0, fadeOutMs: null, delayMs: 500, script: 'Hark.',
+      fadeInMs: 0, fadeOutMs: null, delayMs: 500, fadeCurve: 'square', script: 'Hark.',
     });
   });
 });

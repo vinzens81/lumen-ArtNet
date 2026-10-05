@@ -118,6 +118,18 @@ class SceneApiTest {
 	}
 
 	@Test
+	void fadeCurvePerProjectAndScene() throws Exception {
+		assertThat(put("/api/projects/" + project, "{\"name\": \"Scenes\", \"fadeCurve\": \"square\"}"))
+				.hasStatusOk().bodyJson().extractingPath("$.fadeCurve").isEqualTo("square");
+		var scene = id(post(scenes, "{\"name\": \"Dawn\", \"fadeCurve\": \"s-curve\"}"));
+
+		assertThat(mvc.get().uri(scenes)).bodyJson().extractingPath("$[0].fadeCurve").isEqualTo("s-curve");
+		assertThat(put(scenes + "/" + scene, "{\"number\": \"1\", \"name\": \"Dawn\"}")).hasStatusOk()
+				.bodyJson().extractingPath("$.fadeCurve").isNull();
+		assertThat(post(scenes, "{\"name\": \"X\", \"fadeCurve\": \"wobbly\"}")).hasStatus(400);
+	}
+
+	@Test
 	void scriptIsStoredWithTheScene() throws Exception {
 		var scene = id(post(scenes, "{\"name\": \"Prologue\", \"script\": \"Two households.\\r\\n**Enter Chorus**\\n\"}"));
 

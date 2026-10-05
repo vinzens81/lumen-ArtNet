@@ -3,6 +3,7 @@ package de.vinzens.lumen.domain.playback;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.scene.FadeCurve;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -94,6 +95,35 @@ class CrossfadeTest {
 		var fading = Crossfade.mix(from, to, Duration.ofMillis(2000), IN, OUT, delay, FadeBehaviors.DEFAULTS, null);
 		assertThat(dimmer(fading, 2)).isCloseTo(0.5, within(1e-9));
 		assertThat(fading.get(1L).get(GOBO)).contains(0.6);
+	}
+
+	@Test
+	void curveShapesLevelsAndTheProgressOfColors() {
+		var from = Map.of(1L, values(DIMMER, 1.0, RED, 0.0), 2L, values(DIMMER, 1.0));
+		var to = Map.of(1L, values(DIMMER, 1.0, RED, 1.0), 3L, values(DIMMER, 1.0));
+		var quarterIn = Duration.ofMillis(500);
+
+		var square = Crossfade.mix(from, to, quarterIn, IN, OUT, Duration.ZERO, FadeCurve.SQUARE,
+				FadeBehaviors.DEFAULTS, null);
+		assertThat(dimmer(square, 3)).as("(1/4)²").isCloseTo(0.0625, within(1e-9));
+		assertThat(dimmer(square, 2)).as("(1 - 1/8)²").isCloseTo(0.765625, within(1e-9));
+		assertThat(square.get(1L).get(RED)).as("colors move linearly").contains(0.25);
+
+		var smooth = Crossfade.mix(from, to, quarterIn, IN, OUT, Duration.ZERO, FadeCurve.S_CURVE,
+				FadeBehaviors.DEFAULTS, null);
+		assertThat(dimmer(smooth, 3)).as("smoothstep(1/4)").isCloseTo(0.15625, within(1e-9));
+		assertThat(smooth.get(1L).get(RED).orElseThrow()).isCloseTo(0.15625, within(1e-9));
+	}
+
+	@Test
+	void curvesStartAtZeroAndEndAtOne() {
+		for (var curve : FadeCurve.values()) {
+			assertThat(curve.level(0)).isZero();
+			assertThat(curve.level(1)).isEqualTo(1.0);
+			assertThat(curve.progress(0)).isZero();
+			assertThat(curve.progress(1)).isEqualTo(1.0);
+			assertThat(FadeCurve.parse(curve.id())).isEqualTo(curve);
+		}
 	}
 
 	private static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to, long ms) {

@@ -1,6 +1,17 @@
-import type { Scene, SceneRequest } from './types';
+import type { FadeCurve, Scene, SceneRequest } from './types';
 
-type Timing = Pick<Scene, 'fadeInMs' | 'fadeOutMs' | 'delayMs'>;
+type Timing = Pick<Scene, 'fadeInMs' | 'fadeOutMs' | 'delayMs'> & { fadeCurve?: FadeCurve | null };
+
+/** The fade curves with their names in the UI. */
+export const FADE_CURVES: { id: FadeCurve; label: string; hint: string }[] = [
+  { id: 'linear', label: 'Linear', hint: 'Constant speed in DMX values' },
+  { id: 's-curve', label: 'S-curve', hint: 'Starts and ends gently – also for colors and positions' },
+  { id: 'square', label: 'Square law', hint: 'Softer in the dark, looks even to the eye' },
+];
+
+export function curveLabel(curve: FadeCurve): string {
+  return FADE_CURVES.find((c) => c.id === curve)?.label ?? curve;
+}
 
 function secondsText(ms: number): string {
   return `${+(ms / 1000).toFixed(2)} s`;
@@ -15,6 +26,7 @@ export function timingLabel(timing: Timing): string | null {
   if (timing.fadeInMs !== null) parts.push(`in ${secondsText(timing.fadeInMs)}`);
   if (timing.fadeOutMs !== null) parts.push(`out ${secondsText(timing.fadeOutMs)}`);
   if (timing.delayMs > 0) parts.push(`delay ${secondsText(timing.delayMs)}`);
+  if (timing.fadeCurve) parts.push(curveLabel(timing.fadeCurve));
   return parts.length > 0 ? parts.join(' · ') : null;
 }
 
@@ -34,6 +46,7 @@ export function sceneRequestOf(scene: Scene): SceneRequest {
     fadeInMs: scene.fadeInMs,
     fadeOutMs: scene.fadeOutMs,
     delayMs: scene.delayMs,
+    fadeCurve: scene.fadeCurve,
     script: scene.script,
   };
 }
