@@ -32,7 +32,7 @@ class ProjectTransferApiTest {
 	void exportedProjectCanBeImportedAsACopy() throws Exception {
 		var project = id(post("/api/projects", "{\"name\": \"Tempest\", \"venue\": \"Globe\", \"fadeInMs\": 1500}"));
 		var universe = id(post("/api/projects/" + project + "/universes",
-				"{\"number\": 2, \"mode\": \"unicast\", \"ipAddresses\": [\"10.0.0.5\"]}"));
+				"{\"number\": 2, \"mode\": \"unicast\", \"ipAddresses\": [\"10.0.0.5\"], \"networkInterface\": \"en7\"}"));
 		var front = id(post("/api/projects/" + project + "/fixtures", fixture("Front", universe, 1)));
 		var back = id(post("/api/projects/" + project + "/fixtures", fixture("Back", universe, 2)));
 		post("/api/projects/" + project + "/groups", "{\"name\": \"All\", \"fixtureIds\": [%d, %d]}".formatted(back, front));
@@ -72,6 +72,7 @@ class ProjectTransferApiTest {
 		var universes = body("/api/projects/" + copy + "/universes");
 		assertThat(JsonPath.<String>read(universes, "$[0].mode")).isEqualTo("unicast");
 		assertThat(JsonPath.<List<String>>read(universes, "$[0].ipAddresses")).containsExactly("10.0.0.5");
+		assertThat(JsonPath.<String>read(universes, "$[0].networkInterface")).isEqualTo("en7");
 
 		var copiedScenes = body("/api/projects/" + copy + "/scenes");
 		assertThat(JsonPath.<List<String>>read(copiedScenes, "$[*].number")).containsExactly("1", "2.5");

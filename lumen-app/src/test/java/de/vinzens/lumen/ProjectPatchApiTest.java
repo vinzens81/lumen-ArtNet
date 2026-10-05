@@ -66,6 +66,7 @@ class ProjectPatchApiTest {
 					assertThat(json).extractingPath("$.portAddress").isEqualTo(2);
 					assertThat(json).extractingPath("$.mode").isEqualTo("auto");
 					assertThat(json).extractingPath("$.ipAddresses").asArray().isEmpty();
+					assertThat(json).extractingPath("$.networkInterface").isNull();
 				});
 		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 3}")).hasStatus(409);
 		assertThat(post("/api/projects/" + project + "/universes",
@@ -77,6 +78,18 @@ class ProjectPatchApiTest {
 				.bodyJson().extractingPath("$.ipAddresses[0]").isEqualTo("10.0.0.5");
 		assertThat(post("/api/projects/" + project + "/universes",
 				"{\"number\": 7, \"mode\": \"multicast\"}")).hasStatus(400);
+	}
+
+	@Test
+	void universeCanBeBoundToANetworkInterface() throws Exception {
+		var project = createProject("Interfaces");
+
+		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 1, \"networkInterface\": \" en7 \"}"))
+				.hasStatus(201).bodyJson().extractingPath("$.networkInterface").isEqualTo("en7");
+		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 2, \"networkInterface\": \"\"}"))
+				.hasStatus(201).bodyJson().extractingPath("$.networkInterface").isNull();
+		assertThat(mvc.get().uri("/api/artnet/networks")).hasStatusOk().bodyJson().extractingPath("$").asArray()
+				.allSatisfy(network -> assertThat(network.toString()).contains("interfaceName", "broadcastAddress"));
 	}
 
 	@Test

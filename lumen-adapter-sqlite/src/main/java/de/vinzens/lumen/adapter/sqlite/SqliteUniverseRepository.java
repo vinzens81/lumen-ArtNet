@@ -25,7 +25,8 @@ public class SqliteUniverseRepository implements UniverseRepository {
 					rs.getInt("number"),
 					Optional.ofNullable(rs.getString("name")),
 					new ArtNetAddress(rs.getInt("artnet_net"), rs.getInt("artnet_subnet"), rs.getInt("artnet_universe")),
-					ArtNetTarget.parse(rs.getString("target"))));
+					ArtNetTarget.parse(rs.getString("target")),
+					Optional.ofNullable(rs.getString("network_interface"))));
 
 	private final JdbcClient jdbc;
 
@@ -47,10 +48,12 @@ public class SqliteUniverseRepository implements UniverseRepository {
 	public Universe create(long projectId, UniverseSpec spec) {
 		var keys = new GeneratedKeyHolder();
 		jdbc.sql("""
-				INSERT INTO universe (project_id, number, name, artnet_net, artnet_subnet, artnet_universe, target)
-				VALUES (?, ?, ?, ?, ?, ?, ?)""")
+				INSERT INTO universe (project_id, number, name, artnet_net, artnet_subnet, artnet_universe, target,
+				                      network_interface)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?)""")
 				.params(projectId, spec.number(), spec.name().orElse(null), spec.artNet().net(),
-						spec.artNet().subnet(), spec.artNet().universe(), spec.target().asText())
+						spec.artNet().subnet(), spec.artNet().universe(), spec.target().asText(),
+						spec.networkInterface().orElse(null))
 				.update(keys);
 		return findById(generatedId(keys)).orElseThrow();
 	}
@@ -59,10 +62,10 @@ public class SqliteUniverseRepository implements UniverseRepository {
 	public Universe update(long id, UniverseSpec spec) {
 		jdbc.sql("""
 				UPDATE universe SET number = ?, name = ?, artnet_net = ?, artnet_subnet = ?, artnet_universe = ?,
-				    target = ?
+				    target = ?, network_interface = ?
 				WHERE id = ?""")
 				.params(spec.number(), spec.name().orElse(null), spec.artNet().net(), spec.artNet().subnet(),
-						spec.artNet().universe(), spec.target().asText(), id)
+						spec.artNet().universe(), spec.target().asText(), spec.networkInterface().orElse(null), id)
 				.update();
 		return findById(id).orElseThrow();
 	}

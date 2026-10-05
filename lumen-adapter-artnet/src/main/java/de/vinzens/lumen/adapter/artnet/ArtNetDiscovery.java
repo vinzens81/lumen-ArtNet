@@ -1,6 +1,7 @@
 package de.vinzens.lumen.adapter.artnet;
 
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
+import de.vinzens.lumen.application.output.port.out.LocalNetworks;
 import de.vinzens.lumen.domain.project.ArtNetNode;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.nio.channels.DatagramChannel;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,7 +27,9 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Finds Art-Net nodes: sends ArtPoll periodically and collects the ArtPollReply packets. Nodes answer to UDP
+ * Finds Art-Net nodes: sends ArtPoll periodically – to the configured broadcast address and to the directed broadcast
+ * of every local network, so nodes behind a second adapter are found too – and collects the ArtPollReply packets.
+ * Nodes answer to UDP
  * port 6454 of the polling controller, so this listens there (shared with other Art-Net software on the same
  * machine via SO_REUSEADDR/SO_REUSEPORT). If the port cannot be opened, discovery stays empty and the rest of
  * Lumen keeps working.
@@ -37,6 +41,7 @@ public class ArtNetDiscovery implements ArtNetNodeDirectory, AutoCloseable {
 	private static final Duration FORGET_AFTER = Duration.ofMinutes(5);
 
 	private final ArtNetSettings settings;
+	private final LocalNetworks networks;
 	private final Clock clock;
 	private final Runnable onChange;
 	private final Map<String, ArtNetNode> nodes = new ConcurrentHashMap<>();
@@ -48,8 +53,9 @@ public class ArtNetDiscovery implements ArtNetNodeDirectory, AutoCloseable {
 	/**
 	 * @param onChange called when a node appears, changes or goes offline
 	 */
-	public ArtNetDiscovery(ArtNetSettings settings, Clock clock, Runnable onChange) {
+	public ArtNetDiscovery(ArtNetSettings settings, LocalNetworks networks, Clock clock, Runnable onChange) {
 		this.settings = settings;
+		this.networks = networks;
 		this.clock = clock;
 		this.onChange = onChange;
 	}
@@ -84,15 +90,25 @@ public class ArtNetDiscovery implements ArtNetNodeDirectory, AutoCloseable {
 	}
 
 	private void pollTick() {
-		try {
-			var target = new InetSocketAddress(InetAddress.getByName(settings.broadcastAddress()), settings.port());
-			channel.send(ByteBuffer.wrap(ArtPollPackets.poll()), target);
-		} catch (IOException e) {
-			LOG.log(Level.DEBUG, "Sending ArtPoll failed: " + e.getMessage());
-		} catch (RuntimeException e) {
-			LOG.log(Level.WARNING, "Sending ArtPoll failed", e);
+		for (var address : pollAddresses()) {
+			try {
+				var target = new InetSocketAddress(InetAddress.getByName(address), settings.port());
+				channel.send(ByteBuffer.wrap(ArtPollPackets.poll()), target);
+			} catch (IOException e) {
+				LOG.log(Level.DEBUG, "Sending ArtPoll to " + address + " failed: " + e.getMessage());
+			} catch (RuntimeException e) {
+				LOG.log(Level.WARNING, "Sending ArtPoll to " + address + " failed", e);
+			}
 		}
 		expire();
+	}
+
+	/** The configured broadcast address and the directed broadcast of every local network. */
+	Set<String> pollAddresses() {
+		var result = new LinkedHashSet<String>();
+		result.add(settings.broadcastAddress());
+		networks.networks().forEach(network -> result.add(network.broadcastAddress()));
+		return result;
 	}
 
 	/** Marks nodes offline that stopped answering and forgets long gone ones. */

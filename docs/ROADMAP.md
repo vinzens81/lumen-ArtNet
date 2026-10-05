@@ -217,7 +217,7 @@ auf dem Handy ist das Textbuch ausgeblendet. Geprüft im Browser (Testserver): 2
 automatisches Mitscrollen bis zum Ende, GO startet die nächste Szene beim ersten Satz, eine per API gesetzte Position
 erscheint sofort in der Oberfläche.
 
-## ⬜ Iteration N – Netzwerk-Interface pro Universe 🌐
+## ✅ Iteration N – Netzwerk-Interface pro Universe 🌐
 Heute gibt es nur eine globale `bind-address`/`broadcast-address`, die Discovery hört auf `0.0.0.0`.
 - Interfaces des Rechners auflisten (Name wie `en0`, IPv4, Broadcast), `GET /api/network/interfaces`
 - Discovery schickt ArtPoll an die Broadcast-Adresse **jedes** aktiven Interfaces und ordnet gefundene Nodes ihrem
@@ -227,6 +227,14 @@ Heute gibt es nur eine globale `bind-address`/`broadcast-address`, die Discovery
 - UI: Auswahl im Universe-Dialog, Interface in der Node-Liste, Hinweis wenn das gewählte Interface fehlt
 
 **DoD:** Mit WLAN und einem USB-Ethernet-Adapter gleichzeitig gehen die Pakete eines Universe nur ins gewählte Netz.
+Umgesetzt, mit einer Abweichung: kein eigener Socket pro Interface. Ein Universe mit Interface sendet Broadcast an
+den **gerichteten Broadcast** dieses Netzes (z.B. `2.255.255.255`) und im Modus Auto nur an Nodes in dessen Subnetz;
+das Betriebssystem schickt beides von selbst über das passende Interface. Bisher ging Broadcast an
+`255.255.255.255` und damit unter macOS nur über das Haupt-Interface. Manuelle IPs bleiben unverändert. Fehlt das
+Interface (Adapter abgezogen), wird das Universe nicht gesendet statt in ein falsches Netz; die Universe-Ansicht warnt.
+Interfaces werden höchstens alle 3 s neu gelesen (ca. 0,5 ms), `GET /api/artnet/networks`, Flyway `V11`, reist im
+Projekt-Export mit. Geprüft mit Unit-Tests (Subnetz, Broadcast, Zielauswahl, ArtPoll an alle Netze) und im Browser
+(Testserver); mit zwei echten Netzen und Art-Net an noch nicht ausprobiert.
 
 ## ⬜ Iteration H – Node-Überwachung im Betrieb 🩺 (baut auf Iteration N auf)
 - **Erwartete Nodes pro Projekt speichern** (Flyway), damit auch ein Node auffällt, der schon vor dem Start fehlt

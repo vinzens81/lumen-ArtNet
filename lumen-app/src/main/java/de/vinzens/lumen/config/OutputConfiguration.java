@@ -3,6 +3,7 @@ package de.vinzens.lumen.config;
 import de.vinzens.lumen.adapter.artnet.ArtNetDiscovery;
 import de.vinzens.lumen.adapter.artnet.ArtNetDmxOutput;
 import de.vinzens.lumen.adapter.artnet.ArtNetSettings;
+import de.vinzens.lumen.adapter.artnet.SystemNetworks;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.composition.CompositionPreviewService;
 import de.vinzens.lumen.application.composition.CompositionResolver;
@@ -16,6 +17,7 @@ import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
 import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
+import de.vinzens.lumen.application.output.port.out.LocalNetworks;
 import de.vinzens.lumen.application.party.PartyService;
 import de.vinzens.lumen.application.playback.PlaybackService;
 import org.slf4j.Logger;
@@ -39,34 +41,40 @@ class OutputConfiguration {
 				artNet.pollInterval());
 	}
 
+	/** Read even with Art-Net off, so universes can be bound to an interface in test mode too. */
+	@Bean
+	LocalNetworks localNetworks(Clock clock) {
+		return new SystemNetworks(clock);
+	}
+
 	@Bean // closed automatically (AutoCloseable) when discovery is running
-	ArtNetNodeDirectory artNetNodeDirectory(LumenProperties properties, ArtNetSettings settings, Clock clock,
-			StateEvents stateEvents) {
+	ArtNetNodeDirectory artNetNodeDirectory(LumenProperties properties, ArtNetSettings settings,
+			LocalNetworks networks, Clock clock, StateEvents stateEvents) {
 		if (!properties.artnet().enabled()) {
 			return ArtNetNodeDirectory.NONE;
 		}
-		var discovery = new ArtNetDiscovery(settings, clock, () -> stateEvents.publish(StateTopic.NODES));
+		var discovery = new ArtNetDiscovery(settings, networks, clock, () -> stateEvents.publish(StateTopic.NODES));
 		discovery.start();
-		log.info("Art-Net discovery: ArtPoll every {} to {}, listening on port {}", settings.pollInterval(),
-				settings.broadcastAddress(), settings.listenPort());
+		log.info("Art-Net discovery: ArtPoll every {} to {} and the local networks {}, listening on port {}",
+				settings.pollInterval(), settings.broadcastAddress(), networks.networks(), settings.listenPort());
 		return discovery;
 	}
 
 	@Bean
-	ArtNetNodeService artNetNodeService(ArtNetNodeDirectory directory, Clock clock) {
-		return new ArtNetNodeService(directory, clock);
+	ArtNetNodeService artNetNodeService(ArtNetNodeDirectory directory, LocalNetworks networks, Clock clock) {
+		return new ArtNetNodeService(directory, networks, clock);
 	}
 
 	@Bean
 	DmxOutputPort dmxOutput(LumenProperties properties, ArtNetSettings settings, ArtNetNodeDirectory directory,
-			Clock clock) {
+			LocalNetworks networks, Clock clock) {
 		if (!properties.artnet().enabled()) {
 			log.info("Art-Net output is disabled");
 			return DmxOutputPort.NONE;
 		}
 		log.info("Art-Net output from {} to port {}, broadcast address {}", settings.bindAddress(), settings.port(),
 				settings.broadcastAddress());
-		return new ArtNetDmxOutput(settings, directory, clock);
+		return new ArtNetDmxOutput(settings, directory, networks, clock);
 	}
 
 	@Bean

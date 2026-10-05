@@ -24,7 +24,8 @@ und welche Szenen es gibt.
   V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
   V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
   (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
-  V10 = Textbuch pro Szene (`scene.script`, Iteration T).
+  V10 = Textbuch pro Szene (`scene.script`, Iteration T), V11 = Netzwerk-Interface pro Universe
+  (`universe.network_interface`, Iteration N).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -49,6 +50,7 @@ universe                                        -- ersetzt die frühere outputs.
   artnet_subnet   INTEGER NOT NULL DEFAULT 0    -- 0–15
   artnet_universe INTEGER NOT NULL DEFAULT 0    -- 0–15
   target          TEXT NOT NULL                 -- 'auto', 'auto,10.0.0.5', '10.0.0.5,10.0.0.6' oder 'broadcast'
+  network_interface TEXT NULL                   -- z.B. 'en7': nur über dieses Interface senden, NULL = alle Netze
   UNIQUE(project_id, number)
 
 fixture                                         -- gepatchte Instanz

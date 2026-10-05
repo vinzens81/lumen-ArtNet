@@ -1,6 +1,7 @@
 import type {
   AccessStatus,
   ArtNetNode,
+  LocalNetwork,
   Backup,
   Backups,
   Composition,
@@ -232,6 +233,7 @@ export const api = {
   },
   artnet: {
     nodes: () => get<ArtNetNode[]>('/api/artnet/nodes'),
+    networks: () => get<LocalNetwork[]>('/api/artnet/networks'),
   },
   access: {
     status: () => get<AccessStatus>('/api/access'),

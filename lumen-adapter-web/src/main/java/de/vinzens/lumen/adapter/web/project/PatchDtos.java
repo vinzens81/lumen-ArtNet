@@ -32,16 +32,19 @@ final class PatchDtos {
 	 *
 	 * @param mode        {@code auto} (default: nodes found via ArtPoll plus {@code ipAddresses}),
 	 *                    {@code unicast} (only {@code ipAddresses}) or {@code broadcast}
-	 * @param ipAddresses manual node addresses
+	 * @param ipAddresses      manual node addresses
+	 * @param networkInterface interface the packets go out on, e.g. {@code en7}; {@code null} = all networks
 	 */
-	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses) {
+	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses,
+			String networkInterface) {
 
 		UniverseSpec toSpec() {
 			var n = Objects.requireNonNullElse(number, 0);
 			var address = artnet != null
 					? new ArtNetAddress(artnet.net(), artnet.subnet(), artnet.universe())
 					: ArtNetAddress.fromPortAddress(Math.max(n - 1, 0));
-			return new UniverseSpec(n, Optional.ofNullable(name), address, target());
+			return new UniverseSpec(n, Optional.ofNullable(name), address, target(),
+					Optional.ofNullable(networkInterface));
 		}
 
 		private ArtNetTarget target() {
@@ -61,7 +64,7 @@ final class PatchDtos {
 	static final String MODE_BROADCAST = "broadcast";
 
 	record UniverseResponse(long id, int number, String name, String displayName, ArtNetDto artnet,
-			int portAddress, String mode, List<String> ipAddresses) {
+			int portAddress, String mode, List<String> ipAddresses, String networkInterface) {
 
 		static UniverseResponse from(Universe universe) {
 			var spec = universe.spec();
@@ -73,7 +76,7 @@ final class PatchDtos {
 			var ips = spec.target() instanceof ArtNetTarget.Unicast unicast ? unicast.ipAddresses() : List.<String>of();
 			return new UniverseResponse(universe.id(), spec.number(), spec.name().orElse(null),
 					universe.displayName(), new ArtNetDto(artNet.net(), artNet.subnet(), artNet.universe()),
-					artNet.portAddress(), mode, ips);
+					artNet.portAddress(), mode, ips, spec.networkInterface().orElse(null));
 		}
 	}
 

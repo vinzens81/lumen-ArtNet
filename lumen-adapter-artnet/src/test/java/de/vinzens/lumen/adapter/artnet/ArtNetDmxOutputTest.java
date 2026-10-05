@@ -3,7 +3,9 @@ package de.vinzens.lumen.adapter.artnet;
 import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
+import de.vinzens.lumen.domain.project.ArtNetNode;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
+import de.vinzens.lumen.domain.project.LocalNetwork;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
 import org.junit.jupiter.api.AfterEach;
@@ -14,8 +16,12 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -82,6 +88,32 @@ class ArtNetDmxOutputTest {
 			last = receive();
 		}
 		assertThat(last[12]).isEqualTo((byte) 1);
+	}
+
+	@Test
+	void universeBoundToAnInterfaceUsesOnlyItsNetwork() {
+		var now = Instant.parse("2026-10-05T20:00:00Z");
+		var wifiNode = new ArtNetNode("192.168.0.150", 1, "ESP", "ESP", "", List.of(0), "", now);
+		var stageNode = new ArtNetNode("2.0.0.21", 1, "Stage", "Stage", "", List.of(0), "", now);
+		var networks = List.of(new LocalNetwork("en0", "192.168.0.23", 24), new LocalNetwork("en7", "2.0.0.10", 8));
+		try (var bound = new ArtNetDmxOutput(new ArtNetSettings("127.0.0.1", 6454, "255.255.255.255"),
+				() -> List.of(wifiNode, stageNode), () -> networks, Clock.fixed(now, ZoneOffset.UTC))) {
+			assertThat(bound.destinations(spec(ArtNetTarget.auto(), Optional.empty())))
+					.containsExactly("192.168.0.150", "2.0.0.21");
+			assertThat(bound.destinations(spec(ArtNetTarget.auto(), Optional.of("en7")))).containsExactly("2.0.0.21");
+			assertThat(bound.destinations(spec(ArtNetTarget.parse("auto,10.9.9.9"), Optional.of("en0"))))
+					.as("manual addresses stay").containsExactly("192.168.0.150", "10.9.9.9");
+			assertThat(bound.destinations(spec(new ArtNetTarget.Broadcast(), Optional.of("en7"))))
+					.containsExactly("2.255.255.255");
+			assertThat(bound.destinations(spec(new ArtNetTarget.Broadcast(), Optional.empty())))
+					.containsExactly("255.255.255.255");
+			assertThat(bound.destinations(spec(ArtNetTarget.auto(), Optional.of("en9"))))
+					.as("interface missing, e.g. adapter unplugged").isEmpty();
+		}
+	}
+
+	private static UniverseSpec spec(ArtNetTarget target, Optional<String> networkInterface) {
+		return new UniverseSpec(1, Optional.empty(), new ArtNetAddress(0, 0, 0), target, networkInterface);
 	}
 
 	private byte[] receive() throws IOException {

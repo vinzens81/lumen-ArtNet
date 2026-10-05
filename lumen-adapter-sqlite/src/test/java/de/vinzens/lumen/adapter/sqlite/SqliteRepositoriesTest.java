@@ -112,6 +112,10 @@ class SqliteRepositoriesTest {
 
 		assertThat(repos.universes().findById(universe.id())).get()
 				.satisfies(u -> assertThat(u.spec()).isEqualTo(unicast));
+
+		var bound = new UniverseSpec(2, Optional.of("Stage"), new ArtNetAddress(0, 1, 2), ArtNetTarget.auto(),
+				Optional.of("en7"));
+		assertThat(repos.universes().update(universe.id(), bound).spec()).isEqualTo(bound);
 	}
 
 	@Test

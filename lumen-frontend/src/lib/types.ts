@@ -77,6 +77,8 @@ export interface Universe {
   portAddress: number;
   mode: DeliveryMode;
   ipAddresses: string[];
+  /** interface the packets go out on, e.g. "en7"; null = all networks */
+  networkInterface: string | null;
 }
 
 export interface UniverseRequest {
@@ -85,6 +87,16 @@ export interface UniverseRequest {
   artnet: ArtNet;
   mode: DeliveryMode;
   ipAddresses: string[];
+  networkInterface: string | null;
+}
+
+/** An IPv4 network of an interface of the computer Lumen runs on. */
+export interface LocalNetwork {
+  interfaceName: string;
+  address: string;
+  prefixLength: number;
+  /** directed broadcast, used for ArtPoll and broadcast universes bound to this interface */
+  broadcastAddress: string;
 }
 
 export interface ArtNetNode {
@@ -97,6 +109,8 @@ export interface ArtNetNode {
   nodeReport: string;
   lastSeen: string;
   online: boolean;
+  /** interface of this computer in the node's network, null if none */
+  networkInterface: string | null;
 }
 
 export interface Position {

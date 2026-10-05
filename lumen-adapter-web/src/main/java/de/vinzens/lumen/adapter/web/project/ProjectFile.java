@@ -214,18 +214,22 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	record StagePlanEntry(String contentType, byte[] data) {
 	}
 
-	/** @param mode {@code auto}, {@code unicast} or {@code broadcast} */
-	record UniverseEntry(Long id, Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses) {
+	/**
+	 * @param mode             {@code auto}, {@code unicast} or {@code broadcast}
+	 * @param networkInterface interface name, {@code null} = all networks (and in files before iteration N)
+	 */
+	record UniverseEntry(Long id, Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses,
+			String networkInterface) {
 
 		static UniverseEntry from(Universe universe) {
 			var response = UniverseResponse.from(universe);
 			return new UniverseEntry(universe.id(), response.number(), response.name(), response.artnet(),
-					response.mode(), response.ipAddresses());
+					response.mode(), response.ipAddresses(), response.networkInterface());
 		}
 
 		Universe toUniverse() {
 			return new Universe(require(id, "universe id"), 0,
-					new UniverseRequest(number, name, artnet, mode, ipAddresses).toSpec());
+					new UniverseRequest(number, name, artnet, mode, ipAddresses, networkInterface).toSpec());
 		}
 	}
 

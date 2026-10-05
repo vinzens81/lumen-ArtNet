@@ -1,8 +1,10 @@
 package de.vinzens.lumen.adapter.artnet;
 
+import de.vinzens.lumen.application.output.port.out.LocalNetworks;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
+import de.vinzens.lumen.domain.project.LocalNetwork;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
 import org.junit.jupiter.api.AfterEach;
@@ -43,8 +45,8 @@ class ArtNetDiscoveryTest {
 		}
 		var settings = new ArtNetSettings("127.0.0.1", node.getLocalPort(), "127.0.0.1", listenPort,
 				Duration.ofMillis(100));
-		discovery = new ArtNetDiscovery(settings, Clock.systemUTC(), changes::incrementAndGet);
-		output = new ArtNetDmxOutput(settings, discovery, Clock.systemUTC());
+		discovery = new ArtNetDiscovery(settings, LocalNetworks.NONE, Clock.systemUTC(), changes::incrementAndGet);
+		output = new ArtNetDmxOutput(settings, discovery, LocalNetworks.NONE, Clock.systemUTC());
 		discovery.start();
 	}
 
@@ -70,8 +72,8 @@ class ArtNetDiscoveryTest {
 
 		var mine = universe(3);
 		var other = universe(4);
-		assertThat(output.destinations(mine.spec().target(), 3)).containsExactly("127.0.0.1");
-		assertThat(output.destinations(other.spec().target(), 4)).isEmpty();
+		assertThat(output.destinations(mine.spec())).containsExactly("127.0.0.1");
+		assertThat(output.destinations(other.spec())).isEmpty();
 
 		output.send(mine, DmxFrame.builder().set(1, 200).build());
 		var dmx = receive(ArtDmxPacket.OP_DMX);
@@ -83,8 +85,22 @@ class ArtNetDiscoveryTest {
 	void manualAddressesAreAddedToDiscoveredOnes() {
 		var target = new ArtNetTarget.Unicast(true, List.of("10.0.0.9"));
 
-		assertThat(output.destinations(target, 7)).containsExactly("10.0.0.9");
-		assertThat(output.destinations(new ArtNetTarget.Broadcast(), 7)).containsExactly("127.0.0.1");
+		assertThat(output.destinations(spec(7, target))).containsExactly("10.0.0.9");
+		assertThat(output.destinations(spec(7, new ArtNetTarget.Broadcast()))).containsExactly("127.0.0.1");
+	}
+
+	@Test
+	void pollsTheDirectedBroadcastOfEveryLocalNetwork() {
+		var settings = new ArtNetSettings("127.0.0.1", 6454, "255.255.255.255");
+		var networks = List.of(new LocalNetwork("en0", "192.168.0.23", 24), new LocalNetwork("en7", "2.0.0.10", 8));
+		try (var polling = new ArtNetDiscovery(settings, () -> networks, Clock.systemUTC(), () -> {
+		})) {
+			assertThat(polling.pollAddresses()).containsExactly("255.255.255.255", "192.168.0.255", "2.255.255.255");
+		}
+	}
+
+	private static UniverseSpec spec(int portAddress, ArtNetTarget target) {
+		return new UniverseSpec(1, Optional.empty(), ArtNetAddress.fromPortAddress(portAddress), target);
 	}
 
 	/** Receives packets until one with the given OpCode arrives. */

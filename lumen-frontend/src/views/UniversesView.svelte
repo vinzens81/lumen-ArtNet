@@ -5,13 +5,16 @@
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { ArtNetNode, DeliveryMode, Universe } from '../lib/types';
+  import { interfaceMissing, networkLabel, receiversOf } from '../lib/networks';
+  import type { ArtNetNode, DeliveryMode, LocalNetwork, Universe } from '../lib/types';
 
   let universes = $state<Universe[]>([]);
   let nodes = $state<ArtNetNode[]>([]);
+  let networks = $state<LocalNetwork[]>([]);
   let editing = $state<Universe | null>(null);
   let formOpen = $state(false);
-  let form = $state({ number: 1, name: '', port: 0, mode: 'auto' as DeliveryMode, ips: '' });
+  // networkInterface '' = all networks
+  let form = $state({ number: 1, name: '', port: 0, mode: 'auto' as DeliveryMode, ips: '', networkInterface: '' });
   let portTouched = $state(false);
   let showAdvanced = $state(false);
 
@@ -19,7 +22,11 @@
   // effects depend on the id only: reloading the project list yields new objects for the same project
   const projectId = $derived(app.active?.id ?? null);
   const parts = $derived({ net: (form.port >> 8) & 0x7f, subnet: (form.port >> 4) & 0x0f, universe: form.port & 0x0f });
-  const listening = $derived(nodes.filter((n) => n.portAddresses.includes(form.port)));
+  const listening = $derived(
+    nodes.filter(
+      (n) => n.portAddresses.includes(form.port) && (!form.networkInterface || n.networkInterface === form.networkInterface),
+    ),
+  );
   const usedBy = $derived(universes.find((u) => u.portAddress === form.port && u.id !== editing?.id));
 
   function setPart(part: 'net' | 'subnet' | 'universe', value: number) {
@@ -54,7 +61,7 @@
 
   async function loadNodes() {
     try {
-      nodes = await api.artnet.nodes();
+      [nodes, networks] = await Promise.all([api.artnet.nodes(), api.artnet.networks()]);
     } catch (e) {
       showError(e);
     }
@@ -65,8 +72,9 @@
     editing = null;
     portTouched = false;
     showAdvanced = false;
-    form = { number, name: '', port: number - 1, mode: 'auto', ips: '' };
+    form = { number, name: '', port: number - 1, mode: 'auto', ips: '', networkInterface: '' };
     formOpen = true;
+    loadNodes(); // an adapter may have been plugged in since
   }
 
   function openEdit(universe: Universe) {
@@ -79,8 +87,10 @@
       port: universe.portAddress,
       mode: universe.mode,
       ips: universe.ipAddresses.join(', '),
+      networkInterface: universe.networkInterface ?? '',
     };
     formOpen = true;
+    loadNodes();
   }
 
   async function save() {
@@ -91,6 +101,7 @@
       artnet: parts,
       mode: form.mode,
       ipAddresses: form.mode === 'broadcast' ? [] : form.ips.split(/[\s,;]+/).filter(Boolean),
+      networkInterface: form.networkInterface || null,
     };
     try {
       if (editing) {
@@ -117,12 +128,6 @@
     }
   }
 
-  /** Online nodes that receive this universe in auto mode. */
-  function receivers(universe: Universe): ArtNetNode[] {
-    return universe.mode === 'auto'
-      ? nodes.filter((n) => n.online && n.portAddresses.includes(universe.portAddress))
-      : [];
-  }
 
   function universeLabel(port: number): string {
     const universe = universes.find((u) => u.portAddress === port);
@@ -164,8 +169,9 @@
     {:else}
       <div class="cards">
         {#each universes as universe (universe.id)}
-          {@const found = receivers(universe)}
-          {@const silent = universe.mode === 'auto' && found.length === 0 && universe.ipAddresses.length === 0}
+          {@const found = receiversOf(universe, nodes)}
+          {@const missing = interfaceMissing(universe, networks)}
+          {@const silent = missing || (universe.mode === 'auto' && found.length === 0 && universe.ipAddresses.length === 0)}
           <article class="card glass" class:silent>
             <div class="number mono">{universe.number}</div>
             <div class="info">
@@ -176,6 +182,9 @@
                 <span class="dim mono small" title="Net : Subnet : Universe">{universe.artnet.net}:{universe.artnet.subnet}:{universe.artnet.universe}</span>
               </div>
               <div class="meta wrap">
+                {#if universe.networkInterface}
+                  <span class="badge mono interface" class:warning={missing} title="Sent only on this network interface">⌁ {universe.networkInterface}</span>
+                {/if}
                 {#if universe.mode === 'broadcast'}
                   <span class="badge warning" title="Every device on the network receives this universe">Broadcast</span>
                 {:else}
@@ -188,7 +197,12 @@
                   {/each}
                 {/if}
               </div>
-              {#if silent}
+              {#if missing}
+                <p class="warn">
+                  Network interface {universe.networkInterface} is not available – this universe is not sent. Plug in the
+                  adapter or choose another network.
+                </p>
+              {:else if silent}
                 <p class="warn">No node receives this universe yet. Set your node to Art-Net universe {universe.portAddress} or add its IP.</p>
               {/if}
             </div>
@@ -216,7 +230,9 @@
               <div class="node-info">
                 <strong>{node.shortName || '(no name)'}</strong>
                 <span class="dim small">{node.longName}</span>
-                <span class="mono small">{node.ipAddress} · {node.macAddress}</span>
+                <span class="mono small">
+                  {node.ipAddress} · {node.macAddress}{#if node.networkInterface} · via {node.networkInterface}{/if}
+                </span>
                 {#if node.nodeReport}<span class="dim small">{node.nodeReport}</span>{/if}
               </div>
               <div class="node-ports">
@@ -272,6 +288,22 @@
       {/if}
     </div>
 
+    <label class="field">Network
+      <select bind:value={form.networkInterface}>
+        <option value="">All networks</option>
+        {#each networks as network (network.interfaceName + network.address)}
+          <option value={network.interfaceName}>{networkLabel(network)}</option>
+        {/each}
+        {#if form.networkInterface && !networks.some((n) => n.interfaceName === form.networkInterface)}
+          <option value={form.networkInterface}>{form.networkInterface} · not available</option>
+        {/if}
+      </select>
+      <span class="hint">
+        Choose the adapter of the lighting network if this computer is in several networks (e.g. Wi-Fi and a USB Ethernet
+        adapter). The universe then goes out only there.
+      </span>
+    </label>
+
     <fieldset class="modes">
       <legend class="field">Send to</legend>
       <label class:active={form.mode === 'auto'}>
@@ -308,6 +340,11 @@
 </Modal>
 
 <style>
+  /* interface names like en7 are lower case */
+  .badge.interface {
+    text-transform: none;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
