@@ -11,6 +11,7 @@
   import { notify, showError } from '../lib/toasts.svelte';
   import { kindIcon } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
+  import { parseScript } from '../lib/script';
   import { fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
   import { stagePreview } from '../lib/stagePreview.svelte';
   import type { Fixture, Group, Scene } from '../lib/types';
@@ -33,6 +34,7 @@
     fadeInSeconds: null as number | null,
     fadeOutSeconds: null as number | null,
     delaySeconds: null as number | null,
+    script: '',
   });
   let fades = $state({ fadeIn: 3, fadeOut: 3 });
 
@@ -42,6 +44,10 @@
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
+  const scriptStats = $derived.by(() => {
+    const script = parseScript(form.script);
+    return { lines: script.lineCount, notes: script.noteCount };
+  });
   /** the scene GO comes from in the show – a rehearsed fade starts there */
   const previousScene = $derived.by(() => {
     if (!selected || selected.keyOnly) return null;
@@ -108,6 +114,7 @@
       fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
       fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
+      script: scene.script,
     };
   }
 
@@ -127,6 +134,7 @@
         fadeInMs: secondsToMs(form.fadeInSeconds),
         fadeOutMs: secondsToMs(form.fadeOutSeconds),
         delayMs: secondsToMs(form.delaySeconds),
+        script: form.script,
       });
       notify(`Saved scene ${scene.number}`);
       await load(project.id);
@@ -306,6 +314,9 @@
                 {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
               </span>
             {/if}
+            {#if scene.script && !scene.keyOnly}
+              <span class="badge" title="Has a script">📜</span>
+            {/if}
             {#if timingLabel(scene) && !scene.keyOnly}
               <span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>
             {/if}
@@ -391,6 +402,21 @@
               <label class="field">Name<input bind:value={form.name} required /></label>
             </div>
             <label class="field">Cue note<input bind:value={form.cueNote} placeholder="When to press GO" /></label>
+            {#if !form.keyOnly}
+              <label class="field">Script
+                <textarea bind:value={form.script} rows="8"
+                  placeholder={'Text spoken on stage during this scene.\n**Enter Juliet** – stage directions in two asterisks.'}
+                ></textarea>
+              </label>
+              <p class="hint dim">
+                {#if scriptStats.lines > 0 || scriptStats.notes > 0}
+                  {scriptStats.lines} {scriptStats.lines === 1 ? 'sentence' : 'sentences'}
+                  {#if scriptStats.notes > 0}· {scriptStats.notes} stage {scriptStats.notes === 1 ? 'direction' : 'directions'}{/if}
+                  –
+                {/if}
+                In show mode ↑/↓ step through the sentences; <span class="mono">**text**</span> is skipped.
+              </p>
+            {/if}
             <label class="check">
               <input type="checkbox" bind:checked={form.autoFollow} />
               Continue automatically after

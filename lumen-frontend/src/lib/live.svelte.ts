@@ -254,6 +254,24 @@ class LiveState {
     }
   }
 
+  /**
+   * Highlights a sentence of the script of the scene on stage for all clients. Shown here at once, so fast key
+   * presses do not step from an old position.
+   */
+  scriptCommand(sceneId: number, line: number) {
+    if (this.playback?.currentSceneId === sceneId) this.playback = { ...this.playback, scriptLine: line };
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'playback.script', sceneId, line }));
+    } else {
+      api.playback.setScriptLine(sceneId, line)
+        .then((status) => {
+          this.playback = status;
+          this.playbackReceivedAt = performance.now();
+        })
+        .catch(showError);
+    }
+  }
+
   /** Extra key pressed or released; via WebSocket for low latency, REST as fallback. */
   keyCommand(slot: number, action: 'press' | 'release') {
     if (this.socket?.readyState === WebSocket.OPEN) {

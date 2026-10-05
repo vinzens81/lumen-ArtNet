@@ -54,11 +54,11 @@ public class SqliteSceneRepository implements SceneRepository {
 			var keys = new GeneratedKeyHolder();
 			jdbc.sql("""
 					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, key_only, fade_in_ms,
-					                   fade_out_ms, delay_ms)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					                   fade_out_ms, delay_ms, script)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 							autoFollowMs(spec), spec.keyOnly() ? 1 : 0, millis(spec.timing().fadeIn()),
-							millis(spec.timing().fadeOut()), spec.timing().delay().toMillis())
+							millis(spec.timing().fadeOut()), spec.timing().delay().toMillis(), spec.script())
 					.update(keys);
 			var sceneId = generatedId(keys);
 			insertValues(sceneId, values);
@@ -71,11 +71,11 @@ public class SqliteSceneRepository implements SceneRepository {
 	public Scene updateSpec(long id, SceneSpec spec) {
 		jdbc.sql("""
 				UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, key_only = ?, fade_in_ms = ?,
-				                 fade_out_ms = ?, delay_ms = ?
+				                 fade_out_ms = ?, delay_ms = ?, script = ?
 				WHERE id = ?""")
 				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), autoFollowMs(spec),
 						spec.keyOnly() ? 1 : 0, millis(spec.timing().fadeIn()), millis(spec.timing().fadeOut()),
-						spec.timing().delay().toMillis(), id)
+						spec.timing().delay().toMillis(), spec.script(), id)
 				.update();
 		return findById(id).orElseThrow();
 	}
@@ -145,7 +145,8 @@ public class SqliteSceneRepository implements SceneRepository {
 				Optional.ofNullable(rs.getString("cue_note")),
 				optionalMillis(rs, "auto_follow_ms"),
 				rs.getInt("key_only") == 1,
-				timing));
+				timing,
+				rs.getString("script")));
 	}
 
 	private static Optional<Duration> optionalMillis(ResultSet rs, String column) throws SQLException {

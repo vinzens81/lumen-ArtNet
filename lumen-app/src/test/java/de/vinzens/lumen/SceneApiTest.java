@@ -94,6 +94,18 @@ class SceneApiTest {
 	}
 
 	@Test
+	void scriptIsStoredWithTheScene() throws Exception {
+		var scene = id(post(scenes, "{\"name\": \"Prologue\", \"script\": \"Two households.\\r\\n**Enter Chorus**\\n\"}"));
+
+		assertThat(mvc.get().uri(scenes)).hasStatusOk().bodyJson()
+				.extractingPath("$[0].script").isEqualTo("Two households.\n**Enter Chorus**");
+		assertThat(put(scenes + "/" + scene, "{\"number\": \"1\", \"name\": \"Prologue\"}")).hasStatusOk()
+				.bodyJson().extractingPath("$.script").isEqualTo("");
+		assertThat(post(scenes, "{\"name\": \"Long\", \"script\": \"%s\"}".formatted("a".repeat(100_001))))
+				.hasStatus(400);
+	}
+
+	@Test
 	void recordingNeedsTheActiveProject() throws Exception {
 		var other = id(post("/api/projects", "{\"name\": \"Not active\"}"));
 

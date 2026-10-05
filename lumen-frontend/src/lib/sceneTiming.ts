@@ -34,6 +34,7 @@ export function sceneRequestOf(scene: Scene): SceneRequest {
     fadeInMs: scene.fadeInMs,
     fadeOutMs: scene.fadeOutMs,
     delayMs: scene.delayMs,
+    script: scene.script,
   };
 }
 

@@ -87,6 +87,20 @@ class PlaybackApiTest {
 	}
 
 	@Test
+	void allClientsFollowTheHighlightedSentenceOfTheScript() throws Exception {
+		go();
+		assertThat(put("/api/playback/script", "{\"sceneId\": " + dawn + ", \"line\": 2}")).hasStatusOk().bodyJson()
+				.extractingPath("$.scriptLine").isEqualTo(2);
+		assertThat(mvc.get().uri("/api/playback")).bodyJson().extractingPath("$.scriptLine").isEqualTo(2);
+
+		go();
+		assertThat(mvc.get().uri("/api/playback")).bodyJson().extractingPath("$.scriptLine").isEqualTo(0);
+		assertThat(put("/api/playback/script", "{\"sceneId\": " + dawn + ", \"line\": 1}")).as("not on stage")
+				.hasStatusOk().bodyJson().extractingPath("$.scriptLine").isEqualTo(0);
+		assertThat(put("/api/playback/script", "{\"sceneId\": " + noon + "}")).hasStatus(400);
+	}
+
+	@Test
 	void pauseIsReported() {
 		assertThat(post("/api/playback/pause", "")).hasStatusOk().bodyJson().extractingPath("$.paused").isEqualTo(true);
 		assertThat(post("/api/playback/pause", "")).hasStatusOk().bodyJson().extractingPath("$.paused").isEqualTo(false);

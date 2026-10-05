@@ -194,6 +194,59 @@ Geprüft: Zusammenstellen und Vorschau im Browser (Testserver), Weiterlaufen/Pau
 Betrieb ein „Thunderstorm“ auf Taste 1 per Tastatur über die warmweiße Szene gelegt und wieder ausgeschaltet. Noch
 nicht mit echten Geräten ausprobiert.
 
+## ✅ Iteration T – Textbuch im Betriebsmodus 📜
+Anlass: Im Betrieb soll man nur einer Ansicht folgen müssen, nicht Textbuch und Lichtpult getrennt.
+- Jede Szene hat ihren **eigenen Text** (`scene.script`, Flyway `V10`, reist im Projekt-Export mit), eingegeben im
+  Szenen-Editor. Kein durchlaufender Text über alle Szenen
+- Zerlegung in Sätze an `.`, `?`, `!` und `…`, aber nicht in Zahlen („3.5“) und Abkürzungen („z.B.“, „Dr.“, „U.S.A.“);
+  `**Notiz**` ist eine Regieanweisung: anders dargestellt und von den Pfeiltasten übersprungen
+- Betriebsmodus: neuer Reiter **Script** links neben „Scenes“ und „DMX“, zeigt den Text der Szene auf der Bühne. GO
+  bleibt fest rechts an seinem Platz
+- `↑`/`↓` gehen zum vorigen/nächsten Satz, der aktuelle Satz ist hervorgehoben und wird automatisch mittig gehalten.
+  Die Wahl der nächsten Szene wandert auf `Shift+↑`/`Shift+↓`
+- Die Textposition ist **Server-Zustand** (Teil des Playback-Status): Laptop und Tablet zeigen denselben Satz. Bei einem
+  Szenenwechsel beginnt sie wieder beim ersten Satz
+
+**DoD:** Eine Szene mit mehreren Absätzen und Notizen lässt sich im Betrieb Satz für Satz per Pfeiltaste durchgehen,
+ein zweiter Browser folgt mit, Notizen werden übersprungen, der aktuelle Satz bleibt auch bei langem Text im Blick.
+Umgesetzt: Zerlegung als reine Logik (`src/lib/script.ts`, Vitest); ein Zeilenumbruch beendet ebenfalls einen Satz,
+nach einem Satzzeichen mit klein geschriebenem nächsten Wort („Ich… ich“) wird nicht geteilt. Textposition
+`scriptLine` im Playback-Status, gesetzt per `PUT /api/playback/script` bzw. WebSocket `playback.script` (ohne PIN),
+nicht persistiert: nach einem Neustart beginnt die Szene beim ersten Satz. Auf dem Tablet ▲/▼-Knöpfe statt Pfeiltasten,
+auf dem Handy ist das Textbuch ausgeblendet. Geprüft im Browser (Testserver): 24 Sätze mit Regieanweisungen,
+automatisches Mitscrollen bis zum Ende, GO startet die nächste Szene beim ersten Satz, eine per API gesetzte Position
+erscheint sofort in der Oberfläche.
+
+## ⬜ Iteration N – Netzwerk-Interface pro Universe 🌐
+Heute gibt es nur eine globale `bind-address`/`broadcast-address`, die Discovery hört auf `0.0.0.0`.
+- Interfaces des Rechners auflisten (Name wie `en0`, IPv4, Broadcast), `GET /api/network/interfaces`
+- Discovery schickt ArtPoll an die Broadcast-Adresse **jedes** aktiven Interfaces und ordnet gefundene Nodes ihrem
+  Interface zu (Subnetz der Absender-IP, reine Logik mit Unit-Tests)
+- Pro Universe ein Interface (Flyway, leer = alle/automatisch wie bisher): gilt für Broadcast und Auto-Discovery,
+  gesendet wird über einen an das Interface gebundenen Socket
+- UI: Auswahl im Universe-Dialog, Interface in der Node-Liste, Hinweis wenn das gewählte Interface fehlt
+
+**DoD:** Mit WLAN und einem USB-Ethernet-Adapter gleichzeitig gehen die Pakete eines Universe nur ins gewählte Netz.
+
+## ⬜ Iteration H – Node-Überwachung im Betrieb 🩺 (baut auf Iteration N auf)
+- **Erwartete Nodes pro Projekt speichern** (Flyway), damit auch ein Node auffällt, der schon vor dem Start fehlt
+- Node-Status pro Universe im Gesundheitsstatus: online / offline / manuelle IP ohne ArtPollReply (nicht prüfbar)
+- Kopfleiste: „Nodes 3/3“ neben der Art-Net-Anzeige, gelb/rot sobald ein erwarteter Node fehlt, Details per Klick;
+  Hinweis im Betriebsmodus, wenn während der Show ein Node wegfällt
+
+**DoD:** Den ESP-Dimmer während einer Show vom Strom nehmen: nach spätestens ~10 s zeigt die Kopfleiste ihn als fehlend.
+
+## ⬜ Iteration D – Mac-App 🍎
+- `jpackage` (im JDK) baut `Lumen.app` mit eingebauter Java-Laufzeit und eine `.dmg` zum Installieren: in „Programme“
+  ziehen, danach in Launchpad/Spotlight und im Dock wie jede andere App
+- Eigenes kleines Fenster (Swing, eigenes Modul z.B. `lumen-desktop`): Status, „Open in browser“, „Quit“
+- Daten unter `~/Library/Application Support/Lumen/` (DB, Backups, eigene Profile), mitgelieferte Profile in der App;
+  Ruhezustand verhindern wie in `run.sh`
+- Bekannt: ohne Apple-Developer-ID unsigniert (erster Start per Rechtsklick → Öffnen), Firewall-Abfrage für UDP 6454,
+  Build nur für die eigene Architektur (Apple Silicon)
+
+**DoD:** Lumen lässt sich aus der `.dmg` installieren, aus dem Dock starten und öffnet per Knopf die Oberfläche.
+
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
 - Modul `lumen-adapter-midi` mit `javax.sound.midi`: Geräteerkennung, Hotplug, Eingangs-Events

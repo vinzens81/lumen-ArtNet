@@ -51,8 +51,8 @@ import java.util.concurrent.TimeUnit;
  * {@code party} (tempo, palettes, buttons), {@code health} (every second), {@code partyButtons}, {@code compositions},
  * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last eight ask
  * the client to reload via REST). Client → server: {@code programmer.set},
- * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish} and {@code keys.press/release}
- * (with {@code slot}) for low latency.
+ * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
+ * {@code sceneId} and {@code line}) and {@code keys.press/release} (with {@code slot}) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -283,6 +283,12 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				case "playback.back" -> playback.back();
 				case "playback.pause" -> playback.togglePause();
 				case "playback.finish" -> playback.finish();
+				case "playback.script" -> {
+					if (command.sceneId() == null || command.line() == null) {
+						throw new DomainValidationException(List.of("sceneId and line are required"));
+					}
+					playback.setScriptLine(command.sceneId(), command.line());
+				}
 				default -> throw new DomainValidationException(List.of("Unknown command '" + command.type() + "'"));
 			}
 		} catch (DomainValidationException e) {
@@ -328,7 +334,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	}
 
 	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
-			List<String> topics, Integer slot) {
+			List<String> topics, Integer slot, Long sceneId, Integer line) {
 	}
 
 	/** @param lastSent topic → message last sent to this client */

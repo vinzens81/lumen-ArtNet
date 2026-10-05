@@ -47,4 +47,21 @@ class SceneValuesTest {
 		assertThat(spec.name()).isEqualTo("Dawn");
 		assertThat(spec.cueNote()).isEmpty();
 	}
+
+	@Test
+	void specNormalizesTheScript() {
+		var spec = new SceneSpec(SceneNumber.of(1), "Dawn", Optional.empty(), Optional.empty(), false,
+				SceneTiming.DEFAULT, "\r\n  To be.\r\nOr not.\r\n\r\n");
+		assertThat(spec.script()).isEqualTo("To be.\nOr not.");
+		assertThat(new SceneSpec(SceneNumber.of(1), "Dawn", Optional.empty(), Optional.empty()).script()).isEmpty();
+	}
+
+	@Test
+	void specLimitsTheScript() {
+		var tooLong = "a".repeat(SceneSpec.MAX_SCRIPT_LENGTH + 1);
+		assertThatThrownBy(() -> new SceneSpec(SceneNumber.of(1), "Dawn", Optional.empty(), Optional.empty(), false,
+				SceneTiming.DEFAULT, tooLong))
+				.isInstanceOfSatisfying(DomainValidationException.class, e -> assertThat(e.errors())
+						.containsExactly("script must have at most 100000 characters"));
+	}
 }

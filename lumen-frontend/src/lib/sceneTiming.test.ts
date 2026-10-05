@@ -26,11 +26,11 @@ describe('sceneRequestOf', () => {
   it('keeps the fade times, e.g. when a scene is moved', () => {
     const scene: Scene = {
       id: 1, number: '2', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,
-      fadeInMs: 0, fadeOutMs: null, delayMs: 500, fixtureCount: 0, values: {}, compositions: [],
+      fadeInMs: 0, fadeOutMs: null, delayMs: 500, script: 'Hark.', fixtureCount: 0, values: {}, compositions: [],
     };
     expect({ ...sceneRequestOf(scene), number: '2.5' }).toEqual({
       number: '2.5', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,
-      fadeInMs: 0, fadeOutMs: null, delayMs: 500,
+      fadeInMs: 0, fadeOutMs: null, delayMs: 500, script: 'Hark.',
     });
   });
 });

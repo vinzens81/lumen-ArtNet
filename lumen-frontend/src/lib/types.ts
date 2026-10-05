@@ -176,6 +176,8 @@ export interface Scene {
   fadeOutMs: number | null;
   /** the fade-in starts this long after GO */
   delayMs: number;
+  /** text spoken on stage during the scene, empty if none; `**…**` marks stage directions */
+  script: string;
 }
 
 export interface SceneRequest {
@@ -187,6 +189,7 @@ export interface SceneRequest {
   fadeInMs?: number | null;
   fadeOutMs?: number | null;
   delayMs?: number | null;
+  script?: string;
   record?: boolean;
 }
 
@@ -208,6 +211,8 @@ export interface PlaybackStatus {
   resumeSceneId: number | null;
   /** assigned extra keys */
   keys: KeyStatus[];
+  /** highlighted sentence of the script of the current scene (stage directions not counted), 0 after a scene change */
+  scriptLine: number;
 }
 
 export type KeyMode = 'toggle' | 'flash';

@@ -10,6 +10,7 @@ import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.ExtraKeys;
 import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
@@ -46,6 +47,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	static final int PLAYBACK_PRIORITY = 50;
 	/** A second GO within this time is treated as an accidental double press. */
 	static final Duration DOUBLE_GO_GUARD = Duration.ofMillis(200);
+	static final int MAX_SCRIPT_LINE = 100_000;
 
 	private static final System.Logger LOG = System.getLogger(PlaybackService.class.getName());
 
@@ -68,6 +70,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	/** Extra keys: laid over the playback output, usable only in the scenes they are enabled for. */
 	private ExtraKeys keys = new ExtraKeys();
 	private Map<Long, Set<Integer>> sceneKeys = Map.of();
+	/** Highlighted sentence of a scene's script; only counts while that scene is on stage. */
+	private ScriptLine scriptLine = ScriptLine.NONE;
 	private final AtomicLong reloads = new AtomicLong();
 	private long appliedReload;
 
@@ -157,6 +161,9 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		var attributes = FixtureAttributes.of(modes);
 		playback.useFixtures(attributes);
 		if (playback.tick(now, behaviors)) {
+			if (scriptLine.of(playback.currentScene()) == 0) {
+				scriptLine = ScriptLine.NONE; // auto-follow went on to the next scene
+			}
 			saveState(now);
 			updateKeyAvailability(now);
 			events.publish(StateTopic.PLAYBACK);
@@ -247,9 +254,24 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		return changed(clock.instant());
 	}
 
+	@Override
+	public synchronized PlaybackStatus setScriptLine(long sceneId, int line) {
+		if (line < 0 || line > MAX_SCRIPT_LINE) {
+			throw new DomainValidationException(List.of("line must be between 0 and " + MAX_SCRIPT_LINE));
+		}
+		var now = clock.instant();
+		var onStage = requirePlayback().currentScene().map(Scene::id);
+		if (onStage.isEmpty() || onStage.get() != sceneId) {
+			return status(now);
+		}
+		scriptLine = new ScriptLine(sceneId, line);
+		return changed(now);
+	}
+
 	/** After the position changed: the resume offer is gone and the new position is saved. */
 	private PlaybackStatus played(Instant now) {
 		resumeSceneId = Optional.empty();
+		scriptLine = ScriptLine.NONE;
 		saveState(now);
 		updateKeyAvailability(now);
 		return changed(now);
@@ -291,7 +313,18 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		return new PlaybackStatus(true, playback.position(), playback.sceneCount(),
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
-				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now));
+				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now),
+				scriptLine.of(playback.currentScene()));
+	}
+
+	/** A highlighted sentence; reset by every GO, Back and auto-follow, so a scene always starts at its first one. */
+	private record ScriptLine(long sceneId, int line) {
+
+		static final ScriptLine NONE = new ScriptLine(-1, 0);
+
+		int of(Optional<Scene> onStage) {
+			return onStage.filter(scene -> scene.id() == sceneId).isPresent() ? line : 0;
+		}
 	}
 
 	/** What a reload reads from the database for the active project. */

@@ -38,7 +38,7 @@ class ProjectTransferApiTest {
 		post("/api/projects/" + project + "/groups", "{\"name\": \"All\", \"fixtureIds\": [%d, %d]}".formatted(back, front));
 		var scenes = "/api/projects/" + project + "/scenes";
 		post(scenes, "{\"number\": \"2.5\", \"name\": \"Storm\", \"cueNote\": \"Thunder\", \"autoFollowMs\": 4000, "
-				+ "\"fadeInMs\": 0, \"delayMs\": 1000}");
+				+ "\"fadeInMs\": 0, \"delayMs\": 1000, \"script\": \"Hark! **Thunder**\"}");
 		var dawn = id(post(scenes, "{\"number\": \"1\", \"name\": \"Dawn\"}"));
 		// scene values come from the programmer
 		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
@@ -81,6 +81,8 @@ class ProjectTransferApiTest {
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].fadeInMs")).isZero();
 		assertThat(JsonPath.<Object>read(copiedScenes, "$[1].fadeOutMs")).isNull();
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].delayMs")).isEqualTo(1000);
+		assertThat(JsonPath.<String>read(copiedScenes, "$[1].script")).isEqualTo("Hark! **Thunder**");
+		assertThat(JsonPath.<String>read(copiedScenes, "$[0].script")).isEmpty();
 
 		var buttons = body("/api/projects/" + copy + "/party-buttons");
 		assertThat(JsonPath.<String>read(buttons, "$[0].mode")).isEqualTo("flash");

@@ -8,6 +8,7 @@ import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.ExtraKey;
@@ -166,6 +167,39 @@ class PlaybackServiceTest {
 				List.of(), Optional.empty())));
 		return service.layer(clock.instant(), Map.of(9L, dimmer)).fixtures().getOrDefault(9L, FixtureValues.EMPTY)
 				.get(DIMMER).orElse(0.0);
+	}
+
+	@Test
+	void scriptLineFollowsTheSceneOnStageAndStartsOverAtEverySceneChange() {
+		var service = service();
+		go(service);
+		assertThat(service.setScriptLine(1, 3).scriptLine()).isEqualTo(3);
+
+		go(service);
+		assertThat(service.status().scriptLine()).as("scene 2 starts at its first sentence").isZero();
+		assertThat(service.setScriptLine(1, 5).scriptLine()).as("a late step for scene 1 is ignored").isZero();
+		service.setScriptLine(2, 1);
+
+		service.back();
+		assertThat(service.status().currentSceneId()).contains(1L);
+		assertThat(service.status().scriptLine()).as("back into scene 1 starts it over").isZero();
+
+		assertThatThrownBy(() -> service.setScriptLine(1, -1)).isInstanceOf(DomainValidationException.class);
+	}
+
+	@Test
+	void autoFollowStartsTheNextSceneAtItsFirstSentence() {
+		scenes.set(0, new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "Scene 1", Optional.empty(),
+				Optional.of(Duration.ofSeconds(2))), Map.of()));
+		var service = service();
+		go(service);
+		service.setScriptLine(1, 4);
+
+		clock.advance(Duration.ofSeconds(3));
+		service.layer(clock.instant(), Map.of());
+
+		assertThat(service.status().currentSceneId()).contains(2L);
+		assertThat(service.status().scriptLine()).isZero();
 	}
 
 	@Test

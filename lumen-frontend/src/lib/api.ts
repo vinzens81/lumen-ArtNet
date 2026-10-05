@@ -219,6 +219,8 @@ export const api = {
     pause: () => post<PlaybackStatus>('/api/playback/pause'),
     finish: () => post<PlaybackStatus>('/api/playback/finish'),
     setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
+    setScriptLine: (sceneId: number, line: number) =>
+      put<PlaybackStatus>('/api/playback/script', { sceneId, line }),
     pressKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/press`),
     releaseKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/release`),
     resume: () => post<PlaybackStatus>('/api/playback/resume'),

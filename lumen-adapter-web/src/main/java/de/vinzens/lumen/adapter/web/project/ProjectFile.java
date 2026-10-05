@@ -262,14 +262,16 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	/** @param values normalized values (0–1) per fixture id and attribute */
 	/**
 	 * @param keyOnly   only played by extra keys
 	 * @param fadeInMs  own fade times, {@code null} = the project's (files before iteration 10 have none)
+	 * @param script    text spoken on stage, {@code null} in files before iteration T
+	 * @param values    normalized values (0–1) per fixture id and attribute
 	 * @param extraKeys extra keys usable in this scene
 	 */
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly, Long fadeInMs,
-			Long fadeOutMs, Long delayMs, Map<Long, Map<String, Double>> values, List<Integer> extraKeys) {
+			Long fadeOutMs, Long delayMs, String script, Map<Long, Map<String, Double>> values,
+			List<Integer> extraKeys) {
 
 		static SceneEntry from(Scene scene, Set<Integer> keys) {
 			var spec = scene.spec();
@@ -277,7 +279,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					ValuesJson.toJson(scene.values()),
+					spec.script(), ValuesJson.toJson(scene.values()),
 					keys.stream().sorted().toList());
 		}
 
@@ -287,7 +289,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			}
 			var spec = new SceneSpec(SceneNumber.parse(number), name, Optional.ofNullable(cueNote),
 					Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(keyOnly),
-					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs));
+					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs), Objects.requireNonNullElse(script, ""));
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));

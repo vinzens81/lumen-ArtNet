@@ -48,7 +48,8 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing, boolean recordFromProgrammer) {
+			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing, String script,
+			boolean recordFromProgrammer) {
 		if (recordFromProgrammer) {
 			requireActive(projectId);
 		} else {
@@ -59,7 +60,7 @@ public class SceneService implements ManageScenesUseCase {
 				? SceneNumber.of(1)
 				: existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
-		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly, timing);
+		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly, timing, script);
 		var values = recordFromProgrammer ? programmerSnapshot() : Map.<Long, FixtureValues>of();
 		var created = scenes.create(projectId, spec, values);
 		inheritExtraKeys(projectId, existing, created);
@@ -82,11 +83,11 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing) {
+			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing, String script) {
 		requireScene(projectId, sceneId);
 		requireFreeNumber(scenes.findByProject(projectId), number, sceneId);
 		return published(scenes.updateSpec(sceneId,
-				new SceneSpec(number, name, cueNote, autoFollow, keyOnly, timing)));
+				new SceneSpec(number, name, cueNote, autoFollow, keyOnly, timing, script)));
 	}
 
 	@Override

@@ -21,10 +21,11 @@ public final class PlaybackDtos {
 	 * @param autoFollowInMs time until the next scene starts automatically, null without auto-follow
 	 * @param resumeSceneId  scene that was on stage before a restart and can be resumed, otherwise null
 	 * @param keys           assigned extra keys
+	 * @param scriptLine     highlighted sentence of the script of the current scene (stage directions not counted)
 	 */
 	public record PlaybackResponse(boolean available, int position, int sceneCount, Long currentSceneId,
 			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs,
-			Long resumeSceneId, List<KeyResponse> keys) {
+			Long resumeSceneId, List<KeyResponse> keys, int scriptLine) {
 
 		public static PlaybackResponse from(PlaybackStatus status) {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
@@ -32,7 +33,8 @@ public final class PlaybackDtos {
 					status.fade().map(f -> new FadeResponse(f.fromSceneId().orElse(null), f.elapsed().toMillis(),
 							f.fadeIn().toMillis(), f.fadeOut().toMillis(), f.delay().toMillis())).orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
-					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList());
+					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList(),
+					status.scriptLine());
 		}
 	}
 

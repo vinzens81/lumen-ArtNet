@@ -38,19 +38,28 @@ public interface ControlPlaybackUseCase {
 	PlaybackStatus setNext(long sceneId);
 
 	/**
+	 * Highlights a sentence of the script of the scene on stage, so all clients follow the same text. Ignored if the
+	 * scene is no longer on stage – e.g. a step that arrives just after GO.
+	 *
+	 * @param line index of the sentence among the spoken sentences of the scene (stage directions are not counted)
+	 */
+	PlaybackStatus setScriptLine(long sceneId, int line);
+
+	/**
 	 * @param position        {@code -1} before the first scene, {@code sceneCount} at the end of the show
 	 * @param nextIsEnd       the next GO fades to black (end of the show)
 	 * @param fade            the running crossfade, if any
 	 * @param autoFollowIn    time until the next scene starts automatically, if the current scene auto-follows
 	 * @param resumeSceneId   scene that was on stage before a restart; offered until resumed, dismissed or GO
 	 * @param keys            assigned extra keys with their state
+	 * @param scriptLine      highlighted sentence of the script of the current scene, 0 after every scene change
 	 */
 	record PlaybackStatus(boolean available, int position, int sceneCount, Optional<Long> currentSceneId,
 			Optional<Long> nextSceneId, boolean nextIsEnd, Optional<Fade> fade, boolean paused,
-			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys) {
+			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys, int scriptLine) {
 
 		public static final PlaybackStatus UNAVAILABLE = new PlaybackStatus(false, -1, 0, Optional.empty(),
-				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of());
+				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of(), 0);
 
 		public PlaybackStatus {
 			keys = List.copyOf(keys);

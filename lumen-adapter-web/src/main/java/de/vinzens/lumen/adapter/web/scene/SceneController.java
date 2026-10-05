@@ -22,6 +22,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 @RestController
@@ -59,7 +60,8 @@ class SceneController {
 		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly()), timing(request), Boolean.TRUE.equals(request.record())));
+				Boolean.TRUE.equals(request.keyOnly()), timing(request), script(request),
+				Boolean.TRUE.equals(request.record())));
 	}
 
 	@PutMapping("/{sceneId}")
@@ -69,7 +71,7 @@ class SceneController {
 		}
 		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly()), timing(request)));
+				Boolean.TRUE.equals(request.keyOnly()), timing(request), script(request)));
 	}
 
 	/** Overwrites the scene with the current programmer values. */
@@ -95,6 +97,10 @@ class SceneController {
 		return Optional.ofNullable(request.autoFollowMs()).map(Duration::ofMillis);
 	}
 
+	private static String script(SceneRequest request) {
+		return Objects.requireNonNullElse(request.script(), "");
+	}
+
 	private static SceneTiming timing(SceneRequest request) {
 		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs());
 	}
@@ -106,20 +112,24 @@ class SceneController {
 	 * @param fadeInMs     fade-in of the GO into this scene, {@code null} = the project's
 	 * @param fadeOutMs    fade-out of the look before at the GO into this scene, {@code null} = the project's
 	 * @param delayMs      the fade-in starts this long after GO, {@code null} = 0
+	 * @param script       text spoken on stage during the scene, {@code **…**} marks stage directions;
+	 *                     {@code null} = no text
 	 */
 	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
-			Long fadeInMs, Long fadeOutMs, Long delayMs, Boolean record) {
+			Long fadeInMs, Long fadeOutMs, Long delayMs, String script, Boolean record) {
 	}
 
 	/**
 	 * @param keyOnly      only played by extra keys, not part of the cue list
 	 * @param fadeInMs     own fade-in time, {@code null} = the project's
 	 * @param fadeOutMs    own fade-out time, {@code null} = the project's
+	 * @param script       text spoken on stage during the scene, empty if none
 	 * @param values       programmer-style values per fixture id
 	 * @param compositions compositions running in the scene, in their order
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
-			Long fadeInMs, Long fadeOutMs, long delayMs, int fixtureCount, Map<Long, Map<String, Double>> values,
+			Long fadeInMs, Long fadeOutMs, long delayMs, String script, int fixtureCount,
+			Map<Long, Map<String, Double>> values,
 			List<CompositionSummary> compositions) {
 
 		static SceneResponse from(Scene scene, List<Composition> compositions) {
@@ -128,7 +138,7 @@ class SceneController {
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					scene.values().size(),
+					spec.script(), scene.values().size(),
 					ValuesJson.toJson(scene.values()), compositions.stream()
 							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
 							.toList());

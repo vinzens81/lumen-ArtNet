@@ -23,6 +23,9 @@
   --warning: #ffb547;
   --warning-soft: rgba(255, 181, 71, 0.14);
   --ok: #4dffa6;
+  /* stage directions in the script – apart from the accent, which marks the current sentence */
+  --direction: #b9a4ff;
+  --direction-soft: rgba(185, 164, 255, 0.12);
   --radius: 14px;
   --radius-sm: 9px;
   --gap: 16px;
@@ -227,7 +230,8 @@ a {
 }
 
 .field input,
-.field select {
+.field select,
+.field textarea {
   width: 100%;
   min-width: 0;
   min-height: 38px;
@@ -240,8 +244,15 @@ a {
   font-size: 14px;
 }
 
+.field textarea {
+  padding: 10px 12px;
+  line-height: 1.5;
+  resize: vertical;
+}
+
 .field input:focus,
 .field select:focus,
+.field textarea:focus,
 .search:focus {
   outline: none;
   border-color: var(--accent);

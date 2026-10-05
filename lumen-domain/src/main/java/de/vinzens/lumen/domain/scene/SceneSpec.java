@@ -13,24 +13,37 @@ import java.util.Optional;
  * @param autoFollow if set, the next scene starts automatically this long after the fade-in has finished
  * @param keyOnly    the scene is only played by extra keys: GO skips it, it is not part of the cue list
  * @param timing     fade times of the GO into this scene
+ * @param script     text spoken on stage during this scene, empty if none; {@code **…**} marks stage directions
  */
 public record SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
-		boolean keyOnly, SceneTiming timing) {
+		boolean keyOnly, SceneTiming timing, String script) {
 
 	public static final Duration MAX_AUTO_FOLLOW = Duration.ofHours(1);
+	/** About 50 printed pages – far more than one scene needs. */
+	public static final int MAX_SCRIPT_LENGTH = 100_000;
 
 	public SceneSpec {
 		Objects.requireNonNull(cueNote, "cueNote");
 		Objects.requireNonNull(autoFollow, "autoFollow");
 		Objects.requireNonNull(timing, "timing");
+		Objects.requireNonNull(script, "script");
 		new Validation()
 				.require(number != null, "number is missing")
 				.requireText(name, "name")
 				.require(autoFollow.map(d -> d.isPositive() && d.compareTo(MAX_AUTO_FOLLOW) <= 0).orElse(true),
 						"autoFollow must be between 0 and " + MAX_AUTO_FOLLOW.toMinutes() + " minutes")
+				.require(script.length() <= MAX_SCRIPT_LENGTH,
+						"script must have at most " + MAX_SCRIPT_LENGTH + " characters")
 				.throwIfInvalid();
 		name = name.strip();
 		cueNote = cueNote.map(String::strip).filter(n -> !n.isEmpty());
+		script = script.replace("\r\n", "\n").replace('\r', '\n').strip();
+	}
+
+	/** A scene without text. */
+	public SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
+			boolean keyOnly, SceneTiming timing) {
+		this(number, name, cueNote, autoFollow, keyOnly, timing, "");
 	}
 
 	/** A scene with the project's fade times. */

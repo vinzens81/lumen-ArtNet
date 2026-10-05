@@ -88,6 +88,15 @@ class PlaybackController {
 		return PlaybackResponse.from(playback.setNext(request.sceneId()));
 	}
 
+	/** Highlights a sentence of the script of the scene on stage; all clients follow. Show operation – no PIN. */
+	@PutMapping("/api/playback/script")
+	PlaybackResponse scriptLine(@RequestBody ScriptLineRequest request) {
+		if (request.sceneId() == null || request.line() == null) {
+			throw new DomainValidationException(List.of("sceneId and line are required"));
+		}
+		return PlaybackResponse.from(playback.setScriptLine(request.sceneId(), request.line()));
+	}
+
 	@GetMapping("/api/mode")
 	ModeResponse mode() {
 		return new ModeResponse(mode.mode().name().toLowerCase(Locale.ROOT));
@@ -114,6 +123,10 @@ class PlaybackController {
 	}
 
 	record NextRequest(Long sceneId) {
+	}
+
+	/** @param line index of the sentence among the spoken sentences (stage directions not counted) */
+	record ScriptLineRequest(Long sceneId, Integer line) {
 	}
 
 	record ModeResponse(String mode) {

@@ -23,7 +23,8 @@ und welche Szenen es gibt.
   (Iteration K, Schema in [COMPOSITIONS.md](COMPOSITIONS.md#datenmodell-entwurf-neue-flyway-migration)),
   V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
   V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
-  (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10).
+  (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
+  V10 = Textbuch pro Szene (`scene.script`, Iteration T).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -82,6 +83,7 @@ scene
   fade_in_ms      INTEGER NULL                  -- Fade-In beim GO in diese Szene, NULL = Projektzeit
   fade_out_ms     INTEGER NULL                  -- Fade-Out des Bildes davor beim GO in diese Szene, NULL = Projektzeit
   delay_ms        INTEGER NOT NULL DEFAULT 0    -- Fade-In startet so lange nach dem GO
+  script          TEXT NOT NULL DEFAULT ''      -- gesprochener Text der Szene, **…** = Regieanweisung
   UNIQUE(project_id, number)
 
 scene_value                                     -- Werte einer Szene, normalisiert 0..1

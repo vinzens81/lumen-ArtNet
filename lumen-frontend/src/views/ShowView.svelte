@@ -8,6 +8,7 @@
   import { kindIcon } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
+  import { parseScript, stepLine } from '../lib/script';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
@@ -22,18 +23,20 @@
   let listElement: HTMLElement | undefined = $state();
 
   const TAB_KEY = 'lumen.showTab';
-  /** left side of the show view: the cue list or the live DMX values; GO and the keys stay on the right */
-  let tab = $state<'cues' | 'dmx'>(readTab());
+  type Tab = 'cues' | 'script' | 'dmx';
+  /** left side of the show view: the cue list, the script or the live DMX values; GO and the keys stay on the right */
+  let tab = $state<Tab>(readTab());
 
-  function readTab(): 'cues' | 'dmx' {
+  function readTab(): Tab {
     try {
-      return localStorage.getItem(TAB_KEY) === 'dmx' ? 'dmx' : 'cues';
+      const stored = localStorage.getItem(TAB_KEY);
+      return stored === 'dmx' || stored === 'script' ? stored : 'cues';
     } catch {
       return 'cues';
     }
   }
 
-  function showTab(next: 'cues' | 'dmx') {
+  function showTab(next: Tab) {
     tab = next;
     try {
       localStorage.setItem(TAB_KEY, next);
@@ -53,6 +56,8 @@
   const next = $derived(status?.nextSceneId != null ? byId.get(status.nextSceneId) : undefined);
   const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
   const outgoing = $derived(status?.fade?.fromSceneId != null ? byId.get(status.fade.fromSceneId) : undefined);
+  const script = $derived(parseScript(current?.script ?? ''));
+  const scriptLine = $derived(status?.scriptLine ?? 0);
 
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
@@ -98,6 +103,13 @@
     listElement.querySelector(`[data-scene="${id}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
   });
 
+  // keep the current sentence in the middle, however long the text is
+  $effect(() => {
+    const line = scriptLine;
+    if (tab !== 'script' || current === undefined || !listElement) return;
+    listElement.querySelector(`[data-line="${line}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  });
+
   onMount(() => {
     let frame = requestAnimationFrame(function tick() {
       now = performance.now();
@@ -137,6 +149,12 @@
     if (target) chooseNext(target);
   }
 
+  function stepScript(step: number) {
+    if (!current) return;
+    const line = stepLine(script, scriptLine, step);
+    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line);
+  }
+
   function onkeydown(event: KeyboardEvent) {
     if ((event.target as HTMLElement).closest('input, textarea, select') || event.metaKey || event.ctrlKey) return;
     const actions: Record<string, () => void> = {
@@ -145,8 +163,8 @@
       p: () => live.playbackCommand('pause'),
       P: () => live.playbackCommand('pause'),
       Enter: () => live.playbackCommand('finish'),
-      ArrowUp: () => moveNext(-1),
-      ArrowDown: () => moveNext(1),
+      ArrowUp: () => (event.shiftKey ? moveNext(-1) : stepScript(-1)),
+      ArrowDown: () => (event.shiftKey ? moveNext(1) : stepScript(1)),
     };
     const action = actions[event.key];
     if (action) {
@@ -165,12 +183,58 @@
 
 <svelte:window {onkeydown} />
 
+{#snippet scriptView()}
+  {#if !current}
+    <p class="dim pad">
+      {atEnd ? 'End of show.' : 'The stage is dark – the script of a scene appears here as soon as it is on stage.'}
+    </p>
+  {:else}
+    <div class="script-head">
+      <h2><span class="mono">{current.number}</span> {current.name}</h2>
+      {#if script.lineCount > 0}
+        <span class="dim small mono">{scriptLine + 1} / {script.lineCount}</span>
+        <div class="script-steps">
+          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={scriptLine <= 0}
+            aria-label="Previous sentence">▲ <kbd>↑</kbd></button>
+          <button type="button" class="btn" onclick={() => stepScript(1)} disabled={scriptLine >= script.lineCount - 1}
+            aria-label="Next sentence">▼ <kbd>↓</kbd></button>
+        </div>
+      {/if}
+    </div>
+    {#if script.parts.length === 0}
+      <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
+    {:else}
+      <div class="script">
+        {#each script.parts as part, i (i)}
+          {#if part.kind === 'line'}
+            <span class="line" class:done={part.index < scriptLine} class:current={part.index === scriptLine}
+              data-line={part.index}>{part.text}</span>{' '}
+          {:else if part.kind === 'note'}
+            <span class="direction">{part.text}</span>{' '}
+          {:else if part.kind === 'break'}
+            <br />
+          {:else}
+            <span class="paragraph"></span>
+          {/if}
+        {/each}
+      </div>
+      <p class="script-end dim small">
+        {#if next}Next: GO <span class="mono">{next.number}</span> {next.name}
+        {:else if status?.nextIsEnd}Next: end of show{/if}
+        · <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> choose the next scene
+      </p>
+    {/if}
+  {/if}
+{/snippet}
+
 <section class="show">
   <div class="list glass" bind:this={listElement}>
     <header class="list-head">
       <div class="tabs" role="tablist" aria-label="Show view">
         <button type="button" role="tab" aria-selected={tab === 'cues'} class:active={tab === 'cues'}
           onclick={() => showTab('cues')}>Scenes</button>
+        <button type="button" role="tab" aria-selected={tab === 'script'} class:active={tab === 'script'}
+          onclick={() => showTab('script')}>Script</button>
         <button type="button" role="tab" aria-selected={tab === 'dmx'} class:active={tab === 'dmx'}
           onclick={() => showTab('dmx')}>DMX</button>
       </div>
@@ -183,6 +247,8 @@
     </header>
     {#if tab === 'dmx'}
       <div class="dmx"><DmxMonitorView embedded /></div>
+    {:else if tab === 'script'}
+      {@render scriptView()}
     {:else}
     {#if scenes.length === 0}
       <p class="dim pad">This project has no scenes yet. Record some in setup mode.</p>
@@ -349,6 +415,83 @@
 
   .dmx {
     padding: 0 6px 6px;
+  }
+
+  .script-head {
+    position: sticky;
+    /* the sticky area excludes the list's padding – reach over it, so no text shows above */
+    top: -8px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 0 -8px;
+    padding: 10px 18px;
+    background: var(--panel-solid);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .script-head h2 {
+    flex: 1;
+    min-width: 0;
+    margin: 0;
+    font-size: 18px;
+  }
+
+  .script-head h2 .mono {
+    color: var(--accent);
+  }
+
+  .script-steps {
+    display: flex;
+    gap: 6px;
+  }
+
+  .script {
+    /* room above (and below the end line), so the first and last sentence can be centered too */
+    padding: 30vh 18px 0;
+    font-size: 22px;
+    line-height: 1.65;
+  }
+
+  .line {
+    padding: 2px 4px;
+    border-radius: 6px;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+    transition: background 0.15s, color 0.15s, opacity 0.15s;
+  }
+
+  .line.done {
+    opacity: 0.35;
+  }
+
+  .line.current {
+    background: var(--accent-soft);
+    color: var(--text);
+    box-shadow: 0 0 0 2px var(--accent);
+  }
+
+  .direction {
+    padding: 1px 8px;
+    border-left: 3px solid var(--direction);
+    border-radius: 4px;
+    background: var(--direction-soft);
+    color: var(--direction);
+    font-size: 0.8em;
+    font-style: italic;
+    box-decoration-break: clone;
+    -webkit-box-decoration-break: clone;
+  }
+
+  .paragraph {
+    display: block;
+    height: 0.8em;
+  }
+
+  .script-end {
+    margin: 0;
+    padding: 20px 18px 30vh;
   }
 
   .list-head {

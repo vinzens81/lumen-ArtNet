@@ -92,6 +92,17 @@ class SqliteSceneRepositoryTest {
 	}
 
 	@Test
+	void scriptRoundTrip() {
+		var spec = new SceneSpec(SceneNumber.parse("1"), "Prologue", Optional.empty(), Optional.empty(), false,
+				SceneTiming.DEFAULT, "Two households, both alike in dignity.\n\n**Enter Chorus**");
+
+		var scene = repos.scenes().create(project, spec, Map.of());
+
+		assertThat(repos.scenes().findById(scene.id())).map(Scene::spec).contains(spec);
+		assertThat(repos.scenes().updateSpec(scene.id(), spec("1", "Prologue")).spec().script()).isEmpty();
+	}
+
+	@Test
 	void replaceValuesOverwritesEverything() {
 		var scene = repos.scenes().create(project, spec("1", "A"), Map.of(par, new FixtureValues(Map.of(DIMMER, 1.0))));
 
