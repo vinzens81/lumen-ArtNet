@@ -592,7 +592,8 @@
 
   .layout {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 360px;
+    /* half for the list, half for the selected scene – the editor has far more content */
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     gap: 12px;
     align-items: start;
   }
@@ -781,6 +782,9 @@
   .editor {
     position: sticky;
     top: 84px;
+    /* scrolls on its own, so the end of a long scene never hides behind the master bar */
+    max-height: calc(100vh - 290px); /* fits between the page header and the master bar */
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -902,6 +906,7 @@
 
     .editor {
       position: static;
+      max-height: none;
     }
   }
 </style>
