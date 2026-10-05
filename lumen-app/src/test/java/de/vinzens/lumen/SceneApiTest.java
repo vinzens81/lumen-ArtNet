@@ -65,6 +65,30 @@ class SceneApiTest {
 	}
 
 	@Test
+	void duplicateCopiesLookTimingAndCompositions() throws Exception {
+		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 1, \"red\": 1}");
+		var dawn = id(post(scenes, "{\"name\": \"Dawn\", \"record\": true, \"fadeInMs\": 500, \"script\": \"Hello.\"}"));
+		post(scenes, "{\"name\": \"Night\"}");
+		var flicker = id(post("/api/projects/" + project + "/compositions", """
+				{"name": "Candle", "kind": "flicker", "target": {"fixtureIds": [%d]}}""".formatted(par)));
+		assertThat(post(scenes + "/" + dawn + "/compositions", "{\"libraryId\": %d}".formatted(flicker)))
+				.hasStatus(201);
+
+		var copy = assertThat(post(scenes + "/" + dawn + "/duplicate", "{\"number\": \"1.5\"}")).hasStatus(201)
+				.bodyJson();
+		copy.extractingPath("$.number").isEqualTo("1.5");
+		copy.extractingPath("$.name").isEqualTo("Dawn (copy)");
+		copy.extractingPath("$.fadeInMs").isEqualTo(500);
+		copy.extractingPath("$.script").isEqualTo("Hello.");
+		copy.extractingPath("$.values['%d'].red".formatted(par)).isEqualTo(1.0);
+		copy.extractingPath("$.compositions[0].name").isEqualTo("Candle");
+
+		assertThat(post(scenes + "/" + dawn + "/duplicate", "")).hasStatus(201).bodyJson()
+				.extractingPath("$.number").isEqualTo("3");
+		assertThat(post(scenes + "/" + dawn + "/duplicate", "{\"number\": \"2\"}")).hasStatus(409);
+	}
+
+	@Test
 	void numbersMustBeUniqueAndValid() throws Exception {
 		var first = id(post(scenes, "{\"number\": \"2.50\", \"name\": \"A\"}"));
 

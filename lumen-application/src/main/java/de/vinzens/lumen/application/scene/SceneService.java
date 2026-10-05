@@ -91,6 +91,28 @@ public class SceneService implements ManageScenesUseCase {
 	}
 
 	@Override
+	public Scene duplicate(long projectId, long sceneId, Optional<SceneNumber> number) {
+		var original = requireScene(projectId, sceneId);
+		var existing = scenes.findByProject(projectId);
+		var sceneNumber = number.orElseGet(() -> existing.getLast().spec().number().nextWhole());
+		requireFreeNumber(existing, sceneNumber, null);
+		var spec = original.spec();
+		var copy = scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
+				spec.autoFollow(), spec.keyOnly(), spec.timing(), spec.script()), original.values());
+		var copiedCompositions = compositions.findByScene(sceneId);
+		copiedCompositions.forEach(composition -> compositions.create(projectId, Optional.of(copy.id()),
+				composition.sourceId(), composition.spec()));
+		var keys = compositions.findSceneKeys(projectId).get(sceneId);
+		if (keys != null && !keys.isEmpty()) {
+			compositions.saveSceneKeys(copy.id(), keys);
+		}
+		if (!copiedCompositions.isEmpty()) {
+			events.publish(StateTopic.COMPOSITIONS);
+		}
+		return published(copy);
+	}
+
+	@Override
 	public Scene record(long projectId, long sceneId) {
 		requireActive(projectId);
 		requireScene(projectId, sceneId);

@@ -165,18 +165,24 @@
     }
   }
 
+  /** A free number right after the scene, among the scenes of its list; null (with an error shown) if none fits. */
+  function numberAfter(scene: Scene): string | null {
+    const list = scene.keyOnly ? keyScenes : cueScenes;
+    const next = list[list.indexOf(scene) + 1];
+    const number = numberBetween(scene.number, next?.number ?? null);
+    if (number === null) {
+      showError(new Error(`No free scene number after ${scene.number} – renumber the next scene first`));
+    }
+    return number;
+  }
+
   /** Inserts an empty scene after the selected one (number in between), or at the end. */
   async function addEmpty() {
     if (!project) return;
     let number: string | null = null;
     if (selected) {
-      const list = selected.keyOnly ? keyScenes : cueScenes;
-      const next = list[list.indexOf(selected) + 1];
-      number = numberBetween(selected.number, next?.number ?? null);
-      if (number === null) {
-        showError(new Error(`No free scene number after ${selected.number} – renumber the next scene first`));
-        return;
-      }
+      number = numberAfter(selected);
+      if (number === null) return;
     }
     try {
       const scene = await api.scenes.create(project.id, {
@@ -186,6 +192,21 @@
         autoFollowMs: null,
         keyOnly: selected?.keyOnly ?? false,
       });
+      await load(project.id);
+      select(scene);
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  /** Copies the selected scene right after it, with its look, compositions and extra keys. */
+  async function duplicate() {
+    if (!project || !selected) return;
+    const number = numberAfter(selected);
+    if (number === null) return;
+    try {
+      const scene = await api.scenes.duplicate(project.id, selected.id, number);
+      notify(`Copied to scene ${scene.number}`);
       await load(project.id);
       select(scene);
     } catch (e) {
@@ -507,7 +528,9 @@
             {/if}
           {/if}
 
-          <section>
+          <section class="buttons">
+            <button class="btn small" type="button" onclick={duplicate}
+              title="Copy look, fade times, script, compositions and extra keys to a new scene right after this one">⧉ Duplicate</button>
             <button class="btn small danger" type="button" onclick={() => (deleteOpen = true)}>Delete scene</button>
           </section>
         {/if}

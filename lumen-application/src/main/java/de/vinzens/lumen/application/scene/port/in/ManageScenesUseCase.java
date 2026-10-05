@@ -33,6 +33,14 @@ public interface ManageScenesUseCase {
 	Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
 			Optional<Duration> autoFollow, boolean keyOnly, SceneTiming timing, String script);
 
+	/**
+	 * Copies a scene with its look, compositions and extra keys. Copied compositions keep their library origin, so a
+	 * chase runs on seamlessly from the scene into its copy.
+	 *
+	 * @param number the cue number of the copy, or empty for the next whole number after the last scene
+	 */
+	Scene duplicate(long projectId, long sceneId, Optional<SceneNumber> number);
+
 	/** Overwrites the values of the scene with the current programmer. */
 	Scene record(long projectId, long sceneId);
 

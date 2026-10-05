@@ -118,6 +118,8 @@ export const api = {
     update: (projectId: number, id: number, scene: SceneRequest) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}`, scene),
     record: (projectId: number, id: number) => post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`),
+    duplicate: (projectId: number, id: number, number: string | null) =>
+      post<Scene>(`/api/projects/${projectId}/scenes/${id}/duplicate`, { number }),
     load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
   },

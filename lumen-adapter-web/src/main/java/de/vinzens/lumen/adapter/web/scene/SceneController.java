@@ -74,6 +74,16 @@ class SceneController {
 				Boolean.TRUE.equals(request.keyOnly()), timing(request), script(request)));
 	}
 
+	/** Copies the scene with its look, compositions and extra keys; without {@code number} it goes to the end. */
+	@PostMapping("/{sceneId}/duplicate")
+	@ResponseStatus(HttpStatus.CREATED)
+	SceneResponse duplicate(@PathVariable long projectId, @PathVariable long sceneId,
+			@RequestBody(required = false) DuplicateRequest request) {
+		var number = Optional.ofNullable(request).map(DuplicateRequest::number).filter(n -> !n.isBlank())
+				.map(SceneNumber::parse);
+		return response(scenes.duplicate(projectId, sceneId, number));
+	}
+
 	/** Overwrites the scene with the current programmer values. */
 	@PostMapping("/{sceneId}/record")
 	SceneResponse record(@PathVariable long projectId, @PathVariable long sceneId) {
@@ -117,6 +127,10 @@ class SceneController {
 	 */
 	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
 			Long fadeInMs, Long fadeOutMs, Long delayMs, String script, Boolean record) {
+	}
+
+	/** @param number cue number of the copy, {@code null} = after the last scene */
+	record DuplicateRequest(String number) {
 	}
 
 	/**
