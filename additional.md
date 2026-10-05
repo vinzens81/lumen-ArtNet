@@ -1,7 +1,7 @@
 # scan on specific network
 
 the network or interface should be choosable on which the tool should collects dmx artnet interfaces from.
-
+ the setup should be done for each universe
 
 # Text In Show view
 
@@ -11,4 +11,6 @@ in the show view, the scenens should contain the text spoken on stage. so there 
 
 all artnet interfaces should be checked during the show and it should be visible on show page (maybe in the title bar)
 
+# Application pack for MAC
 
+it needs to be startable from mac controll panel. also it should have an install routine. The tool should start in its own window with a button to open a browser locally.
