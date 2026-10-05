@@ -254,7 +254,7 @@ Geprüft mit Unit-Tests und im Browser mit einem simulierten Node auf 127.0.0.1 
 nach dem Abschalten nach ca. 9 s „Nodes 0/1“ rot und Hinweis im Betrieb, nach dem Einschalten nach ca. 3 s wieder grün.
 Mit dem echten ESP noch nicht ausprobiert.
 
-## ⬜ Iteration D – Mac-App 🍎
+## ✅ Iteration D – Mac-App 🍎
 - `jpackage` (im JDK) baut `Lumen.app` mit eingebauter Java-Laufzeit und eine `.dmg` zum Installieren: in „Programme“
   ziehen, danach in Launchpad/Spotlight und im Dock wie jede andere App
 - Eigenes kleines Fenster (Swing, eigenes Modul z.B. `lumen-desktop`): Status, „Open in browser“, „Quit“
@@ -264,6 +264,15 @@ Mit dem echten ESP noch nicht ausprobiert.
   Build nur für die eigene Architektur (Apple Silicon)
 
 **DoD:** Lumen lässt sich aus der `.dmg` installieren, aus dem Dock starten und öffnet per Knopf die Oberfläche.
+Umgesetzt mit `./package-mac.sh` → `dist/Lumen-<Version>.dmg` (Version `1.0.<Anzahl Commits>` oder `--version`,
+`--fast` ohne Tests, `--no-build` verpackt das vorhandene JAR), ca. 96 MB mit eigener Java-Laufzeit, ad-hoc signiert.
+Abweichung: kein eigenes Modul `lumen-desktop` – die App startet dasselbe JAR mit `-Dlumen.desktop=true`
+(`DesktopLauncher` in `lumen-app`), ohne die Option läuft Lumen wie bisher ohne Fenster. Fenster mit Status,
+„Open in browser“, „Open data folder“, „Show log“, „Quit“; Schließen versteckt es nur (Dock-Symbol holt es zurück),
+Beenden (Quit, ⌘Q) fragt nach. Mitgelieferte Profile werden nur kopiert, wenn sie in der Bibliothek fehlen – eigene
+Änderungen bleiben, neue Versionen mitgelieferter Profile kommen dadurch aber nicht automatisch an. Icon wird beim
+Paketieren aus `packaging/macos/MakeIcon.java` gezeichnet.
+Geprüft: DMG gebaut, App aus `/Applications` gestartet, Server nach 1,5 s bereit, Profile und Log am richtigen Ort.
 
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)

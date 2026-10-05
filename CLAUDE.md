@@ -15,7 +15,12 @@ Für den Alltag gibt es zwei Skripte im Projekt-Root (`--help` zeigt alle Option
 ./run.sh                # startet das gebaute JAR (baut vorher, falls keins da ist); --build baut immer neu
 ./run.sh --test         # Art-Net aus, eigene DB data/test.db – zum Ausprobieren ohne echte Geräte
 ./run.sh -- --server.port=8099   # alles nach -- geht an Lumen
+./package-mac.sh        # Mac-App: dist/Lumen-<Version>.dmg (Version 1.0.<Anzahl Commits>, --version 1.2.0 setzt sie)
 ```
+
+Die Mac-App startet dasselbe JAR mit `-Dlumen.desktop=true` (`DesktopLauncher`: eigenes Fenster, Daten unter
+`~/Library/Application Support/Lumen`, Log unter `~/Library/Logs/Lumen`). Ohne diese Option läuft Lumen wie bisher
+ohne Fenster.
 
 Die Maven-Befehle direkt:
 
