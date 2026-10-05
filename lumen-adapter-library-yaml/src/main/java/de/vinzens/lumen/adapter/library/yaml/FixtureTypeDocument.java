@@ -32,6 +32,7 @@ record FixtureTypeDocument(
 	record HeadsDocument(Integer count, Boolean first, List<ChannelDocument> channels) {
 	}
 
+	/** @param head head of a multi-pixel fixture this channel belongs to (instead of a {@code heads} block) */
 	record ChannelDocument(
 			String function,
 			String name,
@@ -39,7 +40,8 @@ record FixtureTypeDocument(
 			@JsonProperty("default") Integer defaultValue,
 			Boolean invert,
 			List<RangeDocument> ranges,
-			String fade) {
+			String fade,
+			Integer head) {
 	}
 
 	record RangeDocument(Integer from, Integer to, String label, String color) {

@@ -1,6 +1,7 @@
 <script lang="ts">
   import AddressGrid from '../components/AddressGrid.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
+  import OflImportModal from '../components/OflImportModal.svelte';
   import { api } from '../lib/api';
   import { fixtureHue, footprint, locateValues, nextFreeAddress, plannedFixtures } from '../lib/patch';
   import { navigate } from '../lib/router.svelte';
@@ -28,6 +29,7 @@
   let addressTouched = $state(false);
 
   const project = $derived(app.active);
+  let oflOpen = $state(false);
   // effects depend on the id only: reloading the project list yields new objects for the same project
   const projectId = $derived(app.active?.id ?? null);
   const universeFixtures = $derived(
@@ -296,6 +298,8 @@
           <p class="dim">No fixture types match "{search}".</p>
         {/each}
       </div>
+      <button type="button" class="btn small ghost import" onclick={() => (oflOpen = true)}
+        title="Add a fixture from the Open Fixture Library">⇣ Import from Open Fixture Library</button>
       {#if app.libraryIssues.length > 0}
         <p class="lib-issues"><span class="badge warning">{app.libraryIssues.length}</span> library files have problems</p>
       {/if}
@@ -420,12 +424,18 @@
   </div>
 {/if}
 
+<OflImportModal bind:open={oflOpen} />
+
 <style>
   .patch {
     display: grid;
     grid-template-columns: 270px minmax(0, 1fr) 330px;
     gap: 12px;
     align-items: start;
+  }
+
+  .library .import {
+    align-self: flex-start;
   }
 
   .library,

@@ -16,6 +16,7 @@ import type {
   Group,
   GroupRequest,
   LibraryIssue,
+  OflImportResult,
   MasterState,
   OperatingMode,
   PlaybackStatus,
@@ -86,6 +87,10 @@ export const api = {
     reload: () => post<void>('/api/library/reload'),
     fixtureTypes: () => get<FixtureType[]>('/api/library/fixture-types'),
     issues: () => get<LibraryIssue[]>('/api/library/issues'),
+    /** imports an "OFL JSON" download of the Open Fixture Library as a profile */
+    importOfl: (json: Blob, manufacturer: string, replace: boolean) =>
+      post<OflImportResult>(
+        `/api/library/import/ofl?manufacturer=${encodeURIComponent(manufacturer)}&replace=${replace}`, json),
   },
   projects: {
     list: () => get<Project[]>('/api/projects'),

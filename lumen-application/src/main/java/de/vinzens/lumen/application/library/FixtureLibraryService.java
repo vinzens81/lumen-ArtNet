@@ -25,7 +25,7 @@ public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 			.thenComparing(FixtureType::model, String.CASE_INSENSITIVE_ORDER);
 
 	private final FixtureTypeSource source;
-	private volatile Snapshot snapshot = new Snapshot(Map.of(), List.of());
+	private volatile Snapshot snapshot = new Snapshot(Map.of(), Map.of(), List.of());
 
 	public FixtureLibraryService(FixtureTypeSource source) {
 		this.source = Objects.requireNonNull(source, "source");
@@ -54,8 +54,12 @@ public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 		}
 
 		var types = new HashMap<String, FixtureType>();
-		valid.forEach((id, sourced) -> types.put(id, sourced.fixtureType()));
-		snapshot = new Snapshot(Map.copyOf(types), List.copyOf(issues));
+		var sources = new HashMap<String, String>();
+		valid.forEach((id, sourced) -> {
+			types.put(id, sourced.fixtureType());
+			sources.put(id, sourced.source());
+		});
+		snapshot = new Snapshot(Map.copyOf(types), Map.copyOf(sources), List.copyOf(issues));
 	}
 
 	@Override
@@ -73,6 +77,11 @@ public class FixtureLibraryService implements QueryFixtureLibraryUseCase {
 		return snapshot.issues();
 	}
 
-	private record Snapshot(Map<String, FixtureType> types, List<LibraryIssue> issues) {
+	/** File of a loaded fixture type, relative to the library. */
+	public Optional<String> sourceOf(String id) {
+		return Optional.ofNullable(snapshot.sources().get(id));
+	}
+
+	private record Snapshot(Map<String, FixtureType> types, Map<String, String> sources, List<LibraryIssue> issues) {
 	}
 }

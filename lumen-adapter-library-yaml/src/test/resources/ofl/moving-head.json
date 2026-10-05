@@ -1,0 +1,60 @@
+{
+  "$schema": "https://raw.githubusercontent.com/OpenLightingProject/open-fixture-library/master/schemas/fixture.json",
+  "name": "Spot 230 Pro",
+  "categories": ["Moving Head", "Color Changer"],
+  "meta": {"authors": ["Test"], "createDate": "2024-01-01", "lastModifyDate": "2024-01-01"},
+  "physical": {"focus": {"type": "Spot", "panMax": 540, "tiltMax": 270}},
+  "wheels": {
+    "Color Wheel": {
+      "slots": [
+        {"type": "Open"},
+        {"type": "Color", "name": "Red", "colors": ["#FF0000"]},
+        {"type": "Color", "name": "Deep Blue", "colors": ["#0000ff"]}
+      ]
+    },
+    "Gobo Wheel": {
+      "slots": [{"type": "Open"}, {"type": "Gobo", "name": "Dots"}]
+    }
+  },
+  "availableChannels": {
+    "Pan": {"fineChannelAliases": ["Pan fine"], "capability": {"type": "Pan", "angleStart": "0deg", "angleEnd": "540deg"}},
+    "Tilt": {"fineChannelAliases": ["Tilt fine"], "capability": {"type": "Tilt", "angleStart": "0deg", "angleEnd": "270deg"}},
+    "Pan/Tilt Speed": {"capability": {"type": "PanTiltSpeed", "speedStart": "fast", "speedEnd": "slow"}},
+    "Dimmer": {"defaultValue": 0, "capability": {"type": "Intensity"}},
+    "Shutter": {
+      "defaultValue": 255,
+      "capabilities": [
+        {"dmxRange": [0, 9], "type": "ShutterStrobe", "shutterEffect": "Closed"},
+        {"dmxRange": [10, 249], "type": "ShutterStrobe", "shutterEffect": "Strobe", "speedStart": "slow", "speedEnd": "fast"},
+        {"dmxRange": [250, 255], "type": "ShutterStrobe", "shutterEffect": "Open"}
+      ]
+    },
+    "Color Wheel": {
+      "capabilities": [
+        {"dmxRange": [0, 9], "type": "WheelSlot", "slotNumber": 1},
+        {"dmxRange": [10, 19], "type": "WheelSlot", "slotNumber": 2},
+        {"dmxRange": [20, 29], "type": "WheelSlot", "slotNumber": 3},
+        {"dmxRange": [30, 255], "type": "WheelRotation", "speedStart": "slow CW", "speedEnd": "fast CW"}
+      ]
+    },
+    "Gobo Wheel": {
+      "capabilities": [
+        {"dmxRange": [0, 127], "type": "WheelSlot", "slotNumber": 1},
+        {"dmxRange": [128, 255], "type": "WheelSlot", "slotNumber": 2}
+      ]
+    },
+    "Speed": {"capability": {"type": "Speed", "speedStart": "slow", "speedEnd": "fast"}},
+    "Reset": {
+      "capabilities": [
+        {"dmxRange": [0, 199], "type": "NoFunction"},
+        {"dmxRange": [200, 255], "type": "Maintenance", "comment": "Reset"}
+      ]
+    }
+  },
+  "modes": [
+    {"name": "Standard", "shortName": "11ch",
+     "channels": ["Pan", "Pan fine", "Tilt", "Tilt fine", "Pan/Tilt Speed", "Dimmer", "Shutter", "Color Wheel", "Gobo Wheel", "Speed", "Reset"]},
+    {"name": "Basic", "shortName": "8ch",
+     "channels": ["Pan", "Tilt", "Dimmer", "Shutter", "Color Wheel", null, "Tilt fine", "Speed"]}
+  ]
+}

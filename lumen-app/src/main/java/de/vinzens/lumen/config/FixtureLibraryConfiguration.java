@@ -1,8 +1,10 @@
 package de.vinzens.lumen.config;
 
 import de.vinzens.lumen.adapter.library.yaml.LibraryDirectoryWatcher;
+import de.vinzens.lumen.adapter.library.yaml.YamlFixtureTypeFiles;
 import de.vinzens.lumen.adapter.library.yaml.YamlFixtureTypeSource;
 import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.application.library.FixtureImportService;
 import de.vinzens.lumen.application.library.FixtureLibraryReloader;
 import de.vinzens.lumen.application.library.FixtureLibraryService;
 import de.vinzens.lumen.application.library.port.out.FixtureTypeSource;
@@ -11,6 +13,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.time.Clock;
 
 @Configuration(proxyBeanMethods = false)
 class FixtureLibraryConfiguration {
@@ -44,6 +48,13 @@ class FixtureLibraryConfiguration {
 	FixtureLibraryReloader fixtureLibraryReloader(FixtureLibraryService library, OutputEngine outputEngine,
 			StateEvents stateEvents) {
 		return new FixtureLibraryReloader(library, outputEngine, stateEvents);
+	}
+
+	@Bean
+	FixtureImportService fixtureImportService(LumenProperties properties, FixtureLibraryService library,
+			FixtureLibraryReloader reloader, Clock clock) {
+		return new FixtureImportService(new YamlFixtureTypeFiles(properties.fixtureLibraryPath()), library, reloader,
+				clock);
 	}
 
 	/** Reloads the library a moment after a YAML file was added, changed or removed. */

@@ -135,6 +135,11 @@ final class FixtureTypeDocumentMapper {
 				.map(range -> mapRange(range, prefix))
 				.flatMap(Optional::stream)
 				.toList();
+		var head = Objects.requireNonNullElse(channel.head(), 0);
+		if (head < 0 || head > MAX_HEADS) {
+			error(prefix + "head must be between 1 and " + MAX_HEADS);
+			return Optional.empty();
+		}
 		return Optional.of(new ChannelDefinition(
 				function.get(),
 				Optional.ofNullable(channel.name()),
@@ -142,7 +147,8 @@ final class FixtureTypeDocumentMapper {
 				Objects.requireNonNullElse(channel.defaultValue(), 0),
 				Boolean.TRUE.equals(channel.invert()),
 				ranges,
-				fade));
+				fade,
+				head));
 	}
 
 	private Optional<FadeBehavior> mapFade(String fade, String prefix) {

@@ -1,0 +1,21 @@
+{
+  "name": "Pixel Bar 4",
+  "categories": ["Pixel Bar"],
+  "matrix": {"pixelCount": [4, 1, 1]},
+  "availableChannels": {
+    "Master Dimmer": {"capability": {"type": "Intensity"}}
+  },
+  "templateChannels": {
+    "Red $pixelKey": {"capability": {"type": "ColorIntensity", "color": "Red"}},
+    "Green $pixelKey": {"capability": {"type": "ColorIntensity", "color": "Green"}},
+    "Blue $pixelKey": {"capability": {"type": "ColorIntensity", "color": "Blue"}}
+  },
+  "modes": [
+    {"name": "13-channel", "shortName": "13ch",
+     "channels": ["Master Dimmer", {"insert": "matrixChannels", "repeatFor": "eachPixelABC", "channelOrder": "perPixel",
+       "templateChannels": ["Red $pixelKey", "Green $pixelKey", "Blue $pixelKey"]}]},
+    {"name": "Grouped", "shortName": "12ch",
+     "channels": [{"insert": "matrixChannels", "repeatFor": "eachPixelABC", "channelOrder": "perChannel",
+       "templateChannels": ["Red $pixelKey", "Green $pixelKey", "Blue $pixelKey"]}]}
+  ]
+}

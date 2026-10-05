@@ -40,6 +40,15 @@ export interface FixtureType {
   modes: Mode[];
 }
 
+/** A fixture imported from the Open Fixture Library. */
+export interface OflImportResult {
+  fixtureType: FixtureType;
+  /** the new profile file, relative to the library */
+  source: string;
+  /** what got lost or simplified – check before using it on stage */
+  warnings: string[];
+}
+
 export interface LibraryIssue {
   severity: 'error' | 'warning';
   source: string;
