@@ -185,6 +185,7 @@ und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.
   ohne die Taste und beim „Ende“ aus (Flyway `V6`). Tastenleiste und Tasten `1`–`8` im Betriebsmodus, ohne PIN.
   „Run once“ für alle Typen mit Ende (nicht Flackern / zufälliges Lauflicht). Kennzeichnung schneller Effekte (⚡)
   seit K2. **Verschoben:** Multi-Pixel-Zellen – die Gerätebibliothek kennt noch keine Multi-Pixel-Geräte
+  (→ umgesetzt in Iteration G: „Each head separately“)
 
 **DoD:** Eine Szene mit warmweißem Grundlicht, einem Lauflicht auf einer Dimmer-Reihe und einem Farbwechsel auf
 den RGB-PARs lässt sich im Browser zusammenstellen. Im Betrieb blenden die Abläufe per GO weich ein und aus, laufen
@@ -274,6 +275,63 @@ Beenden (Quit, ⌘Q) fragt nach. Mitgelieferte Profile werden nur kopiert, wenn 
 Paketieren aus `packaging/macos/MakeIcon.java` gezeichnet.
 Geprüft: DMG gebaut, App aus `/Applications` gestartet, Server nach 1,5 s bereit, Profile und Log am richtigen Ort.
 
+## ✅ Iteration P – Programmier-Komfort ✍️
+Anlass: Review vom 2026-10-05 – im Probenalltag fehlten Kopieren, Rückgängig und wiederverwendbare Farben/Positionen.
+- **Szene duplizieren:** „⧉ Duplicate“ kopiert eine Szene direkt hinter sich (Nummer dazwischen) mit Bild, Zeiten,
+  Text, Kompositionen (gleiche Herkunft, laufen also nahtlos weiter) und freigeschalteten Extra-Tasten
+- **Teil-Update („Merge“):** „Update from programmer“ ersetzt das ganze Bild oder übernimmt nur, was der Programmer
+  setzt – optional nur bestimmte Attributgruppen (Intensity, Color, Position, Beam, Other) und/oder nur die im
+  Programmer ausgewählten Geräte (`AttributeGroup`, Auswahl jetzt geteilt zwischen Programmer und Szenen-Editor)
+- **Szenen-Historie / Rückgängig:** Vor jedem Update, Merge und Restore wird das alte Bild als Revision gespeichert
+  (die neuesten 20 je Szene, Flyway `V14`); „History“ im Szenen-Editor mit Farbvorschau und „Restore“, „↶ Undo“ für das
+  letzte. Ein Restore ist selbst wieder rückgängig zu machen
+- **Presets mit Verweis** (Farbe, Position, Beam; in der Oberfläche „Presets“, weil der Party-Modus schon „Paletten“
+  hat): im Programmer aus der Auswahl aufnehmen und anwenden. Szenen und Programmer merken sich pro Gerät und
+  Attributgruppe das Preset (`PresetRefs`, Flyway `V15`); ein Update des Presets schreibt die neuen Werte in alle
+  Szenen, die es nutzen. Ein Wert von Hand löst das Gerät vom Preset; gelöschte Presets lassen die Werte stehen.
+  Reisen im Projekt-Export mit
+- Abweichung: Spec-Änderungen (Name, Zeiten, Text) und gelöschte Szenen sind nicht in der Historie – dafür gibt es
+  weiterhin die DB-Backups
+
+**DoD:** Szene duplizieren, nur die Farben aus dem Programmer übernehmen, versehentliches Update per Undo zurückholen;
+ein Preset „Warm“ ändern und alle Szenen mit „Warm“ ändern sich mit.
+Geprüft mit Domain-, Repository- und API-Tests (u.a. `PresetApiTest`: Update des Presets landet in der Szene, Export/
+Import erhält die Verweise). Im Browser nur angesehen (Preset-Leiste und Dialog im Programmer), nicht durchgeklickt –
+eine andere Chrome-Erweiterung blockierte die Automatisierung. Die Oberfläche ist mit `svelte-check`/Vitest geprüft.
+
+## ✅ Iteration F – Fader & Fade-Kurven 🎚️
+- **Fade-Kurven** pro Projekt und optional pro Szene: Linear, S-Kurve (auch für Farbe/Position), quadratisch („Square
+  law“, weicher im Dunkeln), siehe [PLAYBACK.md](PLAYBACK.md#fade-kurven). Flyway `V13`, reist im Export mit, Auswahl in
+  Projekt-Dialog, globalen Fade-Zeiten und Szenen-Editor; die Druckansicht nennt die Projektkurve
+- **Fader im Betrieb** (z.B. Saallicht): bis zu 8 pro Projekt, je mit einer Szene belegt (Flyway `V16`), Level per
+  WebSocket `fader.set` bzw. `PUT /api/playback/faders/{slot}` ohne PIN, im Konfigurations- und Betriebsmodus.
+  Mischung wie Extra-Tasten mit Szene (HTP), über Playback und Extra-Tasten; Level bleibt beim Bearbeiten erhalten,
+  nicht über einen Neustart. Siehe [PLAYBACK.md](PLAYBACK.md#fader-im-betrieb-zb-saallicht)
+
+**DoD:** Saallicht per Fader im Betrieb stufenlos hochziehen, ohne dass GO es beeinflusst; eine Szene mit S-Kurve
+blendet sichtbar weicher ein.
+Geprüft mit Domain-Tests (Kurven, Mischung), `FaderApiTest` (DMX-Wert bei 50 %, Export/Import) und am laufenden
+Testserver per API.
+
+## ✅ Iteration G – Geräte 💡
+- **Multi-Pixel-Geräte:** `heads`-Block (oder `head` pro Kanal) in der YAML, Attribute pro Kopf (`red@3`) mit
+  Rückfall auf das ganze Gerät, virtueller Dimmer pro Kopf, Ausgabe im `DmxRenderer`; Programmer mit Kopf-Auswahl und
+  Kopf-Leiste auf der Gerätekarte; Kompositionen mit „Each head separately“ (Flyway `V17`). Beispielprofil
+  `generic/generic-led-bar-8-pixel.yml`. Hinweis: Die vorhandene Eurolite LED BAR-6 QCL kann ihre LEDs laut Handbuch nur
+  gemeinsam steuern und bleibt deshalb ein Gerät ohne Köpfe
+- **Import aus der Open Fixture Library:** OFL-JSON hochladen, Lumen schreibt ein YAML-Profil in die Bibliothek
+  (`OflConverter`, `FixtureTypeYamlWriter`), Fine-Kanäle → 16 Bit, Matrix → Köpfe, Vereinfachungen als Warnungen.
+  Siehe [FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md#import-aus-der-open-fixture-library)
+- **Profil-Updates in der Mac-App:** Prüfsummen der installierten Version in `.bundled-profiles.properties`;
+  unveränderte Profile werden ersetzt, bearbeitete bleiben (neue Version daneben als `.shipped`), gelöschte kommen
+  nicht wieder
+
+**DoD:** Ein Lauflicht läuft über die 8 Segmente einer Pixel-Bar; ein Moving Head aus der OFL ist nach dem Import
+ohne Bibliotheks-Probleme patchbar; ein App-Update bringt korrigierte Profile mit, ohne eigene Änderungen zu überschreiben.
+Geprüft mit Tests (Rundweg OFL → YAML → Bibliothek, Renderer, Lauflicht über Köpfe, Profil-Updates) und am laufenden
+Testserver (Pixel-Bar auf dem DMX-Ausgang, OFL-Import). Mit echter Pixel-Hardware und echten OFL-Dateien großer
+Hersteller noch nicht ausprobiert.
+
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
 - Modul `lumen-adapter-midi` mit `javax.sound.midi`: Geräteerkennung, Hotplug, Eingangs-Events
@@ -303,7 +361,7 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 - Hostnamen (mDNS, z.B. `artnet-dimmer.local`) als Art-Net-Ziel – noch offen, ob gewünscht
 - Blitz-Effekt als Szenen-Attribut (Kerzen-/Feuerflackern ist jetzt Teil von Iteration K)
 - PWA, Docker / Raspberry Pi als alternativer Betriebsort
-- Import von Open-Fixture-Library-Profilen
+- ✅ Import von Open-Fixture-Library-Profilen (Iteration G)
 - ✅ **Druckbare Cue-Liste** für die Regie: „🖨 Cue list“ in der Szenenliste öffnet eine Druckseite (`#/print/cues`,
   hell, A4, Kopfzeile wiederholt sich auf jeder Seite): Nummer, Szene, „GO on“ (Regiehinweis), In/Out/Delay (eigene
   Zeiten fett), Auto-Follow, laufende Kompositionen, freigeschaltete Extra-Tasten, Abhak-Kästchen; darunter die

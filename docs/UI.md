@@ -62,6 +62,8 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
     Anzahl). Die nächste freie Adresse wird vorgeschlagen.
   - **Adress-Raster** (512 Zellen pro Universe) zeigt belegte Bereiche farbig, Überschneidungen rot.
   - Gruppen zuweisen.
+  - „⇣ Import from Open Fixture Library“ unter der Bibliothek übernimmt ein Gerät von open-fixture-library.org
+    ([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md#import-aus-der-open-fixture-library)), Warnungen erscheinen im Dialog.
 - **Stage:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild). Oben ist die
   Hinterbühne, unten das Publikum. Die Fixtures leuchten wie die echte Ausgabe; nicht platzierte stehen links.
 - **Compositions:** Bibliothek der Kompositionen (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern,
@@ -73,7 +75,12 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
   Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
   dazwischen), ohne Markierung am Ende. Szenen mit „Only for extra keys“ stehen unter der Cue-Liste im Abschnitt
-  „Scenes for extra keys“; GO überspringt sie, gespielt werden sie über Extra-Tasten. Welche davon in einer Szene
+  „Scenes for extra keys“; GO überspringt sie, gespielt werden sie über Extra-Tasten. Darunter belegt „Faders“ bis zu
+  8 Fader mit einer Szene (z.B. Saallicht), Name optional.
+  „⧉ Duplicate“ im Editor kopiert die Szene direkt dahinter (Bild, Zeiten, Kurve, Text, Kompositionen,
+  Extra-Tasten). Unter „History“ stehen die früheren Bilder der Szene (vor jedem Update/Merge/Restore, die neuesten
+  20) mit Farbvorschau und „Restore“; „↶ Undo“ neben „Update from programmer“ holt das letzte zurück. Bei den Fade-Zeiten
+  gibt es zusätzlich die Kurve (Linear, S-curve, Square law; leer = die des Projekts). Welche davon in einer Szene
   zur Verfügung stehen, wird im Editor dieser Szene angehakt – eine Taste wird dabei automatisch vergeben. „▶ Show on stage“ spielt die Szene samt Kompositionen auf der echten Bühne
   (über dem Playback, unter dem Programmer), „■ Stop showing“ bzw. „■ Stop“ in der Kopfleiste beendet das.
 - **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
@@ -85,13 +92,21 @@ Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte
 - RGB/RGBW → **Farbrad** + Presets + Weißanteil · `color-wheel` → **Farbknöpfe** aus den YAML-`ranges`
 - `pan`/`tilt` → **XY-Pad** · `strobe`/`shutter` → segmentierter Fader · `generic` → Fader mit Name
 - Mehrfachauswahl (Gruppe, Shift-Klick, Lasso): Änderungen wirken auf alle ausgewählten Fixtures
+- **Presets** oben im Panel, je Gruppe Color / Position / Beam: Antippen setzt das Preset auf die Auswahl, „+“ nimmt
+  die Werte der Auswahl als neues Preset auf, „✎ Edit“ zum Umbenennen, Aktualisieren (aus dem Programmer) und Löschen.
+  Eine Szene merkt sich, welches Preset ein Gerät nutzt – wird das Preset aktualisiert, ändern sich alle Szenen mit.
+  Ein Wert von Hand löst das Gerät für diese Gruppe vom Preset. Die Szenen-Ansicht zeigt die Presets pro Gerät an.
+- **Heads** bei Multi-Pixel-Geräten: „All“ oder ein einzelner Kopf, alle Regler wirken dann auf diesen Kopf; die
+  Gerätekarte zeigt die Köpfe als kleine Leiste
 - „Rohkanäle“ zeigt Adresse + DMX-Wert jedes Kanals
 
 ### Szenen bauen
 1. Szene auswählen oder neu anlegen
 2. **Vorschau:** Die Szene wird in den Programmer geladen und ist live sichtbar
 3. Im Programmer anpassen
-4. **Aufnehmen** (neue Szene) bzw. **Aktualisieren** (bestehende überschreiben)
+4. **Aufnehmen** (neue Szene) bzw. **Aktualisieren**: „Replace“ ersetzt das ganze Bild, „Merge“ übernimmt nur, was
+   der Programmer setzt – wahlweise nur bestimmte Attributgruppen (Intensity, Color, Position, Beam, Other) und/oder
+   nur die im Programmer ausgewählten Geräte. Das vorige Bild bleibt in der History
 5. Optional **Probe-Überblendung** („⇢ Rehearse fade“ im Szenen-Editor): spielt das GO in die Szene auf der Bühne –
    von der Szene davor in der Cue-Liste (bei der ersten Szene von dunkel) mit den echten Fade-Zeiten inkl. Delay und
    Kompositionen. Fortschritt im Editor, danach bleibt die Szene stehen, bis die Vorschau gestoppt wird
@@ -148,6 +163,10 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt die 512 Kanalwerte
 live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
 der Browser.
+
+### Fader (Betrieb)
+Unter den Extra-Tasten liegen die belegten Fader (z.B. Saallicht) mit Schieberegler und „0“/„Full“. Sie wirken
+sofort, unabhängig von GO; auf dem Handy sind sie ausgeblendet. Siehe [PLAYBACK.md](PLAYBACK.md#fader-im-betrieb-zb-saallicht).
 
 ### Extra-Tasten (Betrieb)
 Unter GO liegt die Tastenleiste mit den belegten Extra-Tasten (Name, Typ-Symbol, an/aus). Sie leuchten beim Ein- und

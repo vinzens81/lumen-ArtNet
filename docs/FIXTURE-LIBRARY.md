@@ -131,17 +131,57 @@ wenn Farben gesetzt sind. Subtraktive Farben (`cyan`, `magenta`, `yellow`) werde
 **Attribut-IDs:** Jeder Kanal steuert ein Attribut, dessen ID der `function` entspricht (`dimmer`, `red`, …).
 Generic-Kanäle werden über ihren Namen unterschieden: `generic:<name>`, z.B. `generic:Program speed`.
 
-### Multi-Pixel-Geräte (später)
+### Multi-Pixel-Geräte
+
+LED-Bars mit einzeln steuerbaren Segmenten (Pixeln) beschreibt ein `heads`-Block: Seine Kanäle wiederholen sich für
+jeden Kopf, nach den Kanälen des ganzen Geräts (mit `first: true` davor). Beispiel:
+`fixture-types/generic/generic-led-bar-8-pixel.yml`.
 
 ```yaml
 modes:
-  - name: 3-segment
-    heads: 3                     # Kanalblock wiederholt sich pro Kopf/Segment
-    channels:
-      - function: red
-      - function: green
-      - function: blue
+  - name: 26ch
+    channels:                    # das ganze Gerät
+      - function: dimmer
+      - function: strobe
+    heads:
+      count: 8                   # 8 Segmente
+      channels:                  # wiederholt sich pro Segment
+        - function: red
+        - function: green
+        - function: blue
 ```
+
+Ungewöhnliche Reihenfolgen (z.B. erst alle Rot-, dann alle Grün-Kanäle) gehen mit `head: <n>` am einzelnen Kanal.
+
+- **Attribute pro Kopf:** `red@3` ist das Rot von Kopf 3. Das Attribut ohne Kopf (`red`) gilt für alle Köpfe ohne
+  eigenen Wert – der Farbkreis färbt also die ganze Bar, im Programmer lässt sich unter „Heads“ ein einzelner Kopf wählen.
+- **Dimmer pro Kopf:** Haben die Köpfe keinen eigenen Dimmerkanal, bekommt jeder einen virtuellen (`dimmer@3`). Gibt es
+  einen Dimmer für das ganze Gerät, dimmt der alles, der Kopf-Dimmer senkt nur seinen Kopf zusätzlich ab.
+- **Kompositionen:** Mit „Each head separately“ läuft z.B. ein Lauflicht über die Segmente statt über ganze Geräte.
+
+### Import aus der Open Fixture Library
+
+In der Patch-Ansicht übernimmt „Import from Open Fixture Library“ ein Gerät von
+[open-fixture-library.org](https://open-fixture-library.org): dort *Download → Open Fixture Library JSON* wählen, die Datei
+und den Hersteller angeben (die OFL-Datei enthält ihn nicht). Lumen schreibt daraus ein normales YAML-Profil nach
+`<hersteller>/<id>.yml` in die Bibliothek; es lässt sich danach wie jedes andere bearbeiten.
+
+- Fähigkeiten werden auf Lumen-Funktionen abgebildet (`Intensity` → `dimmer`, `ColorIntensity` → `red` …,
+  `WheelSlot` → `color-wheel`/`gobo` je nach Rad, `ShutterStrobe` → `shutter` oder `strobe`, …). Die einzelnen
+  Bereiche werden zu `ranges` mit Beschriftung und Farbe.
+- Fine-Kanäle direkt hinter ihrem Grobkanal werden zu 16 Bit, Matrix-Kanäle (Pixel) zu Köpfen.
+- Was Lumen nicht ausdrücken kann, wird vereinfacht und als Warnung gemeldet (z.B. ein Kanal mit Farbrad *und*
+  Radrotation, ein Fine-Kanal an anderer Stelle, Pixelgruppen). Vor dem Einsatz auf der Bühne die Kanäle prüfen.
+- Gibt es die ID schon, fragt der Dialog, ob das vorhandene Profil ersetzt werden soll.
+
+### Mitgelieferte Profile in der Mac-App
+
+Die Mac-App kopiert ihre Profile beim Start in `~/Library/Application Support/Lumen/fixture-types` und merkt sich in
+`.bundled-profiles.properties`, welche Version installiert wurde. Bei einem Update der App werden Profile, die nicht
+verändert wurden, durch die neue Version ersetzt. **Selbst bearbeitete Profile bleiben**; die neue mitgelieferte
+Version liegt daneben als `<name>.yml.shipped` (wird nicht geladen) zum Vergleichen. Gelöschte Profile kommen nicht
+wieder. Installationen vor dieser Funktion kennen die alte Version nicht: Ein dort abweichendes Profil gilt als
+bearbeitet und bleibt.
 
 ---
 

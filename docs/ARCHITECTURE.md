@@ -139,7 +139,7 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | Endpunkt | Zweck |
 |---|---|
 | `GET /api/library/fixture-types`, `GET /api/library/issues` | Gerätebibliothek |
-| `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) |
+| `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) und Fade-Kurve (`fadeCurve`: `linear`, `s-curve`, `square`) |
 | `GET /api/projects/{id}/export`, `POST /api/projects/import` | Projekt als JSON-Datei (Format siehe [PROJECT-DATA.md](PROJECT-DATA.md)) / als neues Projekt importieren |
 | `GET /api/backups` · `POST /api/backups` | DB-Backups auflisten (inkl. Ordner) · sofort ein Backup anlegen |
 | `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN-Status dieses Browsers, entsperren (403 falsche PIN, 429 nach 5 Fehlversuchen), sperren |
@@ -151,16 +151,23 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Komposition oder ganze Szene zum Ausprobieren auf der Bühne zeigen (nur Konfigurationsmodus) |
 | `GET /api/projects/{id}/extra-keys` · `PUT/DELETE …/extra-keys/{slot}` · `GET/PUT …/scenes/{sid}/extra-keys` | Extra-Tasten belegen (`{libraryId}` oder `{sceneId}`, dazu `mode`, `fadeMs`) und pro Szene freischalten (`{slots}`) |
 | `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
+| `POST /api/library/import/ofl?manufacturer=…&replace=false` (Body: OFL-JSON) | Gerät aus der Open Fixture Library als YAML-Profil in die Bibliothek übernehmen, Antwort mit `warnings` (409, wenn die ID schon existiert) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
 | `CRUD /api/projects/{id}/groups` | Gruppen |
 | `CRUD /api/projects/{id}/scenes` | Szenenliste, sortiert nach Nummer; `POST` mit `"record": true` übernimmt den Programmer, ohne `number` die nächste ganze Zahl |
-| `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Szene mit dem Programmer überschreiben · Szene in den Programmer laden |
+| `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Szene mit dem Programmer überschreiben (ohne Body) oder Teile übernehmen (`{merge: true, fixtureIds, groups}`) · Szene in den Programmer laden |
+| `POST …/scenes/{sceneId}/duplicate` `{number}` | Szene samt Bild, Zeiten, Text, Kompositionen und Extra-Tasten kopieren |
+| `GET …/scenes/{sceneId}/revisions` · `POST …/revisions/{rid}/restore` | frühere Bilder der Szene (neueste zuerst, 20 je Szene) · eines zurückholen |
+| `GET /api/projects/{id}/presets` · `POST` `{name, group, fixtureIds}` · `PUT /{pid}` `{name}` · `DELETE /{pid}` | Presets (Farbe, Position, Beam) aus dem Programmer aufnehmen, umbenennen, löschen |
+| `POST …/presets/{pid}/record` · `/apply` `{fixtureIds}` | Preset aus dem Programmer aktualisieren (alle Szenen ziehen mit) · im Programmer anwenden |
+| `GET /api/projects/{id}/faders` · `PUT /{slot}` `{name, sceneId}` · `DELETE /{slot}` | Fader 1–8 (z.B. Saallicht) mit einer Szene belegen |
 
 Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
 `CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
 Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"locked": true` (PIN nötig), 404, 409.
 | `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live-Werte (aktives Projekt) |
+| `GET /api/programmer/presets` | aus welchen Presets die Programmer-Werte stammen (`{fixtureId: {color: presetId}}`) |
 | `PATCH /api/programmer/fixtures` `{fixtureIds, values}` · `POST /api/programmer/clear` `{fixtureIds}` | Auswahl setzen/löschen; jedes Gerät bekommt nur seine Attribute |
 | `PATCH /api/programmer/groups/{id}` | Live-Werte für alle Mitglieder einer Gruppe |
 
@@ -170,6 +177,7 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"
 |---|---|
 | `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern, Status |
 | `POST /api/playback/keys/{slot}/press` · `/release` | Extra-Taste 1–8 drücken / loslassen (Toggle bzw. Flash) |
+| `PUT /api/playback/faders/{slot}` `{level}` | Fader (z.B. Saallicht) auf 0–1 stellen, auch im Konfigurationsmodus, ohne PIN |
 | `POST /api/playback/resume` · `DELETE /api/playback/resume` | nach einem Neustart bei `resumeSceneId` weitermachen · Angebot verwerfen |
 | `PUT /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
 | `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer, zurück nach `setup` nur entsperrt |
@@ -178,15 +186,16 @@ Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"
 | `GET /api/output/health` | Render-Loop und Art-Net der letzten Sekunde: `level` (ok/warning/error), `problems`, Raten |
 
 **Attributwerte** sind normalisiert (0.0–1.0) und werden über die Attribut-ID adressiert, z.B.
-`{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`.
+`{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`. Köpfe von
+Multi-Pixel-Geräten bekommen `@<kopf>` angehängt (`red@3`); das Attribut ohne Kopf gilt für alle Köpfe ohne eigenen Wert.
 
 **WebSocket `/ws`:** Der Server sammelt Änderungen und schickt sie höchstens alle 33 ms (JSON):
 
 | Richtung | Nachricht |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…}}` (alle Werte), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` (Client lädt per REST neu); nach einem Abo
+| Server → Client | `{"type":"programmer","values":{…},"presets":{…}}` (alle Werte und ihre Presets), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` / `{"type":"presets"}` / `{"type":"faders"}` (Client lädt per REST neu); nach einem Abo
 `{"type":"output","values":{…}}` (Werte wie gesendet, vor dem Master) und `{"type":"dmx","universe":n,"values":[…512]}`, `{"type":"error","message":…}` |
-| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"keys.press","slot":1}` (ebenso `keys.release`), `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung; `preview:<id>` liefert `{"type":"preview","compositionId":…,"values":{…}}` für den Editor) |
+| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"keys.press","slot":1}` (ebenso `keys.release`), `{"type":"fader.set","slot":1,"level":0.5}`, `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung; `preview:<id>` liefert `{"type":"preview","compositionId":…,"values":{…}}` für den Editor) |
 
 Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status, Modus und Health. `programmer.set` braucht
 bei gesetzter PIN einen entsperrten Browser; nach dem Entsperren verbindet sich der Client neu. Den Fade-Fortschritt

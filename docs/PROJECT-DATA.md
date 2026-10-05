@@ -39,6 +39,7 @@ project
   venue           TEXT                         -- Spielstätte, optional
   fade_in_ms      INTEGER NOT NULL DEFAULT 3000   -- globale Fade-Zeiten
   fade_out_ms     INTEGER NOT NULL DEFAULT 3000
+  fade_curve      TEXT NOT NULL DEFAULT 'linear'   -- 'linear', 's-curve' oder 'square'
   active          INTEGER NOT NULL DEFAULT 0   -- genau eins = 1
   created_at, updated_at  TEXT (ISO-8601)
 
@@ -86,6 +87,7 @@ scene
   fade_in_ms      INTEGER NULL                  -- Fade-In beim GO in diese Szene, NULL = Projektzeit
   fade_out_ms     INTEGER NULL                  -- Fade-Out des Bildes davor beim GO in diese Szene, NULL = Projektzeit
   delay_ms        INTEGER NOT NULL DEFAULT 0    -- Fade-In startet so lange nach dem GO
+  fade_curve      TEXT NULL                     -- eigene Fade-Kurve, NULL = die des Projekts
   script          TEXT NOT NULL DEFAULT ''      -- gesprochener Text der Szene, **…** = Regieanweisung
   UNIQUE(project_id, number)
 
@@ -95,6 +97,33 @@ scene_value                                     -- Werte einer Szene, normalisie
   attribute       TEXT NOT NULL                 -- Attribut-ID: 'dimmer', 'red', 'pan', 'generic:Program speed', …
   value           REAL NOT NULL
   PRIMARY KEY(scene_id, fixture_id, attribute)
+
+preset                                          -- benannte Werte einer Attributgruppe pro Fixture
+  id              INTEGER PK
+  project_id      FK → project ON DELETE CASCADE
+  name            TEXT NOT NULL                 -- "Warm", "Stuhl"
+  attribute_group TEXT NOT NULL                 -- 'color', 'position' oder 'beam'
+
+preset_value                                    -- wie scene_value, nur Attribute der Gruppe
+  preset_id, fixture_id, attribute, value       PRIMARY KEY(preset_id, fixture_id, attribute)
+
+scene_preset                                    -- aus welchem Preset die Werte einer Szene stammen
+  scene_id        FK → scene ON DELETE CASCADE
+  fixture_id      FK → fixture ON DELETE CASCADE
+  attribute_group TEXT NOT NULL
+  preset_id       FK → preset ON DELETE CASCADE -- gelöschtes Preset: die Werte bleiben, der Verweis geht
+  PRIMARY KEY(scene_id, fixture_id, attribute_group)
+
+scene_revision                                  -- frühere Bilder einer Szene (Rückgängig), die neuesten 20
+  id, scene_id (FK ON DELETE CASCADE), created_at, reason
+scene_revision_value / scene_revision_preset    -- Werte und Preset-Verweise des früheren Bildes
+
+fader                                           -- Fader im Betrieb, z.B. Saallicht
+  project_id      FK → project ON DELETE CASCADE
+  slot            INTEGER NOT NULL              -- 1–8
+  name            TEXT                          -- NULL = Name der Szene
+  scene_id        FK → scene ON DELETE CASCADE
+  PRIMARY KEY(project_id, slot)
 
 app_setting                                     -- projektübergreifende Einstellungen
   key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
@@ -123,8 +152,10 @@ playback_state                                  -- für Wiederaufnahme nach Abst
                    "mode": "8ch", "universeId": 1, "address": 1, "position": null, "sortOrder": 0 } ],
   "groups":    [ { "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],
   "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
-                   "values": { "7": { "dimmer": 1.0, "blue": 0.8 } } } ],
+                   "values": { "7": { "dimmer": 1.0, "blue": 0.8 } }, "presets": { "7": { "color": 3 } } } ],
   "stagePlan": { "contentType": "image/png", "data": "<Base64>" },
+  "presets":   [ { "id": 3, "name": "Warm", "group": "color", "values": { "7": { "red": 1.0, "green": 0.6 } } } ],
+  "faders":    [ { "slot": 1, "name": "Saallicht", "scene": "90" } ],
   "compositions": [ { "id": 4, "sceneNumber": null, "sourceId": null, "name": "Lauflicht", "kind": "chase",
                       "params": { "stepMs": 400 }, "target": { "groupId": 2 }, "level": 1 },
                     { "id": 9, "sceneNumber": "2.5", "sourceId": 4, "name": "Lauflicht", "kind": "chase", … } ]
@@ -136,8 +167,12 @@ Projekt so, bekommt es den Zusatz „(imported)“. Verweise auf unbekannte Univ
 ein halbes Projekt zu hinterlassen. Fehlende Gerätetypen sind erlaubt und erscheinen als Patch-Problem.
 
 **Reihenfolge = Szenennummer** (numerisch: 1 < 2 < 2.5 < 10). Einfügen geht über Dezimalnummern, eine separate
-Sortierspalte gibt es nicht – so kann Szene 5 nie vor Szene 3 stehen. Multi-Pixel-Geräte bekommen später eigene
-Attribut-IDs (z.B. `red@2`), dafür ist keine Schemaänderung nötig.
+Sortierspalte gibt es nicht – so kann Szene 5 nie vor Szene 3 stehen. Köpfe von Multi-Pixel-Geräten haben eigene
+Attribut-IDs (z.B. `red@2`), dafür war keine Schemaänderung nötig.
+
+**Presets werden in die Szenen geschrieben:** Eine Szene speichert die Werte immer vollständig, `scene_preset` merkt
+sich nur, aus welchem Preset sie stammen. Wird ein Preset aktualisiert, schreibt Lumen die neuen Werte in alle Szenen,
+die darauf verweisen. Playback, Export und alle anderen Leser sehen deshalb nur fertige Werte.
 
 **Werte werden pro Attribut gespeichert, nicht als rohe DMX-Bytes.** Wird ein Gerät umgepatcht (andere Adresse,
 anderer Modus), bleiben die Szenen gültig.

@@ -56,6 +56,21 @@ Szene 3           │                                         │▁▂▄▆█
 
 Sind die Zeiten unterschiedlich (z.B. In 3 s, Out 5 s), starten beide beim GO und enden zu verschiedenen Zeitpunkten.
 
+## Fade-Kurven
+
+Wie schnell es über die Zeit hell oder dunkel wird, legt die **Fade-Kurve** fest – pro Projekt, eine Szene kann eine
+eigene haben (gilt für das GO in diese Szene, das Ausblenden am Ende nutzt die des Projekts):
+
+| Kurve | Intensität | Farbe, Position, … | Wirkung |
+|---|---|---|---|
+| `linear` (Standard) | gleichmäßig im DMX-Wert | gleichmäßig | wirkt am Anfang eines Fade-Ins schnell, am Ende langsam |
+| `s-curve` | sanft an, schnell in der Mitte, sanft aus (Smoothstep) | ebenso | weiche, „runde“ Übergänge |
+| `square` | Level², weicher im Dunkeln | gleichmäßig | wirkt fürs Auge gleichmäßiger, besonders bei LEDs |
+
+Die Kurve formt den Level (`L(t)`) von Fade-In und Fade-Out, die HTP-Mischung bleibt gleich. Hinweis: Ein Gerät, das
+in beiden Szenen gleich hell ist, geht bei gleichen Zeiten in der Mitte des Fades kurz auf die Hälfte herunter
+(`max(1 − p, p)`) – bei `square` noch tiefer. Das ist das bekannte Verhalten einer HTP-Überblendung.
+
 ## Fade-Zeiten pro Szene
 
 Im Szenen-Editor kann jede Szene unter „Fade times of the GO into this scene“ eigene Zeiten bekommen. Ein leeres
@@ -93,7 +108,8 @@ Pro Fixture und Attribut wird im Render-Loop (~40 Hz) berechnet:
 ```
 dimmer = max( dimmer_alt × L_alt(t) ,  dimmer_neu × L_neu(t) )
 ```
-- Gerät ist in beiden Szenen an → es dimmt sauber von alt nach neu, ohne Einbruch, wenn die Werte ähnlich sind.
+- Gerät ist in beiden Szenen an → es dimmt von alt nach neu; bei gleichen Werten und gleichen Zeiten sinkt es in der
+  Mitte des Fades auf die Hälfte (`max(1 − p, p)`), siehe [Fade-Kurven](#fade-kurven).
 - Gerät nur in der alten Szene → fadet mit `fade_out_ms` aus.
 - Gerät nur in der neuen Szene → fadet mit `fade_in_ms` ein.
 
@@ -107,7 +123,7 @@ wert = start + (ziel_neu − start) × fortschritt_in(t)
 
 **Diskrete Kanäle (Gobo, Farbrad, Prisma, Strobe, …):** springen beim GO auf den neuen Wert.
 
-**Kurven:** standardmäßig linear für die Intensität im DMX-Wert, optional später „S-Kurve“ bzw. wahrnehmungsgerecht.
+**Kurven:** standardmäßig linear, wahlweise S-Kurve oder quadratisch, siehe [Fade-Kurven](#fade-kurven).
 
 ## GO während eines laufenden Fades
 
@@ -153,6 +169,18 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 - Beim Wechsel Konfiguration → Betrieb wird der Programmer geleert. Der Modus ist Server-Zustand: alle verbundenen
   Browser wechseln mit. Zurück in den Konfigurationsmodus geht es nur mit Bestätigung bzw. mit der PIN, falls eine
   gesetzt ist. Auch der Modus überlebt einen Neustart.
+
+## Fader im Betrieb (z.B. Saallicht)
+
+Bis zu 8 **Fader** pro Projekt spielen je eine Szene in der Höhe, auf die sie geschoben werden – unabhängig von GO,
+z.B. Saallicht oder Arbeitslicht. Belegt werden sie in der Szenenliste („Faders“), meist mit einer Szene „Only for extra
+keys“; im Betriebsmodus stehen sie unter GO (Schieberegler, dazu „0“ und „Full“).
+
+- Mischung wie bei einer Extra-Taste mit Szene: Intensität HTP (`max(Bühne, Szene × Level)`), andere Attribute werden
+  mit dem Level eingeblendet. Fader liegen über Playback und Extra-Tasten, Grand Master und Blackout wirken auf sie.
+- Der Level gilt im Konfigurations- und im Betriebsmodus und ändert sich nicht durch GO. Er wird nicht gespeichert:
+  nach einem Neustart stehen alle Fader auf 0.
+- Laufende Kompositionen der Fader-Szene laufen ab dem Hochziehen.
 
 ## Mögliche Erweiterungen (Backlog)
 
