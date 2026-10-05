@@ -99,12 +99,12 @@ public class SqliteCompositionRepository implements CompositionRepository {
 			var keys = new GeneratedKeyHolder();
 			jdbc.sql("""
 					INSERT INTO composition (project_id, scene_id, source_id, name, kind, params, target, group_id,
-					    position, level, speed_factor, restart, once)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					    position, level, speed_factor, restart, once, per_head)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, sceneId.orElse(null), sourceId.orElse(null), spec.name(),
 							spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
 							groupId(spec.target()), position, spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
-							spec.once() ? 1 : 0)
+							spec.once() ? 1 : 0, spec.perHead() ? 1 : 0)
 					.update(keys);
 			var compositionId = generatedId(keys);
 			insertDetails(compositionId, spec);
@@ -118,11 +118,11 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		transactions.executeWithoutResult(status -> {
 			jdbc.sql("""
 					UPDATE composition SET name = ?, kind = ?, params = ?, target = ?, group_id = ?, level = ?,
-					    speed_factor = ?, restart = ?, once = ?
+					    speed_factor = ?, restart = ?, once = ?, per_head = ?
 					WHERE id = ?""")
 					.params(spec.name(), spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
 							groupId(spec.target()), spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
-							spec.once() ? 1 : 0, id)
+							spec.once() ? 1 : 0, spec.perHead() ? 1 : 0, id)
 					.update();
 			jdbc.sql("DELETE FROM composition_target WHERE composition_id = ?").param(id).update();
 			jdbc.sql("DELETE FROM composition_step WHERE composition_id = ?").param(id).update();
@@ -189,12 +189,12 @@ public class SqliteCompositionRepository implements CompositionRepository {
 			var keys = new GeneratedKeyHolder();
 			jdbc.sql("""
 					INSERT INTO composition (project_id, key_slot, key_mode, key_fade_ms, source_id, name, kind, params,
-					    target, group_id, level, speed_factor, restart, once)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					    target, group_id, level, speed_factor, restart, once, per_head)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, slot, mode.id(), fade.toMillis(), sourceId.orElse(null), spec.name(),
 							spec.pattern().kind().id(), params(spec.pattern()), targetKind(spec.target()),
 							groupId(spec.target()), spec.level(), spec.speedFactor(), spec.restart() ? 1 : 0,
-							spec.once() ? 1 : 0)
+							spec.once() ? 1 : 0, spec.perHead() ? 1 : 0)
 					.update(keys);
 			insertDetails(generatedId(keys), spec);
 		});
@@ -310,7 +310,7 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		return new Composition(row.id(), row.projectId(), Optional.ofNullable(row.sceneId()),
 				Optional.ofNullable(row.sourceId()), row.position(),
 				new CompositionSpec(row.name(), pattern, target, row.level(), row.speedFactor(), row.restart(),
-						row.once()));
+						row.once(), row.perHead()));
 	}
 
 	private List<Step> steps(long compositionId) {
@@ -337,7 +337,7 @@ public class SqliteCompositionRepository implements CompositionRepository {
 				nullableLong(rs, "source_id"), rs.getString("name"), rs.getString("kind"), rs.getString("params"),
 				rs.getString("target"), nullableLong(rs, "group_id"), rs.getInt("position"), rs.getDouble("level"),
 				rs.getDouble("speed_factor"), rs.getInt("restart") == 1, rs.getInt("once") == 1,
-				nullableInt(rs, "key_slot"), rs.getString("key_mode"), nullableLong(rs, "key_fade_ms"));
+				rs.getInt("per_head") == 1, nullableInt(rs, "key_slot"), rs.getString("key_mode"), nullableLong(rs, "key_fade_ms"));
 	}
 
 	private static Long nullableLong(ResultSet rs, String column) throws SQLException {
@@ -352,6 +352,6 @@ public class SqliteCompositionRepository implements CompositionRepository {
 
 	private record Row(long id, long projectId, Long sceneId, Long sourceId, String name, String kind, String params,
 			String target, Long groupId, int position, double level, double speedFactor, boolean restart,
-			boolean once, Integer keySlot, String keyMode, Long keyFadeMs) {
+			boolean once, boolean perHead, Integer keySlot, String keyMode, Long keyFadeMs) {
 	}
 }

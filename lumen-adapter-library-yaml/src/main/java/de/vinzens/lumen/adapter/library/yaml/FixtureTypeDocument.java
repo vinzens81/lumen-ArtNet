@@ -20,7 +20,16 @@ record FixtureTypeDocument(
 			@JsonProperty("tilt-range") Integer tiltRange) {
 	}
 
-	record ModeDocument(String name, List<ChannelDocument> channels) {
+	/** @param heads channels repeated per head of a multi-pixel fixture, after (or before) {@code channels} */
+	record ModeDocument(String name, List<ChannelDocument> channels, HeadsDocument heads) {
+	}
+
+	/**
+	 * @param count    number of heads (segments, pixels)
+	 * @param first    the heads come before the channels of the whole fixture
+	 * @param channels channels of one head, in order
+	 */
+	record HeadsDocument(Integer count, Boolean first, List<ChannelDocument> channels) {
 	}
 
 	record ChannelDocument(

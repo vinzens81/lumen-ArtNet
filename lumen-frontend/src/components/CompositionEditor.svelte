@@ -40,6 +40,8 @@
   const byId = $derived(new Map(fixtures.map((f) => [f.id, f])));
   const targetIds = $derived(targetFixtures(draft, groups));
   const unsuitable = $derived(unsuitableFixtures(draft.kind, targetIds, modes));
+  /** heads of the multi-pixel fixtures in the target */
+  const targetHeads = $derived(targetIds.reduce((sum, id) => sum + (modes.get(id)?.heads ?? 0), 0));
   const fast = $derived(isFast(draft));
   /** flicker and random chases have no end */
   const canRunOnce = $derived(draft.kind !== 'flicker' && !(draft.kind === 'chase' && p.direction === 'random'));
@@ -77,6 +79,7 @@
       speedFactor: draft.speedFactor,
       restart: draft.restart,
       once: draft.once,
+      perHead: draft.perHead,
     };
     const snapshot = JSON.stringify(draft);
     try {
@@ -411,6 +414,11 @@
         <input type="range" min="0" max="1" step="0.01" bind:value={draft.level} /></label>
       <label class="field">Tempo · {draft.speedFactor.toFixed(2)}×
         <input type="range" min="0.25" max="4" step="0.05" bind:value={draft.speedFactor} /></label>
+      {#if draft.kind !== 'steps' && (targetHeads > 0 || draft.perHead)}
+        <label class="check"><input type="checkbox" bind:checked={draft.perHead} />
+          Each head separately <span class="hint">({targetHeads} heads of pixel fixtures run as elements of their own –
+          e.g. a chase along a LED bar)</span></label>
+      {/if}
       {#if canRunOnce}
         <label class="check"><input type="checkbox" bind:checked={draft.once} />
           Run once <span class="hint">(stops at the end and stays there – e.g. a sunrise)</span></label>

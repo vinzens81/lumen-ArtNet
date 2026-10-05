@@ -10,9 +10,10 @@ import java.util.Optional;
  * @param id       the copy in the scene, to keep its phase when the scene is edited during the show
  * @param sourceId origin in the library; copies of the same origin continue seamlessly from scene to scene
  * @param once     stands still at the end of its first run
+ * @param perHead  every head of a multi-pixel fixture is an element of its own
  */
 public record ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds,
-		double level, double speedFactor, boolean restart, boolean once) {
+		double level, double speedFactor, boolean restart, boolean once, boolean perHead) {
 
 	public ActiveComposition {
 		Objects.requireNonNull(sourceId, "sourceId");
@@ -25,20 +26,31 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 		var spec = composition.spec();
 		var fixtures = spec.pattern().ownFixtures().orElse(targetFixtures);
 		return new ActiveComposition(composition.id(), composition.sourceId(), spec.pattern(), fixtures, spec.level(),
-				spec.speedFactor(), spec.restart(), spec.once());
+				spec.speedFactor(), spec.restart(), spec.once(), spec.perHead());
+	}
+
+	/** A composition on whole fixtures. */
+	public ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds, double level,
+			double speedFactor, boolean restart, boolean once) {
+		this(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, once, false);
 	}
 
 	/** A repeating composition (for tests and previews). */
 	public ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds, double level,
 			double speedFactor, boolean restart) {
-		this(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, false);
+		this(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, false, false);
 	}
 
 	/** Pattern time for the given time since the start: scaled by the speed, held at the end when running once. */
 	public double patternSeconds(double seconds) {
+		return patternSeconds(seconds, fixtureIds.size());
+	}
+
+	/** Like {@link #patternSeconds(double)} for a run over {@code count} elements (fixtures or heads). */
+	public double patternSeconds(double seconds, int count) {
 		var scaled = seconds * speedFactor;
 		if (once) {
-			var end = pattern.onceSeconds(fixtureIds.size());
+			var end = pattern.onceSeconds(count);
 			if (end.isPresent()) {
 				return Math.min(scaled, end.get());
 			}

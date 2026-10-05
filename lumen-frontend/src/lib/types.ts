@@ -10,6 +10,10 @@ export interface Range {
 export interface Channel {
   offset: number;
   function: string;
+  /** attribute id, e.g. `red`, `red@3` (head 3) or `generic:Speed` */
+  attribute: string;
+  /** 0 = the whole fixture, 1… = a head (segment, pixel) of a multi-pixel fixture */
+  head: number;
   name: string;
   resolution: number;
   dmxChannelCount: number;
@@ -22,6 +26,8 @@ export interface Channel {
 export interface Mode {
   name: string;
   dmxChannelCount: number;
+  /** number of heads of a multi-pixel fixture, 0 without */
+  heads: number;
   channels: Channel[];
 }
 
@@ -452,6 +458,8 @@ export interface Composition {
   restart: boolean;
   /** runs through once and stays at the end */
   once: boolean;
+  /** every head of a multi-pixel fixture is an element of its own */
+  perHead: boolean;
 }
 
 export interface CompositionRequest {
@@ -464,6 +472,7 @@ export interface CompositionRequest {
   speedFactor?: number;
   restart?: boolean;
   once?: boolean;
+  perHead?: boolean;
 }
 
 /** A rehearsed GO into the scene on stage; the fade-in starts delayMs after GO, the fade-out at GO. */

@@ -8,11 +8,13 @@ import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
  * Maps normalized fixture values to DMX frames: channel offsets, 8/16 bit, defaults, inversion, the virtual
- * dimmer for fixtures without a dimmer channel and the grand master.
+ * dimmer for fixtures without a dimmer channel and the grand master. A channel of a head takes the head's value
+ * ({@code red@3}), otherwise the value of the whole fixture ({@code red}).
  */
 public final class DmxRenderer {
 
@@ -53,19 +55,24 @@ public final class DmxRenderer {
 	private static void renderFixture(DmxFrame.Builder builder, RenderFixture fixture, FixtureValues values,
 			double master) {
 		var mode = fixture.mode();
-		var dimmer = values.get(DIMMER).orElse(0.0) * master;
 		var virtualDimmer = !mode.hasDimmer();
+		var virtualHeadDimmers = mode.heads() > 0 && !mode.hasHeadDimmers();
 
 		var channel = fixture.address();
 		for (var definition : mode.channels()) {
-			var raw = values.get(definition.attribute())
+			var raw = valueOf(values, definition.attribute())
 					.map(value -> (int) Math.round(value * definition.maxValue()))
 					.orElse(definition.defaultValue());
 
 			if (definition.function() == ChannelFunction.DIMMER) {
 				raw = (int) Math.round(raw * master);
 			} else if (virtualDimmer && ADDITIVE_COLORS.contains(definition.function())) {
+				var dimmer = valueOf(values, DIMMER.withHead(definition.head())).orElse(0.0) * master;
 				raw = (int) Math.round(raw * dimmer);
+			} else if (virtualHeadDimmers && definition.head() > 0
+					&& ADDITIVE_COLORS.contains(definition.function())) {
+				// the fixture's dimmer channel dims everything; a head's own level only lowers that head
+				raw = (int) Math.round(raw * values.get(DIMMER.withHead(definition.head())).orElse(1.0));
 			}
 			if (definition.invert()) {
 				raw = definition.maxValue() - raw;
@@ -73,6 +80,12 @@ public final class DmxRenderer {
 			write(builder, channel, definition, raw);
 			channel += definition.dmxChannelCount();
 		}
+	}
+
+	/** The value of a head's attribute, falling back to the whole fixture's. */
+	private static Optional<Double> valueOf(FixtureValues values, Attribute attribute) {
+		var own = values.get(attribute);
+		return own.isPresent() || attribute.head() == 0 ? own : values.get(attribute.withoutHead());
 	}
 
 	private static void write(DmxFrame.Builder builder, int channel, ChannelDefinition definition, int raw) {

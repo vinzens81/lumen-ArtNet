@@ -210,18 +210,19 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param sourceId id of the library composition a copy was made from
 	 */
 	record CompositionEntry(Long id, String sceneNumber, Long sourceId, String name, String kind, JsonNode params,
-			TargetDto target, List<StepDto> steps, Double level, Double speedFactor, Boolean restart, Boolean once) {
+			TargetDto target, List<StepDto> steps, Double level, Double speedFactor, Boolean restart, Boolean once,
+			Boolean perHead) {
 
 		static CompositionEntry from(Composition composition, Map<Long, String> sceneNumbers, JsonMapper json) {
 			var api = CompositionResponse.from(composition);
 			return new CompositionEntry(api.id(), composition.sceneId().map(sceneNumbers::get).orElse(null),
 					api.sourceId(), api.name(), api.kind(), json.valueToTree(api.params()), api.target(), api.steps(),
-					api.level(), api.speedFactor(), api.restart(), api.once());
+					api.level(), api.speedFactor(), api.restart(), api.once(), api.perHead());
 		}
 
 		Composition toComposition(Map<String, Long> sceneIds, JsonMapper json) {
-			var spec = new CompositionRequest(name, kind, params, target, steps, level, speedFactor, restart, once)
-					.toSpec(json);
+			var spec = new CompositionRequest(name, kind, params, target, steps, level, speedFactor, restart, once,
+					perHead).toSpec(json);
 			Optional<Long> sceneId = Optional.empty();
 			if (sceneNumber != null) {
 				var number = SceneNumber.parse(sceneNumber).toString();

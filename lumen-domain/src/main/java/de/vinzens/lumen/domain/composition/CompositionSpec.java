@@ -12,9 +12,10 @@ import java.util.Objects;
  * @param restart     in a scene: start from the beginning at GO instead of continuing a running composition of the
  *                    same origin
  * @param once        run through once and stay at the end (e.g. a sunrise) instead of repeating
+ * @param perHead     every head of a multi-pixel fixture is an element of its own (a chase runs along a LED bar)
  */
 public record CompositionSpec(String name, Pattern pattern, Target target, double level, double speedFactor,
-		boolean restart, boolean once) {
+		boolean restart, boolean once, boolean perHead) {
 
 	public CompositionSpec {
 		Objects.requireNonNull(pattern, "pattern");
@@ -32,6 +33,12 @@ public record CompositionSpec(String name, Pattern pattern, Target target, doubl
 		name = name.strip();
 	}
 
+	/** A composition on whole fixtures. */
+	public CompositionSpec(String name, Pattern pattern, Target target, double level, double speedFactor,
+			boolean restart, boolean once) {
+		this(name, pattern, target, level, speedFactor, restart, once, false);
+	}
+
 	/** A new, repeating composition with level 100 % and normal speed. */
 	public static CompositionSpec of(String name, Pattern pattern, Target target) {
 		return new CompositionSpec(name, pattern, target, 1, 1, false, false);
@@ -39,6 +46,6 @@ public record CompositionSpec(String name, Pattern pattern, Target target, doubl
 
 	/** The same composition with other pattern and target (e.g. taken from the library), keeping the rest. */
 	public CompositionSpec withContent(String newName, Pattern newPattern, Target newTarget) {
-		return new CompositionSpec(newName, newPattern, newTarget, level, speedFactor, restart, once);
+		return new CompositionSpec(newName, newPattern, newTarget, level, speedFactor, restart, once, perHead);
 	}
 }

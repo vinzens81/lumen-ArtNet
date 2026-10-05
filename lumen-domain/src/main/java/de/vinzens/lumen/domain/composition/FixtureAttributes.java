@@ -16,10 +16,24 @@ public interface FixtureAttributes {
 
 	boolean has(long fixtureId, Attribute attribute);
 
+	/** Number of heads of a multi-pixel fixture, 0 for other fixtures. */
+	default int heads(long fixtureId) {
+		return 0;
+	}
+
 	static FixtureAttributes of(Map<Long, Mode> modes) {
-		return (fixtureId, attribute) -> {
-			var mode = modes.get(fixtureId);
-			return mode != null && mode.attributes().contains(attribute);
+		return new FixtureAttributes() {
+			@Override
+			public boolean has(long fixtureId, Attribute attribute) {
+				var mode = modes.get(fixtureId);
+				return mode != null && mode.attributes().contains(attribute);
+			}
+
+			@Override
+			public int heads(long fixtureId) {
+				var mode = modes.get(fixtureId);
+				return mode == null ? 0 : mode.heads();
+			}
 		};
 	}
 }

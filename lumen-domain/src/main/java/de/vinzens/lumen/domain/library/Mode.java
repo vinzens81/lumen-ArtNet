@@ -1,11 +1,12 @@
 package de.vinzens.lumen.domain.library;
 
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.stream.Stream;
 
 /**
- * A DMX mode of a fixture type. The order of the channels corresponds to the DMX offset.
+ * A DMX mode of a fixture type. The order of the channels corresponds to the DMX offset. Channels of a multi-pixel
+ * fixture belong to a head (segment, pixel); see {@link ChannelDefinition#head()}.
  */
 public record Mode(String name, List<ChannelDefinition> channels) {
 
@@ -19,11 +20,37 @@ public record Mode(String name, List<ChannelDefinition> channels) {
 		return channels.stream().anyMatch(c -> c.function() == ChannelFunction.DIMMER);
 	}
 
-	/** Distinct attributes of this mode in channel order. */
+	/** Number of heads of a multi-pixel fixture, 0 for a fixture without heads. */
+	public int heads() {
+		return channels.stream().mapToInt(ChannelDefinition::head).max().orElse(0);
+	}
+
+	/** Whether the heads have dimmer channels of their own. */
+	public boolean hasHeadDimmers() {
+		return channels.stream().anyMatch(c -> c.function() == ChannelFunction.DIMMER && c.head() > 0);
+	}
+
+	/**
+	 * Distinct attributes of this mode in channel order. A fixture without a dimmer channel gets a virtual dimmer;
+	 * heads without a dimmer channel get a virtual one each. Every attribute of the heads also exists for the whole
+	 * fixture, setting all heads at once.
+	 */
 	public List<Attribute> attributes() {
-		var attributes = channels.stream().map(ChannelDefinition::attribute).distinct();
-		return hasDimmer() ? attributes.toList()
-				: Stream.concat(Stream.of(Attribute.of(ChannelFunction.DIMMER)), attributes).toList();
+		var attributes = new LinkedHashSet<Attribute>();
+		if (!hasDimmer()) {
+			attributes.add(Attribute.of(ChannelFunction.DIMMER));
+		}
+		var heads = heads();
+		if (heads > 0) {
+			channels.forEach(channel -> attributes.add(channel.attribute().withoutHead()));
+		}
+		channels.forEach(channel -> attributes.add(channel.attribute()));
+		if (!hasHeadDimmers()) {
+			for (int head = 1; head <= heads; head++) {
+				attributes.add(Attribute.of(ChannelFunction.DIMMER).withHead(head));
+			}
+		}
+		return List.copyOf(attributes);
 	}
 
 	/** Number of occupied DMX channels (16-bit channels count twice). */

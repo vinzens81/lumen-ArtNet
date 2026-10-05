@@ -592,7 +592,7 @@
             {/if}
             <ul class="fixtures">
               {#each fixtures.filter((f) => selected?.values[f.id]) as fixture (fixture.id)}
-                {@const preview = previewOf(modes.get(fixture.id) ?? { name: '', dmxChannelCount: 0, channels: [] }, selected.values[fixture.id])}
+                {@const preview = previewOf(modes.get(fixture.id) ?? { name: '', dmxChannelCount: 0, heads: 0, channels: [] }, selected.values[fixture.id])}
                 <li>
                   <span class="swatch" style="--color: {rgbToCss(preview.color)}; --intensity: {preview.intensity}"></span>
                   {fixture.name}

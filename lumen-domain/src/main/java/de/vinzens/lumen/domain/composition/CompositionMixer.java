@@ -3,7 +3,9 @@ package de.vinzens.lumen.domain.composition;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.output.FixtureValues;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -21,22 +23,46 @@ public final class CompositionMixer {
 	private CompositionMixer() {
 	}
 
-	/** Values of the composition per target fixture at the given time since its start (before the speed factor). */
+	/**
+	 * Values of the composition per target fixture at the given time since its start (before the speed factor). With
+	 * {@link ActiveComposition#perHead()} every head of a multi-pixel fixture is an element of its own and gets its
+	 * values as head attributes ({@code red@3}).
+	 */
 	public static Map<Long, FixtureValues> contribution(ActiveComposition composition, double seconds,
 			FixtureAttributes attributes) {
-		var result = new HashMap<Long, FixtureValues>();
-		var fixtures = composition.fixtureIds();
-		var scaled = composition.patternSeconds(seconds);
-		for (int i = 0; i < fixtures.size(); i++) {
-			var fixtureId = fixtures.get(i);
-			var values = composition.pattern().valuesAt(scaled, i, fixtures.size(), fixtureId);
-			var supported = new HashMap<Attribute, Double>();
+		var elements = elements(composition, attributes);
+		var result = new HashMap<Long, Map<Attribute, Double>>();
+		var scaled = composition.patternSeconds(seconds, elements.size());
+		for (int i = 0; i < elements.size(); i++) {
+			var element = elements.get(i);
+			var values = composition.pattern().valuesAt(scaled, i, elements.size(), element.fixtureId());
+			var supported = result.computeIfAbsent(element.fixtureId(), id -> new HashMap<>());
 			values.values().forEach((attribute, value) -> {
-				if (attributes.has(fixtureId, attribute)) {
-					supported.put(attribute, value);
+				var target = attribute.withHead(element.head());
+				if (attributes.has(element.fixtureId(), target)) {
+					supported.put(target, value);
 				}
 			});
-			result.put(fixtureId, new FixtureValues(supported));
+		}
+		var contribution = new HashMap<Long, FixtureValues>();
+		result.forEach((fixtureId, values) -> contribution.put(fixtureId, new FixtureValues(values)));
+		return contribution;
+	}
+
+	/** One fixture or head the pattern runs along. */
+	private record Element(long fixtureId, int head) {
+	}
+
+	private static List<Element> elements(ActiveComposition composition, FixtureAttributes attributes) {
+		var result = new ArrayList<Element>();
+		for (var fixtureId : composition.fixtureIds()) {
+			var heads = composition.perHead() ? attributes.heads(fixtureId) : 0;
+			if (heads == 0) {
+				result.add(new Element(fixtureId, 0));
+			}
+			for (int head = 1; head <= heads; head++) {
+				result.add(new Element(fixtureId, head));
+			}
 		}
 		return result;
 	}
@@ -56,8 +82,9 @@ public final class CompositionMixer {
 			var base = look.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var mixed = new HashMap<>(base.values());
 			values.values().forEach((attribute, value) -> {
-				var baseValue = base.get(attribute);
-				if (attribute.equals(Values.DIMMER)) {
+				// a head without a value of its own shows the value of the whole fixture
+				var baseValue = base.get(attribute).or(() -> base.get(attribute.withoutHead()));
+				if (attribute.withoutHead().equals(Values.DIMMER)) {
 					mixed.put(attribute, switch (pattern.intensityMode()) {
 						case ABSOLUTE -> Math.max(baseValue.orElse(0.0), value * level);
 						case RELATIVE -> baseValue.orElse(0.0) * (1 - level + value * level);

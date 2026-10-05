@@ -41,16 +41,18 @@ public final class CompositionDtos {
 	 * @param params  parameters of the kind, see the {@code *Params} records
 	 * @param target  {@code {"groupId": 3}} or {@code {"fixtureIds": [1, 2]}}; none for {@code steps}
 	 * @param steps   only for {@code steps}
+	 * @param perHead every head of a multi-pixel fixture is an element of its own
 	 */
 	public record CompositionRequest(String name, String kind, JsonNode params, TargetDto target, List<StepDto> steps,
-			Double level, Double speedFactor, Boolean restart, Boolean once) {
+			Double level, Double speedFactor, Boolean restart, Boolean once, Boolean perHead) {
 
 		public CompositionSpec toSpec(JsonMapper json) {
 			var patternKind = PatternKind.fromId(kind);
 			var pattern = pattern(patternKind, json);
 			Target resolvedTarget = patternKind == PatternKind.STEPS ? new Target.Steps() : toTarget();
 			return new CompositionSpec(name, pattern, resolvedTarget, Objects.requireNonNullElse(level, 1.0),
-					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart), Boolean.TRUE.equals(once));
+					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart), Boolean.TRUE.equals(once),
+					Boolean.TRUE.equals(perHead));
 		}
 
 		private Target toTarget() {
@@ -186,10 +188,11 @@ public final class CompositionDtos {
 	 * @param sourceId library origin of a copy
 	 * @param position order within the scene
 	 * @param once     runs through once and stays at the end
+	 * @param perHead  every head of a multi-pixel fixture is an element of its own
 	 */
 	public record CompositionResponse(long id, Long sceneId, Long sourceId, int position, String name, String kind,
 			Object params, TargetDto target, List<StepDto> steps, double level, double speedFactor, boolean restart,
-			boolean once) {
+			boolean once, boolean perHead) {
 
 		public static CompositionResponse from(Composition composition) {
 			var spec = composition.spec();
@@ -212,7 +215,8 @@ public final class CompositionDtos {
 					: null;
 			return new CompositionResponse(composition.id(), composition.sceneId().orElse(null),
 					composition.sourceId().orElse(null), composition.position(), spec.name(), pattern.kind().id(),
-					params, target, steps, spec.level(), spec.speedFactor(), spec.restart(), spec.once());
+					params, target, steps, spec.level(), spec.speedFactor(), spec.restart(), spec.once(),
+					spec.perHead());
 		}
 	}
 

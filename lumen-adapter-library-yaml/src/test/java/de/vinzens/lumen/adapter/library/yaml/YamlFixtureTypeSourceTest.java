@@ -68,6 +68,46 @@ class YamlFixtureTypeSourceTest {
 	}
 
 	@Test
+	void expandsHeadsOfMultiPixelFixtures() throws IOException {
+		write("bar.yml", """
+				id: bar
+				manufacturer: Example
+				model: Pixel bar
+				category: bar
+				modes:
+				  - name: 7ch
+				    channels:
+				      - function: dimmer
+				    heads:
+				      count: 2
+				      channels:
+				        - function: red
+				        - function: green
+				        - function: blue
+				  - name: bad
+				    heads:
+				      count: 0
+				""");
+
+		var result = new YamlFixtureTypeSource(dir).loadAll();
+
+		assertThat(result.issues()).singleElement()
+				.satisfies(issue -> assertThat(issue.message()).contains("heads.count must be between 1"));
+		write("bar.yml", Files.readString(dir.resolve("bar.yml")).replace("""
+				  - name: bad
+				    heads:
+				      count: 0
+				""", ""));
+		var mode = new YamlFixtureTypeSource(dir).loadAll().fixtureTypes().getFirst().fixtureType().mode("7ch")
+				.orElseThrow();
+		assertThat(mode.heads()).isEqualTo(2);
+		assertThat(mode.dmxChannelCount()).isEqualTo(7);
+		assertThat(mode.channels()).extracting(c -> c.attribute().id())
+				.containsExactly("dimmer", "red@1", "green@1", "blue@1", "red@2", "green@2", "blue@2");
+		assertThat(mode.channels().get(4).displayName()).isEqualTo("red 2");
+	}
+
+	@Test
 	void loadsFilesFromSubdirectoriesWithRelativeSource() throws IOException {
 		Files.createDirectories(dir.resolve("generic"));
 		write("generic/dimmer.yaml", dimmer("dimmer"));

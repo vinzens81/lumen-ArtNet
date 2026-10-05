@@ -1,0 +1,31 @@
+# A typical pixel bar: 8 RGB segments that can be controlled one by one.
+# In the 26ch mode Lumen treats every segment as a head: the programmer can set them one by one ("Heads"), and
+# compositions with "Each head separately" run along the bar.
+id: generic-led-bar-8-pixel
+manufacturer: Generic
+model: LED Bar 8 × RGB (pixel)
+category: bar
+
+modes:
+  # the whole bar in one color
+  - name: 3ch
+    channels:
+      - function: red
+      - function: green
+      - function: blue
+
+  # master dimmer and strobe, then red/green/blue for each of the 8 segments
+  - name: 26ch
+    channels:
+      - function: dimmer
+      - function: strobe
+        default: 0
+        ranges:
+          - { from: 0,  to: 9,   label: Off }
+          - { from: 10, to: 255, label: Strobe slow → fast }
+    heads:
+      count: 8
+      channels:
+        - function: red
+        - function: green
+        - function: blue

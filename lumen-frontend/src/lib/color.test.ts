@@ -5,15 +5,15 @@ import type { Channel, Mode } from './types';
 
 function channel(fn: string, extra: Partial<Channel> = {}): Channel {
   return {
-    offset: 1, function: fn, name: fn, resolution: 8, dmxChannelCount: 1, defaultValue: 0,
+    offset: 1, function: fn, attribute: fn, head: 0, name: fn, resolution: 8, dmxChannelCount: 1, defaultValue: 0,
     invert: false, fade: 'smooth', ranges: [], ...extra,
   };
 }
 
-const RGB: Mode = { name: '3ch', dmxChannelCount: 3, channels: [channel('red'), channel('green'), channel('blue')] };
-const DIMMER: Mode = { name: '1ch', dmxChannelCount: 1, channels: [channel('dimmer')] };
+const RGB: Mode = { name: '3ch', dmxChannelCount: 3, heads: 0, channels: [channel('red'), channel('green'), channel('blue')] };
+const DIMMER: Mode = { name: '1ch', dmxChannelCount: 1, heads: 0, channels: [channel('dimmer')] };
 const WHEEL: Mode = {
-  name: '2ch', dmxChannelCount: 2,
+  name: '2ch', dmxChannelCount: 2, heads: 0,
   channels: [channel('dimmer'), channel('color-wheel', { ranges: [{ from: 10, to: 19, label: 'Red', color: '#ff0000' }] })],
 };
 
@@ -45,13 +45,13 @@ describe('previewOf', () => {
 
 describe('attributes', () => {
   it('adds a virtual dimmer and names generic channels', () => {
-    const mode: Mode = { ...RGB, channels: [...RGB.channels, channel('generic', { name: 'Speed' })] };
+    const mode: Mode = { ...RGB, channels: [...RGB.channels, channel('generic', { name: 'Speed', attribute: 'generic:Speed' })] };
     expect(attributesOf(mode)).toEqual(['dimmer', 'red', 'green', 'blue', 'generic:Speed']);
     expect(supportedValues(DIMMER, { dimmer: 1, red: 1 })).toEqual({ dimmer: 1 });
   });
 
   it('reads defaults from the profile', () => {
-    const mode: Mode = { name: 'x', dmxChannelCount: 2, channels: [channel('pan', { resolution: 16, defaultValue: 32768 })] };
+    const mode: Mode = { name: 'x', dmxChannelCount: 2, heads: 0, channels: [channel('pan', { resolution: 16, defaultValue: 32768 })] };
     expect(defaultValue(mode, 'pan')).toBeCloseTo(0.5, 3);
     expect(defaultValue(RGB, 'dimmer')).toBe(0);
   });

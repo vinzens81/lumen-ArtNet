@@ -62,6 +62,7 @@ export interface Preview {
  * Fixtures without color channels glow warm white.
  */
 export function previewOf(mode: Mode, values: Record<string, number>, master = 1): Preview {
+  if (mode.heads > 0) values = averageOfHeads(values, mode.heads);
   const intensity = (values.dimmer ?? 0) * master;
   const functions = new Set(mode.channels.map((c) => c.function));
 
@@ -86,6 +87,35 @@ export function previewOf(mode: Mode, values: Record<string, number>, master = 1
     if (slot?.color) return { color: hexToRgb(slot.color), intensity };
   }
   return { color: WARM_WHITE, intensity };
+}
+
+/** Preview of every head of a multi-pixel fixture, in head order (empty for other fixtures). */
+export function headPreviewsOf(mode: Mode, values: Record<string, number>, master = 1): Preview[] {
+  const result: Preview[] = [];
+  for (let head = 1; head <= mode.heads; head++) {
+    const own: Record<string, number> = {};
+    for (const [attribute, value] of Object.entries(values)) {
+      if (!/@\d+$/.test(attribute)) own[attribute] ??= value;
+      else if (attribute.endsWith(`@${head}`)) own[attribute.replace(/@\d+$/, '')] = value;
+    }
+    result.push(previewOf({ ...mode, heads: 0 }, own, master));
+  }
+  return result;
+}
+
+/** Fixture-wide values for the preview: the fixture's own value, otherwise the average over its heads. */
+function averageOfHeads(values: Record<string, number>, heads: number): Record<string, number> {
+  const result: Record<string, number> = {};
+  const sums = new Map<string, number>();
+  for (const [attribute, value] of Object.entries(values)) {
+    const match = /^(.*)@\d+$/.exec(attribute);
+    if (match) sums.set(match[1], (sums.get(match[1]) ?? 0) + value);
+    else result[attribute] = value;
+  }
+  for (const [attribute, sum] of sums) {
+    if (result[attribute] === undefined) result[attribute] = sum / heads;
+  }
+  return result;
 }
 
 export interface Swatch {

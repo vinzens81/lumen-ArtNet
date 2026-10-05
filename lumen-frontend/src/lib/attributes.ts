@@ -1,22 +1,54 @@
 import type { Channel, Mode } from './types';
 
-/** Attribute id of a channel: the function, or `generic:<name>` for generic channels. */
+/** Attribute id of a channel, e.g. `red`, `red@3` for head 3 or `generic:<name>`. */
 export function attributeOf(channel: Channel): string {
-  return channel.function === 'generic' ? `generic:${channel.name}` : channel.function;
+  return channel.attribute;
 }
 
-/** All attributes of a mode; fixtures without a dimmer channel get a virtual dimmer. */
+/** Head of an attribute id: `red@3` → 3, `red` → 0 (the whole fixture). */
+export function headOf(attribute: string): number {
+  const match = /@(\d+)$/.exec(attribute);
+  return match ? Number(match[1]) : 0;
+}
+
+/** The attribute of the whole fixture: `red@3` → `red`. */
+export function baseOf(attribute: string): string {
+  return attribute.replace(/@\d+$/, '');
+}
+
+/** The attribute for a head; head 0 is the whole fixture. */
+export function withHead(attribute: string, head: number): string {
+  return head === 0 ? baseOf(attribute) : `${baseOf(attribute)}@${head}`;
+}
+
+/**
+ * All attributes of a mode (same as Mode.attributes() on the server): fixtures without a dimmer channel get a
+ * virtual dimmer, heads without a dimmer channel one each, and every attribute of the heads also exists for the
+ * whole fixture.
+ */
 export function attributesOf(mode: Mode): string[] {
-  const attributes = [...new Set(mode.channels.map(attributeOf))];
-  return attributes.includes('dimmer') ? attributes : ['dimmer', ...attributes];
+  const hasDimmer = mode.channels.some((c) => c.function === 'dimmer');
+  const hasHeadDimmers = mode.channels.some((c) => c.function === 'dimmer' && c.head > 0);
+  const attributes = new Set<string>();
+  if (!hasDimmer) attributes.add('dimmer');
+  if (mode.heads > 0) mode.channels.forEach((c) => attributes.add(baseOf(attributeOf(c))));
+  mode.channels.forEach((c) => attributes.add(attributeOf(c)));
+  if (!hasHeadDimmers) for (let head = 1; head <= mode.heads; head++) attributes.add(`dimmer@${head}`);
+  return [...attributes];
+}
+
+/** A value as the fixture shows it: the head's own value, otherwise the whole fixture's. */
+export function valueFor(values: Record<string, number>, attribute: string): number | undefined {
+  return values[attribute] ?? (headOf(attribute) > 0 ? values[baseOf(attribute)] : undefined);
 }
 
 /** Default value of an attribute (0–1) as defined in the fixture profile. */
 export function defaultValue(mode: Mode, attribute: string): number {
-  if (attribute === 'dimmer' && !mode.channels.some((c) => c.function === 'dimmer')) {
+  if (baseOf(attribute) === 'dimmer' && !mode.channels.some((c) => c.function === 'dimmer')) {
     return 0;
   }
-  const channel = mode.channels.find((c) => attributeOf(c) === attribute);
+  const channel = mode.channels.find((c) => attributeOf(c) === attribute)
+    ?? mode.channels.find((c) => baseOf(attributeOf(c)) === baseOf(attribute));
   if (!channel) return 0;
   return channel.defaultValue / (channel.resolution === 16 ? 65535 : 255);
 }

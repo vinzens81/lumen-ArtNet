@@ -7,8 +7,10 @@
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import XYPad from '../components/XYPad.svelte';
   import { api } from '../lib/api';
-  import { attributeOf, attributesOf, defaultValue, supportedValues } from '../lib/attributes';
-  import { hexToRgb, hsvToRgb, previewOf, rgbToCss, rgbToHsv, type Rgb } from '../lib/color';
+  import {
+    attributeOf, attributesOf, baseOf, defaultValue, headOf, supportedValues, valueFor, withHead,
+  } from '../lib/attributes';
+  import { headPreviewsOf, hexToRgb, hsvToRgb, previewOf, rgbToCss, rgbToHsv, type Rgb } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { programmerSelection } from '../lib/selection.svelte';
@@ -82,27 +84,39 @@
   // shared with the scene editor, which can merge only the selected fixtures
   const selection = $derived(programmerSelection.ids);
   const selected = $derived(entries.filter((e) => selection.includes(e.fixture.id)));
-  const available = $derived(new Set(selected.flatMap((e) => e.attributes)));
+  /** heads of the selected multi-pixel fixtures; 0 if none has heads */
+  const headCount = $derived(Math.max(0, ...selected.map((e) => e.mode.heads)));
+  /** which head the controls set: 0 = the whole fixture (all heads), 1… = one head */
+  let headScope = $state(0);
+  $effect(() => {
+    if (headScope > headCount) headScope = 0;
+  });
+  /** attributes the controls offer, without head: of the whole fixture, or of the chosen head */
+  const available = $derived(new Set(selected.flatMap((e) => e.attributes)
+    .filter((a) => headOf(a) === headScope)
+    .map(baseOf)));
   const universeNumber = $derived(new Map(universes.map((u) => [u.id, u.number])));
   const masterLevel = $derived(live.master.blackout ? 0 : live.master.level);
 
   // --- values ------------------------------------------------------------------------------------------------
 
   function valueOf(entry: Entry, attribute: string): number {
-    return live.programmer[entry.fixture.id]?.[attribute] ?? defaultValue(entry.mode, attribute);
+    return valueFor(live.programmer[entry.fixture.id] ?? {}, attribute) ?? defaultValue(entry.mode, attribute);
   }
 
   function reference(attribute: string): { value: number; mixed: boolean } {
-    const withAttribute = selected.filter((e) => e.attributes.includes(attribute));
+    const scoped = withHead(attribute, headScope);
+    const withAttribute = selected.filter((e) => e.attributes.includes(scoped));
     if (withAttribute.length === 0) return { value: 0, mixed: false };
-    const values = withAttribute.map((e) => valueOf(e, attribute));
+    const values = withAttribute.map((e) => valueOf(e, scoped));
     return { value: values[0], mixed: values.some((v) => Math.abs(v - values[0]) > 0.002) };
   }
 
   function set(values: AttributeValues) {
+    const scoped = Object.fromEntries(Object.entries(values).map(([a, v]) => [withHead(a, headScope), v]));
     const perFixture: Record<number, AttributeValues> = {};
     for (const entry of selected) {
-      const supported = supportedValues(entry.mode, values);
+      const supported = supportedValues(entry.mode, scoped);
       if (Object.keys(supported).length > 0) perFixture[entry.fixture.id] = supported;
     }
     if (Object.keys(perFixture).length > 0) live.setValues(perFixture);
@@ -110,9 +124,9 @@
 
   const hasRgb = $derived(RGB.every((c) => available.has(c)));
   const currentHsv = $derived.by(() => {
-    const entry = selected.find((e) => RGB.every((c) => e.attributes.includes(c)));
+    const entry = selected.find((e) => RGB.every((c) => e.attributes.includes(withHead(c, headScope))));
     if (!entry) return [0, 0, 1];
-    return rgbToHsv(RGB.map((c) => valueOf(entry, c)) as Rgb);
+    return rgbToHsv(RGB.map((c) => valueOf(entry, withHead(c, headScope))) as Rgb);
   });
 
   function setColor(rgb: Rgb) {
@@ -121,7 +135,7 @@
 
   function firstChannel(attribute: string): Channel | undefined {
     for (const entry of selected) {
-      const channel = entry.mode.channels.find((c) => attributeOf(c) === attribute);
+      const channel = entry.mode.channels.find((c) => baseOf(attributeOf(c)) === attribute);
       if (channel) return channel;
     }
     return undefined;
@@ -261,6 +275,13 @@
           <span class="card-name">{entry.fixture.name}</span>
           <span class="card-meta mono">{universeNumber.get(entry.fixture.universeId)}·{entry.fixture.address}</span>
           <span class="card-level mono">{Math.round((live.programmer[entry.fixture.id]?.dimmer ?? 0) * 100)}%</span>
+          {#if entry.mode.heads > 0}
+            <span class="card-heads" aria-hidden="true">
+              {#each headPreviewsOf(entry.mode, live.programmer[entry.fixture.id] ?? {}, masterLevel) as head, i (i)}
+                <span style="--glow: {rgbToCss(head.color)}; --intensity: {head.intensity.toFixed(3)}"></span>
+              {/each}
+            </span>
+          {/if}
         </button>
       {/each}
     </section>
@@ -281,6 +302,23 @@
           </div>
           <button class="btn small ghost" type="button" onclick={() => live.clear(selection)}>Clear</button>
         </header>
+
+        {#if headCount > 0}
+          <section>
+            <h3>Heads</h3>
+            <div class="heads" role="radiogroup" aria-label="Heads the controls set">
+              <button type="button" class="btn small" class:active={headScope === 0} role="radio"
+                aria-checked={headScope === 0} onclick={() => (headScope = 0)}>All</button>
+              {#each Array.from({ length: headCount }, (_, i) => i + 1) as head (head)}
+                <button type="button" class="btn small" class:active={headScope === head} role="radio"
+                  aria-checked={headScope === head} onclick={() => (headScope = head)}>{head}</button>
+              {/each}
+            </div>
+            <p class="hint dim">
+              {headScope === 0 ? 'Values apply to all heads that have no value of their own.' : `Values apply to head ${headScope} only.`}
+            </p>
+          </section>
+        {/if}
 
         {#if projectId !== null}
           <PresetPanel {projectId} {selection} attributes={available}
@@ -574,6 +612,33 @@
     bottom: 10px;
     font-size: 11px;
     color: var(--text-dim);
+  }
+
+  .card-heads {
+    position: absolute;
+    left: 12px;
+    right: 56px;
+    bottom: 8px;
+    display: flex;
+    gap: 2px;
+  }
+
+  .card-heads span {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), #1b2030);
+  }
+
+  .heads {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+  }
+
+  .heads .active {
+    border-color: var(--accent);
+    color: var(--accent);
   }
 
   .none {

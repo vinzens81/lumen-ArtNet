@@ -11,6 +11,7 @@ import java.util.Optional;
  * @param resolution   8 or 16 bit
  * @param defaultValue default value; 0–65535 for 16 bit
  * @param fadeBehavior overridden fade behavior, otherwise {@link ChannelFunction#defaultFade()}
+ * @param head         0 = the whole fixture, 1… = a head of a multi-pixel fixture
  */
 public record ChannelDefinition(
 		ChannelFunction function,
@@ -19,7 +20,8 @@ public record ChannelDefinition(
 		int defaultValue,
 		boolean invert,
 		List<ChannelRange> ranges,
-		Optional<FadeBehavior> fadeBehavior) {
+		Optional<FadeBehavior> fadeBehavior,
+		int head) {
 
 	public static final int RESOLUTION_8_BIT = 8;
 	public static final int RESOLUTION_16_BIT = 16;
@@ -29,6 +31,20 @@ public record ChannelDefinition(
 		Objects.requireNonNull(name, "name");
 		Objects.requireNonNull(fadeBehavior, "fadeBehavior");
 		ranges = List.copyOf(ranges);
+		if (head < 0) {
+			throw new IllegalArgumentException("head must not be negative");
+		}
+	}
+
+	/** A channel of the whole fixture. */
+	public ChannelDefinition(ChannelFunction function, Optional<String> name, int resolution, int defaultValue,
+			boolean invert, List<ChannelRange> ranges, Optional<FadeBehavior> fadeBehavior) {
+		this(function, name, resolution, defaultValue, invert, ranges, fadeBehavior, 0);
+	}
+
+	/** The same channel for a head of a multi-pixel fixture. */
+	public ChannelDefinition forHead(int newHead) {
+		return new ChannelDefinition(function, name, resolution, defaultValue, invert, ranges, fadeBehavior, newHead);
 	}
 
 	/** Number of occupied DMX channels. */
@@ -46,11 +62,13 @@ public record ChannelDefinition(
 
 	/** The attribute controlled by this channel. */
 	public Attribute attribute() {
-		return function == ChannelFunction.GENERIC ? Attribute.generic(name.orElse("")) : Attribute.of(function);
+		var attribute = function == ChannelFunction.GENERIC ? Attribute.generic(name.orElse("")) : Attribute.of(function);
+		return attribute.withHead(head);
 	}
 
-	/** Display name: explicit name or the function id. */
+	/** Display name: explicit name or the function id, with the head of a multi-pixel fixture. */
 	public String displayName() {
-		return name.orElse(function.id());
+		var base = name.orElse(function.id());
+		return head == 0 ? base : base + " " + head;
 	}
 }

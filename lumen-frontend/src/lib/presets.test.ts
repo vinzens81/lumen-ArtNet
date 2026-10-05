@@ -36,9 +36,9 @@ describe('presets of a selection', () => {
 describe('presetColor', () => {
   it('shows the color of the first fixture', () => {
     const mode: Mode = {
-      name: '3ch', dmxChannelCount: 3,
+      name: '3ch', dmxChannelCount: 3, heads: 0,
       channels: ['red', 'green', 'blue'].map((fn, i) => ({
-        offset: i + 1, function: fn, name: fn, resolution: 8, dmxChannelCount: 1, defaultValue: 0, invert: false,
+        offset: i + 1, function: fn, attribute: fn, head: 0, name: fn, resolution: 8, dmxChannelCount: 1, defaultValue: 0, invert: false,
         fade: 'smooth', ranges: [],
       })),
     };

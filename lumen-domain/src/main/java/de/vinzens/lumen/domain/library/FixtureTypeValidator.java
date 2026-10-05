@@ -60,12 +60,13 @@ public final class FixtureTypeValidator {
 					prefix + "occupies " + mode.dmxChannelCount() + " channels, maximum is " + DMX_UNIVERSE_SIZE));
 		}
 
-		Set<ChannelFunction> seen = new HashSet<>();
+		// the same function on different heads of a multi-pixel fixture is fine
+		Set<Attribute> seen = new HashSet<>();
 		for (int i = 0; i < mode.channels().size(); i++) {
 			var channel = mode.channels().get(i);
 			var channelPrefix = prefix + "channel " + (i + 1) + " (" + channel.function().id() + "): ";
 
-			if (channel.function() != ChannelFunction.GENERIC && !seen.add(channel.function())) {
+			if (channel.function() != ChannelFunction.GENERIC && !seen.add(channel.attribute())) {
 				issues.add(LibraryIssue.warning(source, id,
 						channelPrefix + "function occurs more than once"));
 			}

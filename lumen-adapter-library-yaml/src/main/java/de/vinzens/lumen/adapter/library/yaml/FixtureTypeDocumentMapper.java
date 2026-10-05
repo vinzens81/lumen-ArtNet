@@ -27,6 +27,9 @@ import java.util.stream.Collectors;
  */
 final class FixtureTypeDocumentMapper {
 
+	/** More heads than DMX channels in a universe make no sense. */
+	static final int MAX_HEADS = 512;
+
 	private final String source;
 	private final List<LibraryIssue> issues = new ArrayList<>();
 	private String typeId;
@@ -82,11 +85,38 @@ final class FixtureTypeDocumentMapper {
 
 	private Mode mapMode(ModeDocument mode) {
 		var name = Objects.requireNonNullElse(mode.name(), "");
-		var channels = nullToEmpty(mode.channels()).stream()
+		var channels = new ArrayList<>(nullToEmpty(mode.channels()).stream()
 				.map(channel -> mapChannel(channel, name))
 				.flatMap(Optional::stream)
-				.toList();
+				.toList());
+		if (mode.heads() != null) {
+			var heads = mapHeads(mode.heads(), name);
+			channels.addAll(Boolean.TRUE.equals(mode.heads().first()) ? 0 : channels.size(), heads);
+		}
 		return new Mode(name, channels);
+	}
+
+	/** The head channels repeated for every head, numbered from 1. */
+	private List<ChannelDefinition> mapHeads(FixtureTypeDocument.HeadsDocument heads, String modeName) {
+		var count = Objects.requireNonNullElse(heads.count(), 0);
+		if (count < 1 || count > MAX_HEADS) {
+			error("Mode '" + modeName + "': heads.count must be between 1 and " + MAX_HEADS);
+			return List.of();
+		}
+		var perHead = nullToEmpty(heads.channels()).stream()
+				.map(channel -> mapChannel(channel, modeName))
+				.flatMap(Optional::stream)
+				.toList();
+		if (perHead.isEmpty()) {
+			error("Mode '" + modeName + "': heads need channels");
+		}
+		var result = new ArrayList<ChannelDefinition>();
+		for (int head = 1; head <= count; head++) {
+			for (var channel : perHead) {
+				result.add(channel.forHead(head));
+			}
+		}
+		return result;
 	}
 
 	private Optional<ChannelDefinition> mapChannel(ChannelDocument channel, String modeName) {

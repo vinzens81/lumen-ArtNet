@@ -65,9 +65,12 @@ describe('locateValues', () => {
     const mode: Mode = {
       name: '4ch',
       dmxChannelCount: 4,
+      heads: 0,
       channels: ['red', 'green', 'blue', 'strobe'].map((fn, i) => ({
         offset: i + 1,
         function: fn,
+        attribute: fn,
+        head: 0,
         name: fn,
         resolution: 8,
         dmxChannelCount: 1,
@@ -88,7 +91,7 @@ describe('channelOwners', () => {
     const channel = (name: string, offset: number, dmxChannelCount: number) =>
       ({ name, offset, dmxChannelCount }) as Channel;
     const modes = new Map<number, Mode>([
-      [1, { name: '3ch', dmxChannelCount: 3, channels: [channel('Pan', 0, 2), channel('Dimmer', 2, 1)] }],
+      [1, { name: '3ch', dmxChannelCount: 3, heads: 0, channels: [channel('Pan', 0, 2), channel('Dimmer', 2, 1)] }],
     ]);
 
     const owners = channelOwners([head], modes);
