@@ -1,8 +1,12 @@
 package de.vinzens.lumen.application.output.port.in;
 
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.output.PresetRefs;
+import de.vinzens.lumen.domain.preset.Preset;
+import de.vinzens.lumen.domain.scene.Look;
 
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -12,6 +16,20 @@ public interface ControlProgrammerUseCase {
 
 	/** Programmer values per fixture id. */
 	Map<Long, FixtureValues> programmerValues();
+
+	/** Presets the programmer values come from. */
+	PresetRefs programmerPresets();
+
+	/** Values and presets of the programmer, without fixtures that have no values. */
+	default Look programmerLook() {
+		var values = new HashMap<Long, FixtureValues>();
+		programmerValues().forEach((fixtureId, fixtureValues) -> {
+			if (!fixtureValues.isEmpty()) {
+				values.put(fixtureId, fixtureValues);
+			}
+		});
+		return new Look(values, programmerPresets());
+	}
 
 	/**
 	 * Sets attribute values of a fixture of the active project; other attributes keep their values.
@@ -35,7 +53,24 @@ public interface ControlProgrammerUseCase {
 	 * Replaces the whole programmer, e.g. with the values of a scene. Fixtures that are not patched and
 	 * attributes a fixture does not have (any more) are skipped.
 	 */
-	void loadValues(Map<Long, FixtureValues> values);
+	default void loadValues(Map<Long, FixtureValues> values) {
+		loadLook(Look.of(values));
+	}
+
+	/** Like {@link #loadValues}, keeping the preset references, e.g. of a scene. */
+	void loadLook(Look look);
+
+	/**
+	 * Sets the values of a preset on fixtures of the active project and remembers that they come from it. Fixtures
+	 * the preset has no values for are skipped.
+	 */
+	void applyPreset(Collection<Long> fixtureIds, Preset preset);
+
+	/** Fixtures in the programmer that refer to the preset take its new values. */
+	void presetChanged(Preset preset);
+
+	/** Fixtures in the programmer keep their values but no longer refer to the preset. */
+	void presetDeleted(long presetId);
 
 	void clearFixture(long fixtureId);
 

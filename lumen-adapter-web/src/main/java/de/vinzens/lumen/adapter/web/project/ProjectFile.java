@@ -4,6 +4,7 @@ import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionReque
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.StepDto;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.TargetDto;
+import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.scene.TimingJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
@@ -16,8 +17,11 @@ import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.KeyMode;
+import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.party.PartyButton;
+import de.vinzens.lumen.domain.preset.Preset;
+import de.vinzens.lumen.domain.preset.PresetSpec;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
@@ -53,7 +57,7 @@ import java.util.Set;
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
 		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions,
-		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons) {
+		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons, List<PresetEntry> presets) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
@@ -76,7 +80,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.keys().stream().map(k -> new ExtraKeyEntry(k.slot(), k.mode().id(), k.fade().toMillis(),
 						k.composition().map(c -> CompositionEntry.from(c, sceneNumbers, json)).orElse(null),
 						k.sceneId().map(sceneNumbers::get).orElse(null))).toList(),
-				export.partyButtons().stream().map(PartyButtonEntry::from).toList());
+				export.partyButtons().stream().map(PartyButtonEntry::from).toList(),
+				export.presets().stream().map(PresetEntry::from).toList());
 	}
 
 	ProjectExport toExport(JsonMapper json) {
@@ -113,7 +118,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 						plan.data() == null ? new byte[0] : plan.data())),
 				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList(),
 				list(extraKeys).stream().map(k -> k.toKey(sceneIds, json)).toList(), sceneKeys,
-				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList());
+				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList(),
+				list(presets).stream().map(PresetEntry::toPreset).toList());
 	}
 
 	/**
@@ -121,6 +127,30 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 *
 	 * @param mode toggle or flash
 	 */
+	/**
+	 * A preset with its values per fixture id; files from before presets have none.
+	 *
+	 * @param id    connects scenes to the preset within the file
+	 * @param group "color", "position" or "beam"
+	 */
+	record PresetEntry(Long id, String name, String group, Map<Long, Map<String, Double>> values) {
+
+		static PresetEntry from(Preset preset) {
+			return new PresetEntry(preset.id(), preset.spec().name(), preset.spec().group().id(),
+					ValuesJson.toJson(preset.values()));
+		}
+
+		Preset toPreset() {
+			if (id == null || group == null) {
+				throw new DomainValidationException(List.of("Preset '" + name + "' has no id or group"));
+			}
+			var fixtureValues = new HashMap<Long, FixtureValues>();
+			(values == null ? Map.<Long, Map<String, Double>>of() : values)
+					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));
+			return new Preset(id, 0, new PresetSpec(name, AttributeGroup.parse(group)), fixtureValues);
+		}
+	}
+
 	record PartyButtonEntry(String name, String mode, Map<Long, Map<String, Double>> values) {
 
 		static PartyButtonEntry from(PartyButton button) {
@@ -272,10 +302,12 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param fadeCurve own fade curve, {@code null} = the project's
 	 * @param script    text spoken on stage, {@code null} in files before iteration T
 	 * @param values    normalized values (0–1) per fixture id and attribute
+	 * @param presets   presets the values come from: fixture id → attribute group → preset id (none before presets)
 	 * @param extraKeys extra keys usable in this scene
 	 */
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly, Long fadeInMs,
 			Long fadeOutMs, Long delayMs, String fadeCurve, String script, Map<Long, Map<String, Double>> values,
+			Map<Long, Map<String, Long>> presets,
 			List<Integer> extraKeys) {
 
 		static SceneEntry from(Scene scene, Set<Integer> keys) {
@@ -285,6 +317,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(), ValuesJson.toJson(scene.values()),
+					PresetRefsJson.toJson(scene.presets()),
 					keys.stream().sorted().toList());
 		}
 
@@ -298,7 +331,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			var fixtureValues = new HashMap<Long, FixtureValues>();
 			(values == null ? Map.<Long, Map<String, Double>>of() : values)
 					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));
-			return new Scene(id, 0, spec, fixtureValues);
+			return new Scene(id, 0, spec, fixtureValues, PresetRefsJson.fromJson(presets));
 		}
 	}
 }

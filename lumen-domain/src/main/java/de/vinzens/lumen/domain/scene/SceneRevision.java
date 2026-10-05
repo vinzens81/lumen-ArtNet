@@ -1,9 +1,6 @@
 package de.vinzens.lumen.domain.scene;
 
-import de.vinzens.lumen.domain.output.FixtureValues;
-
 import java.time.Instant;
-import java.util.Map;
 import java.util.Objects;
 
 /**
@@ -11,7 +8,7 @@ import java.util.Objects;
  *
  * @param reason what replaced this look, e.g. "Update from programmer"
  */
-public record SceneRevision(long id, long sceneId, Instant createdAt, String reason, Map<Long, FixtureValues> values) {
+public record SceneRevision(long id, long sceneId, Instant createdAt, String reason, Look look) {
 
 	/** Revisions kept per scene; older ones are dropped. */
 	public static final int KEEP = 20;
@@ -19,6 +16,6 @@ public record SceneRevision(long id, long sceneId, Instant createdAt, String rea
 	public SceneRevision {
 		Objects.requireNonNull(createdAt, "createdAt");
 		Objects.requireNonNull(reason, "reason");
-		values = Map.copyOf(values);
+		Objects.requireNonNull(look, "look");
 	}
 }

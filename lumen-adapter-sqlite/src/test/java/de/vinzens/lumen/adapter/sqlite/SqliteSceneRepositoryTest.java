@@ -9,6 +9,10 @@ import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.project.StagePlan;
 import de.vinzens.lumen.domain.project.UniverseSpec;
+import de.vinzens.lumen.domain.library.AttributeGroup;
+import de.vinzens.lumen.domain.output.PresetRefs;
+import de.vinzens.lumen.domain.preset.PresetSpec;
+import de.vinzens.lumen.domain.scene.Look;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -72,16 +76,41 @@ class SqliteSceneRepositoryTest {
 		var scene = repos.scenes().create(project, spec("1", "Look"), Map.of());
 		for (var level : new double[] {0.1, 0.2, 0.3}) {
 			repos.scenes().saveRevision(scene.id(), Instant.EPOCH, "Update",
-					Map.of(par, new FixtureValues(Map.of(DIMMER, level))), 2);
+					Look.of(Map.of(par, new FixtureValues(Map.of(DIMMER, level)))), 2);
 		}
 
 		var revisions = repos.scenes().findRevisions(scene.id());
-		assertThat(revisions).extracting(r -> r.values().get(par).get(DIMMER).orElseThrow()).containsExactly(0.3, 0.2);
+		assertThat(revisions).extracting(r -> r.look().values().get(par).get(DIMMER).orElseThrow())
+				.containsExactly(0.3, 0.2);
 		assertThat(repos.scenes().findRevision(revisions.getFirst().id())).get()
 				.satisfies(r -> assertThat(r.reason()).isEqualTo("Update"));
 
 		repos.scenes().delete(scene.id());
 		assertThat(repos.scenes().findRevisions(scene.id())).isEmpty();
+	}
+
+	@Test
+	void presetReferencesAreStoredWithScenesAndRevisions() {
+		var red = Attribute.of(ChannelFunction.RED);
+		var warm = repos.presets().create(project, new PresetSpec("Warm", AttributeGroup.COLOR),
+				Map.of(par, new FixtureValues(Map.of(red, 0.9))));
+		var look = new Look(Map.of(par, new FixtureValues(Map.of(DIMMER, 1.0, red, 0.9))),
+				PresetRefs.NONE.with(par, AttributeGroup.COLOR, warm.id()));
+
+		var scene = repos.scenes().create(project, spec("1", "Warm look"), look);
+		repos.scenes().saveRevision(scene.id(), Instant.EPOCH, "Update", look, 5);
+
+		assertThat(repos.scenes().findById(scene.id()).orElseThrow().look()).isEqualTo(look);
+		assertThat(repos.scenes().findByProject(project).getFirst().presets().presetOf(par, AttributeGroup.COLOR))
+				.contains(warm.id());
+		assertThat(repos.scenes().findRevisions(scene.id()).getFirst().look()).isEqualTo(look);
+		assertThat(repos.presets().findByProject(project)).singleElement()
+				.satisfies(p -> assertThat(p.values().get(par).get(red)).contains(0.9));
+
+		repos.presets().delete(warm.id());
+		var after = repos.scenes().findById(scene.id()).orElseThrow();
+		assertThat(after.presets().isEmpty()).isTrue();
+		assertThat(after.values()).as("values stay").isEqualTo(look.values());
 	}
 
 	@Test

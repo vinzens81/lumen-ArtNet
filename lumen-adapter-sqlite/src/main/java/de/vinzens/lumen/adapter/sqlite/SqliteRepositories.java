@@ -21,6 +21,7 @@ public final class SqliteRepositories {
 	private final SqliteStagePlanRepository stagePlans;
 	private final SqliteCompositionRepository compositions;
 	private final SqlitePartyButtonRepository partyButtons;
+	private final SqlitePresetRepository presets;
 	private final SqliteExpectedNodeRepository expectedNodes;
 
 	private final DataSource dataSource;
@@ -39,6 +40,7 @@ public final class SqliteRepositories {
 		this.stagePlans = new SqliteStagePlanRepository(jdbc);
 		this.compositions = new SqliteCompositionRepository(jdbc, transactions);
 		this.partyButtons = new SqlitePartyButtonRepository(jdbc, transactions);
+		this.presets = new SqlitePresetRepository(jdbc, transactions);
 		this.expectedNodes = new SqliteExpectedNodeRepository(jdbc);
 	}
 
@@ -84,6 +86,10 @@ public final class SqliteRepositories {
 
 	public SqliteExpectedNodeRepository expectedNodes() {
 		return expectedNodes;
+	}
+
+	public SqlitePresetRepository presets() {
+		return presets;
 	}
 
 	public SqlitePartyButtonRepository partyButtons() {

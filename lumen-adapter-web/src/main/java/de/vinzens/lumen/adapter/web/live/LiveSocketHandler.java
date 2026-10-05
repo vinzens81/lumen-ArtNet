@@ -2,6 +2,7 @@ package de.vinzens.lumen.adapter.web.live;
 
 import de.vinzens.lumen.adapter.web.access.ConfigLock;
 import de.vinzens.lumen.adapter.web.output.HealthResponse;
+import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.party.PartyDtos.PartyResponse;
 import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
@@ -49,8 +50,8 @@ import java.util.concurrent.TimeUnit;
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
  * {@code party} (tempo, palettes, buttons), {@code health} (every second), {@code partyButtons}, {@code compositions},
- * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last eight ask
- * the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects}, {@code presets}
+ * (the last nine ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
  * {@code sceneId} and {@code line}) and {@code keys.press/release} (with {@code slot}) for low latency.
  *
@@ -194,6 +195,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case PROGRAMMER -> {
 				message.put("type", "programmer");
 				message.put("values", ValuesJson.toJson(programmer.programmerValues()));
+				message.put("presets", PresetRefsJson.toJson(programmer.programmerPresets()));
 			}
 			case OUTPUT -> {
 				var state = master.master();
@@ -222,6 +224,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 				message.put("status", PartyResponse.from(party.status(), clock.instant()));
 			}
 			case PARTY_BUTTONS -> message.put("type", "partyButtons");
+			case PRESETS -> message.put("type", "presets");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));

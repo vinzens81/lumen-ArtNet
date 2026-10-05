@@ -28,7 +28,7 @@ describe('sceneRequestOf', () => {
     const scene: Scene = {
       id: 1, number: '2', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,
       fadeInMs: 0, fadeOutMs: null, delayMs: 500, fadeCurve: 'square', script: 'Hark.', fixtureCount: 0, values: {},
-      compositions: [],
+      presets: {}, compositions: [],
     };
     expect({ ...sceneRequestOf(scene), number: '2.5' }).toEqual({
       number: '2.5', name: 'Flash', cueNote: null, autoFollowMs: null, keyOnly: false,

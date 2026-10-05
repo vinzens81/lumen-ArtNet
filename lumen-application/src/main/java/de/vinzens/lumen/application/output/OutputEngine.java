@@ -25,10 +25,13 @@ import de.vinzens.lumen.domain.output.LayerMerger;
 import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.output.MasterState;
 import de.vinzens.lumen.domain.output.OperatingMode;
+import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.output.Programmer;
 import de.vinzens.lumen.domain.output.RenderFixture;
+import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.Universe;
+import de.vinzens.lumen.domain.scene.Look;
 
 import java.time.Clock;
 import java.util.ArrayList;
@@ -185,6 +188,11 @@ public class OutputEngine
 	}
 
 	@Override
+	public PresetRefs programmerPresets() {
+		return programmer.get().presets();
+	}
+
+	@Override
 	public FixtureValues setValues(long fixtureId, FixtureValues values) {
 		requireSetupMode();
 		var fixture = requireFixture(fixtureId);
@@ -253,22 +261,63 @@ public class OutputEngine
 	}
 
 	@Override
-	public void loadValues(Map<Long, FixtureValues> values) {
+	public void loadLook(Look look) {
 		requireSetupMode();
 		var current = patch.get();
 		var loaded = new HashMap<Long, FixtureValues>();
-		values.forEach((fixtureId, fixtureValues) -> current.fixture(fixtureId).ifPresent(fixture -> {
-			var allowed = fixture.mode().attributes();
-			var supported = new HashMap<Attribute, Double>();
-			fixtureValues.values().forEach((attribute, value) -> {
-				if (allowed.contains(attribute)) {
-					supported.put(attribute, value);
-				}
-			});
-			loaded.put(fixtureId, new FixtureValues(supported));
-		}));
-		programmer.set(new Programmer(loaded));
+		look.values().forEach((fixtureId, fixtureValues) -> current.fixture(fixtureId).ifPresent(fixture ->
+				loaded.put(fixtureId, supported(fixture, fixtureValues))));
+		programmer.set(new Programmer(loaded, look.presets()));
 		events.publish(StateTopic.PROGRAMMER);
+	}
+
+	@Override
+	public void applyPreset(Collection<Long> fixtureIds, Preset preset) {
+		requireSetupMode();
+		var targets = new LinkedHashSet<>(fixtureIds).stream().map(this::requireFixture).toList();
+		programmer.updateAndGet(p -> {
+			var next = p;
+			for (var fixture : targets) {
+				var values = preset.values().get(fixture.fixtureId());
+				if (values != null) {
+					next = next.withPreset(fixture.fixtureId(), supported(fixture, values), preset.spec().group(),
+							preset.id());
+				}
+			}
+			return next;
+		});
+		events.publish(StateTopic.PROGRAMMER);
+	}
+
+	@Override
+	public void presetChanged(Preset preset) {
+		var before = programmer.getAndUpdate(p -> {
+			var look = new Look(p.fixtures(), p.presets()).withPreset(preset);
+			return new Programmer(look.values(), look.presets());
+		});
+		if (!before.presets().fixturesUsing(preset.id()).isEmpty()) {
+			events.publish(StateTopic.PROGRAMMER);
+		}
+	}
+
+	@Override
+	public void presetDeleted(long presetId) {
+		var before = programmer.getAndUpdate(p -> new Programmer(p.fixtures(), p.presets().withoutPreset(presetId)));
+		if (!before.presets().fixturesUsing(presetId).isEmpty()) {
+			events.publish(StateTopic.PROGRAMMER);
+		}
+	}
+
+	/** Only the values of attributes the fixture has. */
+	private static FixtureValues supported(RenderFixture fixture, FixtureValues values) {
+		var allowed = fixture.mode().attributes();
+		var supported = new HashMap<Attribute, Double>();
+		values.values().forEach((attribute, value) -> {
+			if (allowed.contains(attribute)) {
+				supported.put(attribute, value);
+			}
+		});
+		return new FixtureValues(supported);
 	}
 
 	@Override

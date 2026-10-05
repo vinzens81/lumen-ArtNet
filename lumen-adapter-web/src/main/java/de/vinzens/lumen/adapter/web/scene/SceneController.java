@@ -1,5 +1,6 @@
 package de.vinzens.lumen.adapter.web.scene;
 
+import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCase;
 import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase;
@@ -173,14 +174,16 @@ class SceneController {
 
 	/**
 	 * @param reason what replaced this look, e.g. "Update from programmer"
-	 * @param values the look, programmer-style values per fixture id
+	 * @param values  the look, programmer-style values per fixture id
+	 * @param presets presets the values came from
 	 */
 	record RevisionResponse(long id, Instant createdAt, String reason, int fixtureCount,
-			Map<Long, Map<String, Double>> values) {
+			Map<Long, Map<String, Double>> values, Map<Long, Map<String, Long>> presets) {
 
 		static RevisionResponse from(SceneRevision revision) {
-			return new RevisionResponse(revision.id(), revision.createdAt(), revision.reason(),
-					revision.values().size(), ValuesJson.toJson(revision.values()));
+			var look = revision.look();
+			return new RevisionResponse(revision.id(), revision.createdAt(), revision.reason(), look.values().size(),
+					ValuesJson.toJson(look.values()), PresetRefsJson.toJson(look.presets()));
 		}
 	}
 
@@ -195,11 +198,12 @@ class SceneController {
 	 * @param fadeCurve    own fade curve, {@code null} = the project's
 	 * @param script       text spoken on stage during the scene, empty if none
 	 * @param values       programmer-style values per fixture id
+	 * @param presets      presets the values come from: fixture id → attribute group → preset id
 	 * @param compositions compositions running in the scene, in their order
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
 			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script, int fixtureCount,
-			Map<Long, Map<String, Double>> values,
+			Map<Long, Map<String, Double>> values, Map<Long, Map<String, Long>> presets,
 			List<CompositionSummary> compositions) {
 
 		static SceneResponse from(Scene scene, List<Composition> compositions) {
@@ -209,7 +213,8 @@ class SceneController {
 					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(), scene.values().size(),
-					ValuesJson.toJson(scene.values()), compositions.stream()
+					ValuesJson.toJson(scene.values()), PresetRefsJson.toJson(scene.look().presets()),
+					compositions.stream()
 							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
 							.toList());
 		}

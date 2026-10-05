@@ -37,6 +37,12 @@ class ProgrammerController {
 		return toJson(programmer.programmerValues());
 	}
 
+	/** Which preset the values of each fixture come from: fixture id → attribute group → preset id. */
+	@GetMapping("/presets")
+	Map<Long, Map<String, Long>> presets() {
+		return PresetRefsJson.toJson(programmer.programmerPresets());
+	}
+
 	@PatchMapping("/fixtures/{fixtureId}")
 	Map<String, Double> setValues(@PathVariable long fixtureId, @RequestBody Map<String, Double> body) {
 		return toJson(programmer.setValues(fixtureId, fromJson(body)));

@@ -16,9 +16,10 @@
     curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
   } from '../lib/sceneTiming';
   import { shortTime } from '../lib/format';
+  import { presetNames } from '../lib/presets';
   import { programmerSelection } from '../lib/selection.svelte';
   import { stagePreview } from '../lib/stagePreview.svelte';
-  import type { AttributeGroup, FadeCurve, Fixture, Group, Scene, SceneRevision } from '../lib/types';
+  import type { AttributeGroup, FadeCurve, Fixture, Group, Preset, Scene, SceneRevision } from '../lib/types';
 
   const ATTRIBUTE_GROUPS: { id: AttributeGroup; label: string }[] = [
     { id: 'intensity', label: 'Intensity' },
@@ -38,6 +39,7 @@
   /** options of “update from programmer”: replace the whole look or merge parts of the programmer */
   let update = $state({ merge: false, onlySelected: false, groups: [] as AttributeGroup[] });
   let revisions = $state<SceneRevision[]>([]);
+  let presets = $state<Preset[]>([]);
   let form = $state({
     number: '',
     name: '',
@@ -100,6 +102,11 @@
     void live.patchRevision;
     void live.compositionsRevision;
     if (projectId !== null) load(projectId);
+  });
+
+  $effect(() => {
+    void live.presetsRevision;
+    if (projectId !== null) api.presets.list(projectId).then((list) => (presets = list), showError);
   });
 
   $effect(() => {
@@ -585,6 +592,9 @@
                 <li>
                   <span class="swatch" style="--color: {rgbToCss(preview.color)}; --intensity: {preview.intensity}"></span>
                   {fixture.name}
+                  {#each presetNames(selected.presets, fixture.id, presets) as name (name)}
+                    <span class="preset-tag" title="Takes its values from this preset">{name}</span>
+                  {/each}
                   <span class="mono dim">{Math.round((selected.values[fixture.id].dimmer ?? 0) * 100)}%</span>
                 </li>
               {:else}
@@ -683,6 +693,14 @@
 </Modal>
 
 <style>
+  .preset-tag {
+    padding: 0 6px;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    color: var(--text-dim);
+    font-size: 0.75rem;
+  }
+
   .update-options {
     display: flex;
     flex-direction: column;

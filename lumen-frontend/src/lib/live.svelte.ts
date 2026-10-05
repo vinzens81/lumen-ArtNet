@@ -1,7 +1,9 @@
 import { api } from './api';
 import { groupByValues } from './liveCommands';
 import { showError } from './toasts.svelte';
-import type { AttributeValues, MasterState, OperatingMode, OutputHealth, PartyStatus, PlaybackStatus } from './types';
+import type {
+  AttributeValues, MasterState, OperatingMode, OutputHealth, PartyStatus, PlaybackStatus, PresetRefs,
+} from './types';
 
 const SEND_INTERVAL_MS = 33;
 /** Incoming snapshots are overlaid with local edits for this long, so faders do not jump back. */
@@ -20,6 +22,9 @@ const SILENCE_LIMIT_MS = 3500;
 class LiveState {
   connected = $state(false);
   programmer = $state<Record<number, AttributeValues>>({});
+  /** presets the programmer values come from */
+  programmerPresets = $state<PresetRefs>({});
+  presetsRevision = $state(0);
   master = $state<MasterState>({ level: 1, blackout: false });
   /** Incremented when the server reports patch or project changes; views reload when it changes. */
   patchRevision = $state(0);
@@ -78,6 +83,7 @@ class LiveState {
       this.libraryRevision++;
       this.compositionsRevision++;
       this.partyButtonsRevision++;
+      this.presetsRevision++;
       this.sendSubscriptions();
     };
     socket.onmessage = (event) => {
@@ -144,8 +150,12 @@ class LiveState {
           else values[id] = { ...values[id], ...edit.values };
         }
         this.programmer = values;
+        this.programmerPresets = (message.presets as PresetRefs | undefined) ?? {};
         break;
       }
+      case 'presets':
+        this.presetsRevision++;
+        break;
       case 'master':
         if (this.pendingMaster === null) {
           this.master = { level: message.level as number, blackout: message.blackout as boolean };

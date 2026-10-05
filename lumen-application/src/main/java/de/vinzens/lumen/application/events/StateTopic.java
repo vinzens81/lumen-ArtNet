@@ -33,5 +33,7 @@ public enum StateTopic {
 	/** Tempo, palettes, intensities or buttons of party mode changed. */
 	PARTY,
 	/** Party buttons of the active project were added, changed or removed. */
-	PARTY_BUTTONS
+	PARTY_BUTTONS,
+	/** Presets of the active project were added, changed or removed. */
+	PRESETS
 }

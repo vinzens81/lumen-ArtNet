@@ -186,6 +186,8 @@ export interface Scene {
   autoFollowMs: number | null;
   fixtureCount: number;
   values: Record<number, AttributeValues>;
+  /** presets the values come from */
+  presets: PresetRefs;
   /** compositions running in the scene, in their order */
   compositions: { id: number; name: string; kind: CompositionKind }[];
   /** only played by extra keys, GO skips it */
@@ -219,6 +221,21 @@ export interface SceneRequest {
 /** What an attribute is about, e.g. to update only the colors of a scene. */
 export type AttributeGroup = 'intensity' | 'color' | 'position' | 'beam' | 'other';
 
+/** Groups a preset can be made for. */
+export type PresetGroup = 'color' | 'position' | 'beam';
+
+/** Which preset the values of a fixture come from: fixture id → attribute group → preset id. */
+export type PresetRefs = Record<number, Partial<Record<AttributeGroup, number>>>;
+
+/** Named values of one attribute group per fixture, e.g. the color “Warm”; scenes using it change with it. */
+export interface Preset {
+  id: number;
+  name: string;
+  group: PresetGroup;
+  /** only attributes of the group, per fixture id */
+  values: Record<number, AttributeValues>;
+}
+
 /** What “update from programmer” takes: the whole programmer, or merged (only some fixtures/groups). */
 export interface RecordRequest {
   merge: boolean;
@@ -236,6 +253,7 @@ export interface SceneRevision {
   reason: string;
   fixtureCount: number;
   values: Record<number, AttributeValues>;
+  presets: PresetRefs;
 }
 
 export type OperatingMode = 'setup' | 'show' | 'party';

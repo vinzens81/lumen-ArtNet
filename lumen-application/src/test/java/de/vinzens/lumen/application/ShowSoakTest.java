@@ -392,7 +392,7 @@ class ShowSoakTest {
 				return all.stream().filter(s -> s.id() == id).findFirst();
 			}
 
-			public Scene create(long projectId, SceneSpec spec, Map<Long, FixtureValues> values) {
+			public Scene create(long projectId, SceneSpec spec, de.vinzens.lumen.domain.scene.Look look) {
 				throw new UnsupportedOperationException();
 			}
 
@@ -400,7 +400,7 @@ class ShowSoakTest {
 				throw new UnsupportedOperationException();
 			}
 
-			public Scene replaceValues(long id, Map<Long, FixtureValues> values) {
+			public Scene replaceLook(long id, de.vinzens.lumen.domain.scene.Look look) {
 				throw new UnsupportedOperationException();
 			}
 
@@ -409,7 +409,7 @@ class ShowSoakTest {
 			}
 
 			public de.vinzens.lumen.domain.scene.SceneRevision saveRevision(long sceneId, java.time.Instant createdAt,
-					String reason, java.util.Map<Long, de.vinzens.lumen.domain.output.FixtureValues> values, int keep) {
+					String reason, de.vinzens.lumen.domain.scene.Look look, int keep) {
 				throw new UnsupportedOperationException();
 			}
 

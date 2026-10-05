@@ -5,7 +5,8 @@ import type { ExtraKey, Scene } from './types';
 function scene(id: number, number: string, overrides: Partial<Scene> = {}): Scene {
   return {
     id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null, keyOnly: false,
-    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', fixtureCount: 1, values: {}, compositions: [],
+    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', fixtureCount: 1, values: {}, presets: {},
+    compositions: [],
     ...overrides,
   };
 }

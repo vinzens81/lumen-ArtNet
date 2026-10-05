@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.project;
 
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.party.port.out.PartyButtonRepository;
+import de.vinzens.lumen.application.preset.port.out.PresetRepository;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
@@ -17,11 +18,14 @@ import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.Target;
+import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
+import de.vinzens.lumen.domain.scene.Look;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 
 import java.time.Clock;
@@ -43,13 +47,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final StagePlanRepository stagePlans;
 	private final CompositionRepository compositions;
 	private final PartyButtonRepository partyButtons;
+	private final PresetRepository presets;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
-			CompositionRepository compositions, PartyButtonRepository partyButtons, Clock clock,
-			PatchChangeListener listener) {
+			CompositionRepository compositions, PartyButtonRepository partyButtons, PresetRepository presets,
+			Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
@@ -58,6 +63,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.partyButtons = Objects.requireNonNull(partyButtons, "partyButtons");
+		this.presets = Objects.requireNonNull(presets, "presets");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -68,7 +74,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
 				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
 				stagePlans.find(projectId), allCompositions(projectId), compositions.findKeys(projectId),
-				compositions.findSceneKeys(projectId), partyButtons.findByProject(projectId));
+				compositions.findSceneKeys(projectId), partyButtons.findByProject(projectId),
+				presets.findByProject(projectId));
 	}
 
 	private List<Composition> allCompositions(long projectId) {
@@ -112,11 +119,20 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			groupIds.put(group.id(), groups.create(projectId, new GroupSpec(spec.name(), spec.color(), spec.sortOrder(),
 					spec.fixtureIds().stream().map(fixtureIds::get).toList())).id());
 		}
+		var presetIds = new HashMap<Long, Long>();
+		for (var preset : export.presets()) {
+			presetIds.put(preset.id(), presets.create(projectId, preset.spec(), remap(preset.values(), fixtureIds)).id());
+		}
 		var sceneIds = new HashMap<Long, Long>();
 		for (var scene : export.scenes()) {
-			var values = new HashMap<Long, FixtureValues>();
-			scene.values().forEach((fixtureId, fixtureValues) -> values.put(fixtureIds.get(fixtureId), fixtureValues));
-			sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), values).id());
+			var refs = new HashMap<Long, Map<AttributeGroup, Long>>();
+			scene.presets().refs().forEach((fixtureId, groups) -> {
+				var mapped = new HashMap<AttributeGroup, Long>();
+				groups.forEach((group, presetId) -> mapped.put(group, presetIds.get(presetId)));
+				refs.put(fixtureIds.get(fixtureId), mapped);
+			});
+			var look = new Look(remap(scene.values(), fixtureIds), new PresetRefs(refs));
+			sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), look).id());
 		}
 		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
 
@@ -145,6 +161,13 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			button.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
 			partyButtons.create(projectId, button.name(), button.mode(), values);
 		}
+	}
+
+	/** Values with the fixture ids of the new project. */
+	private static Map<Long, FixtureValues> remap(Map<Long, FixtureValues> values, Map<Long, Long> fixtureIds) {
+		var result = new HashMap<Long, FixtureValues>();
+		values.forEach((fixtureId, fixtureValues) -> result.put(fixtureIds.get(fixtureId), fixtureValues));
+		return result;
 	}
 
 	/** The spec with fixture and group ids of the new project. */
@@ -228,6 +251,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			button.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
 					errors.add("Party button '" + button.name() + "' refers to unknown fixture " + id));
 		}
+		var presetIds = new HashSet<Long>();
+		for (var preset : export.presets()) {
+			if (!presetIds.add(preset.id())) {
+				errors.add("Preset id " + preset.id() + " is used twice");
+			}
+			preset.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
+					errors.add("Preset '" + preset.spec().name() + "' refers to unknown fixture " + id));
+		}
 		var sceneNumbers = new HashSet<SceneNumber>();
 		for (var scene : export.scenes()) {
 			if (!sceneNumbers.add(scene.spec().number())) {
@@ -235,6 +266,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			}
 			scene.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
 					errors.add("Scene " + scene.spec().number() + " refers to unknown fixture " + id));
+			scene.presets().refs().forEach((fixtureId, groups) -> {
+				if (!scene.values().containsKey(fixtureId)) {
+					errors.add("Scene " + scene.spec().number() + " refers to a preset for fixture " + fixtureId
+							+ " without values");
+				}
+				groups.values().stream().filter(id -> !presetIds.contains(id)).forEach(id ->
+						errors.add("Scene " + scene.spec().number() + " refers to unknown preset " + id));
+			});
 		}
 		if (!errors.isEmpty()) {
 			throw new DomainValidationException(List.copyOf(errors));

@@ -28,6 +28,9 @@ import type {
   SceneRequest,
   PartyButton,
   PartyStatus,
+  Preset,
+  PresetGroup,
+  PresetRefs,
   StagePreviewStatus,
   Universe,
   UniverseRequest,
@@ -113,6 +116,20 @@ export const api = {
     update: (projectId: number, id: number, group: GroupRequest) =>
       put<Group>(`/api/projects/${projectId}/groups/${id}`, group),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/groups/${id}`),
+  },
+  presets: {
+    list: (projectId: number) => get<Preset[]>(`/api/projects/${projectId}/presets`),
+    /** records a preset from the programmer values of the fixtures */
+    create: (projectId: number, name: string, group: PresetGroup, fixtureIds: number[]) =>
+      post<Preset>(`/api/projects/${projectId}/presets`, { name, group, fixtureIds }),
+    rename: (projectId: number, id: number, name: string) =>
+      put<Preset>(`/api/projects/${projectId}/presets/${id}`, { name }),
+    /** takes the programmer values of the fixtures into the preset; scenes using it change with it */
+    record: (projectId: number, id: number, fixtureIds: number[]) =>
+      post<Preset>(`/api/projects/${projectId}/presets/${id}/record`, { fixtureIds }),
+    apply: (projectId: number, id: number, fixtureIds: number[]) =>
+      post<void>(`/api/projects/${projectId}/presets/${id}/apply`, { fixtureIds }),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/presets/${id}`),
   },
   scenes: {
     list: (projectId: number) => get<Scene[]>(`/api/projects/${projectId}/scenes`),

@@ -9,20 +9,17 @@ import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
-import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.project.Project;
+import de.vinzens.lumen.domain.scene.Look;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneRevision;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
-import de.vinzens.lumen.domain.scene.SceneValues;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -66,8 +63,8 @@ public class SceneService implements ManageScenesUseCase {
 				: existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
 		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, keyOnly, timing, script);
-		var values = recordFromProgrammer ? programmerSnapshot() : Map.<Long, FixtureValues>of();
-		var created = scenes.create(projectId, spec, values);
+		var look = recordFromProgrammer ? programmer.programmerLook() : Look.EMPTY;
+		var created = scenes.create(projectId, spec, look);
 		inheritExtraKeys(projectId, existing, created);
 		return published(created);
 	}
@@ -103,7 +100,7 @@ public class SceneService implements ManageScenesUseCase {
 		requireFreeNumber(existing, sceneNumber, null);
 		var spec = original.spec();
 		var copy = scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
-				spec.autoFollow(), spec.keyOnly(), spec.timing(), spec.script()), original.values());
+				spec.autoFollow(), spec.keyOnly(), spec.timing(), spec.script()), original.look());
 		var copiedCompositions = compositions.findByScene(sceneId);
 		copiedCompositions.forEach(composition -> compositions.create(projectId, Optional.of(copy.id()),
 				composition.sourceId(), composition.spec()));
@@ -121,10 +118,10 @@ public class SceneService implements ManageScenesUseCase {
 	public Scene record(long projectId, long sceneId, RecordOptions options) {
 		requireActive(projectId);
 		var scene = requireScene(projectId, sceneId);
-		var values = options.merge()
-				? SceneValues.merge(scene.values(), programmerSnapshot(), options.fixtureIds(), options.groups())
-				: programmerSnapshot();
-		return replaceValues(scene, values, options.merge() ? "Merge from programmer" : "Update from programmer");
+		var look = options.merge()
+				? scene.look().merge(programmer.programmerLook(), options.fixtureIds(), options.groups())
+				: programmer.programmerLook();
+		return replaceLook(scene, look, options.merge() ? "Merge from programmer" : "Update from programmer");
 	}
 
 	@Override
@@ -140,22 +137,22 @@ public class SceneService implements ManageScenesUseCase {
 				.filter(r -> r.sceneId() == sceneId)
 				.orElseThrow(() -> new NotFoundException("Revision " + revisionId + " does not exist for scene "
 						+ sceneId));
-		return replaceValues(scene, revision.values(), "Restore");
+		return replaceLook(scene, revision.look(), "Restore");
 	}
 
 	/** Replaces the look of a scene, keeping the old look as a revision. */
-	private Scene replaceValues(Scene scene, Map<Long, FixtureValues> values, String reason) {
-		if (scene.values().equals(values)) {
+	private Scene replaceLook(Scene scene, Look look, String reason) {
+		if (scene.look().equals(look)) {
 			return scene;
 		}
-		scenes.saveRevision(scene.id(), clock.instant(), reason, scene.values(), SceneRevision.KEEP);
-		return published(scenes.replaceValues(scene.id(), values));
+		scenes.saveRevision(scene.id(), clock.instant(), reason, scene.look(), SceneRevision.KEEP);
+		return published(scenes.replaceLook(scene.id(), look));
 	}
 
 	@Override
 	public void loadIntoProgrammer(long projectId, long sceneId) {
 		requireActive(projectId);
-		programmer.loadValues(requireScene(projectId, sceneId).values());
+		programmer.loadLook(requireScene(projectId, sceneId).look());
 	}
 
 	@Override
@@ -163,17 +160,6 @@ public class SceneService implements ManageScenesUseCase {
 		requireScene(projectId, sceneId);
 		scenes.delete(sceneId);
 		events.publish(StateTopic.SCENES);
-	}
-
-	/** Programmer values without fixtures that have no values left. */
-	private Map<Long, FixtureValues> programmerSnapshot() {
-		var snapshot = new HashMap<Long, FixtureValues>();
-		programmer.programmerValues().forEach((fixtureId, values) -> {
-			if (!values.isEmpty()) {
-				snapshot.put(fixtureId, values);
-			}
-		});
-		return snapshot;
 	}
 
 	private void requireFreeNumber(List<Scene> existing, SceneNumber number, Long ownId) {

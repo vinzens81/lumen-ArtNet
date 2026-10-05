@@ -3,6 +3,7 @@
   import Fader from '../components/Fader.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import Modal from '../components/Modal.svelte';
+  import PresetPanel from '../components/PresetPanel.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import XYPad from '../components/XYPad.svelte';
   import { api } from '../lib/api';
@@ -25,7 +26,7 @@
   const RGB = ['red', 'green', 'blue'];
   const EXTRA_COLORS = ['white', 'warm-white', 'cold-white', 'amber', 'lime', 'uv', 'cyan', 'magenta', 'yellow', 'cto'];
   const HANDLED = new Set(['dimmer', ...RGB, ...EXTRA_COLORS, 'color-wheel', 'pan', 'tilt']);
-  const PRESETS: { name: string; rgb: Rgb }[] = [
+  const QUICK_COLORS: { name: string; rgb: Rgb }[] = [
     { name: 'Red', rgb: [1, 0, 0] },
     { name: 'Orange', rgb: [1, 0.45, 0] },
     { name: 'Yellow', rgb: [1, 0.85, 0] },
@@ -281,6 +282,11 @@
           <button class="btn small ghost" type="button" onclick={() => live.clear(selection)}>Clear</button>
         </header>
 
+        {#if projectId !== null}
+          <PresetPanel {projectId} {selection} attributes={available}
+            modes={new Map(entries.map((e) => [e.fixture.id, e.mode]))} />
+        {/if}
+
         <section>
           <h3>Intensity</h3>
           <Fader label="Dimmer" value={reference('dimmer').value} mixed={reference('dimmer').mixed}
@@ -297,7 +303,7 @@
             <h3>Color</h3>
             <ColorWheel hue={currentHsv[0]} saturation={currentHsv[1]} onchange={(h, s) => setColor(hsvToRgb(h, s, 1))} />
             <div class="presets">
-              {#each PRESETS as preset (preset.name)}
+              {#each QUICK_COLORS as preset (preset.name)}
                 <button type="button" class="preset" title={preset.name} aria-label={preset.name}
                   style="--color: {rgbToCss(preset.rgb)}" onclick={() => setColor(preset.rgb)}></button>
               {/each}
