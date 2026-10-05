@@ -9,6 +9,7 @@
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
+  import { wakeLock } from '../lib/wakeLock.svelte';
   import type { Fixture, PlaybackStatus, Scene } from '../lib/types';
 
   const GO_GUARD_MS = 300;
@@ -97,11 +98,10 @@
       now = performance.now();
       frame = requestAnimationFrame(tick);
     });
-    let wakeLock: WakeLockSentinel | null = null;
-    navigator.wakeLock?.request('screen').then((lock) => (wakeLock = lock)).catch(() => {});
+    const releaseWakeLock = wakeLock.hold();
     return () => {
       cancelAnimationFrame(frame);
-      wakeLock?.release();
+      releaseWakeLock();
     };
   });
 
@@ -169,6 +169,11 @@
         <button type="button" role="tab" aria-selected={tab === 'dmx'} class:active={tab === 'dmx'}
           onclick={() => showTab('dmx')}>DMX</button>
       </div>
+      {#if wakeLock.state === 'needs-tap'}
+        <span class="badge warning" title="The browser only keeps the screen on after a tap or key press">
+          Tap to keep the screen on
+        </span>
+      {/if}
       <span class="dim small">{app.active?.name}</span>
     </header>
     {#if tab === 'dmx'}

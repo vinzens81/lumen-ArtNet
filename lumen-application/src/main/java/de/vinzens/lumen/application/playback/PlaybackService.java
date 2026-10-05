@@ -10,7 +10,9 @@ import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.ExtraKeys;
+import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.LayerOutput;
@@ -23,11 +25,13 @@ import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.Executor;
+import java.util.concurrent.atomic.AtomicLong;
 
 /**
  * Runs the {@link Playback} of the active project as an output layer below the programmer. The scene list is
@@ -63,6 +67,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	/** Extra keys: laid over the playback output, usable only in the scenes they are enabled for. */
 	private ExtraKeys keys = new ExtraKeys();
 	private Map<Long, Set<Integer>> sceneKeys = Map.of();
+	private final AtomicLong reloads = new AtomicLong();
+	private long appliedReload;
 
 	/**
 	 * @param stateWriter runs the saving of the playback state, e.g. a single background thread
@@ -86,36 +92,50 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	/**
 	 * Loads the cue list of the active project; a different project starts from the beginning and offers to resume
-	 * where it was last played.
+	 * where it was last played. The database is read before taking the lock, so the render loop never waits for it.
 	 */
-	public synchronized void reload() {
-		var active = projects.findAll().stream().filter(Project::active).findFirst();
-		if (active.isEmpty()) {
+	public void reload() {
+		var sequence = reloads.incrementAndGet();
+		var loaded = projects.findAll().stream().filter(Project::active).findFirst().map(this::load);
+		apply(sequence, loaded);
+	}
+
+	private Loaded load(Project project) {
+		// scenes only for extra keys are not part of the cue list
+		var cueList = scenes.findByProject(project.id()).stream().filter(scene -> !scene.spec().keyOnly()).toList();
+		return new Loaded(project, cueList, compositions.scenes(project.id()), compositions.keys(project.id()),
+				compositions.sceneKeys(project.id()), states.currentScene(project.id()));
+	}
+
+	private synchronized void apply(long sequence, Optional<Loaded> loaded) {
+		if (sequence < appliedReload) {
+			return; // a reload that started later has already applied newer data
+		}
+		appliedReload = sequence;
+		if (loaded.isEmpty()) {
 			projectId = null;
 			playback = null;
 			savedSceneId = Optional.empty();
 			resumeSceneId = Optional.empty();
 			keys = new ExtraKeys();
 		} else {
-			var project = active.get();
-			// scenes only for extra keys are not part of the cue list
-			var cueList = scenes.findByProject(project.id()).stream().filter(scene -> !scene.spec().keyOnly()).toList();
-			var running = compositions.scenes(project.id());
+			var data = loaded.get();
+			var project = data.project();
 			var fadeIn = project.spec().fadeIn();
 			var fadeOut = project.spec().fadeOut();
 			if (playback == null || !Objects.equals(projectId, project.id())) {
 				projectId = project.id();
-				playback = new Playback(cueList, running, fadeIn, fadeOut);
-				savedSceneId = states.currentScene(project.id());
+				playback = new Playback(data.cueList(), data.running(), fadeIn, fadeOut);
+				savedSceneId = data.savedSceneId();
 				resumeSceneId = savedSceneId;
 				keys = new ExtraKeys();
 			} else {
-				playback.reload(cueList, running, fadeIn, fadeOut, clock.instant());
+				playback.reload(data.cueList(), data.running(), fadeIn, fadeOut, clock.instant());
 			}
-			resumeSceneId = resumeSceneId.filter(id -> cueList.stream().anyMatch(scene -> scene.id() == id));
+			resumeSceneId = resumeSceneId.filter(id -> data.cueList().stream().anyMatch(scene -> scene.id() == id));
 			var now = clock.instant();
-			keys.configure(compositions.keys(project.id()), now);
-			sceneKeys = compositions.sceneKeys(project.id());
+			keys.configure(data.keys(), now);
+			sceneKeys = data.sceneKeys();
 			updateKeyAvailability(now);
 		}
 		events.publish(StateTopic.PLAYBACK);
@@ -265,5 +285,11 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
 				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now));
+	}
+
+	/** What a reload reads from the database for the active project. */
+	private record Loaded(Project project, List<Scene> cueList, Map<Long, List<ActiveComposition>> running,
+			List<PlayableKey> keys, Map<Long, Set<Integer>> sceneKeys,
+			Optional<Long> savedSceneId) {
 	}
 }

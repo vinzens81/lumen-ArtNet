@@ -47,6 +47,8 @@ public final class Playback {
 	private int position = READY;
 	private Integer pendingNext;
 	private Transition transition;
+	/** A scene deleted while on stage: kept in {@link #scenes} until the playback moves on, so nothing jumps. */
+	private Long deletedOnStage;
 	/** Virtual time at which the stay of the current scene began (fade-in complete). */
 	private Duration stayStart = Duration.ZERO;
 
@@ -72,29 +74,40 @@ public final class Playback {
 	}
 
 	/**
-	 * Replaces the cue list, e.g. after scenes were edited. The current scene is kept by id; if it was deleted the
-	 * playback continues from its former position.
-	 */
-	/**
-	 * Replaces the cue list and the compositions of the scenes. Compositions that are still in the current scene
-	 * keep running with their phase, new ones start now.
+	 * Replaces the cue list and the compositions of the scenes, e.g. after scenes were edited. Nothing on stage
+	 * changes: the current scene is kept by id, the end of the show stays dark, and a scene deleted while on stage
+	 * stays there until the next GO, which plays the scene that followed it. Compositions that are still in the
+	 * current scene keep running with their phase, new ones start now.
 	 */
 	public void reload(List<Scene> newScenes, Map<Long, List<ActiveComposition>> newCompositions, Duration newFadeIn,
 			Duration newFadeOut, Instant now) {
-		var currentId = currentScene().map(Scene::id);
+		var current = currentScene();
 		var pendingId = Optional.ofNullable(pendingNext).filter(this::isScene).map(i -> scenes.get(i).id());
-		this.scenes = List.copyOf(newScenes);
-		this.compositions = Map.copyOf(newCompositions);
+		var cueList = new ArrayList<>(newScenes);
+		var cueCompositions = new HashMap<>(newCompositions);
+		deletedOnStage = null;
+		if (current.isPresent() && newScenes.stream().noneMatch(scene -> scene.id() == current.get().id())) {
+			var deleted = current.get();
+			var number = deleted.spec().number();
+			var index = 0;
+			while (index < cueList.size() && cueList.get(index).spec().number().compareTo(number) < 0) {
+				index++;
+			}
+			cueList.add(index, deleted);
+			cueCompositions.put(deleted.id(), compositions.getOrDefault(deleted.id(), List.of()));
+			deletedOnStage = deleted.id();
+		}
+		this.scenes = List.copyOf(cueList);
+		this.compositions = Map.copyOf(cueCompositions);
 		this.fadeIn = newFadeIn;
 		this.fadeOut = newFadeOut;
-		if (currentId.isPresent()) {
-			var index = indexOf(currentId.get());
-			position = index >= 0 ? index : Math.min(position, scenes.size());
+		if (current.isPresent()) {
+			position = indexOf(current.get().id());
 		} else if (position != READY) {
-			position = Math.min(position, scenes.size());
+			position = scenes.size(); // the end of the show
 		}
 		pendingNext = pendingId.map(this::indexOf).filter(i -> i >= 0).orElse(null);
-		if (transition != null && transition.target() >= 0 && transition.target() < scenes.size()) {
+		if (transition != null) {
 			transition = transition.withTarget(position);
 		}
 		var started = new HashMap<Long, Duration>();
@@ -148,6 +161,7 @@ public final class Playback {
 		stayStart = virtualNow(now);
 		var v = stayStart;
 		running = compositionsAt(index).stream().map(c -> new Running(c, v)).toList();
+		dropDeletedScene();
 	}
 
 	/** Chooses the scene that the next GO starts. */
@@ -337,6 +351,31 @@ public final class Playback {
 		position = target;
 		pendingNext = null;
 		stayStart = v.plus(fadeIn);
+		dropDeletedScene();
+	}
+
+	/** Removes a scene deleted while on stage once the playback has left it. */
+	private void dropDeletedScene() {
+		if (deletedOnStage == null) {
+			return;
+		}
+		var index = indexOf(deletedOnStage);
+		if (index == position) {
+			return;
+		}
+		var remaining = new ArrayList<>(scenes);
+		remaining.remove(index);
+		scenes = List.copyOf(remaining);
+		var remainingCompositions = new HashMap<>(compositions);
+		remainingCompositions.remove(deletedOnStage);
+		compositions = Map.copyOf(remainingCompositions);
+		deletedOnStage = null;
+		if (position > index) {
+			position--;
+			if (transition != null) {
+				transition = transition.withTarget(position);
+			}
+		}
 	}
 
 	private List<ActiveComposition> compositionsAt(int index) {

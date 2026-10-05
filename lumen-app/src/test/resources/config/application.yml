@@ -1,4 +1,7 @@
 # Test settings: tests run in the module directory lumen-app/
+spring:
+  main:
+    banner-mode: off
 lumen:
   fixture-library-dir: ../fixture-types
   # separate database per Spring context, removed by 'mvn clean'

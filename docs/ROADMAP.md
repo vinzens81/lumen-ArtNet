@@ -205,6 +205,10 @@ Konzept: [MIDI.md](MIDI.md)
 Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
 
 ## ⬜ Iteration 10 – Backlog (nach Bedarf)
+- ✅ Nebenbei: Robustheit – Playback liest beim Reload die Datenbank außerhalb der Sperre (Render-Loop wartet nicht),
+  eine während der Show gelöschte Szene bleibt bis zum nächsten GO stehen, nach dem Ende kommt keine neu angelegte
+  Szene auf die Bühne. WebSocket-Watchdog (3,5 s ohne Nachricht → neu verbinden), Wake Lock mit NoSleep.js-Fallback
+  für Tablets über HTTP, `caffeinate` in `run.sh`, ruhigere Test-Ausgabe
 - Fade-Zeiten pro Szene überschreiben, Delay
 - Externe GO-Taste: USB-Fußschalter (als Tastatur), OSC (z.B. aus QLab); MIDI siehe eigene Iteration
 - sACN als zweiter `DmxOutputPort`

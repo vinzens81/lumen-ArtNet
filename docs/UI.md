@@ -158,4 +158,7 @@ ausgeblendet.
 - Farbrad, Fader und XY-Pad als eigene Komponenten (Pointer Events für Touch und Maus).
 - Zentraler Store, gespeist aus WebSocket-Updates. Fortschrittsbalken werden clientseitig interpoliert
   (Server sendet Startzeit + Dauer), damit sie flüssig laufen.
-- Wake Lock API im Betrieb (Bildschirm geht nicht aus), später PWA im Vollbild.
+- Bildschirm bleibt in der Show-Ansicht an (`lib/wakeLock.svelte.ts`): Wake Lock API, wo der Browser sie erlaubt
+  (HTTPS oder localhost), sonst NoSleep.js mit unsichtbarem Video – das funktioniert auch auf Tablets über HTTP,
+  startet dort aber erst nach einem Tippen (Hinweis „Tap to keep the screen on“). Später PWA im Vollbild.
+- Der Rechner selbst schläft nicht ein, solange Lumen über `run.sh` läuft (`caffeinate` auf macOS).

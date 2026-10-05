@@ -169,6 +169,73 @@ class PlaybackTest {
 	}
 
 	@Test
+	void sceneAddedAfterTheEndOfTheShowDoesNotComeOnStage() {
+		go();
+		go();
+		go();
+		go();
+		advance(10_000);
+		playback.tick(now, B);
+		var encore = scene(4, "4", 1L, Optional.empty());
+
+		playback.reload(List.of(dawn, storm, night, encore), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+				now);
+
+		assertThat(playback.currentScene()).isEmpty();
+		assertThat(playback.position()).isEqualTo(4);
+		assertThat(dimmer(1)).isEqualTo(0.0);
+	}
+
+	@Test
+	void sceneAddedDuringTheFadeToTheEndDoesNotComeOnStage() {
+		go();
+		go();
+		go();
+		go();
+		advance(1000);
+		var encore = scene(4, "4", 4L, Optional.empty());
+
+		playback.reload(List.of(dawn, storm, night, encore), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+				now);
+
+		assertThat(playback.currentScene()).isEmpty();
+		assertThat(dimmer(4)).isEqualTo(0.0);
+	}
+
+	@Test
+	void deletedSceneStaysOnStageUntilTheNextGo() {
+		go();
+		advance(5000);
+		playback.tick(now, B);
+
+		playback.reload(List.of(storm, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
+
+		assertThat(dimmer(1)).as("no jump").isEqualTo(1.0);
+		assertThat(playback.nextScene()).contains(storm);
+
+		go();
+		advance(1000);
+		assertThat(dimmer(1)).as("fades out like any scene").isCloseTo(0.75, within(1e-9));
+		advance(4000);
+		playback.tick(now, B);
+		assertThat(playback.currentScene()).contains(storm);
+		assertThat(playback.scenes()).as("deleted scene is gone once it left the stage").containsExactly(storm, night);
+		assertThat(playback.position()).isEqualTo(0);
+	}
+
+	@Test
+	void deletedSceneMakesWayForANewSceneWithTheSameNumber() {
+		go();
+		go();
+		var replacement = scene(4, "2", 4L, Optional.empty());
+
+		playback.reload(List.of(dawn, replacement, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
+
+		assertThat(playback.currentScene()).contains(storm);
+		assertThat(playback.nextScene()).contains(replacement);
+	}
+
+	@Test
 	void restorePutsASceneOnStageWithoutFade() {
 		go();
 		advance(500);

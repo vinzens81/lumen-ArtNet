@@ -40,6 +40,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -54,6 +57,9 @@ class PlaybackServiceTest {
 	private final List<Optional<Long>> writes = new ArrayList<>();
 	private final StateEvents events = new StateEvents();
 	private FixedCompositions compositions = FixedCompositions.NONE;
+	/** Runs inside every scene query, e.g. to make the database slow. */
+	private Runnable onSceneQuery = () -> {
+	};
 
 	@BeforeEach
 	void setUp() {
@@ -162,6 +168,31 @@ class PlaybackServiceTest {
 				.get(DIMMER).orElse(0.0);
 	}
 
+	@Test
+	void renderLoopDoesNotWaitForTheDatabaseDuringAReload() throws Exception {
+		var service = service();
+		go(service);
+		var reading = new CountDownLatch(1);
+		var release = new CountDownLatch(1);
+		onSceneQuery = () -> {
+			reading.countDown();
+			try {
+				release.await();
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+			}
+		};
+		var reload = Thread.ofPlatform().start(service::reload);
+		try {
+			assertThat(reading.await(5, TimeUnit.SECONDS)).isTrue();
+			var tick = CompletableFuture.supplyAsync(() -> service.layer(clock.instant(), Map.of()));
+			assertThat(tick.get(5, TimeUnit.SECONDS).fixtures()).containsKey(1L);
+		} finally {
+			release.countDown();
+			reload.join();
+		}
+	}
+
 	private PlaybackService service() {
 		PlaybackStateRepository states = new PlaybackStateRepository() {
 			@Override
@@ -253,6 +284,7 @@ class PlaybackServiceTest {
 		return new SceneRepository() {
 			@Override
 			public List<Scene> findByProject(long projectId) {
+				onSceneQuery.run();
 				return List.copyOf(scenes);
 			}
 

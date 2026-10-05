@@ -1,12 +1,17 @@
 import { api } from './api';
+import { groupByValues } from './liveCommands';
 import { showError } from './toasts.svelte';
 import type { AttributeValues, MasterState, OperatingMode, OutputHealth, PlaybackStatus } from './types';
 
 const SEND_INTERVAL_MS = 33;
 /** Incoming snapshots are overlaid with local edits for this long, so faders do not jump back. */
 const LOCAL_EDIT_HOLD_MS = 300;
-
-type Pending = { fixtureIds: number[]; values: AttributeValues };
+/**
+ * The server sends the health status every second. Without any message for this long the connection is
+ * considered dead (e.g. a tablet that lost WiFi while the socket still looks open) and is reopened, so commands
+ * like GO fall back to REST instead of getting lost.
+ */
+const SILENCE_LIMIT_MS = 3500;
 
 /**
  * Live connection to the server: receives programmer and master state and sends fast control changes via
@@ -41,19 +46,25 @@ class LiveState {
 
   private socket: WebSocket | null = null;
   private retries = 0;
-  private pending = new Map<string, Pending>();
+  /** fixture id → values not sent yet */
+  private pending = new Map<number, AttributeValues>();
   private pendingMaster: number | null = null;
   private flushTimer: ReturnType<typeof setTimeout> | null = null;
   private localEdits = new Map<number, { values: AttributeValues; until: number }>();
   /** live output topics → number of views watching them */
   private watchers = new Map<string, number>();
+  private lastMessageAt = 0;
+  private silenceTimer: ReturnType<typeof setInterval> | null = null;
 
   connect() {
     const protocol = location.protocol === 'https:' ? 'wss' : 'ws';
     const socket = new WebSocket(`${protocol}://${location.host}/ws`);
     this.socket = socket;
     socket.onopen = () => {
+      if (this.socket !== socket) return;
       this.connected = true;
+      this.lastMessageAt = Date.now();
+      this.watchSilence();
       this.retries = 0;
       this.patchRevision++;
       this.projectsRevision++;
@@ -64,8 +75,13 @@ class LiveState {
       this.compositionsRevision++;
       this.sendSubscriptions();
     };
-    socket.onmessage = (event) => this.receive(JSON.parse(event.data));
+    socket.onmessage = (event) => {
+      if (this.socket !== socket) return;
+      this.lastMessageAt = Date.now();
+      this.receive(JSON.parse(event.data));
+    };
     socket.onclose = () => {
+      if (this.socket !== socket) return; // already given up by the silence watchdog
       this.connected = false;
       this.socket = null;
       const delay = Math.min(5000, 500 * 2 ** this.retries++);
@@ -92,6 +108,19 @@ class LiveState {
     if (this.socket?.readyState === WebSocket.OPEN) {
       this.socket.send(JSON.stringify({ type: 'subscribe', topics: [...this.watchers.keys()] }));
     }
+  }
+
+  /** Gives up a socket that stays silent: close() of a dead connection may take long to report onclose. */
+  private watchSilence() {
+    if (this.silenceTimer !== null) return;
+    this.silenceTimer = setInterval(() => {
+      const socket = this.socket;
+      if (socket?.readyState !== WebSocket.OPEN || Date.now() - this.lastMessageAt < SILENCE_LIMIT_MS) return;
+      this.socket = null;
+      this.connected = false;
+      socket.close();
+      this.connect();
+    }, 1000);
   }
 
   /** Reconnects, e.g. after unlocking setup, so the server sees the new session. */
@@ -178,13 +207,9 @@ class LiveState {
     }
     this.programmer = next;
 
-    // group fixtures with identical values into one command
     for (const [key, values] of Object.entries(perFixture)) {
-      const signature = JSON.stringify(Object.keys(values).sort());
-      const entry = this.pending.get(signature) ?? { fixtureIds: [], values: {} };
-      if (!entry.fixtureIds.includes(Number(key))) entry.fixtureIds.push(Number(key));
-      Object.assign(entry.values, values);
-      this.pending.set(signature, entry);
+      const id = Number(key);
+      this.pending.set(id, { ...this.pending.get(id), ...values });
     }
     this.scheduleFlush();
   }
@@ -258,7 +283,7 @@ class LiveState {
 
   private flush() {
     this.flushTimer = null;
-    const commands = [...this.pending.values()];
+    const commands = groupByValues(this.pending);
     const masterLevel = this.pendingMaster;
     this.pending.clear();
     this.pendingMaster = null;

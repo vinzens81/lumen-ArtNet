@@ -1,15 +1,34 @@
 package de.vinzens.lumen.application.output;
 
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class RenderLoopTest {
+
+	/** The tests make ticks fail and hang on purpose; the loop's error log would look like a broken build. */
+	private final Logger log = Logger.getLogger(RenderLoop.class.getName());
+	private Level previousLevel;
+
+	@BeforeEach
+	void silenceExpectedErrors() {
+		previousLevel = log.getLevel();
+		log.setLevel(Level.OFF);
+	}
+
+	@AfterEach
+	void restoreLogging() {
+		log.setLevel(previousLevel);
+	}
 
 	@Test
 	void keepsRunningWhenATickThrowsEvenAnError() throws InterruptedException {

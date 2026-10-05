@@ -27,5 +27,7 @@ public enum StateTopic {
 	/** The fixture library was reloaded. */
 	LIBRARY,
 	/** Compositions in the library or in scenes changed. */
-	COMPOSITIONS
+	COMPOSITIONS,
+	/** The stage preview of the composition editor started or stopped. */
+	STAGE_PREVIEW
 }

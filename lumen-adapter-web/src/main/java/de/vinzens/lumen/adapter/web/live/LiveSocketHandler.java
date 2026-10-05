@@ -206,7 +206,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case PROJECTS -> message.put("type", "projects");
 			case ACCESS -> message.put("type", "access");
 			case LIBRARY -> message.put("type", "library");
-			case COMPOSITIONS -> message.put("type", "compositions");
+			// the editor shows what is on stage with the compositions
+			case COMPOSITIONS, STAGE_PREVIEW -> message.put("type", "compositions");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));

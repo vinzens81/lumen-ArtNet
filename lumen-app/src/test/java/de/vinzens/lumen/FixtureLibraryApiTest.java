@@ -25,16 +25,23 @@ class FixtureLibraryApiTest {
 	}
 
 	@Test
-	void listsFixtureTypesWithDmxOffsets() {
-		var response = assertThat(mvc.get().uri("/api/library/fixture-types")).hasStatusOk().bodyJson();
-
-		response.extractingPath("$[*].id").asArray()
-				.containsExactly("diy-esp8266-artnet-dimmer", "example-moving-head-spot", "generic-dimmer",
+	void listsTheBundledFixtureTypes() {
+		assertThat(mvc.get().uri("/api/library/fixture-types")).hasStatusOk().bodyJson()
+				.extractingPath("$[*].id").asArray()
+				// the library grows with every new profile, so only check for the examples the tests rely on
+				.contains("diy-esp8266-artnet-dimmer", "example-moving-head-spot", "generic-dimmer",
 						"generic-rgbw-par");
-		response.extractingPath("$[1].modes[0].dmxChannelCount").isEqualTo(13);
+	}
+
+	@Test
+	void fixtureTypeHasDmxOffsets() {
+		var response = assertThat(mvc.get().uri("/api/library/fixture-types/example-moving-head-spot")).hasStatusOk()
+				.bodyJson();
+
+		response.extractingPath("$.modes[0].dmxChannelCount").isEqualTo(13);
 		// tilt follows the 16-bit pan channel and therefore starts at offset 3
-		response.extractingPath("$[1].modes[0].channels[1].offset").isEqualTo(3);
-		response.extractingPath("$[1].modes[0].channels[5].fade").isEqualTo("snap");
+		response.extractingPath("$.modes[0].channels[1].offset").isEqualTo(3);
+		response.extractingPath("$.modes[0].channels[5].fade").isEqualTo("snap");
 	}
 
 	@Test

@@ -4,13 +4,14 @@
 #   ./build.sh          clean build with all tests (Java, ArchUnit, Vitest, svelte-check)
 #   ./build.sh --fast   clean build without tests – e.g. before trying something out
 #
-# Always starts clean: in an iCloud-synced folder, copies like "Foo 2.class" can appear in target/
-# and make the start hang.
+# Always starts clean: in an iCloud-synced folder, copies like "Foo 2.class" or "classes 4" can appear in
+# target/ and make the start hang. iCloud may even turn them into cloud placeholders that 'mvn clean' cannot
+# delete, so the target/ folders are removed first. Passing tests print nothing, a full build takes about a minute.
 set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-	sed -n '2,8p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,9p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 tests=true
@@ -37,6 +38,7 @@ else
 fi
 
 start=$(date +%s)
+rm -rf lumen-*/target
 ./mvnw -q "${maven_args[@]}"
 
 jar=$(ls lumen-app/target/lumen-app-*.jar 2>/dev/null | grep -v '\.original$' | head -n 1)

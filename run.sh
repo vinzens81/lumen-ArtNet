@@ -8,11 +8,12 @@
 #   ./run.sh -- <options>     everything after -- goes to Lumen, e.g. -- --server.port=8099
 #
 # If no JAR exists yet, it is built first. Stop Lumen with Ctrl+C.
+# On macOS the Mac does not go to sleep while Lumen runs (caffeinate).
 set -euo pipefail
 cd "$(dirname "$0")"
 
 usage() {
-	sed -n '2,10p' "$0" | sed 's/^# \{0,1\}//'
+	sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
 }
 
 test_mode=false
@@ -29,8 +30,9 @@ while [ $# -gt 0 ]; do
 	shift
 done
 
+# skips copies iCloud makes when it syncs target/ (e.g. "lumen-app-0.0.1-SNAPSHOT 2.jar") – they are outdated
 find_jar() {
-	ls lumen-app/target/lumen-app-*.jar 2>/dev/null | grep -v '\.original$' | head -n 1 || true
+	ls lumen-app/target/lumen-app-*.jar 2>/dev/null | grep -v '\.original$' | grep -Ev ' [0-9]+\.jar$' | head -n 1 || true
 }
 
 if $build || [ -z "$(find_jar)" ]; then
@@ -57,6 +59,13 @@ else
 	echo "▶ Starting Lumen: database data/lumen.db, Art-Net output on"
 fi
 echo "  UI: http://127.0.0.1:$port   (stop with Ctrl+C)"
+
+# a sleeping Mac sends no Art-Net and the light freezes; caffeinate ends by itself when Lumen (this PID after exec)
+# exits. The screen may still turn off – the browser keeps it on in the show view.
+if command -v caffeinate >/dev/null 2>&1; then
+	caffeinate -i -w $$ &
+	echo "  The Mac will not go to sleep while Lumen runs"
+fi
 
 # fixture-types/ and data/ are resolved relative to the project folder
 exec java -jar "$jar" ${java_args[@]+"${java_args[@]}"} ${lumen_args[@]+"${lumen_args[@]}"}

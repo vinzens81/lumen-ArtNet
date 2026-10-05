@@ -101,7 +101,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 				.orElseThrow(() -> new NotFoundException("Composition " + compositionId + " does not exist in project "
 						+ projectId));
 		onStage = new CompositionOnStage(compositionId, resolver.resolve(composition), clock.instant());
-		events.publish(StateTopic.COMPOSITIONS);
+		events.publish(StateTopic.STAGE_PREVIEW);
 	}
 
 	@Override
@@ -112,7 +112,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 						+ projectId));
 		onStage = new SceneOnStage(projectId, sceneId, scene.values(),
 				resolver.scenes(projectId).getOrDefault(sceneId, List.of()), clock.instant());
-		events.publish(StateTopic.COMPOSITIONS);
+		events.publish(StateTopic.STAGE_PREVIEW);
 	}
 
 	/** Takes over changes of what is on stage (edited scene or composition); its time keeps running. */
@@ -142,7 +142,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	public synchronized void stopOnStage() {
 		if (onStage != null) {
 			onStage = null;
-			events.publish(StateTopic.COMPOSITIONS);
+			events.publish(StateTopic.STAGE_PREVIEW);
 		}
 	}
 
