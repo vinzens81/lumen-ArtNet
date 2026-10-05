@@ -11,7 +11,7 @@ und effektlastig.
 
 | Thema | Entscheidung |
 |---|---|
-| Modus | **Dritter Betriebsmodus „Party“** neben Setup und Show, Server-Zustand wie die Show: alle Browser wechseln mit, der Programmer wird geleert und gesperrt, ein PIN sperrt beim Start alle Browser, zurück nur mit Freigabe. Das Theater-Playback bleibt erhalten, gibt im Party-Modus aber nichts aus |
+| Modus | **Dritter Betriebsmodus „Party“** neben Setup und Show, Server-Zustand wie die Show: alle Browser wechseln mit, der Programmer wird geleert und gesperrt, ein PIN sperrt beim Start alle Browser, zurück nur mit Freigabe. Show und Party werden nur aus dem Setup gestartet, ein direkter Wechsel zwischen beiden ist nicht möglich. Das Theater-Playback bleibt erhalten, gibt im Party-Modus aber nichts aus |
 | Farben | **10 fest eingebaute Farbpaletten**: Red, Amber, Yellow, Green, Cyan, Blue, Magenta, UV, Warm white, White. Keine eigenen Farbpaletten (übersichtlich) |
 | Eigene Buttons | **Party-Buttons** pro Projekt: im Setup-Tab „Party“ aus dem Programmer aufgenommen (wie Szenen), also beliebige Kanäle wie Gobo, Prisma, Strobe, Rohkanäle. Toggle oder Flash (solange gedrückt) |
 | Gerät | Zuerst **Web-Ansicht auf dem Laptop** (Maus und Tastatur), Tablet später |

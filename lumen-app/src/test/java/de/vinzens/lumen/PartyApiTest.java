@@ -78,6 +78,15 @@ class PartyApiTest {
 	}
 
 	@Test
+	void partyAndShowAreOnlyReachedFromSetup() {
+		assertThat(put("/api/mode", "{\"mode\": \"party\"}")).hasStatusOk();
+		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatus(409);
+		assertThat(put("/api/mode", "{\"mode\": \"setup\"}")).hasStatusOk();
+		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
+		assertThat(put("/api/mode", "{\"mode\": \"party\"}")).hasStatus(409);
+	}
+
+	@Test
 	void tapSetsTheTempo() throws Exception {
 		put("/api/mode", "{\"mode\": \"party\"}");
 		assertThat(put("/api/party/bpm", "{\"bpm\": 128}")).hasStatusOk().bodyJson()

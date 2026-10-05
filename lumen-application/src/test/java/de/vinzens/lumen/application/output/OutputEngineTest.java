@@ -166,6 +166,18 @@ class OutputEngineTest {
 	}
 
 	@Test
+	void showAndPartyModeAreOnlyReachedFromSetup() {
+		engine.setMode(OperatingMode.SHOW);
+		assertThatThrownBy(() -> engine.setMode(OperatingMode.PARTY)).isInstanceOf(ConflictException.class);
+		assertThat(engine.mode()).isEqualTo(OperatingMode.SHOW);
+
+		engine.setMode(OperatingMode.SETUP);
+		engine.setMode(OperatingMode.PARTY);
+		assertThatThrownBy(() -> engine.setMode(OperatingMode.SHOW)).isInstanceOf(ConflictException.class);
+		assertThat(engine.setMode(OperatingMode.PARTY)).as("staying is fine").isEqualTo(OperatingMode.PARTY);
+	}
+
+	@Test
 	void layerSourcesAreMergedBelowTheProgrammer() {
 		engine.addLayerSource((now, modes) -> new LayerOutput(50,
 				Map.of(100L, new FixtureValues(Map.of(DIMMER, 0.5, RED, 1.0)))));

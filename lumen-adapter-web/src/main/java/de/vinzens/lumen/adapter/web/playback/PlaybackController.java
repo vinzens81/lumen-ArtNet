@@ -94,8 +94,8 @@ class PlaybackController {
 	}
 
 	/**
-	 * Switching to show or party mode clears and locks the programmer. Leaving one of them needs an unlocked client
-	 * if a PIN is set.
+	 * Switching to show or party mode clears and locks the programmer. Both are entered from setup mode only (409
+	 * otherwise); going back to setup needs an unlocked client if a PIN is set.
 	 */
 	@PutMapping("/api/mode")
 	ModeResponse setMode(@RequestBody ModeResponse body, HttpServletRequest request) {

@@ -311,7 +311,11 @@ public class OutputEngine
 
 	@Override
 	public OperatingMode setMode(OperatingMode newMode) {
-		var previous = mode.getAndSet(newMode);
+		var previous = mode.getAndUpdate(current -> canSwitch(current, newMode) ? newMode : current);
+		if (!canSwitch(previous, newMode)) {
+			throw new ConflictException("Switch from " + name(previous) + " mode to " + name(newMode)
+					+ " mode through setup mode");
+		}
 		if (previous != newMode) {
 			if (newMode != OperatingMode.SETUP) {
 				programmer.set(Programmer.EMPTY);
@@ -320,6 +324,15 @@ public class OutputEngine
 			events.publish(StateTopic.MODE);
 		}
 		return newMode;
+	}
+
+	/** Show and party mode are only entered from setup mode, never directly from each other. */
+	private static boolean canSwitch(OperatingMode from, OperatingMode to) {
+		return from == to || from == OperatingMode.SETUP || to == OperatingMode.SETUP;
+	}
+
+	private static String name(OperatingMode mode) {
+		return mode.name().toLowerCase(Locale.ROOT);
 	}
 
 	// --- Master ----------------------------------------------------------------------------------------------

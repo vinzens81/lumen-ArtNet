@@ -6,6 +6,9 @@ public interface ControlModeUseCase {
 
 	OperatingMode mode();
 
-	/** Switching to show mode clears and locks the programmer. */
+	/**
+	 * Switching to show or party mode clears and locks the programmer. Both are only reachable from setup mode;
+	 * switching directly between them is refused.
+	 */
 	OperatingMode setMode(OperatingMode mode);
 }

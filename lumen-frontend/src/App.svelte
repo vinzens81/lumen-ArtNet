@@ -42,8 +42,6 @@
   const pageMode = $derived(modeOfRoute(router.route));
   const liveMode = $derived(pageMode !== 'setup');
   const output = $derived(outputIndicator(live.health, live.connected));
-  /** the mode to switch to after confirming to leave show or party mode */
-  let leaveTarget = $state<OperatingMode | null>(null);
   let leaveOpen = $state(false);
 
   // the operating mode is server state: every connected client follows it
@@ -54,22 +52,28 @@
     if (live.mode === 'setup' && liveMode) navigate('/setup/scenes');
   });
 
-  /** From setup any mode starts at once; leaving show or party mode needs the PIN or a confirmation. */
+  /**
+   * Show and party mode start from setup only, never directly from each other. Going back to setup needs the PIN
+   * or a confirmation.
+   */
   function switchTo(target: OperatingMode) {
     if (target === pageMode) return;
     if (pageMode === 'setup') {
       live.setMode(target);
-      return;
+    } else if (target === 'setup') {
+      if (access.locked) access.requestUnlock(confirmLeave);
+      else leaveOpen = true;
     }
-    leaveTarget = target;
-    if (access.locked) access.requestUnlock(confirmLeave);
-    else leaveOpen = true;
+  }
+
+  /** The other live mode cannot be reached from show or party mode. */
+  function blocked(target: OperatingMode): boolean {
+    return pageMode !== 'setup' && target !== 'setup' && target !== pageMode;
   }
 
   async function confirmLeave() {
     leaveOpen = false;
-    if (leaveTarget) await live.setMode(leaveTarget);
-    leaveTarget = null;
+    await live.setMode('setup');
   }
 
   function toggleLock() {
@@ -196,8 +200,12 @@
 
     <div class="mode" role="group" aria-label="Mode">
       <button type="button" class:on={pageMode === 'setup'} onclick={() => switchTo('setup')}>Setup</button>
-      <button type="button" class:on={pageMode === 'show'} onclick={() => switchTo('show')}>Show</button>
-      <button type="button" class:on={pageMode === 'party'} onclick={() => switchTo('party')}>Party</button>
+      <button type="button" class:on={pageMode === 'show'} disabled={blocked('show')}
+        title={blocked('show') ? 'Back to setup first, then start show mode' : ''}
+        onclick={() => switchTo('show')}>Show</button>
+      <button type="button" class:on={pageMode === 'party'} disabled={blocked('party')}
+        title={blocked('party') ? 'Back to setup first, then start party mode' : ''}
+        onclick={() => switchTo('party')}>Party</button>
     </div>
   </header>
 
@@ -241,22 +249,12 @@
 
 <Modal bind:open={leaveOpen} title="Leave {pageMode} mode?">
   <p>
-    {#if pageMode === 'show'}
-      The playback keeps its place.
-    {:else}
-      The party look is kept for later.
-    {/if}
-    {#if leaveTarget === 'setup'}
-      In setup mode the programmer is unlocked again and can change the light on stage.
-    {:else if leaveTarget === 'party'}
-      Party mode takes over the stage; the playback gives no light until show mode returns.
-    {:else}
-      Show mode plays the cue list from where it stands.
-    {/if}
+    {pageMode === 'show' ? 'The playback keeps its place.' : 'The party look is kept for later.'}
+    In setup mode the programmer is unlocked again and can change the light on stage.
   </p>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (leaveOpen = false)}>Stay in {pageMode}</button>
-    <button class="btn primary" type="button" onclick={confirmLeave}>Switch to {leaveTarget}</button>
+    <button class="btn primary" type="button" onclick={confirmLeave}>Back to setup</button>
   {/snippet}
 </Modal>
 
@@ -444,6 +442,11 @@
     font: inherit;
     font-weight: 600;
     cursor: pointer;
+  }
+
+  .mode button:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
   }
 
   .mode button.on {
