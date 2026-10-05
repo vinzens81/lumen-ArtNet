@@ -16,6 +16,7 @@ import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.output.RenderLoop;
 import de.vinzens.lumen.application.output.port.out.ArtNetNodeDirectory;
 import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
+import de.vinzens.lumen.application.party.PartyService;
 import de.vinzens.lumen.application.playback.PlaybackService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,10 +126,19 @@ class OutputConfiguration {
 		return preview;
 	}
 
+	@Bean
+	PartyService partyService(SqliteRepositories repositories, OutputEngine outputEngine, Clock clock,
+			StateEvents stateEvents) {
+		var party = new PartyService(repositories.projects(), repositories.partyButtons(), outputEngine, clock,
+				stateEvents);
+		outputEngine.addLayerSource(party);
+		return party;
+	}
+
 	@Bean(destroyMethod = "close")
-	// depends on the playback and the preview so their layers are registered before the first tick
+	// depends on the playback, the preview and party mode so their layers are registered before the first tick
 	RenderLoop renderLoop(PlaybackService playbackService, CompositionPreviewService compositionPreviewService,
-			OutputEngine engine, LumenProperties properties) {
+			PartyService partyService, OutputEngine engine, LumenProperties properties) {
 		var loop = new RenderLoop(engine, properties.output().rateHz());
 		loop.start();
 		log.info("Render loop running at {} Hz", properties.output().rateHz());

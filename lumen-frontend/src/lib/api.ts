@@ -23,6 +23,8 @@ import type {
   ProjectRequest,
   Scene,
   SceneRequest,
+  PartyButton,
+  PartyStatus,
   StagePreviewStatus,
   Universe,
   UniverseRequest,
@@ -152,6 +154,31 @@ export const api = {
       post<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys/scenes/${keySceneId}`),
     setForScene: (projectId: number, sceneId: number, slots: number[]) =>
       put<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`, { slots }),
+  },
+  party: {
+    status: () => get<PartyStatus>('/api/party'),
+    tap: () => post<PartyStatus>('/api/party/tap'),
+    setBpm: (bpm: number) => put<PartyStatus>('/api/party/bpm', { bpm }),
+    palette: (fixtureIds: number[], palette: string) =>
+      post<PartyStatus>('/api/party/palette', { fixtureIds, palette }),
+    intensity: (fixtureIds: number[], level: number) =>
+      put<PartyStatus>('/api/party/intensity', { fixtureIds, level }),
+    press: (buttonId: number) => post<PartyStatus>(`/api/party/buttons/${buttonId}/press`),
+    release: (buttonId: number) => post<PartyStatus>(`/api/party/buttons/${buttonId}/release`),
+    clear: () => post<PartyStatus>('/api/party/clear'),
+  },
+  partyButtons: {
+    list: (projectId: number) => get<PartyButton[]>(`/api/projects/${projectId}/party-buttons`),
+    record: (projectId: number, name: string, mode: KeyMode) =>
+      post<PartyButton>(`/api/projects/${projectId}/party-buttons`, { name, mode }),
+    update: (projectId: number, id: number, name: string, mode: KeyMode) =>
+      put<PartyButton>(`/api/projects/${projectId}/party-buttons/${id}`, { name, mode }),
+    rerecord: (projectId: number, id: number) =>
+      post<PartyButton>(`/api/projects/${projectId}/party-buttons/${id}/record`),
+    load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/party-buttons/${id}/load`),
+    reorder: (projectId: number, ids: number[]) =>
+      put<PartyButton[]>(`/api/projects/${projectId}/party-buttons/order`, { ids }),
+    delete: (projectId: number, id: number) => del(`/api/projects/${projectId}/party-buttons/${id}`),
   },
   stagePreview: {
     status: () => get<StagePreviewStatus>('/api/stage-preview'),

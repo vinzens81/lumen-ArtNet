@@ -2,9 +2,11 @@ package de.vinzens.lumen.domain.output;
 
 /**
  * Setup: building the show, the programmer is available. Show: the performance, only playback runs and the
- * programmer is locked so nothing can be changed by accident.
+ * programmer is locked so nothing can be changed by accident. Party: live control with palettes and party buttons
+ * instead of a cue list; the programmer is locked as in show mode and the playback gives no output.
  */
 public enum OperatingMode {
 	SETUP,
-	SHOW
+	SHOW,
+	PARTY
 }

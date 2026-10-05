@@ -94,8 +94,8 @@ class PlaybackController {
 	}
 
 	/**
-	 * Switching to show mode clears and locks the programmer. Leaving show mode needs an unlocked client if a PIN
-	 * is set.
+	 * Switching to show or party mode clears and locks the programmer. Leaving one of them needs an unlocked client
+	 * if a PIN is set.
 	 */
 	@PutMapping("/api/mode")
 	ModeResponse setMode(@RequestBody ModeResponse body, HttpServletRequest request) {
@@ -104,9 +104,10 @@ class PlaybackController {
 		try {
 			target = OperatingMode.valueOf(value);
 		} catch (IllegalArgumentException e) {
-			throw new DomainValidationException(List.of("mode must be setup or show, was '" + body.mode() + "'"));
+			throw new DomainValidationException(List.of("mode must be setup, show or party, was '" + body.mode()
+					+ "'"));
 		}
-		if (target != OperatingMode.SHOW && mode.mode() == OperatingMode.SHOW) {
+		if (mode.mode() != OperatingMode.SETUP && target != mode.mode()) {
 			lock.requireUnlocked(request.getSession(false));
 		}
 		return new ModeResponse(mode.setMode(target).name().toLowerCase(Locale.ROOT));

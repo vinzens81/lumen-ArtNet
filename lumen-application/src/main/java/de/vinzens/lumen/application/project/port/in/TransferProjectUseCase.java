@@ -2,6 +2,7 @@ package de.vinzens.lumen.application.project.port.in;
 
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.party.PartyButton;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Project;
@@ -30,11 +31,12 @@ public interface TransferProjectUseCase {
 	/**
 	 * Everything that belongs to a project. Fixtures refer to universes, groups and scene values to fixtures,
 	 * compositions to scenes, groups, fixtures and their library origin by the ids in this export. Extra keys hold
-	 * their own composition; {@code sceneKeys} lists the keys usable per scene id.
+	 * their own composition; {@code sceneKeys} lists the keys usable per scene id. Party buttons refer to fixtures,
+	 * in their order.
 	 */
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
 			List<Group> groups, List<Scene> scenes, Optional<StagePlan> stagePlan, List<Composition> compositions,
-			List<ExtraKey> keys, Map<Long, Set<Integer>> sceneKeys) {
+			List<ExtraKey> keys, Map<Long, Set<Integer>> sceneKeys, List<PartyButton> partyButtons) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
@@ -45,6 +47,7 @@ public interface TransferProjectUseCase {
 			compositions = List.copyOf(compositions);
 			keys = List.copyOf(keys);
 			sceneKeys = Map.copyOf(sceneKeys);
+			partyButtons = List.copyOf(partyButtons);
 		}
 	}
 }

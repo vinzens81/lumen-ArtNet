@@ -44,6 +44,8 @@ class ProjectTransferApiTest {
 		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
 		patchJson("/api/programmer/fixtures/" + back, "{\"dimmer\": 0.5}");
 		assertThat(post(scenes + "/" + dawn + "/record", "")).hasStatusOk();
+		assertThat(post("/api/projects/" + project + "/party-buttons", "{\"name\": \"Half\", \"mode\": \"flash\"}"))
+				.hasStatus(201);
 
 		var export = mvc.get().uri("/api/projects/" + project + "/export").exchange();
 		assertThat(export).hasStatusOk().headers().hasValue("Content-Disposition",
@@ -79,6 +81,10 @@ class ProjectTransferApiTest {
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].fadeInMs")).isZero();
 		assertThat(JsonPath.<Object>read(copiedScenes, "$[1].fadeOutMs")).isNull();
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].delayMs")).isEqualTo(1000);
+
+		var buttons = body("/api/projects/" + copy + "/party-buttons");
+		assertThat(JsonPath.<String>read(buttons, "$[0].mode")).isEqualTo("flash");
+		assertThat(JsonPath.<Double>read(buttons, "$[0].values['%d'].dimmer".formatted(newBack))).isEqualTo(0.5);
 	}
 
 	@Test

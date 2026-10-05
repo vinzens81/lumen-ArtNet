@@ -45,6 +45,17 @@
   --accent-glow: rgba(255, 181, 71, 0.45);
 }
 
+/* Party mode: neon magenta, like a club */
+[data-mode='party'] {
+  --bg: #08060c;
+  --bg-haze-1: rgba(255, 60, 200, 0.09);
+  --bg-haze-2: rgba(60, 240, 255, 0.05);
+  --accent: #ff4fd8;
+  --accent-ink: #1c0418;
+  --accent-soft: rgba(255, 79, 216, 0.14);
+  --accent-glow: rgba(255, 79, 216, 0.5);
+}
+
 * {
   box-sizing: border-box;
 }

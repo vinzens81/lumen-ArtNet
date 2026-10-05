@@ -229,9 +229,14 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
   Zeiten fett), Auto-Follow, laufende Kompositionen, freigeschaltete Extra-Tasten, Abhak-Kästchen; darunter die
   Extra-Tasten. PDF über „Als PDF sichern“ im Druckdialog statt einer PDF-Bibliothek im Server
 
-## ⬜ Iteration 11+ – Party-Modus 🪩 (Zukunft)
-Konzept: [PARTY-MODE.md](PARTY-MODE.md). Grob in Teilschritten:
-1. **Tempo & Paletten:** Tap-Tempo/BPM-Clock, Farb- und Positionspaletten, Party-UI mit Gruppen + Paletten
+## 🟨 Iteration 11+ – Party-Modus 🪩
+Konzept und Entscheidungen: [PARTY-MODE.md](PARTY-MODE.md). Grob in Teilschritten:
+1. ✅ **Tempo & Paletten:** dritter Betriebsmodus „Party“ (Server-Zustand, Programmer gesperrt, PIN wie im Betrieb,
+   das Theater-Playback bleibt stehen und gibt nichts aus). Tap-Tempo (Taste `T`) mit BPM und Beat-Anzeige,
+   10 feste Farbpaletten (RGB mit Weißanteil, Amber/UV/Warmweiß auf eigenen Emittern, sonst das nächste Farbrad-Fach),
+   Intensität pro Gruppe, **Party-Buttons** (aus dem Programmer aufgenommen, Toggle/Flash, Tasten `1`–`9`) für Gobo,
+   Prisma & Co. Party-Ebene Priorität 60, Flyway `V9`, Buttons reisen im Projekt-Export mit. Positionspaletten
+   verschoben (kommen mit den Bewegungsbildern). Geprüft im Browser (Testserver) und per API-Test auf dem DMX-Ausgang
 2. **Effekt-Engine:** nutzt die Kompositionen aus Iteration K, ergänzt BPM-Kopplung (Bewegungsbilder separat, siehe unten)
 3. **Executors:** frei belegbare Slots mit Fader, Flash und Toggle (Weiterentwicklung der Extra-Tasten und Chaser aus Iteration K)
 4. **Live-Werkzeuge:** Flash All, Strobe All, Fog, Speed-Master, Look als Szene speichern

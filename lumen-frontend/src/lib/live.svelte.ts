@@ -1,7 +1,7 @@
 import { api } from './api';
 import { groupByValues } from './liveCommands';
 import { showError } from './toasts.svelte';
-import type { AttributeValues, MasterState, OperatingMode, OutputHealth, PlaybackStatus } from './types';
+import type { AttributeValues, MasterState, OperatingMode, OutputHealth, PartyStatus, PlaybackStatus } from './types';
 
 const SEND_INTERVAL_MS = 33;
 /** Incoming snapshots are overlaid with local edits for this long, so faders do not jump back. */
@@ -41,6 +41,10 @@ class LiveState {
   compositionsRevision = $state(0);
   /** composition id → values of its on-screen preview, while a view watches 'preview:<id>' */
   previews = $state<Record<number, Record<number, AttributeValues>>>({});
+  party = $state<PartyStatus | null>(null);
+  /** performance.now() when the party status arrived, to run the beat indicator locally */
+  partyReceivedAt = $state(0);
+  partyButtonsRevision = $state(0);
   /** render loop and Art-Net status, pushed every second */
   health = $state<OutputHealth | null>(null);
 
@@ -73,6 +77,7 @@ class LiveState {
       this.accessRevision++;
       this.libraryRevision++;
       this.compositionsRevision++;
+      this.partyButtonsRevision++;
       this.sendSubscriptions();
     };
     socket.onmessage = (event) => {
@@ -161,6 +166,12 @@ class LiveState {
       case 'playback':
         this.playback = message.status as PlaybackStatus;
         this.playbackReceivedAt = performance.now();
+        break;
+      case 'party':
+        this.updateParty(message.status as PartyStatus);
+        break;
+      case 'partyButtons':
+        this.partyButtonsRevision++;
         break;
       case 'mode':
         this.mode = message.mode as OperatingMode;
@@ -255,6 +266,12 @@ class LiveState {
         })
         .catch(showError);
     }
+  }
+
+  /** Takes over a party status, e.g. the answer to a party command. */
+  updateParty(status: PartyStatus) {
+    this.party = status;
+    this.partyReceivedAt = performance.now();
   }
 
   async setMode(mode: OperatingMode) {

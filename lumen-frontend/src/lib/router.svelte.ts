@@ -1,4 +1,6 @@
-/** Minimal hash router: #/setup/patch, #/show, … */
+import type { OperatingMode } from './types';
+
+/** Minimal hash router: #/setup/patch, #/show, #/party, … */
 
 export type Route =
   | '/setup/projects'
@@ -8,9 +10,11 @@ export type Route =
   | '/setup/stage'
   | '/setup/compositions'
   | '/setup/scenes'
+  | '/setup/party'
   | '/setup/dmx'
   | '/setup/settings'
   | '/show'
+  | '/party'
   | '/print/cues';
 
 const ROUTES: Route[] = [
@@ -21,9 +25,11 @@ const ROUTES: Route[] = [
   '/setup/stage',
   '/setup/compositions',
   '/setup/scenes',
+  '/setup/party',
   '/setup/dmx',
   '/setup/settings',
   '/show',
+  '/party',
   '/print/cues',
 ];
 
@@ -42,8 +48,11 @@ export function navigate(route: Route) {
   location.hash = route;
 }
 
-export function isShowMode(route: Route): boolean {
-  return route === '/show';
+/** The operating mode a page belongs to: show and party have one page each, everything else is setup. */
+export function modeOfRoute(route: Route): OperatingMode {
+  if (route === '/show') return 'show';
+  if (route === '/party') return 'party';
+  return 'setup';
 }
 
 /** Pages for printing: shown without the app around them, in both modes. */

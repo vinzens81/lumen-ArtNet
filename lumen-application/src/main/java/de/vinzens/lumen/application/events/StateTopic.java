@@ -29,5 +29,9 @@ public enum StateTopic {
 	/** Compositions in the library or in scenes changed. */
 	COMPOSITIONS,
 	/** The stage preview of the composition editor started or stopped. */
-	STAGE_PREVIEW
+	STAGE_PREVIEW,
+	/** Tempo, palettes, intensities or buttons of party mode changed. */
+	PARTY,
+	/** Party buttons of the active project were added, changed or removed. */
+	PARTY_BUTTONS
 }

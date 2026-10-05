@@ -17,6 +17,7 @@ import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.party.PartyButton;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
@@ -34,6 +35,7 @@ import tools.jackson.databind.json.JsonMapper;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +53,7 @@ import java.util.Set;
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
 		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions,
-		List<ExtraKeyEntry> extraKeys) {
+		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons) {
 
 	static final String FORMAT = "lumen-project";
 	static final int VERSION = 1;
@@ -73,7 +75,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.compositions().stream().map(c -> CompositionEntry.from(c, sceneNumbers, json)).toList(),
 				export.keys().stream().map(k -> new ExtraKeyEntry(k.slot(), k.mode().id(), k.fade().toMillis(),
 						k.composition().map(c -> CompositionEntry.from(c, sceneNumbers, json)).orElse(null),
-						k.sceneId().map(sceneNumbers::get).orElse(null))).toList());
+						k.sceneId().map(sceneNumbers::get).orElse(null))).toList(),
+				export.partyButtons().stream().map(PartyButtonEntry::from).toList());
 	}
 
 	ProjectExport toExport(JsonMapper json) {
@@ -109,7 +112,30 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
 						plan.data() == null ? new byte[0] : plan.data())),
 				list(compositions).stream().map(c -> c.toComposition(sceneIds, json)).toList(),
-				list(extraKeys).stream().map(k -> k.toKey(sceneIds, json)).toList(), sceneKeys);
+				list(extraKeys).stream().map(k -> k.toKey(sceneIds, json)).toList(), sceneKeys,
+				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList());
+	}
+
+	/**
+	 * A party button with its values per fixture id; files from before party mode have none.
+	 *
+	 * @param mode toggle or flash
+	 */
+	record PartyButtonEntry(String name, String mode, Map<Long, Map<String, Double>> values) {
+
+		static PartyButtonEntry from(PartyButton button) {
+			return new PartyButtonEntry(button.name(), button.mode().id(), ValuesJson.toJson(button.values()));
+		}
+
+		PartyButton toButton() {
+			var keyMode = Arrays.stream(KeyMode.values()).filter(m -> m.id().equals(mode)).findFirst()
+					.orElseThrow(() -> new DomainValidationException(List.of("Party button '" + name
+							+ "' has unknown mode '" + mode + "'")));
+			var fixtureValues = new HashMap<Long, FixtureValues>();
+			(values == null ? Map.<Long, Map<String, Double>>of() : values)
+					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));
+			return new PartyButton(0, 0, 0, name, keyMode, fixtureValues);
+		}
 	}
 
 	private static long require(Long id, String what) {

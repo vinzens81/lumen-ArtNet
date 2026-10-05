@@ -7,6 +7,25 @@ Der Theater-Modus spielt eine **feste Szenenliste** per GO ab. Der Party-Modus i
 ohne Ablauf, wie an einem klassischen Lichtpult bei Konzerten oder in der Disco („Busking“). Spontan, rhythmisch
 und effektlastig.
 
+## Entscheidungen (2026-10-05) und Umfang von Schritt 1
+
+| Thema | Entscheidung |
+|---|---|
+| Modus | **Dritter Betriebsmodus „Party“** neben Setup und Show, Server-Zustand wie die Show: alle Browser wechseln mit, der Programmer wird geleert und gesperrt, ein PIN sperrt beim Start alle Browser, zurück nur mit Freigabe. Das Theater-Playback bleibt erhalten, gibt im Party-Modus aber nichts aus |
+| Farben | **10 fest eingebaute Farbpaletten**: Red, Amber, Yellow, Green, Cyan, Blue, Magenta, UV, Warm white, White. Keine eigenen Farbpaletten (übersichtlich) |
+| Eigene Buttons | **Party-Buttons** pro Projekt: im Setup-Tab „Party“ aus dem Programmer aufgenommen (wie Szenen), also beliebige Kanäle wie Gobo, Prisma, Strobe, Rohkanäle. Toggle oder Flash (solange gedrückt) |
+| Gerät | Zuerst **Web-Ansicht auf dem Laptop** (Maus und Tastatur), Tablet später |
+| Tempo | **Tap-Tempo** (Button und Taste `T`), BPM-Anzeige und Beat-Anzeiger; Mikrofon später |
+
+Schritt 1 umfasst Modus, Tempo, Paletten, Intensität pro Gruppe und Party-Buttons. Effekte im Takt (Kompositionen mit
+BPM-Kopplung), Executors und Speed-Master folgen in den nächsten Schritten.
+
+**Wie die Ausgabe entsteht:** Die Party-Ebene (Priorität 60, über dem Playback) hält pro Fixture eine Farbe und eine
+Intensität. Eine Palette setzt die passenden Kanäle des Geräts: RGB, dazu Weiß (Weißanteil), Amber und UV, wo
+vorhanden; Geräte nur mit Farbrad bekommen das Fach mit der ähnlichsten Farbe. Tippt man eine Farbe auf dunkle
+Geräte, gehen sie auf 100 %. Aktive Party-Buttons liegen darüber: ihre Werte gewinnen (zuletzt gedrückter zuerst),
+nur die Intensität mischt HTP.
+
 ## Theater vs. Party
 
 | | Theater-Modus | Party-Modus |

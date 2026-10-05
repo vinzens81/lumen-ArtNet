@@ -16,6 +16,7 @@ import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.LayerOutput;
+import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.playback.FadeBehaviors;
 import de.vinzens.lumen.domain.playback.Playback;
 import de.vinzens.lumen.domain.project.Project;
@@ -139,6 +140,12 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			updateKeyAvailability(now);
 		}
 		events.publish(StateTopic.PLAYBACK);
+	}
+
+	/** In party mode the cue list stays where it is but gives no light; it continues when show mode returns. */
+	@Override
+	public boolean activeIn(OperatingMode mode) {
+		return mode != OperatingMode.PARTY;
 	}
 
 	@Override

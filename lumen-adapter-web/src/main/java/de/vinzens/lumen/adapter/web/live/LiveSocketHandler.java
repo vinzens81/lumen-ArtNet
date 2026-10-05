@@ -3,6 +3,7 @@ package de.vinzens.lumen.adapter.web.live;
 import de.vinzens.lumen.adapter.web.access.ConfigLock;
 import de.vinzens.lumen.adapter.web.output.HealthResponse;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
+import de.vinzens.lumen.adapter.web.party.PartyDtos.PartyResponse;
 import de.vinzens.lumen.adapter.web.playback.PlaybackDtos.PlaybackResponse;
 import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.composition.port.in.PreviewCompositionUseCase;
@@ -13,6 +14,7 @@ import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryHealthUseCase;
 import de.vinzens.lumen.application.output.port.in.QueryOutputUseCase;
+import de.vinzens.lumen.application.party.port.in.ControlPartyUseCase;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import org.slf4j.Logger;
@@ -27,6 +29,7 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -45,8 +48,9 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
- * {@code health} (every second), {@code compositions}, {@code library}, {@code access},
- * {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last seven ask the client to reload via REST). Client → server: {@code programmer.set},
+ * {@code party} (tempo, palettes, buttons), {@code health} (every second), {@code partyButtons}, {@code compositions},
+ * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects} (the last eight ask
+ * the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish} and {@code keys.press/release}
  * (with {@code slot}) for low latency.
  *
@@ -72,6 +76,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private final QueryHealthUseCase health;
 	private final QueryOutputUseCase output;
 	private final PreviewCompositionUseCase preview;
+	private final ControlPartyUseCase party;
+	private final Clock clock;
 	private final ConfigLock lock;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -85,7 +91,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 
 	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
 			ControlModeUseCase mode, QueryHealthUseCase health, QueryOutputUseCase output,
-			PreviewCompositionUseCase preview, ConfigLock lock, StateEvents events, JsonMapper json) {
+			PreviewCompositionUseCase preview, ControlPartyUseCase party, Clock clock, ConfigLock lock,
+			StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
 		this.playback = playback;
@@ -93,6 +100,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		this.health = health;
 		this.output = output;
 		this.preview = preview;
+		this.party = party;
+		this.clock = clock;
 		this.lock = lock;
 		this.json = json;
 		events.subscribe(this::markDirty);
@@ -208,6 +217,11 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case LIBRARY -> message.put("type", "library");
 			// the editor shows what is on stage with the compositions
 			case COMPOSITIONS, STAGE_PREVIEW -> message.put("type", "compositions");
+			case PARTY -> {
+				message.put("type", "party");
+				message.put("status", PartyResponse.from(party.status(), clock.instant()));
+			}
+			case PARTY_BUTTONS -> message.put("type", "partyButtons");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));
@@ -234,7 +248,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		var safe = new ConcurrentWebSocketSessionDecorator(session, SEND_TIME_LIMIT_MS, BUFFER_SIZE_LIMIT);
 		sessions.put(session.getId(), safe);
 		for (var topic : List.of(StateTopic.PROGRAMMER, StateTopic.OUTPUT, StateTopic.PLAYBACK, StateTopic.MODE,
-				StateTopic.HEALTH)) {
+				StateTopic.PARTY, StateTopic.HEALTH)) {
 			send(safe, new TextMessage(json.writeValueAsString(message(topic))));
 		}
 	}

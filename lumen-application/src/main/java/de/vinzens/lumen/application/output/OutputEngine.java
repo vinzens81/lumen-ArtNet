@@ -36,6 +36,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -136,8 +137,11 @@ public class OutputEngine
 		var modes = new HashMap<Long, Mode>();
 		current.fixtures().forEach(f -> modes.put(f.fixtureId(), f.mode()));
 		var layers = new ArrayList<LayerOutput>();
+		var currentMode = mode.get();
 		for (var source : layerSources) {
-			layers.add(source.layer(now, modes));
+			if (source.activeIn(currentMode)) {
+				layers.add(source.layer(now, modes));
+			}
 		}
 		layers.add(programmer.get().asLayer(PROGRAMMER_PRIORITY));
 		var values = LayerMerger.merge(layers);
@@ -292,8 +296,9 @@ public class OutputEngine
 	}
 
 	private void requireSetupMode() {
-		if (mode.get() == OperatingMode.SHOW) {
-			throw new ConflictException("The programmer is locked in show mode");
+		if (mode.get() != OperatingMode.SETUP) {
+			throw new ConflictException("The programmer is locked in " + mode.get().name().toLowerCase(Locale.ROOT)
+					+ " mode");
 		}
 	}
 
@@ -308,7 +313,7 @@ public class OutputEngine
 	public OperatingMode setMode(OperatingMode newMode) {
 		var previous = mode.getAndSet(newMode);
 		if (previous != newMode) {
-			if (newMode == OperatingMode.SHOW) {
+			if (newMode != OperatingMode.SETUP) {
 				programmer.set(Programmer.EMPTY);
 				events.publish(StateTopic.PROGRAMMER);
 			}

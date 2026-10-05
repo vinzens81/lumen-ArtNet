@@ -1,6 +1,7 @@
 package de.vinzens.lumen.application.project;
 
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
+import de.vinzens.lumen.application.party.port.out.PartyButtonRepository;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
@@ -41,12 +42,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final SceneRepository scenes;
 	private final StagePlanRepository stagePlans;
 	private final CompositionRepository compositions;
+	private final PartyButtonRepository partyButtons;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
-			CompositionRepository compositions, Clock clock, PatchChangeListener listener) {
+			CompositionRepository compositions, PartyButtonRepository partyButtons, Clock clock,
+			PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
@@ -54,6 +57,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
+		this.partyButtons = Objects.requireNonNull(partyButtons, "partyButtons");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -64,7 +68,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
 				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
 				stagePlans.find(projectId), allCompositions(projectId), compositions.findKeys(projectId),
-				compositions.findSceneKeys(projectId));
+				compositions.findSceneKeys(projectId), partyButtons.findByProject(projectId));
 	}
 
 	private List<Composition> allCompositions(long projectId) {
@@ -136,6 +140,11 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			}
 		}
 		export.sceneKeys().forEach((sceneId, slots) -> compositions.saveSceneKeys(sceneIds.get(sceneId), slots));
+		for (var button : export.partyButtons()) {
+			var values = new HashMap<Long, FixtureValues>();
+			button.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
+			partyButtons.create(projectId, button.name(), button.mode(), values);
+		}
 	}
 
 	/** The spec with fixture and group ids of the new project. */
@@ -215,6 +224,10 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		}
 		export.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
 				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));
+		for (var button : export.partyButtons()) {
+			button.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
+					errors.add("Party button '" + button.name() + "' refers to unknown fixture " + id));
+		}
 		var sceneNumbers = new HashSet<SceneNumber>();
 		for (var scene : export.scenes()) {
 			if (!sceneNumbers.add(scene.spec().number())) {

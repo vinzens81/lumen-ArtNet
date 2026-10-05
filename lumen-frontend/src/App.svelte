@@ -8,11 +8,13 @@
   import { outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { stagePreview } from './lib/stagePreview.svelte';
-  import { isPrintPage, isShowMode, navigate, router, type Route } from './lib/router.svelte';
+  import { isPrintPage, modeOfRoute, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
   import CuePrintView from './views/CuePrintView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
+  import PartyButtonsView from './views/PartyButtonsView.svelte';
+  import PartyView from './views/PartyView.svelte';
   import PatchView from './views/PatchView.svelte';
   import ProgrammerView from './views/ProgrammerView.svelte';
   import ProjectsView from './views/ProjectsView.svelte';
@@ -21,6 +23,7 @@
   import ShowView from './views/ShowView.svelte';
   import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
+  import type { OperatingMode } from './lib/types';
 
   const tabs: { route: Route; label: string; soon?: boolean }[] = [
     { route: '/setup/projects', label: 'Projects' },
@@ -30,34 +33,43 @@
     { route: '/setup/stage', label: 'Stage' },
     { route: '/setup/compositions', label: 'Compositions' },
     { route: '/setup/scenes', label: 'Scenes' },
+    { route: '/setup/party', label: 'Party' },
     { route: '/setup/dmx', label: 'DMX' },
     { route: '/setup/settings', label: 'Settings' },
   ];
 
-  const showMode = $derived(isShowMode(router.route));
+  /** the mode of the page shown; show and party have their own page without the setup tabs */
+  const pageMode = $derived(modeOfRoute(router.route));
+  const liveMode = $derived(pageMode !== 'setup');
   const output = $derived(outputIndicator(live.health, live.connected));
-  let leaveShowOpen = $state(false);
+  /** the mode to switch to after confirming to leave show or party mode */
+  let leaveTarget = $state<OperatingMode | null>(null);
+  let leaveOpen = $state(false);
 
   // the operating mode is server state: every connected client follows it
   $effect(() => {
     if (!live.modeKnown || isPrintPage(router.route)) return;
     if (live.mode === 'show' && router.route !== '/show') navigate('/show');
-    if (live.mode === 'setup' && router.route === '/show') navigate('/setup/scenes');
+    if (live.mode === 'party' && router.route !== '/party') navigate('/party');
+    if (live.mode === 'setup' && liveMode) navigate('/setup/scenes');
   });
 
-  async function enterShow() {
-    await live.setMode('show');
+  /** From setup any mode starts at once; leaving show or party mode needs the PIN or a confirmation. */
+  function switchTo(target: OperatingMode) {
+    if (target === pageMode) return;
+    if (pageMode === 'setup') {
+      live.setMode(target);
+      return;
+    }
+    leaveTarget = target;
+    if (access.locked) access.requestUnlock(confirmLeave);
+    else leaveOpen = true;
   }
 
-  async function leaveShow() {
-    leaveShowOpen = false;
-    await live.setMode('setup');
-  }
-
-  /** With a PIN, entering it is the confirmation; without, a confirmation dialog asks. */
-  function requestLeaveShow() {
-    if (access.locked) access.requestUnlock(leaveShow);
-    else leaveShowOpen = true;
+  async function confirmLeave() {
+    leaveOpen = false;
+    if (leaveTarget) await live.setMode(leaveTarget);
+    leaveTarget = null;
   }
 
   function toggleLock() {
@@ -81,7 +93,7 @@
   });
 
   $effect(() => {
-    document.documentElement.dataset.mode = showMode ? 'show' : 'setup';
+    document.documentElement.dataset.mode = pageMode;
   });
 
   onMount(() => {
@@ -140,7 +152,7 @@
     {#if app.projects.length > 0}
       <label class="project">
         <span class="sr-only">Active project</span>
-        <select value={app.active?.id ?? ''} onchange={onProjectChange} disabled={showMode}>
+        <select value={app.active?.id ?? ''} onchange={onProjectChange} disabled={liveMode}>
           {#if !app.active}<option value="">No active project</option>{/if}
           {#each app.projects as project (project.id)}
             <option value={project.id}>{project.name}</option>
@@ -150,7 +162,7 @@
     {/if}
 
     <nav aria-label="Setup">
-      {#if !showMode}
+      {#if !liveMode}
         {#each tabs as tab (tab.route)}
           <a href={'#' + tab.route} class:active={router.route === tab.route} class:soon={tab.soon}>
             {tab.label}
@@ -163,7 +175,7 @@
       <span class="dot"></span>{output.label}
     </div>
 
-    {#if stagePreview.active && !showMode}
+    {#if stagePreview.active && !liveMode}
       <button type="button" class="preview-pill" onclick={() => stagePreview.stop()}
         title="A {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} is playing on stage above the playback – click to stop">
         <span class="pulse" aria-hidden="true"></span>
@@ -171,7 +183,7 @@
       </button>
     {/if}
 
-    {#if access.status?.pinSet && !showMode}
+    {#if access.status?.pinSet && !liveMode}
       <button type="button" class="lock" class:locked={access.locked} onclick={toggleLock}
         title={access.locked ? 'Setup is locked – click to enter the PIN' : 'Setup is unlocked – click to lock it'}>
         {access.locked ? '🔒 Locked' : '🔓 Unlocked'}
@@ -183,8 +195,9 @@
     </div>
 
     <div class="mode" role="group" aria-label="Mode">
-      <button type="button" class:on={!showMode} onclick={() => showMode && requestLeaveShow()}>Setup</button>
-      <button type="button" class:on={showMode} onclick={() => !showMode && enterShow()}>Show</button>
+      <button type="button" class:on={pageMode === 'setup'} onclick={() => switchTo('setup')}>Setup</button>
+      <button type="button" class:on={pageMode === 'show'} onclick={() => switchTo('show')}>Show</button>
+      <button type="button" class:on={pageMode === 'party'} onclick={() => switchTo('party')}>Party</button>
     </div>
   </header>
 
@@ -209,6 +222,10 @@
       <DmxMonitorView />
     {:else if router.route === '/setup/settings'}
       <SettingsView />
+    {:else if router.route === '/setup/party'}
+      <PartyButtonsView />
+    {:else if router.route === '/party'}
+      <PartyView />
     {:else}
       <ShowView />
     {/if}
@@ -222,11 +239,24 @@
 
 <svelte:window {onkeydown} />
 
-<Modal bind:open={leaveShowOpen} title="Leave show mode?">
-  <p>The playback keeps running. In setup mode the programmer is unlocked again and can change the light on stage.</p>
+<Modal bind:open={leaveOpen} title="Leave {pageMode} mode?">
+  <p>
+    {#if pageMode === 'show'}
+      The playback keeps its place.
+    {:else}
+      The party look is kept for later.
+    {/if}
+    {#if leaveTarget === 'setup'}
+      In setup mode the programmer is unlocked again and can change the light on stage.
+    {:else if leaveTarget === 'party'}
+      Party mode takes over the stage; the playback gives no light until show mode returns.
+    {:else}
+      Show mode plays the cue list from where it stands.
+    {/if}
+  </p>
   {#snippet actions()}
-    <button class="btn ghost" type="button" onclick={() => (leaveShowOpen = false)}>Stay in show</button>
-    <button class="btn primary" type="button" onclick={leaveShow}>Leave show mode</button>
+    <button class="btn ghost" type="button" onclick={() => (leaveOpen = false)}>Stay in {pageMode}</button>
+    <button class="btn primary" type="button" onclick={confirmLeave}>Switch to {leaveTarget}</button>
   {/snippet}
 </Modal>
 

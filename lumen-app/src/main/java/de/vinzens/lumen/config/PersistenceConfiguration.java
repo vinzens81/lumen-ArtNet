@@ -14,6 +14,7 @@ import de.vinzens.lumen.application.project.PatchService;
 import de.vinzens.lumen.application.project.ProjectService;
 import de.vinzens.lumen.application.project.ProjectTransferService;
 import de.vinzens.lumen.application.project.StageService;
+import de.vinzens.lumen.application.party.PartyButtonService;
 import de.vinzens.lumen.application.scene.SceneService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -59,7 +60,7 @@ class PersistenceConfiguration {
 			OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
 				repositories.groups(), repositories.scenes(), repositories.stagePlans(), repositories.compositions(),
-				clock, outputEngine);
+				repositories.partyButtons(), clock, outputEngine);
 	}
 
 	@Bean
@@ -112,5 +113,11 @@ class PersistenceConfiguration {
 	ExtraKeyService extraKeyService(SqliteRepositories repositories, StateEvents stateEvents) {
 		return new ExtraKeyService(repositories.projects(), repositories.scenes(), repositories.compositions(),
 				stateEvents);
+	}
+
+	@Bean
+	PartyButtonService partyButtonService(SqliteRepositories repositories, OutputEngine outputEngine,
+			StateEvents stateEvents) {
+		return new PartyButtonService(repositories.projects(), repositories.partyButtons(), outputEngine, stateEvents);
 	}
 }

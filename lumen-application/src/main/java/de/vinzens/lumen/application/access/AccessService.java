@@ -57,7 +57,8 @@ public class AccessService implements ManageAccessUseCase {
 
 	private synchronized void modeChanged() {
 		var current = mode.mode();
-		if (current == OperatingMode.SHOW && lastMode != OperatingMode.SHOW) {
+		// leaving setup for show or party mode locks every browser
+		if (current != OperatingMode.SETUP && lastMode == OperatingMode.SETUP) {
 			lockAll();
 		}
 		lastMode = current;

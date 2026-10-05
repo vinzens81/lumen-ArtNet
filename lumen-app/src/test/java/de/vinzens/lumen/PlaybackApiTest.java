@@ -90,7 +90,7 @@ class PlaybackApiTest {
 	void pauseIsReported() {
 		assertThat(post("/api/playback/pause", "")).hasStatusOk().bodyJson().extractingPath("$.paused").isEqualTo(true);
 		assertThat(post("/api/playback/pause", "")).hasStatusOk().bodyJson().extractingPath("$.paused").isEqualTo(false);
-		assertThat(put("/api/mode", "{\"mode\": \"party\"}")).hasStatus(400);
+		assertThat(put("/api/mode", "{\"mode\": \"disco\"}")).hasStatus(400);
 	}
 
 	/** GO, then wait past the double-GO guard. */

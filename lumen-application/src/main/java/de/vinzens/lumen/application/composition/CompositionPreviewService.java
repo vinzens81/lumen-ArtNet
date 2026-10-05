@@ -80,7 +80,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 				refreshStage();
 			}
 			case MODE -> {
-				if (mode.mode() == OperatingMode.SHOW) {
+				if (mode.mode() != OperatingMode.SETUP) {
 					stopOnStage();
 				}
 			}
@@ -189,8 +189,8 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	}
 
 	private void requireSetupMode() {
-		if (mode.mode() == OperatingMode.SHOW) {
-			throw new ConflictException("The stage preview is not available in show mode");
+		if (mode.mode() != OperatingMode.SETUP) {
+			throw new ConflictException("The stage preview is only available in setup mode");
 		}
 	}
 

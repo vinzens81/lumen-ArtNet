@@ -190,7 +190,7 @@ export interface SceneRequest {
   record?: boolean;
 }
 
-export type OperatingMode = 'setup' | 'show';
+export type OperatingMode = 'setup' | 'show' | 'party';
 
 export interface PlaybackStatus {
   available: boolean;
@@ -382,4 +382,41 @@ export interface StagePreviewStatus {
   sceneId: number | null;
   /** running rehearsed fade into sceneId, null if none or ended */
   fade: RehearsedFade | null;
+}
+
+/** A built-in color palette of party mode. */
+export interface PartyPalette {
+  id: string;
+  label: string;
+  /** display color #rrggbb */
+  color: string;
+}
+
+export interface PartyButtonState {
+  id: number;
+  name: string;
+  mode: KeyMode;
+  on: boolean;
+}
+
+/** Live state of party mode, pushed as 'party'. */
+export interface PartyStatus {
+  bpm: number;
+  beatMs: number;
+  /** time since the last beat when the status was made */
+  msSinceBeat: number;
+  /** palette and intensity of the fixtures party mode has touched */
+  fixtures: Record<number, { palette: string | null; intensity: number }>;
+  buttons: PartyButtonState[];
+  palettes: PartyPalette[];
+}
+
+/** A party button with its values (setup tab). */
+export interface PartyButton {
+  id: number;
+  position: number;
+  name: string;
+  mode: KeyMode;
+  fixtureCount: number;
+  values: Record<number, AttributeValues>;
 }
