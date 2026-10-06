@@ -40,7 +40,9 @@ import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -367,11 +369,14 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param script         text spoken on stage
 	 * @param compositions   compositions of the scene in their order, referring to composition ids of the file
 	 * @param keys           extra keys of the scene
+	 * @param looks          looks used directly at the start of the scene, referring to look ids of the file
+	 * @param sections       the light of the parts after the light markers of the script
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
 			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script,
-			List<SceneCompositionEntry> compositions, List<SceneKeyEntry> keys) {
+			List<SceneCompositionEntry> compositions, List<SceneKeyEntry> keys, List<SceneLookEntry> looks,
+			List<SectionEntry> sections) {
 
 		static SceneEntry from(Scene scene) {
 			var spec = scene.spec();
@@ -381,14 +386,47 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionEntry::from).toList(),
-					scene.keys().stream().map(SceneKeyEntry::from).toList());
+					scene.keys().stream().map(SceneKeyEntry::from).toList(),
+					scene.looks().stream().map(SceneLookEntry::from).toList(),
+					scene.sections().stream().map(SectionEntry::from).toList());
 		}
 
 		Scene toScene(long id) {
 			return new Scene(id, 0, sceneSpec(number, name, cueNote, autoFollowMs, fadeInMs, fadeOutMs, delayMs,
 					fadeCurve, script),
 					list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
-					list(keys).stream().map(SceneKeyEntry::toKey).toList());
+					list(keys).stream().map(SceneKeyEntry::toKey).toList(),
+					list(looks).stream().map(SceneLookEntry::toUse).toList(),
+					list(sections).stream().map(SectionEntry::toSection).toList());
+		}
+	}
+
+	record SceneLookEntry(Long lookId, Double level) {
+
+		static SceneLookEntry from(SceneLook use) {
+			return new SceneLookEntry(use.lookId(), use.level());
+		}
+
+		SceneLook toUse() {
+			return new SceneLook(require(lookId, "lookId of a scene"), Objects.requireNonNullElse(level, 1.0));
+		}
+	}
+
+	/** @param marker name of the light marker in the script */
+	record SectionEntry(String marker, List<SceneCompositionEntry> compositions, List<SceneLookEntry> looks) {
+
+		static SectionEntry from(SceneSection section) {
+			return new SectionEntry(section.marker(),
+					section.compositions().stream().map(SceneCompositionEntry::from).toList(),
+					section.looks().stream().map(SceneLookEntry::from).toList());
+		}
+
+		SceneSection toSection() {
+			if (marker == null || marker.isBlank()) {
+				throw new DomainValidationException(List.of("A part of a scene has no marker"));
+			}
+			return new SceneSection(marker, list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
+					list(looks).stream().map(SceneLookEntry::toUse).toList());
 		}
 	}
 

@@ -105,6 +105,15 @@ Fade-Kurve, Auto-Follow und Textbuch.
   (Change Request 2026-10-06, Flyway `V21`): Ein Fader, der eine solche Szene spielte, spielt deren erste Composition,
   die Szene wurde entfernt.
 
+### Licht-Marker und Looks (2026-10-06)
+
+Eine Zeile `//## Name (Infotext)##` im Textbuch teilt die Szene in **Abschnitte**: Start (vor dem ersten Marker) und je
+einer nach jedem Marker. Jeder Abschnitt hat eigene Compositions und Looks und steht für sich. Überschreitet die
+Textposition im Betrieb einen Marker (auch rückwärts), blendet `Playback.goToSection` mit den Fade-Zeiten der Szene um;
+was in beiden Abschnitten steckt, läuft weiter und bewegt sich nicht. Abschnitte sind über den Marker-Namen
+gespeichert (`scene_composition.section`, `scene_look`), gleichnamige Marker teilen sich ihr Licht. Szenen können
+außerdem gemeinsame **Looks** direkt spielen (`SceneLook`, mit Level), unter den Compositions.
+
 ### Tasten
 
 - Jede Szene hat eigene **Tasten 1–8**. Jede Taste spielt eine Composition, **Toggle** oder **Flash**, mit eigener

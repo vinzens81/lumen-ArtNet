@@ -20,6 +20,7 @@ import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -335,6 +336,12 @@ class PlaybackServiceTest {
 			@Override
 			public Scene replaceCompositions(long id, List<SceneComposition> compositions) {
 				return show.scenes.replaceCompositions(id, compositions);
+			}
+
+			@Override
+			public Scene replaceSection(long id, String marker, List<SceneComposition> compositions,
+					List<SceneLook> looks) {
+				return show.scenes.replaceSection(id, marker, compositions, looks);
 			}
 
 			@Override

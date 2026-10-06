@@ -4,6 +4,7 @@ import de.vinzens.lumen.application.look.port.in.ManageLooksUseCase.RecordOption
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 
@@ -45,6 +46,13 @@ public interface ManageScenesUseCase {
 
 	/** The compositions of the scene in their order, with level, speed and restart per use. */
 	Scene setCompositions(long projectId, long sceneId, List<SceneComposition> compositions);
+
+	/**
+	 * The light of a part of the scene: after the light marker {@code marker} of the script, or the start of the
+	 * scene for an empty marker. Compositions and looks must belong to the project.
+	 */
+	Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> compositions,
+			List<SceneLook> looks);
 
 	/** The extra keys of the scene; each plays a composition of the project. */
 	Scene setKeys(long projectId, long sceneId, List<SceneKey> keys);

@@ -14,6 +14,9 @@ import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.ScriptMarkers;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -43,6 +46,25 @@ public class CompositionResolver {
 		var project = load(projectId);
 		var result = new HashMap<Long, List<ActiveComposition>>();
 		scenes.findByProject(projectId).forEach(scene -> result.put(scene.id(), project.compositionsOf(scene)));
+		return result;
+	}
+
+	/**
+	 * The light of the parts after the light markers of every scene, by scene id: one list per marker in the order of
+	 * the script. A marker without light chosen is dark.
+	 */
+	public Map<Long, List<List<ActiveComposition>>> sections(long projectId) {
+		var project = load(projectId);
+		var result = new HashMap<Long, List<List<ActiveComposition>>>();
+		for (var scene : scenes.findByProject(projectId)) {
+			var markers = ScriptMarkers.parse(scene.spec().script());
+			if (!markers.isEmpty()) {
+				result.put(scene.id(), markers.stream()
+						.map(marker -> project.lightOf(scene.section(marker.name()).looks(),
+								scene.section(marker.name()).compositions()))
+						.toList());
+			}
+		}
 		return result;
 	}
 
@@ -120,13 +142,19 @@ public class CompositionResolver {
 	/** Looks and compositions of a project, read once per resolution. */
 	private record Project(Map<Long, Look> looks, Map<Long, Composition> compositions) {
 
-		/** The compositions of a scene with the settings of their use; missing ones are left out. */
+		/** The start of a scene: its looks, then its compositions; missing ones are left out. */
 		List<ActiveComposition> compositionsOf(Scene scene) {
-			return scene.compositions().stream()
-					.flatMap(use -> Optional.ofNullable(compositions.get(use.compositionId())).stream()
-							.map(composition -> ActiveComposition.of(composition, looks, use.level(),
-									use.speedFactor(), use.restart())))
-					.toList();
+			return lightOf(scene.looks(), scene.compositions());
+		}
+
+		List<ActiveComposition> lightOf(List<SceneLook> sceneLooks, List<SceneComposition> uses) {
+			var result = new ArrayList<ActiveComposition>();
+			sceneLooks.forEach(use -> Optional.ofNullable(looks.get(use.lookId())).ifPresent(look ->
+					result.add(ActiveComposition.ofLook(use.lookId(), look, use.level()))));
+			uses.forEach(use -> Optional.ofNullable(compositions.get(use.compositionId())).ifPresent(composition ->
+					result.add(ActiveComposition.of(composition, looks, use.level(), use.speedFactor(),
+							use.restart()))));
+			return List.copyOf(result);
 		}
 	}
 }

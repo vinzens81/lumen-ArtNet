@@ -38,6 +38,17 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 				composition.spec().playMode() == PlayMode.ONCE, false);
 	}
 
+	/**
+	 * A look used directly in a scene: it stays as it is. Its id is the negative look id, so it never meets a
+	 * composition id, and the same look continues from one part of a scene to the next without moving.
+	 */
+	public static ActiveComposition ofLook(long lookId, Look look, double level) {
+		var sequence = new StepSequence(List.of(new StepSequence.Step(1, 0, look.values())),
+				StepSequence.PlayMode.LOOP);
+		return new ActiveComposition(-lookId, Optional.of(-lookId), sequence, sequence.ownFixtures().orElse(List.of()),
+				level, 1, false);
+	}
+
 	/** A composition on its own at full level and speed (previews, keys). */
 	public static ActiveComposition of(Composition composition, Map<Long, Look> looks) {
 		return of(composition, looks, 1, 1, false);

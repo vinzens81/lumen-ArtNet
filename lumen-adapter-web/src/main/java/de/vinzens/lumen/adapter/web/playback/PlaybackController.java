@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.Locale;
 
 @RestController
@@ -106,7 +107,8 @@ class PlaybackController {
 		if (request.sceneId() == null || request.line() == null) {
 			throw new DomainValidationException(List.of("sceneId and line are required"));
 		}
-		return PlaybackResponse.from(playback.setScriptLine(request.sceneId(), request.line()));
+		return PlaybackResponse.from(playback.setScriptLine(request.sceneId(), request.line(),
+				Optional.ofNullable(request.section())));
 	}
 
 	@GetMapping("/api/mode")
@@ -137,8 +139,12 @@ class PlaybackController {
 	record NextRequest(Long sceneId) {
 	}
 
-	/** @param line index of the sentence among the spoken sentences (stage directions not counted) */
-	record ScriptLineRequest(Long sceneId, Integer line) {
+	/**
+	 * @param line    index of the sentence among the spoken sentences (stage directions not counted)
+	 * @param section part of the scene the sentence is in (0 = start, n = after the n-th light marker); its light
+	 *                fades in. {@code null} = the light stays
+	 */
+	record ScriptLineRequest(Long sceneId, Integer line, Integer section) {
 	}
 
 	record ModeResponse(String mode) {

@@ -58,6 +58,11 @@
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
   const fadeCurve = $derived(app.active?.fadeCurve ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
+  /** light markers of the script being edited, each name once: every one gets light of its own */
+  const sceneMarkers = $derived.by(() => {
+    const seen = new Set<string>();
+    return parseScript(form.script).markers.filter((m) => !seen.has(m.name) && seen.add(m.name));
+  });
   const scriptStats = $derived.by(() => {
     const script = parseScript(form.script);
     return { lines: script.lineCount, notes: script.noteCount, speakers: script.speakers.length };
@@ -482,7 +487,7 @@
             <label class="field">Cue note<input bind:value={form.cueNote} placeholder="When to press GO" /></label>
               <label class="field">Script
                 <textarea bind:value={form.script} rows="8"
-                  placeholder={'Text spoken on stage during this scene.\nJuliet: Ay me! – a name and a colon at the start of a line marks who speaks.\n**Enter Juliet** – stage directions in two asterisks.'}
+                  placeholder={'Text spoken on stage during this scene.\nJuliet: Ay me! – a name and a colon at the start of a line marks who speaks.\n**Enter Juliet** – stage directions in two asterisks.\n//## Window (moonlight) ## – a light marker: the light of the scene changes here.'}
                 ></textarea>
               </label>
               <p class="hint dim">
@@ -492,7 +497,8 @@
                   {#if scriptStats.notes > 0}· {scriptStats.notes} stage {scriptStats.notes === 1 ? 'direction' : 'directions'}{/if}
                   –
                 {/if}
-                In show mode ↑/↓ step through the sentences; <span class="mono">**text**</span> is skipped.
+                In show mode ↑/↓ step from speech to speech; <span class="mono">**text**</span> is a stage direction,
+                a line <span class="mono">//## Name (info)##</span> a light marker with light of its own.
                 <button class="btn small preview-script" type="button" onclick={() => (scriptPreviewOpen = true)}
                   disabled={!form.script.trim()} title="Shows the script as the show displays it – with unsaved changes">
                   👁 Preview
@@ -599,6 +605,10 @@
 
           {#if projectId !== null}
             <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes} />
+            {#each sceneMarkers as marker (marker.name)}
+              <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes}
+                marker={marker.name} info={marker.info} />
+            {/each}
             <SceneKeys {projectId} scene={selected} {compositions} />
           {/if}
 

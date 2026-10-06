@@ -218,6 +218,20 @@ export interface SceneComposition {
   restart: boolean;
 }
 
+/** A look used directly in a scene: it stays as it is. */
+export interface SceneLook {
+  lookId: number;
+  /** 0–1 */
+  level: number;
+}
+
+/** The light of a part of a scene: after the light marker `marker` of the script. */
+export interface SceneSection {
+  marker: string;
+  compositions: SceneComposition[];
+  looks: SceneLook[];
+}
+
 /** An extra key of a scene: switches a composition on and off while the scene is on stage. */
 export interface SceneKey {
   /** 1–8 */
@@ -247,6 +261,10 @@ export interface Scene {
   /** in order: on the same attribute a later one wins (intensity: the highest) */
   compositions: SceneComposition[];
   keys: SceneKey[];
+  /** looks used directly at the start of the scene, applied before the compositions */
+  looks: SceneLook[];
+  /** the light of the parts after the light markers of the script; a marker without one is dark */
+  sections: SceneSection[];
 }
 
 export interface SceneRequest {
@@ -350,6 +368,8 @@ export interface PlaybackStatus {
   faders: FaderStatus[];
   /** highlighted sentence of the script of the current scene (stage directions not counted), 0 after a scene change */
   scriptLine: number;
+  /** part of the current scene whose light is on stage: 0 = the start, n = after the n-th light marker */
+  section: number;
 }
 
 export type KeyMode = 'toggle' | 'flash';

@@ -63,7 +63,7 @@ class ShowServicesTest {
 	private final FakeProgrammer programmer = new FakeProgrammer();
 	private final StateEvents events = new StateEvents();
 	private final Clock clock = Clock.fixed(Instant.parse("2026-10-06T20:00:00Z"), ZoneOffset.UTC);
-	private final LookService looks = new LookService(projects(), show.looks, show.compositions, programmer, events,
+	private final LookService looks = new LookService(projects(), show.looks, show.compositions, show.scenes, programmer, events,
 			clock);
 	private final CompositionService compositions = new CompositionService(projects(), show.compositions, show.looks,
 			show.scenes, fixtures(), groups(), library(), programmer, events);

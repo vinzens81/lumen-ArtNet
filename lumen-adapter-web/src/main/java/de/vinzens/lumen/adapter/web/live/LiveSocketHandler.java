@@ -37,6 +37,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
@@ -296,7 +297,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					if (command.sceneId() == null || command.line() == null) {
 						throw new DomainValidationException(List.of("sceneId and line are required"));
 					}
-					playback.setScriptLine(command.sceneId(), command.line());
+					playback.setScriptLine(command.sceneId(), command.line(), Optional.ofNullable(command.section()));
 				}
 				default -> throw new DomainValidationException(List.of("Unknown command '" + command.type() + "'"));
 			}
@@ -343,7 +344,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	}
 
 	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
-			List<String> topics, Integer slot, Long sceneId, Integer line) {
+			List<String> topics, Integer slot, Long sceneId, Integer line, Integer section) {
 	}
 
 	/** @param lastSent topic → message last sent to this client */

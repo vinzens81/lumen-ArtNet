@@ -22,6 +22,8 @@ import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
@@ -119,9 +121,15 @@ public class SceneService implements ManageScenesUseCase {
 		var sceneNumber = number.orElseGet(() -> existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
 		var spec = original.spec();
-		return published(scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
-				spec.autoFollow(), spec.timing(), spec.script()), original.compositions(),
-				original.keys()));
+		var copy = scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
+				spec.autoFollow(), spec.timing(), spec.script()), original.compositions(), original.keys());
+		if (!original.looks().isEmpty()) {
+			copy = scenes.replaceSection(copy.id(), "", original.compositions(), original.looks());
+		}
+		for (var section : original.sections()) {
+			copy = scenes.replaceSection(copy.id(), section.marker(), section.compositions(), section.looks());
+		}
+		return published(copy);
 	}
 
 	@Override
@@ -130,6 +138,22 @@ public class SceneService implements ManageScenesUseCase {
 		requireCompositions(projectId, sceneCompositions.stream().map(SceneComposition::compositionId));
 		new Scene(scene.id(), projectId, scene.spec(), sceneCompositions, scene.keys()); // validates
 		return published(scenes.replaceCompositions(sceneId, sceneCompositions));
+	}
+
+	@Override
+	public Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> sceneCompositions,
+			List<SceneLook> sceneLooks) {
+		var scene = requireScene(projectId, sceneId);
+		var name = marker == null ? "" : marker.strip();
+		requireCompositions(projectId, sceneCompositions.stream().map(SceneComposition::compositionId));
+		requireLooks(projectId, sceneLooks.stream().map(SceneLook::lookId));
+		// validates
+		if (name.isEmpty()) {
+			scene.withStart(sceneCompositions, sceneLooks);
+		} else {
+			scene.withSection(new SceneSection(name, sceneCompositions, sceneLooks));
+		}
+		return published(scenes.replaceSection(sceneId, name, sceneCompositions, sceneLooks));
 	}
 
 	@Override
@@ -179,6 +203,18 @@ public class SceneService implements ManageScenesUseCase {
 		ids.distinct().forEach(id -> {
 			if (compositions.findById(id).filter(c -> c.projectId() == projectId).isEmpty()) {
 				problems.add("composition " + id + " does not exist in this project");
+			}
+		});
+		if (!problems.isEmpty()) {
+			throw new DomainValidationException(problems);
+		}
+	}
+
+	private void requireLooks(long projectId, Stream<Long> ids) {
+		var problems = new ArrayList<String>();
+		ids.distinct().forEach(id -> {
+			if (looks.findById(id).filter(l -> l.projectId() == projectId).isEmpty()) {
+				problems.add("look " + id + " does not exist in this project");
 			}
 		});
 		if (!problems.isEmpty()) {

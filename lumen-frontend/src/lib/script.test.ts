@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { parseScript, scriptBlocks, speakerHue, stepLine, type ScriptBlock, type ScriptPart } from './script';
+import {
+  parseScript, passages, scriptBlocks, sectionOf, speakerHue, stepPassage, type ScriptBlock, type ScriptPart,
+} from './script';
 
 function lines(text: string): string[] {
   return parseScript(text).parts.flatMap((part) => (part.kind === 'line' ? [part.text] : []));
@@ -75,7 +77,7 @@ describe('parseScript', () => {
   });
 
   it('has no parts for an empty text', () => {
-    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, speakers: [] });
+    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, speakers: [], markers: [] });
   });
 });
 
@@ -127,20 +129,63 @@ function summary(block: ScriptBlock): string {
     case 'speech': return `speech ${block.speaker}${block.continued ? ' (continued)' : ''}: ${text(block.parts)}`;
     case 'text': return `text: ${text(block.parts)}`;
     case 'note': return `note: ${block.text}`;
+    case 'marker': return `marker ${block.section}: ${block.name} (${block.info})`;
     case 'paragraph': return 'paragraph';
   }
 }
 
-describe('stepLine', () => {
-  const script = parseScript('One. Two. Three.');
+describe('light markers', () => {
+  const script = parseScript([
+    '**Regie Anweisung**',
+    'Michael: Lorem ipsum. Dolor sit.',
+    'Doro: Sadipscing elitr.',
+    '',
+    '//## Licht Marker 1 (infotext 1)##',
+    '**Regie Anweisung 2**',
+    'Michael: Invidunt ut labore.',
+    '//## Licht Marker 2 ##',
+    'Michael: Diam voluptua.',
+  ].join('\n'));
 
-  it('stays within the scene', () => {
-    expect(stepLine(script, 0, 1)).toBe(1);
-    expect(stepLine(script, 2, 1)).toBe(2);
-    expect(stepLine(script, 0, -1)).toBe(0);
+  it('finds the markers with their info and the part every sentence is in', () => {
+    expect(script.markers).toEqual([{ name: 'Licht Marker 1', info: 'infotext 1' }, { name: 'Licht Marker 2', info: '' }]);
+    expect(script.lineCount).toBe(5);
+    expect([0, 1, 2, 3, 4].map((line) => sectionOf(script, line))).toEqual([0, 0, 0, 1, 2]);
+  });
+
+  it('shows a marker on a line of its own between the speeches', () => {
+    expect(scriptBlocks(script).map(summary)).toEqual([
+      'note: Regie Anweisung',
+      'speech Michael: Lorem ipsum. Dolor sit.',
+      'speech Doro: Sadipscing elitr.',
+      'marker 1: Licht Marker 1 (infotext 1)',
+      'note: Regie Anweisung 2',
+      'speech Michael: Invidunt ut labore.',
+      'marker 2: Licht Marker 2 ()',
+      'speech Michael: Diam voluptua.',
+    ]);
+  });
+});
+
+describe('stepping through the script', () => {
+  it('steps over the whole speech of a speaker, stage directions included', () => {
+    const script = parseScript('Prolog. Second line.\nMaike: Hallo! **lacht** Wie gehts?\nRolf: Gut.\n\nEnde.');
+
+    expect(passages(script)).toEqual([{ first: 0, last: 1 }, { first: 2, last: 3 }, { first: 4, last: 4 },
+      { first: 5, last: 5 }]);
+    expect(stepPassage(script, 0, 1)).toBe(2);
+    expect(stepPassage(script, 3, 1), 'from inside a speech').toBe(4);
+    expect(stepPassage(script, 4, -1)).toBe(2);
+    expect(stepPassage(script, 5, 1), 'stays within the scene').toBe(5);
+    expect(stepPassage(script, 0, -1)).toBe(0);
+  });
+
+  it('starts a new passage at a light marker, even in a speech', () => {
+    const script = parseScript('Maike: One.\n//## Light ##\nTwo.');
+    expect(passages(script)).toEqual([{ first: 0, last: 0 }, { first: 1, last: 1 }]);
   });
 
   it('is null without sentences', () => {
-    expect(stepLine(parseScript('**Silence**'), 0, 1)).toBeNull();
+    expect(stepPassage(parseScript('**Silence**'), 0, 1)).toBeNull();
   });
 });

@@ -33,7 +33,8 @@ und welche Szenen es gibt.
   erhalten und werden beim Start einmal umgewandelt (`legacy_conversion` merkt sich die Projekte),
   V20 = parallele Schritte (`composition_step.parallel`), V21 = Fader spielen Compositions (`fader.composition_id`,
   `scene.outside_cue_list` entfällt; für noch nicht umgewandelte Projekte bleiben `legacy_fader` und
-  `legacy_outside_cue_list`), V22 = Party-Matrix (`party_matrix`, `party_cell`; `party_button*` entfällt).
+  `legacy_outside_cue_list`), V22 = Party-Matrix (`party_matrix`, `party_cell`; `party_button*` entfällt),
+  V23 = Abschnitte nach Licht-Markern und Looks in Szenen (`scene_composition.section`, `scene_look`).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -102,12 +103,19 @@ scene
 
 scene_composition                               -- Compositions einer Szene, Reihenfolge = Priorität
   scene_id        FK → scene ON DELETE CASCADE
+  section         TEXT NOT NULL DEFAULT ''      -- '' = Start der Szene, sonst Name des Licht-Markers (V23)
   composition_id  FK → composition              -- eine gespielte Composition kann nicht gelöscht werden
   position        INTEGER NOT NULL
   level           REAL NOT NULL                 -- 0..1
   speed_factor    REAL NOT NULL
   restart         INTEGER NOT NULL              -- 1 = beim GO neu starten statt weiterlaufen
-  PRIMARY KEY(scene_id, composition_id)
+  PRIMARY KEY(scene_id, section, composition_id)
+
+scene_look                                      -- Looks, die eine Szene direkt spielt, unter den Compositions (V23)
+  scene_id        FK → scene ON DELETE CASCADE
+  section         TEXT NOT NULL DEFAULT ''      -- wie bei scene_composition
+  look_id         FK → look                     -- ein so verwendeter Look kann nicht gelöscht werden
+  position, level
 
 scene_key                                       -- Extra-Tasten einer Szene
   scene_id, slot (1–8), composition_id, key_mode ('toggle' | 'flash'), fade_ms   PRIMARY KEY(scene_id, slot)

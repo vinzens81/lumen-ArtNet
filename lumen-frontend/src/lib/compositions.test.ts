@@ -92,6 +92,13 @@ describe('compositions', () => {
       .toEqual(['"C2" overrides the color of "C1" on F1']);
   });
 
+  it('previews the looks of a scene under its compositions', () => {
+    const looks = lookMap([look(1, { 1: { dimmer: 1, red: 1 } }), look(2, { 1: { blue: 1 } })]);
+    const values = sceneStartValues({ compositions: [{ compositionId: 2, level: 1, speedFactor: 1, restart: false }],
+      looks: [{ lookId: 1, level: 0.5 }] }, new Map([[2, composition(2, [2])]]), looks);
+    expect(values[1]).toEqual({ dimmer: 0.5, red: 1, blue: 1 });
+  });
+
   it('previews a scene at its start', () => {
     const looks = lookMap([look(1, { 1: { dimmer: 0.4, red: 1 } }), look(2, { 1: { dimmer: 1, blue: 1 } }),
       look(3, { 1: { dimmer: 0.2 } })]);

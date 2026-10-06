@@ -1,7 +1,8 @@
 /**
  * The text spoken on stage during a scene, split into the sentences the operator steps through. Text in
  * `**…**` is a stage direction: shown differently and skipped when stepping. A name and a colon at the start of a
- * line (`Maike Schmitz: Hallo Rolf!`) marks who speaks.
+ * line (`Maike Schmitz: Hallo Rolf!`) marks who speaks. A line `//## Name (info)##` is a light marker: the scene's
+ * light changes when the operator steps past it (same rule as ScriptMarkers on the server).
  */
 export type ScriptPart =
   /** a spoken sentence; `index` counts the sentences of the scene, starting at 0 */
@@ -9,6 +10,11 @@ export type ScriptPart =
   | { kind: 'note'; text: string }
   /** who speaks from here on (until the next speaker or an empty line) */
   | { kind: 'speaker'; name: string }
+  /**
+   * a light marker: the part `section` of the scene (1, 2, …) starts here; `firstLine` is the index of the first
+   * sentence after it
+   */
+  | { kind: 'marker'; name: string; info: string; section: number; firstLine: number }
   /** line break in the text */
   | { kind: 'break' }
   /** empty line in the text */
@@ -21,7 +27,11 @@ export interface Script {
   noteCount: number;
   /** names of the speakers in order of their first appearance */
   speakers: string[];
+  /** light markers in their order */
+  markers: { name: string; info: string }[];
 }
+
+const MARKER = /^[ \t]*\/\/[ \t]*##[ \t]*(.*?)[ \t]*##[ \t]*$/gm;
 
 /**
  * A speaker at the start of a line: one to four words starting with a capital letter, then a colon and a space (or
@@ -48,9 +58,11 @@ export function parseScript(text: string): Script {
   /** the next text starts a line of the text (where a speaker can stand) */
   let atLineStart = true;
 
+  const markers: { name: string; info: string }[] = [];
+
   const addBreak = (kind: 'break' | 'paragraph') => {
     const last = parts[parts.length - 1];
-    if (last === undefined) return; // nothing to separate yet
+    if (last === undefined || last.kind === 'marker') return; // nothing to separate
     if (last.kind === 'paragraph') return;
     if (last.kind === 'break') parts[parts.length - 1] = { kind };
     else parts.push({ kind });
@@ -77,21 +89,38 @@ export function parseScript(text: string): Script {
     });
   };
 
-  let position = 0;
-  for (const match of text.matchAll(NOTE)) {
-    addSpoken(text.slice(position, match.index));
-    const note = match[1].trim();
-    if (note) {
-      parts.push({ kind: 'note', text: note });
-      noteCount++;
-      atLineStart = false;
+  /** Text between light markers: spoken sentences and stage directions. */
+  const addText = (chunk: string) => {
+    let position = 0;
+    for (const match of chunk.matchAll(NOTE)) {
+      addSpoken(chunk.slice(position, match.index));
+      const note = match[1].trim();
+      if (note) {
+        parts.push({ kind: 'note', text: note });
+        noteCount++;
+        atLineStart = false;
+      }
+      position = match.index + match[0].length;
     }
+    addSpoken(chunk.slice(position));
+  };
+
+  let position = 0;
+  for (const match of text.matchAll(MARKER)) {
+    if (!match[1].trim()) continue;
+    addText(text.slice(position, match.index));
+    while (parts.length > 0 && isBreak(parts[parts.length - 1])) parts.pop();
+    const info = /^(.*?)\s*\((.*)\)$/.exec(match[1]);
+    const marker = info && info[1].trim() ? { name: info[1].trim(), info: info[2].trim() } : { name: match[1].trim(), info: '' };
+    markers.push(marker);
+    parts.push({ kind: 'marker', ...marker, section: markers.length, firstLine: lineCount });
+    atLineStart = true;
     position = match.index + match[0].length;
   }
-  addSpoken(text.slice(position));
+  addText(text.slice(position));
 
   while (parts.length > 0 && isBreak(parts[parts.length - 1])) parts.pop();
-  return { parts, lineCount, noteCount, speakers };
+  return { parts, lineCount, noteCount, speakers, markers };
 }
 
 /** How the script is laid out: speeches indented under their speaker, stage directions on lines of their own. */
@@ -101,6 +130,7 @@ export type ScriptBlock =
   /** text without a speaker */
   | { kind: 'text'; parts: ScriptPart[] }
   | { kind: 'note'; text: string }
+  | { kind: 'marker'; name: string; info: string; section: number }
   | { kind: 'paragraph' };
 
 export function scriptBlocks(script: Script): ScriptBlock[] {
@@ -137,6 +167,11 @@ export function scriptBlocks(script: Script): ScriptBlock[] {
       case 'note':
         close();
         blocks.push({ kind: 'note', text: part.text });
+        interrupted = speaker !== null;
+        break;
+      case 'marker':
+        close();
+        blocks.push({ kind: 'marker', name: part.name, info: part.info, section: part.section });
         interrupted = speaker !== null;
         break;
       case 'paragraph':
@@ -204,8 +239,68 @@ function endsSentence(text: string, index: number, punctuation: string, end: num
   return !ABBREVIATIONS.has(bare.toLowerCase());
 }
 
-/** The sentence `step` sentences away from `line`, kept within the scene; null without sentences. */
-export function stepLine(script: Script, line: number, step: number): number | null {
-  if (script.lineCount === 0) return null;
-  return Math.max(0, Math.min(script.lineCount - 1, line + step));
+/**
+ * The units the operator steps through: the whole speech of a speaker (stage directions in it do not split it), text
+ * without a speaker line by line. A light marker always starts a new passage. `first` and `last` are sentence indexes.
+ */
+export interface Passage {
+  first: number;
+  last: number;
+}
+
+export function passages(script: Script): Passage[] {
+  const result: Passage[] = [];
+  let open: Passage | null = null;
+  let inSpeech = false;
+  const close = () => {
+    if (open) result.push(open);
+    open = null;
+  };
+  for (const part of script.parts) {
+    switch (part.kind) {
+      case 'speaker':
+        close();
+        inSpeech = true;
+        break;
+      case 'paragraph':
+        close();
+        inSpeech = false;
+        break;
+      case 'marker':
+        close();
+        break;
+      case 'break':
+      case 'note':
+        if (!inSpeech) close();
+        break;
+      case 'line':
+        if (open) open.last = part.index;
+        else open = { first: part.index, last: part.index };
+        break;
+    }
+  }
+  close();
+  return result;
+}
+
+/** The passage that contains the sentence (or the last one before it); -1 without sentences. */
+export function passageOf(list: Passage[], line: number): number {
+  let found = -1;
+  list.forEach((passage, i) => {
+    if (passage.first <= line) found = i;
+  });
+  return list.length > 0 ? Math.max(0, found) : -1;
+}
+
+/** The first sentence of the passage `step` passages away from the one with `line`; null without sentences. */
+export function stepPassage(script: Script, line: number, step: number): number | null {
+  const list = passages(script);
+  if (list.length === 0) return null;
+  const target = Math.max(0, Math.min(list.length - 1, passageOf(list, line) + step));
+  return list[target].first;
+}
+
+/** The part of the scene a sentence is in: 0 before the first light marker, n after the n-th. */
+export function sectionOf(script: Script, line: number): number {
+  return script.parts.filter((p) => p.kind === 'marker' && p.firstLine <= line).length;
 }

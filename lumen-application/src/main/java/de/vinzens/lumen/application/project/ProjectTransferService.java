@@ -39,6 +39,7 @@ import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 
 import java.lang.System.Logger.Level;
@@ -170,8 +171,33 @@ public class ProjectTransferService implements TransferProjectUseCase {
 					export.compositions().stream().map(ids::composition).toList(),
 					sceneCompositions, sceneKeys, export.faders(), Set.of());
 			var written = writer.write(projectId, content, sceneIds);
+			for (var scene : export.scenes()) {
+				var id = sceneIds.get(scene.id());
+				if (!scene.looks().isEmpty()) {
+					scenes.replaceSection(id, "", mappedUses(scene.compositions(), written.compositionIds()),
+							mappedLooks(scene.looks(), written.lookIds()));
+				}
+				for (var section : scene.sections()) {
+					scenes.replaceSection(id, section.marker(),
+							mappedUses(section.compositions(), written.compositionIds()),
+							mappedLooks(section.looks(), written.lookIds()));
+				}
+			}
 			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds()));
 		}
+	}
+
+	private static List<SceneComposition> mappedUses(List<SceneComposition> uses, Map<Long, Long> compositionIds) {
+		return uses.stream().filter(use -> compositionIds.containsKey(use.compositionId()))
+				.map(use -> new SceneComposition(compositionIds.get(use.compositionId()), use.level(),
+						use.speedFactor(), use.restart()))
+				.toList();
+	}
+
+	private static List<SceneLook> mappedLooks(List<SceneLook> uses, Map<Long, Long> lookIds) {
+		return uses.stream().filter(use -> lookIds.containsKey(use.lookId()))
+				.map(use -> new SceneLook(lookIds.get(use.lookId()), use.level()))
+				.toList();
 	}
 
 	/** The matrix with the new ids; a field whose scene or composition is not in the export shows only its text. */
@@ -325,6 +351,15 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			scene.keys().stream().filter(key -> !compositionIds.contains(key.compositionId())).forEach(key ->
 					errors.add("Key " + key.slot() + " of scene " + scene.spec().number()
 							+ " plays unknown composition " + key.compositionId()));
+			scene.looks().stream().filter(use -> !lookIds.contains(use.lookId())).forEach(use ->
+					errors.add("Scene " + scene.spec().number() + " plays unknown look " + use.lookId()));
+			for (var section : scene.sections()) {
+				var where = "Scene " + scene.spec().number() + " at marker \"" + section.marker() + "\"";
+				section.compositions().stream().filter(use -> !compositionIds.contains(use.compositionId()))
+						.forEach(use -> errors.add(where + " plays unknown composition " + use.compositionId()));
+				section.looks().stream().filter(use -> !lookIds.contains(use.lookId()))
+						.forEach(use -> errors.add(where + " plays unknown look " + use.lookId()));
+			}
 		}
 		validateLegacy(export.legacy(), fixtureIds, groupIds, presetIds, sceneIds, sceneNumbers, errors);
 		var faderSlots = new HashSet<Integer>();

@@ -4,6 +4,8 @@ import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 
 import java.util.Comparator;
@@ -37,19 +39,28 @@ public class InMemoryScenes implements SceneRepository {
 	@Override
 	public Scene updateSpec(long id, SceneSpec spec) {
 		var scene = scenes.get(id);
-		return put(new Scene(id, scene.projectId(), spec, scene.compositions(), scene.keys()));
+		return put(new Scene(id, scene.projectId(), spec, scene.compositions(), scene.keys(), scene.looks(),
+				scene.sections()));
 	}
 
 	@Override
 	public Scene replaceCompositions(long id, List<SceneComposition> compositions) {
 		var scene = scenes.get(id);
-		return put(new Scene(id, scene.projectId(), scene.spec(), compositions, scene.keys()));
+		return put(scene.withStart(compositions, scene.looks()));
+	}
+
+	@Override
+	public Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks) {
+		var scene = scenes.get(id);
+		return put(marker.isEmpty() ? scene.withStart(compositions, looks)
+				: scene.withSection(new SceneSection(marker, compositions, looks)));
 	}
 
 	@Override
 	public Scene replaceKeys(long id, List<SceneKey> keys) {
 		var scene = scenes.get(id);
-		return put(new Scene(id, scene.projectId(), scene.spec(), scene.compositions(), keys));
+		return put(new Scene(id, scene.projectId(), scene.spec(), scene.compositions(), keys, scene.looks(),
+				scene.sections()));
 	}
 
 	@Override

@@ -96,6 +96,7 @@ class PersistenceConfiguration {
 	LookService lookService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents,
 			Clock clock) {
 		return new LookService(repositories.projects(), repositories.looks(), repositories.compositions(),
+				repositories.scenes(),
 				outputEngine, stateEvents, clock);
 	}
 

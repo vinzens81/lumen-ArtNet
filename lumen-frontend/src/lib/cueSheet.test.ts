@@ -5,7 +5,7 @@ import type { Composition, Scene } from './types';
 function scene(id: number, number: string, overrides: Partial<Scene> = {}): Scene {
   return {
     id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null,
-    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [],
+    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [], looks: [], sections: [],
     ...overrides,
   };
 }

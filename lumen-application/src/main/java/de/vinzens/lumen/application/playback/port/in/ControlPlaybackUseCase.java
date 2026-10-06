@@ -45,9 +45,16 @@ public interface ControlPlaybackUseCase {
 	 * Highlights a sentence of the script of the scene on stage, so all clients follow the same text. Ignored if the
 	 * scene is no longer on stage – e.g. a step that arrives just after GO.
 	 *
-	 * @param line index of the sentence among the spoken sentences of the scene (stage directions are not counted)
+	 * @param line    index of the sentence among the spoken sentences of the scene (stage directions are not counted)
+	 * @param section the part of the scene the sentence is in (0 = the start, n = after the n-th light marker); a new
+	 *                part fades to its light. Empty = the light stays as it is
 	 */
-	PlaybackStatus setScriptLine(long sceneId, int line);
+	PlaybackStatus setScriptLine(long sceneId, int line, Optional<Integer> section);
+
+	/** Highlights a sentence without changing the light. */
+	default PlaybackStatus setScriptLine(long sceneId, int line) {
+		return setScriptLine(sceneId, line, Optional.empty());
+	}
 
 	/**
 	 * @param position        {@code -1} before the first scene, {@code sceneCount} at the end of the show
@@ -57,16 +64,18 @@ public interface ControlPlaybackUseCase {
 	 * @param resumeSceneId   scene that was on stage before a restart; offered until resumed, dismissed or GO
 	 * @param keys            assigned extra keys with their state
 	 * @param scriptLine      highlighted sentence of the script of the current scene, 0 after every scene change
+	 * @param section         part of the current scene whose light is on stage: 0 = the start, n = after the n-th
+	 *                        light marker of the script
 	 * @param faders          assigned faders with their level
 	 */
 	record PlaybackStatus(boolean available, int position, int sceneCount, Optional<Long> currentSceneId,
 			Optional<Long> nextSceneId, boolean nextIsEnd, Optional<Fade> fade, boolean paused,
 			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys, int scriptLine,
-			List<FaderStatus> faders) {
+			int section, List<FaderStatus> faders) {
 
 		public static final PlaybackStatus UNAVAILABLE = new PlaybackStatus(false, -1, 0, Optional.empty(),
 				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of(), 0,
-				List.of());
+				0, List.of());
 
 		public PlaybackStatus {
 			keys = List.copyOf(keys);

@@ -9,29 +9,34 @@ import de.vinzens.lumen.application.look.port.in.ManageLooksUseCase;
 import de.vinzens.lumen.application.look.port.out.LookRepository;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
+import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.look.LookRevision;
 import de.vinzens.lumen.domain.look.LookSpec;
 import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.project.Project;
+import de.vinzens.lumen.domain.scene.Scene;
 
 import java.time.Clock;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class LookService implements ManageLooksUseCase {
 
 	private final ProjectRepository projects;
 	private final LookRepository looks;
 	private final CompositionRepository compositions;
+	private final SceneRepository scenes;
 	private final ControlProgrammerUseCase programmer;
 	private final StateEvents events;
 	private final Clock clock;
 
 	public LookService(ProjectRepository projects, LookRepository looks, CompositionRepository compositions,
-			ControlProgrammerUseCase programmer, StateEvents events, Clock clock) {
+			SceneRepository scenes, ControlProgrammerUseCase programmer, StateEvents events, Clock clock) {
+		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.looks = Objects.requireNonNull(looks, "looks");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
@@ -126,15 +131,25 @@ public class LookService implements ManageLooksUseCase {
 	@Override
 	public void delete(long projectId, long lookId) {
 		look(projectId, lookId);
-		var users = compositions.findByProject(projectId).stream()
-				.filter(composition -> composition.lookIds().contains(lookId))
-				.map(composition -> "\"" + composition.spec().name() + "\"")
+		var users = Stream.concat(
+				compositions.findByProject(projectId).stream()
+						.filter(composition -> composition.lookIds().contains(lookId))
+						.map(composition -> "\"" + composition.spec().name() + "\""),
+				scenes.findByProject(projectId).stream()
+						.filter(scene -> usesLook(scene, lookId))
+						.map(scene -> "scene " + scene.spec().number()))
 				.collect(Collectors.joining(", "));
 		if (!users.isEmpty()) {
 			throw new ConflictException("The look is played by " + users + " – remove it from there first");
 		}
 		looks.delete(lookId);
 		events.publish(StateTopic.LOOKS);
+	}
+
+	private static boolean usesLook(Scene scene, long lookId) {
+		return scene.looks().stream().anyMatch(use -> use.lookId() == lookId)
+				|| scene.sections().stream().anyMatch(section -> section.looks().stream()
+						.anyMatch(use -> use.lookId() == lookId));
 	}
 
 	private Project requireProject(long projectId) {

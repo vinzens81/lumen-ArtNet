@@ -116,7 +116,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	private Loaded load(Project project) {
 		return new Loaded(project, scenes.findByProject(project.id()), compositions.scenes(project.id()),
-				compositions.keys(project.id()), compositions.faders(project.id(), faderSetup.findByProject(project.id())),
+				compositions.sections(project.id()), compositions.keys(project.id()), compositions.faders(project.id(), faderSetup.findByProject(project.id())),
 				states.currentScene(project.id()));
 	}
 
@@ -140,11 +140,13 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			if (playback == null || !Objects.equals(projectId, project.id())) {
 				projectId = project.id();
 				playback = new Playback(data.cueList(), data.running(), fadeIn, fadeOut);
+				playback.useSections(data.sections());
 				savedSceneId = data.savedSceneId();
 				resumeSceneId = savedSceneId;
 				keys = new ExtraKeys();
 				faders = new Faders();
 			} else {
+				playback.useSections(data.sections());
 				playback.reload(data.cueList(), data.running(), fadeIn, fadeOut, clock.instant());
 			}
 			playback.useFadeCurve(project.spec().fadeCurve());
@@ -276,7 +278,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	}
 
 	@Override
-	public synchronized PlaybackStatus setScriptLine(long sceneId, int line) {
+	public synchronized PlaybackStatus setScriptLine(long sceneId, int line, Optional<Integer> section) {
 		if (line < 0 || line > MAX_SCRIPT_LINE) {
 			throw new DomainValidationException(List.of("line must be between 0 and " + MAX_SCRIPT_LINE));
 		}
@@ -286,6 +288,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			return status(now);
 		}
 		scriptLine = new ScriptLine(sceneId, line);
+		// passing a light marker fades to the light of the new part; the same light does not move
+		section.ifPresent(part -> playback.goToSection(part, now, behaviors));
 		return changed(now);
 	}
 
@@ -335,7 +339,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
 				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now),
-				scriptLine.of(playback.currentScene()), faders.status());
+				scriptLine.of(playback.currentScene()), playback.section(), faders.status());
 	}
 
 	/** A highlighted sentence; reset by every GO, Back and auto-follow, so a scene always starts at its first one. */
@@ -350,6 +354,6 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	/** What a reload reads from the database for the active project. */
 	private record Loaded(Project project, List<Scene> cueList, Map<Long, List<ActiveComposition>> running,
-			Map<Long, List<PlayableKey>> sceneKeys, List<PlayableFader> faders, Optional<Long> savedSceneId) {
+			Map<Long, List<List<ActiveComposition>>> sections, Map<Long, List<PlayableKey>> sceneKeys, List<PlayableFader> faders, Optional<Long> savedSceneId) {
 	}
 }

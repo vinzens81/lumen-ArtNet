@@ -30,6 +30,7 @@ import type {
   Scene,
   SceneComposition,
   SceneKey,
+  SceneLook,
   SceneRequest,
   PartyMatrix,
   PartyStatus,
@@ -156,6 +157,9 @@ export const api = {
       post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`, request),
     setCompositions: (projectId: number, id: number, compositions: SceneComposition[]) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/compositions`, compositions),
+    /** The light of a part: after the marker, or the start of the scene for marker null. */
+    setSection: (projectId: number, id: number, section: { marker: string | null; compositions: SceneComposition[];
+      looks: SceneLook[] }) => put<Scene>(`/api/projects/${projectId}/scenes/${id}/sections`, section),
     setKeys: (projectId: number, id: number, keys: SceneKey[]) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/keys`, keys),
     duplicate: (projectId: number, id: number, number: string | null) =>
@@ -246,8 +250,8 @@ export const api = {
     pause: () => post<PlaybackStatus>('/api/playback/pause'),
     finish: () => post<PlaybackStatus>('/api/playback/finish'),
     setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
-    setScriptLine: (sceneId: number, line: number) =>
-      put<PlaybackStatus>('/api/playback/script', { sceneId, line }),
+    setScriptLine: (sceneId: number, line: number, section: number) =>
+      put<PlaybackStatus>('/api/playback/script', { sceneId, line, section }),
     pressKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/press`),
     releaseKey: (slot: number) => post<PlaybackStatus>(`/api/playback/keys/${slot}/release`),
     setFader: (slot: number, level: number) => put<PlaybackStatus>(`/api/playback/faders/${slot}`, { level }),

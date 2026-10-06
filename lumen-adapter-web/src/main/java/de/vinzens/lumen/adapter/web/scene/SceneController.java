@@ -8,7 +8,9 @@ import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
+import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -98,6 +100,22 @@ class SceneController {
 				compositions.stream().map(SceneCompositionDto::toUse).toList()));
 	}
 
+	/**
+	 * The light of a part of the scene: after a light marker of the script ({@code //## Marker (info)##}), or the
+	 * start of the scene for an empty {@code marker}. Each part stands on its own.
+	 */
+	@PutMapping("/{sceneId}/sections")
+	SceneResponse setSection(@PathVariable long projectId, @PathVariable long sceneId,
+			@RequestBody SectionDto section) {
+		return response(scenes.setSection(projectId, sceneId, section.marker() == null ? "" : section.marker(),
+				list(section.compositions()).stream().map(SceneCompositionDto::toUse).toList(),
+				list(section.looks()).stream().map(SceneLookDto::toUse).toList()));
+	}
+
+	private static <T> List<T> list(List<T> items) {
+		return items == null ? List.of() : items;
+	}
+
 	/** The extra keys of the scene, each playing a composition. */
 	@PutMapping("/{sceneId}/keys")
 	SceneResponse setKeys(@PathVariable long projectId, @PathVariable long sceneId,
@@ -165,6 +183,34 @@ class SceneController {
 		}
 	}
 
+	/** A look used directly in the scene, at a level 0–1 ({@code null} = full). */
+	record SceneLookDto(Long lookId, Double level) {
+
+		SceneLook toUse() {
+			if (lookId == null) {
+				throw new DomainValidationException(List.of("lookId is missing"));
+			}
+			return new SceneLook(lookId, Objects.requireNonNullElse(level, 1.0));
+		}
+
+		static SceneLookDto from(SceneLook use) {
+			return new SceneLookDto(use.lookId(), use.level());
+		}
+	}
+
+	/**
+	 * The light of a part of the scene.
+	 *
+	 * @param marker name of the light marker, {@code null} or empty = the start of the scene
+	 */
+	record SectionDto(String marker, List<SceneCompositionDto> compositions, List<SceneLookDto> looks) {
+
+		static SectionDto from(SceneSection section) {
+			return new SectionDto(section.marker(), section.compositions().stream().map(SceneCompositionDto::from)
+					.toList(), section.looks().stream().map(SceneLookDto::from).toList());
+		}
+	}
+
 	/** @param mode toggle or flash */
 	record SceneKeyDto(Integer slot, Long compositionId, String mode, Long fadeMs) {
 
@@ -188,10 +234,13 @@ class SceneController {
 	 * @param script         text spoken on stage during the scene, empty if none
 	 * @param compositions   compositions running in the scene, in their order
 	 * @param keys           extra keys usable while the scene is on stage
+	 * @param looks          looks used directly at the start of the scene, applied before the compositions
+	 * @param sections       the light of the parts after the light markers of the script, by marker name
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs,
 			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
-			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys) {
+			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys, List<SceneLookDto> looks,
+			List<SectionDto> sections) {
 
 		static SceneResponse from(Scene scene) {
 			var spec = scene.spec();
@@ -201,7 +250,9 @@ class SceneController {
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionDto::from).toList(),
-					scene.keys().stream().map(SceneKeyDto::from).toList());
+					scene.keys().stream().map(SceneKeyDto::from).toList(),
+					scene.looks().stream().map(SceneLookDto::from).toList(),
+					scene.sections().stream().map(SectionDto::from).toList());
 		}
 	}
 }

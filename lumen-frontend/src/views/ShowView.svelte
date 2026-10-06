@@ -10,7 +10,7 @@
   import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
-  import { parseScript, stepLine } from '../lib/script';
+  import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -66,6 +66,11 @@
   const stack = $derived(showStack(scenes, status));
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
+  /** what ↑/↓ step through: the whole speech of a speaker */
+  const scriptPassages = $derived(passages(script));
+  const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
+  /** the light marker whose part is on stage, null at the start of the scene */
+  const marker = $derived((status?.section ?? 0) > 0 ? script.markers[(status?.section ?? 0) - 1] ?? null : null);
 
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
@@ -176,8 +181,9 @@
 
   function stepScript(step: number) {
     if (!current) return;
-    const line = stepLine(script, scriptLine, step);
-    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line);
+    const line = stepPassage(script, scriptLine, step);
+    // passing a light marker fades to the light of its part
+    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line, sectionOf(script, line));
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -213,12 +219,12 @@
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
       {#if script.lineCount > 0}
-        <span class="dim small mono">{scriptLine + 1} / {script.lineCount}</span>
+        <span class="dim small mono" title="Speeches">{passageIndex + 1} / {scriptPassages.length}</span>
         <div class="script-steps">
-          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={scriptLine <= 0}
-            aria-label="Previous sentence">▲ <kbd>↑</kbd></button>
-          <button type="button" class="btn" onclick={() => stepScript(1)} disabled={scriptLine >= script.lineCount - 1}
-            aria-label="Next sentence">▼ <kbd>↓</kbd></button>
+          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={passageIndex <= 0}
+            aria-label="Previous speech">▲ <kbd>↑</kbd></button>
+          <button type="button" class="btn" onclick={() => stepScript(1)}
+            disabled={passageIndex >= scriptPassages.length - 1} aria-label="Next speech">▼ <kbd>↓</kbd></button>
         </div>
       {/if}
     </div>
@@ -234,7 +240,7 @@
     {#if script.parts.length === 0}
       <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
     {:else}
-      <div class="script"><ScriptText {script} currentLine={scriptLine} /></div>
+      <div class="script"><ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} /></div>
       <p class="script-end dim small">
         {#if next}Next: GO <span class="mono">{next.number}</span> {next.name}
         {:else if status?.nextIsEnd}Next: end of show{/if}
@@ -344,6 +350,9 @@
           <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
           {#if current}
             <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
+            {#if marker}
+              <div class="now-marker" title={marker.info}>💡 {marker.name}{#if marker.info}{' '}<span class="dim">– {marker.info}</span>{/if}</div>
+            {/if}
           {:else if atEnd}
             <div class="big dim">End of show</div>
           {:else}
@@ -704,6 +713,12 @@
 
   .follow-text {
     color: var(--ok);
+  }
+
+  .now-marker {
+    color: var(--warning);
+    font-size: 14px;
+    font-weight: 600;
   }
 
   .resume-panel {

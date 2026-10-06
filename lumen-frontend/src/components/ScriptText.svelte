@@ -1,23 +1,34 @@
 <script lang="ts">
-  import { scriptBlocks, speakerHue, type Script, type ScriptPart } from '../lib/script';
+  import { passageOf, passages, scriptBlocks, speakerHue, type Script, type ScriptPart } from '../lib/script';
 
   let {
     script,
     currentLine = null,
+    section = null,
   }: {
     script: Script;
-    /** the sentence the operator is at: highlighted, the ones before dimmed; null = none (a preview) */
+    /** the sentence the operator is at: its whole passage is highlighted, the ones before dimmed; null = a preview */
     currentLine?: number | null;
+    /** the part of the scene on stage (0 = start, n = after the n-th light marker), to mark the active marker */
+    section?: number | null;
   } = $props();
 
   const blocks = $derived(scriptBlocks(script));
+  /** sentences of the current passage, e.g. the whole speech of the current speaker */
+  const current = $derived.by(() => {
+    if (currentLine === null) return null;
+    const list = passages(script);
+    const index = passageOf(list, currentLine);
+    return index < 0 ? null : list[index];
+  });
 </script>
 
 {#snippet spoken(parts: ScriptPart[])}
   {#each parts as part, i (i)}
     {#if part.kind === 'line'}
-      <span class="line" class:done={currentLine !== null && part.index < currentLine}
-        class:current={part.index === currentLine} data-line={part.index}>{part.text}</span>{' '}
+      <span class="line" class:done={current !== null && part.index < current.first}
+        class:current={current !== null && part.index >= current.first && part.index <= current.last}
+        data-line={part.index}>{part.text}</span>{' '}
     {:else if part.kind === 'break'}
       <br />
     {/if}
@@ -36,6 +47,11 @@
       <div class="said">{@render spoken(block.parts)}</div>
     {:else if block.kind === 'note'}
       <div class="direction">{block.text}</div>
+    {:else if block.kind === 'marker'}
+      <div class="marker" class:active={section === block.section} class:passed={section !== null && block.section < (section ?? 0)}>
+        <span class="marker-name">💡 {block.name}</span>
+        {#if block.info}<span class="marker-info">{block.info}</span>{/if}
+      </div>
     {:else}
       <span class="paragraph"></span>
     {/if}
@@ -43,6 +59,35 @@
 </div>
 
 <style>
+  /* a light marker: the light of the scene changes here */
+  .marker {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    margin: 12px 0 6px;
+    padding: 2px 10px;
+    border-top: 1px dashed var(--warning);
+    color: var(--warning);
+    font-size: 0.7em;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+
+  .marker.active {
+    border-top-style: solid;
+    background: var(--warning-soft);
+  }
+
+  .marker.passed {
+    opacity: 0.45;
+  }
+
+  .marker-info {
+    font-weight: 400;
+    letter-spacing: 0;
+    color: var(--text-dim);
+  }
+
   .script-text {
     line-height: 1.65;
   }

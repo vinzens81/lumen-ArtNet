@@ -35,6 +35,10 @@ import java.util.Set;
  * <p>A scene is a set of compositions. They run on the virtual clock from the GO of their scene and keep running
  * while their scene fades out. A composition that is in the next scene too continues with the same phase: it is not
  * faded out and in, only its level and values glide over the fade-in time.
+ *
+ * <p>Light markers in the script split a scene into parts ({@link #goToSection}): each part has compositions of its
+ * own, reached with a fade of the scene's times inside the same scene. What is in both parts continues, so identical
+ * light does not move.
  */
 public final class Playback {
 
@@ -42,6 +46,10 @@ public final class Playback {
 
 	private List<Scene> scenes;
 	private Map<Long, List<ActiveComposition>> compositions;
+	/** Per scene id the compositions of the parts after its markers (index 0 = after the first marker). */
+	private Map<Long, List<List<ActiveComposition>>> parts = Map.of();
+	/** The part of the current scene on stage: 0 = its start, 1… = after marker 1… */
+	private int section;
 	private Duration fadeIn;
 	private Duration fadeOut;
 	private FadeCurve fadeCurve = FadeCurve.LINEAR;
@@ -71,6 +79,12 @@ public final class Playback {
 		this.compositions = Map.copyOf(compositions);
 		this.fadeIn = Objects.requireNonNull(fadeIn, "fadeIn");
 		this.fadeOut = Objects.requireNonNull(fadeOut, "fadeOut");
+	}
+
+	/** The compositions of the parts after the light markers of the scenes, by scene id. */
+	public void useSections(Map<Long, List<List<ActiveComposition>>> sectionParts) {
+		this.parts = Map.copyOf(sectionParts);
+		section = Math.min(section, sectionCount());
 	}
 
 	/** Which attributes the patched fixtures have; compositions only set those. */
@@ -123,6 +137,8 @@ public final class Playback {
 		var started = new HashMap<Long, Duration>();
 		running.forEach(r -> started.put(r.composition().id(), r.startedAt()));
 		var v = virtualNow(now);
+		// the current scene stays with its part, as far as the part still exists
+		section = current.isEmpty() ? 0 : Math.min(section, sectionCount());
 		running = compositionsAt(position).stream()
 				.map(c -> new Running(c, started.getOrDefault(c.id(), v)))
 				.toList();
@@ -143,8 +159,25 @@ public final class Playback {
 		if (target == null) {
 			return false;
 		}
-		startTransition(now, target, behaviors);
+		startTransition(now, target, 0, behaviors);
 		return true;
+	}
+
+	/**
+	 * Fades to another part of the current scene (0 = its start, n = after the n-th light marker), with the fade times
+	 * of the scene. Compositions in both parts continue. Does nothing outside a scene or for the part on stage.
+	 */
+	public boolean goToSection(int target, Instant now, FadeBehaviors behaviors) {
+		if (!isScene(position) || target == section || target < 0 || target > sectionCount()) {
+			return false;
+		}
+		startTransition(now, position, target, behaviors);
+		return true;
+	}
+
+	/** The part of the current scene on stage: 0 = its start, n = after the n-th light marker. */
+	public int section() {
+		return section;
 	}
 
 	/** Returns to the previous scene with the same fades; before the first scene it does nothing. */
@@ -152,7 +185,7 @@ public final class Playback {
 		if (position == READY) {
 			return false;
 		}
-		startTransition(now, position - 1, behaviors);
+		startTransition(now, position - 1, 0, behaviors);
 		return true;
 	}
 
@@ -166,6 +199,7 @@ public final class Playback {
 			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
 		}
 		position = index;
+		section = 0;
 		transition = null;
 		pendingNext = null;
 		stayStart = virtualNow(now);
@@ -335,7 +369,7 @@ public final class Playback {
 
 	// --- internals -------------------------------------------------------------------------------------------
 
-	private void startTransition(Instant now, int target, FadeBehaviors behaviors) {
+	private void startTransition(Instant now, int target, int targetSection, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		var current = output(now, behaviors);
 		var darkAtGo = new HashSet<Long>();
@@ -351,7 +385,7 @@ public final class Playback {
 		var next = new ArrayList<Running>();
 		var continuing = new LinkedHashMap<Long, Running>();
 		var taken = new HashSet<Running>();
-		for (var composition : compositionsAt(target)) {
+		for (var composition : compositionsAt(target, targetSection)) {
 			var match = running.stream()
 					.filter(r -> !taken.contains(r) && composition.continues(r.composition()))
 					.findFirst();
@@ -367,6 +401,7 @@ public final class Playback {
 				times);
 		running = List.copyOf(next);
 		position = target;
+		section = targetSection;
 		pendingNext = null;
 		stayStart = v.plus(times.delay()).plus(times.fadeIn());
 		dropDeletedScene();
@@ -396,8 +431,26 @@ public final class Playback {
 		}
 	}
 
+	/** Compositions on stage at a position: of the current part for the current scene, else of the start. */
 	private List<ActiveComposition> compositionsAt(int index) {
-		return isScene(index) ? compositions.getOrDefault(scenes.get(index).id(), List.of()) : List.of();
+		return compositionsAt(index, index == position ? section : 0);
+	}
+
+	private List<ActiveComposition> compositionsAt(int index, int part) {
+		if (!isScene(index)) {
+			return List.of();
+		}
+		var id = scenes.get(index).id();
+		if (part == 0) {
+			return compositions.getOrDefault(id, List.of());
+		}
+		var sceneParts = parts.getOrDefault(id, List.of());
+		return part <= sceneParts.size() ? sceneParts.get(part - 1) : List.of();
+	}
+
+	/** Number of light markers of the current scene. */
+	private int sectionCount() {
+		return isScene(position) ? parts.getOrDefault(scenes.get(position).id(), List.of()).size() : 0;
 	}
 
 	/** Static values with the running compositions laid over them. */

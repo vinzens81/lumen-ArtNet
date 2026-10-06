@@ -214,11 +214,21 @@ export function overlaps(compositions: Composition[], looks: Map<number, Look>, 
  * highest takes precedence (scaled by the level of the use), other attributes from the later composition.
  */
 export function sceneStartValues(
-  scene: Pick<Scene, 'compositions'>,
+  scene: Pick<Scene, 'compositions'> & Partial<Pick<Scene, 'looks'>>,
   compositions: Map<number, Composition>,
   looks: Map<number, Look>,
 ): Record<number, AttributeValues> {
   const result: Record<number, AttributeValues> = {};
+  // looks used directly come first, the compositions over them
+  for (const use of scene.looks ?? []) {
+    for (const [id, fixtureValues] of Object.entries(looks.get(use.lookId)?.values ?? {})) {
+      const own: AttributeValues = { ...(result[Number(id)] ?? {}) };
+      for (const [attribute, value] of Object.entries(fixtureValues)) {
+        own[attribute] = attribute.replace(/@\d+$/, '') === 'dimmer' ? Math.max(own[attribute] ?? 0, value * use.level) : value;
+      }
+      result[Number(id)] = own;
+    }
+  }
   for (const use of scene.compositions) {
     const composition = compositions.get(use.compositionId);
     if (!composition || composition.intensityMode === 'relative') continue;

@@ -3,14 +3,19 @@
   import { compositionIcon, effectLabel, isFast, lookMap, overlaps, scenesUsing } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, Fixture, Group, Look, Mode, Scene, SceneComposition } from '../lib/types';
+  import type { Composition, Fixture, Group, Look, Mode, Scene, SceneComposition, SceneLook } from '../lib/types';
   import CompositionEditor from './CompositionEditor.svelte';
   import Modal from './Modal.svelte';
 
-  /** The compositions of a scene: which, in which order, and level, tempo and restart of each use. */
+  /**
+   * The light of a scene or of one part of it (after a light marker of the script): compositions with level, tempo
+   * and restart, and looks used directly.
+   */
   let {
     projectId,
     scene,
+    marker = null,
+    info = '',
     scenes,
     compositions,
     looks,
@@ -26,10 +31,16 @@
     fixtures: Fixture[];
     groups: Group[];
     modes: Map<number, Mode>;
+    /** the light marker of the part; null = the start of the scene */
+    marker?: string | null;
+    /** the text in brackets of the marker */
+    info?: string;
   } = $props();
 
   let uses = $state<SceneComposition[]>([]);
+  let lookUses = $state<SceneLook[]>([]);
   let addId = $state('');
+  let addLookId = $state('');
   let editing = $state<{ id: number; generate: boolean } | null>(null);
 
   const byId = $derived(new Map(compositions.map((c) => [c.id, c])));
@@ -38,18 +49,36 @@
   const warnings = $derived(overlaps(uses.flatMap((u) => byId.get(u.compositionId) ?? []), lookMap(looks), fixtures));
   const programmerHasValues = $derived(Object.keys(live.programmer).length > 0);
 
-  // the scene's uses; slider moves change them here first and are saved when let go
+  const looksById = $derived(lookMap(looks));
+  /** looks a scene can use: the shared ones (a composition's own looks stay in their composition) */
+  const availableLooks = $derived(looks.filter((l) => l.owner === null && !lookUses.some((u) => u.lookId === l.id)));
+  const section = $derived(marker === null ? scene : scene.sections.find((s) => s.marker === marker)
+    ?? { compositions: [], looks: [] });
+
+  // the uses of the scene or part; slider moves change them here first and are saved when let go
   $effect(() => {
-    uses = scene.compositions.map((u) => ({ ...u }));
+    uses = section.compositions.map((u) => ({ ...u }));
+    lookUses = section.looks.map((u) => ({ ...u }));
   });
 
-  async function save(next: SceneComposition[]) {
+  async function save(next: SceneComposition[], nextLooks: SceneLook[] = lookUses) {
     uses = next;
+    lookUses = nextLooks;
     try {
-      await api.scenes.setCompositions(projectId, scene.id, next);
+      await api.scenes.setSection(projectId, scene.id, { marker, compositions: next, looks: nextLooks });
     } catch (e) {
       showError(e);
     }
+  }
+
+  function changeLook(index: number, patch: Partial<SceneLook>) {
+    save(uses, lookUses.map((u, i) => (i === index ? { ...u, ...patch } : u)));
+  }
+
+  function addLook() {
+    const id = Number(addLookId);
+    addLookId = '';
+    if (id) save(uses, [...lookUses, { lookId: id, level: 1 }]);
   }
 
   function change(index: number, patch: Partial<SceneComposition>) {
@@ -75,7 +104,7 @@
     const count = uses.length + 1;
     try {
       let created = await api.compositions.create(projectId, {
-        name: kind === 'effect' ? `${scene.name} – effect` : `${scene.name} – ${count}`,
+        name: `${scene.name}${marker ? ` – ${marker}` : ''} – ${kind === 'effect' ? 'effect' : count}`,
       });
       if (kind === 'programmer') created = await api.compositions.recordStep(projectId, created.id);
       await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false }]);
@@ -100,12 +129,45 @@
   }
 </script>
 
-<section class="compositions">
-  <h3>Compositions</h3>
-  <p class="hint dim">
-    Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
-    scene too keeps running.
-  </p>
+<section class="compositions" class:part={marker !== null}>
+  {#if marker === null}
+    <h3>Compositions</h3>
+    <p class="hint dim">
+      Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
+      scene too keeps running.
+    </p>
+  {:else}
+    <h3>Compositions · 💡 {marker}</h3>
+    <p class="hint dim">
+      {#if info}<strong>{info}</strong>{' – '}{/if}Fades in when the script passes the marker. This part stands on its own:
+      choose again what should stay on. What is in both parts does not move.
+    </p>
+  {/if}
+
+  {#if lookUses.length > 0}
+    <ol class="list">
+      {#each lookUses as use, i (use.lookId)}
+        {@const look = looksById.get(use.lookId)}
+        <li>
+          <div class="use-head">
+            <span class="icon" aria-hidden="true">◆</span>
+            <span class="name">{look?.name ?? '(deleted look)'}</span>
+            <span class="dim small">look</span>
+            <span class="actions">
+              <button class="btn small ghost danger" type="button"
+                onclick={() => save(uses, lookUses.filter((_, j) => j !== i))} aria-label="Remove look">✕</button>
+            </span>
+          </div>
+          <div class="use">
+            <label class="mini">Level <span class="mono">{Math.round(use.level * 100)} %</span>
+              <input type="range" min="0" max="1" step="0.01" value={use.level}
+                oninput={(e) => (lookUses[i].level = sliderValue(e))}
+                onchange={(e) => changeLook(i, { level: sliderValue(e) })} /></label>
+          </div>
+        </li>
+      {/each}
+    </ol>
+  {/if}
 
   {#if uses.length > 0}
     <ol class="list">
@@ -143,8 +205,8 @@
         </li>
       {/each}
     </ol>
-  {:else}
-    <p class="dim small">No compositions – the scene is dark.</p>
+  {:else if lookUses.length === 0}
+    <p class="dim small">{marker === null ? 'No compositions – the scene is dark.' : 'Nothing chosen – the stage goes dark at this marker.'}</p>
   {/if}
   {#each warnings as warning, i (i)}<p class="hint warning-text">{warning}</p>{/each}
 
@@ -163,6 +225,13 @@
     <button class="btn small" type="button" onclick={() => create('effect')}
       title="A new composition generated from a chase, rainbow, flicker, …">✦ Effect</button>
   </div>
+  <label class="field">
+    <span class="sr-only">Add a look</span>
+    <select bind:value={addLookId} onchange={addLook} disabled={availableLooks.length === 0}>
+      <option value="">{availableLooks.length === 0 ? 'Shared looks are made in the Looks tab' : '+ Add a look…'}</option>
+      {#each availableLooks as look (look.id)}<option value={String(look.id)}>◆ {look.name}</option>{/each}
+    </select>
+  </label>
 </section>
 
 <Modal wide bind:open={() => editingComposition !== null, (open) => { if (!open) editing = null; }} title="Composition">
@@ -182,6 +251,11 @@
     display: flex;
     flex-direction: column;
     gap: 8px;
+  }
+
+  /* a part after a light marker */
+  .compositions.part h3 {
+    color: var(--warning);
   }
 
   .list {

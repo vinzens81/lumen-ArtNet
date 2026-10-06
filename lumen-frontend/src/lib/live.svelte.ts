@@ -305,12 +305,13 @@ class LiveState {
    * Highlights a sentence of the script of the scene on stage for all clients. Shown here at once, so fast key
    * presses do not step from an old position.
    */
-  scriptCommand(sceneId: number, line: number) {
+  /** Moves the script to a sentence; `section` is the part of the scene it is in – a new part fades to its light. */
+  scriptCommand(sceneId: number, line: number, section: number) {
     if (this.playback?.currentSceneId === sceneId) this.playback = { ...this.playback, scriptLine: line };
     if (this.socket?.readyState === WebSocket.OPEN) {
-      this.socket.send(JSON.stringify({ type: 'playback.script', sceneId, line }));
+      this.socket.send(JSON.stringify({ type: 'playback.script', sceneId, line, section }));
     } else {
-      api.playback.setScriptLine(sceneId, line)
+      api.playback.setScriptLine(sceneId, line, section)
         .then((status) => {
           this.playback = status;
           this.playbackReceivedAt = performance.now();

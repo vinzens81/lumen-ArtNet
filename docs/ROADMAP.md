@@ -373,6 +373,23 @@ Taste – die DMX-Werte zeigen den Regenbogen über der Szene. Mit echter Hardwa
 **DoD:** `./build.sh` grün. Geprüft im Browser (Testserver): Composition mit parallelen Schritten, Start umstellen,
 Szenen-Editor, Programmer-Liste, Party-Matrix einrichten und im Party-Modus schalten, Show-Stapel und DMX-Tab.
 
+## ✅ Iteration L – Licht-Marker im Textbuch 💡 (2026-10-06)
+- **Licht-Marker:** Eine Zeile `//## Name (Infotext)##` im Szenen-Text teilt die Szene in Abschnitte. Im
+  Szenen-Editor bekommt jeder Marker einen eigenen Bereich „Compositions · 💡 Name“ mit dem Infotext. Jeder Abschnitt
+  steht für sich: Was über die ganze Szene bleiben soll, wird pro Abschnitt erneut gewählt, ein Abschnitt ohne Auswahl
+  ist dunkel. Schaltet der Betrieb im Textbuch über einen Marker, blendet das Licht des Abschnitts mit den Fade-Zeiten
+  der Szene ein; was in beiden Abschnitten steckt, bewegt sich nicht (auch beim Zurückschalten)
+- **Looks in Szenen:** Neben Compositions lassen sich gemeinsame Looks direkt wählen (mit Level), am Anfang der Szene
+  und in jedem Abschnitt; sie liegen unter den Compositions. Ein so verwendeter Look lässt sich nicht löschen
+- **Textbuch im Betrieb:** ↑/↓ springen von Rede zu Rede (die ganze Rede eines Sprechers ist markiert,
+  Regieanweisungen darin zählen mit); Text ohne Sprecher zeilenweise, ein Marker beginnt immer eine neue Passage
+- Flyway `V23` (`scene_composition.section`, Tabelle `scene_look`), Export Version 3 um `looks`/`sections` der Szenen
+  ergänzt, `PUT /api/projects/{id}/scenes/{sid}/sections`, Textposition mit `section` (`PUT /api/playback/script`,
+  WebSocket `playback.script`), Status mit `section`
+
+**DoD:** Geprüft im Browser (Testserver): Szene mit zwei Markern, im Betrieb mit ↓ über Marker 1 – der gemeinsame Look
+bleibt bei 255, der neue blendet ein; ↑ zurück blendet ihn wieder aus.
+
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
 - Modul `lumen-adapter-midi` mit `javax.sound.midi`: Geräteerkennung, Hotplug, Eingangs-Events
