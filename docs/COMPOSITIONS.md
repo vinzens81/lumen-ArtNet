@@ -1,5 +1,8 @@
 # Kompositionen & dynamische Szenen
 
+> **Wird abgelöst** durch das Modell mit drei Stufen in [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)
+> (Iteration S). Bis dahin beschreibt dieses Dokument den aktuellen Stand.
+
 > **Status:** umgesetzt (K1 Engine, K2 Editor und Vorschau, K3 Extra-Tasten und einmalige Abläufe). Offen sind nur
 > Multi-Pixel-Zellen als Ziel.
 > (siehe [ROADMAP.md](ROADMAP.md), Iteration K). Abweichungen vom ursprünglichen Konzept stehen unter
