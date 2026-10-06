@@ -9,7 +9,7 @@
   import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
-  import { parseScript, stepLine } from '../lib/script';
+  import { parseScript, scriptBlocks, speakerHue, stepLine, type ScriptPart } from '../lib/script';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -64,6 +64,7 @@
   const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
   const stack = $derived(showStack(scenes, status));
   const script = $derived(parseScript(current?.script ?? ''));
+  const blocks = $derived(scriptBlocks(script));
   const scriptLine = $derived(status?.scriptLine ?? 0);
 
   /** Time since the status arrived, frozen while paused. */
@@ -224,6 +225,17 @@
   {/if}
 {/snippet}
 
+{#snippet spoken(parts: ScriptPart[])}
+  {#each parts as part, i (i)}
+    {#if part.kind === 'line'}
+      <span class="line" class:done={part.index < scriptLine} class:current={part.index === scriptLine}
+        data-line={part.index}>{part.text}</span>{' '}
+    {:else if part.kind === 'break'}
+      <br />
+    {/if}
+  {/each}
+{/snippet}
+
 {#snippet scriptView()}
   {#if !current}
     <p class="dim pad">
@@ -234,14 +246,16 @@
       <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
     {:else}
       <div class="script">
-        {#each script.parts as part, i (i)}
-          {#if part.kind === 'line'}
-            <span class="line" class:done={part.index < scriptLine} class:current={part.index === scriptLine}
-              data-line={part.index}>{part.text}</span>{' '}
-          {:else if part.kind === 'note'}
-            <span class="direction">{part.text}</span>{' '}
-          {:else if part.kind === 'break'}
-            <br />
+        {#each blocks as block, i (i)}
+          {#if block.kind === 'speech'}
+            <div class="speech" style="--speaker: {speakerHue(block.speaker)}">
+              {#if !block.continued}<div class="speaker">{block.speaker}</div>{/if}
+              {#if block.parts.length > 0}<div class="said">{@render spoken(block.parts)}</div>{/if}
+            </div>
+          {:else if block.kind === 'text'}
+            <div class="said">{@render spoken(block.parts)}</div>
+          {:else if block.kind === 'note'}
+            <div class="direction">{block.text}</div>
           {:else}
             <span class="paragraph"></span>
           {/if}
@@ -544,7 +558,10 @@
     box-shadow: 0 0 0 2px var(--accent);
   }
 
+  /* stage directions belong to no speaker: a line of their own, not indented */
   .direction {
+    width: fit-content;
+    margin: 6px 0;
     padding: 1px 8px;
     border-left: 3px solid var(--direction);
     border-radius: 4px;
@@ -552,8 +569,36 @@
     color: var(--direction);
     font-size: 0.8em;
     font-style: italic;
-    box-decoration-break: clone;
-    -webkit-box-decoration-break: clone;
+    white-space: pre-line;
+  }
+
+  /* a speech: the name marked in the speaker's own color, the text indented below it */
+  .speech {
+    margin: 10px 0 4px;
+  }
+
+  .speech + .speech,
+  .direction + .speech {
+    margin-top: 6px;
+  }
+
+  .speaker {
+    display: inline-block;
+    margin-bottom: 2px;
+    padding: 0 8px;
+    border-radius: 5px;
+    background: hsl(var(--speaker) 70% 60% / 0.16);
+    color: hsl(var(--speaker) 80% 72%);
+    font-size: 0.7em;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .speech .said {
+    margin-left: 1.4em;
+    padding-left: 12px;
+    border-left: 2px solid hsl(var(--speaker) 70% 60% / 0.45);
   }
 
   .paragraph {

@@ -217,6 +217,10 @@ nicht persistiert: nach einem Neustart beginnt die Szene beim ersten Satz. Auf d
 auf dem Handy ist das Textbuch ausgeblendet. Geprüft im Browser (Testserver): 24 Sätze mit Regieanweisungen,
 automatisches Mitscrollen bis zum Ende, GO startet die nächste Szene beim ersten Satz, eine per API gesetzte Position
 erscheint sofort in der Oberfläche.
+- Nachtrag (2026-10-06): **Sprecher** – ein Name mit Doppelpunkt am Zeilenanfang („Maike Schmitz: Hallo Rolf!“, 1–4
+  groß geschriebene Wörter) wird farbig markiert (jede Person immer dieselbe Farbe), ihr Text steht eingerückt darunter,
+  bis die nächste Person spricht oder eine Leerzeile kommt. Regieanweisungen stehen immer in einer eigenen Zeile, ohne
+  Einrückung; spricht danach dieselbe Person weiter, geht ihr Text eingerückt weiter. Der Szenen-Editor zählt die Sprecher
 
 ## ✅ Iteration N – Netzwerk-Interface pro Universe 🌐
 Heute gibt es nur eine globale `bind-address`/`broadcast-address`, die Discovery hört auf `0.0.0.0`.

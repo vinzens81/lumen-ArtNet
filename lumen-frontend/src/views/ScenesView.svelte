@@ -58,7 +58,7 @@
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
   const scriptStats = $derived.by(() => {
     const script = parseScript(form.script);
-    return { lines: script.lineCount, notes: script.noteCount };
+    return { lines: script.lineCount, notes: script.noteCount, speakers: script.speakers.length };
   });
   /** the scene GO comes from in the show – a rehearsed fade starts there */
   const previousScene = $derived.by(() => {
@@ -480,12 +480,13 @@
             <label class="field">Cue note<input bind:value={form.cueNote} placeholder="When to press GO" /></label>
               <label class="field">Script
                 <textarea bind:value={form.script} rows="8"
-                  placeholder={'Text spoken on stage during this scene.\n**Enter Juliet** – stage directions in two asterisks.'}
+                  placeholder={'Text spoken on stage during this scene.\nJuliet: Ay me! – a name and a colon at the start of a line marks who speaks.\n**Enter Juliet** – stage directions in two asterisks.'}
                 ></textarea>
               </label>
               <p class="hint dim">
                 {#if scriptStats.lines > 0 || scriptStats.notes > 0}
                   {scriptStats.lines} {scriptStats.lines === 1 ? 'sentence' : 'sentences'}
+                  {#if scriptStats.speakers > 0}· {scriptStats.speakers} {scriptStats.speakers === 1 ? 'speaker' : 'speakers'}{/if}
                   {#if scriptStats.notes > 0}· {scriptStats.notes} stage {scriptStats.notes === 1 ? 'direction' : 'directions'}{/if}
                   –
                 {/if}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { parseScript, stepLine, type ScriptPart } from './script';
+import { parseScript, scriptBlocks, speakerHue, stepLine, type ScriptBlock, type ScriptPart } from './script';
 
 function lines(text: string): string[] {
   return parseScript(text).parts.flatMap((part) => (part.kind === 'line' ? [part.text] : []));
@@ -75,9 +75,61 @@ describe('parseScript', () => {
   });
 
   it('has no parts for an empty text', () => {
-    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0 });
+    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, speakers: [] });
   });
 });
+
+describe('speakers', () => {
+  it('takes a name and a colon at the start of a line as the speaker', () => {
+    const script = parseScript('Maike Schmitz: Hallo Rolf! Wie geht es?\nROLF: Gut.');
+    expect(script.parts).toEqual<ScriptPart[]>([
+      { kind: 'speaker', name: 'Maike Schmitz' },
+      { kind: 'line', text: 'Hallo Rolf!', index: 0 },
+      { kind: 'line', text: 'Wie geht es?', index: 1 },
+      { kind: 'break' },
+      { kind: 'speaker', name: 'ROLF' },
+      { kind: 'line', text: 'Gut.', index: 2 },
+    ]);
+    expect(script.speakers).toEqual(['Maike Schmitz', 'ROLF']);
+  });
+
+  it('needs capitalized words at the start of a line', () => {
+    expect(parseScript('He said: Go.').speakers).toEqual([]);
+    expect(parseScript('Go now. Rolf: no.').speakers).toEqual([]);
+    expect(parseScript('Der Wirt:\nNoch ein Bier?').speakers).toEqual(['Der Wirt']);
+    expect(parseScript('Uhrzeit:12 Uhr').speakers).toEqual([]);
+  });
+
+  it('indents speeches under their speaker and puts stage directions on lines of their own', () => {
+    const blocks = scriptBlocks(parseScript(
+      'Prolog.\nMaike: Hallo Rolf! **lacht** Wie geht es?\nweiter.\nRolf: Gut.\n\nErzähler: Später.'));
+    expect(blocks.map(summary)).toEqual([
+      'text: Prolog.',
+      'speech Maike: Hallo Rolf!',
+      'note: lacht',
+      'speech Maike (continued): Wie geht es? / weiter.',
+      'speech Rolf: Gut.',
+      'paragraph',
+      'speech Erzähler: Später.',
+    ]);
+  });
+
+  it('gives a speaker always the same color', () => {
+    expect(speakerHue('Maike')).toBe(speakerHue('Maike'));
+    expect(speakerHue('Maike')).not.toBe(speakerHue('Rolf'));
+  });
+});
+
+function summary(block: ScriptBlock): string {
+  const text = (parts: ScriptPart[]) => parts.map((p) => (p.kind === 'line' ? p.text : p.kind === 'break' ? '/' : ''))
+    .join(' ');
+  switch (block.kind) {
+    case 'speech': return `speech ${block.speaker}${block.continued ? ' (continued)' : ''}: ${text(block.parts)}`;
+    case 'text': return `text: ${text(block.parts)}`;
+    case 'note': return `note: ${block.text}`;
+    case 'paragraph': return 'paragraph';
+  }
+}
 
 describe('stepLine', () => {
   const script = parseScript('One. Two. Three.');
