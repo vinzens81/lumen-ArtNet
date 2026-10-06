@@ -29,6 +29,11 @@ public record Flicker(Character character, double strength, double speed, long s
 			this.rateHz = rateHz;
 			this.depth = depth;
 		}
+
+		/** Random points per second at speed 1. */
+		double rateHz() {
+			return rateHz;
+		}
 	}
 
 	public Flicker {
