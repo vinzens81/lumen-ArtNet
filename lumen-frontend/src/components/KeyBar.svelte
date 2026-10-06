@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { kindIcon } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import type { KeyStatus } from '../lib/types';
 
@@ -9,7 +8,7 @@
   const held = new Set<number>();
 
   function press(key: KeyStatus) {
-    if (!key.available || held.has(key.slot)) return;
+    if (held.has(key.slot)) return;
     held.add(key.slot);
     live.keyCommand(key.slot, 'press');
   }
@@ -44,15 +43,13 @@
   <div class="keys" role="group" aria-label="Extra keys">
     {#each keys as key (key.slot)}
       <button type="button" class="key" class:on={key.on} class:fading={key.level > 0 && !key.on}
-        disabled={!key.available} style="--level: {key.level}"
-        title={key.available
-          ? `${key.name} – ${key.mode === 'flash' ? 'hold' : 'press to switch on and off'} (key ${key.slot})`
-          : `${key.name} – not available in this scene`}
+        style="--level: {key.level}"
+        title="{key.name} – {key.mode === 'flash' ? 'hold' : 'press to switch on and off'} (key {key.slot})"
         onpointerdown={(e) => { e.preventDefault(); press(key); }}
         onpointerup={() => release(key)} onpointerleave={() => release(key)} onpointercancel={() => release(key)}
         onclick={(e) => { if (e.detail === 0) { press(key); release(key); } }}>
         <span class="slot mono">{key.slot}</span>
-        <span class="name">{kindIcon(key.kind)} {key.name}</span>
+        <span class="name">{key.name}</span>
         <span class="mode">{key.mode === 'flash' ? 'flash' : key.on ? 'on' : 'off'}</span>
       </button>
     {/each}

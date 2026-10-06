@@ -207,20 +207,35 @@ export interface GroupRequest {
   fixtureIds: number[];
 }
 
+/** A composition used in a scene, with the settings of this use. */
+export interface SceneComposition {
+  compositionId: number;
+  /** 0–1 */
+  level: number;
+  /** 2 = twice as fast */
+  speedFactor: number;
+  /** start from the beginning at GO, even if it already runs in the scene before */
+  restart: boolean;
+}
+
+/** An extra key of a scene: switches a composition on and off while the scene is on stage. */
+export interface SceneKey {
+  /** 1–8 */
+  slot: number;
+  compositionId: number;
+  mode: KeyMode;
+  fadeMs: number;
+}
+
+/** The third level: a set of compositions that run side by side from GO, plus the scene's extra keys. */
 export interface Scene {
   id: number;
   number: string;
   name: string;
   cueNote: string | null;
   autoFollowMs: number | null;
-  fixtureCount: number;
-  values: Record<number, AttributeValues>;
-  /** presets the values come from */
-  presets: PresetRefs;
-  /** compositions running in the scene, in their order */
-  compositions: { id: number; name: string; kind: CompositionKind }[];
-  /** only played by extra keys, GO skips it */
-  keyOnly: boolean;
+  /** GO skips the scene; it is played by a fader (e.g. house lights) */
+  outsideCueList: boolean;
   /** fade-in of the GO into this scene, null = the project's */
   fadeInMs: number | null;
   /** fade-out of the look before at the GO into this scene, null = the project's */
@@ -231,12 +246,15 @@ export interface Scene {
   fadeCurve: FadeCurve | null;
   /** text spoken on stage during the scene, empty if none; `**…**` marks stage directions */
   script: string;
+  /** in order: on the same attribute a later one wins (intensity: the highest) */
+  compositions: SceneComposition[];
+  keys: SceneKey[];
 }
 
 export interface SceneRequest {
   number?: string | null;
   name: string;
-  keyOnly?: boolean;
+  outsideCueList?: boolean;
   cueNote: string | null;
   autoFollowMs: number | null;
   fadeInMs?: number | null;
@@ -244,7 +262,20 @@ export interface SceneRequest {
   delayMs?: number | null;
   fadeCurve?: FadeCurve | null;
   script?: string;
+  /** the quick way: the programmer becomes the scene's first composition */
   record?: boolean;
+}
+
+/** The first level: fixed values per fixture, recorded from the programmer. */
+export interface Look {
+  id: number;
+  name: string;
+  /** the composition the look belongs to (a recorded or generated step), null = shared */
+  owner: number | null;
+  fixtureCount: number;
+  values: Record<number, AttributeValues>;
+  /** presets the values come from */
+  presets: PresetRefs;
 }
 
 /** What an attribute is about, e.g. to update only the colors of a scene. */
@@ -274,8 +305,8 @@ export interface RecordRequest {
   groups?: AttributeGroup[];
 }
 
-/** An earlier look of a scene, saved before it was replaced. */
-export interface SceneRevision {
+/** An earlier content of a look, saved before it was replaced. */
+export interface LookRevision {
   id: number;
   createdAt: string;
   /** what replaced this look, e.g. "Update from programmer" */
@@ -316,7 +347,7 @@ export interface PlaybackStatus {
   autoFollowInMs: number | null;
   /** scene that was on stage before a server restart and can be resumed */
   resumeSceneId: number | null;
-  /** assigned extra keys */
+  /** extra keys of the scene on stage */
   keys: KeyStatus[];
   /** assigned faders with their level */
   faders: FaderStatus[];
@@ -326,28 +357,15 @@ export interface PlaybackStatus {
 
 export type KeyMode = 'toggle' | 'flash';
 
+/** A key of the scene on stage; its name is the name of its composition. */
 export interface KeyStatus {
   slot: number;
   name: string;
-  /** 'scene' if the key plays a scene */
-  kind: CompositionKind | 'scene';
   mode: KeyMode;
   /** switched on (possibly still fading in) */
   on: boolean;
   /** current fade level 0–1 */
   level: number;
-  /** usable in the scene on stage */
-  available: boolean;
-}
-
-export interface ExtraKey {
-  slot: number;
-  mode: KeyMode;
-  fadeMs: number;
-  /** the key's own composition, or null if it plays a scene */
-  composition: Composition | null;
-  /** the scene the key plays, or null */
-  sceneId: number | null;
 }
 
 /** Health of the light output, measured by the server every second. */
@@ -405,7 +423,8 @@ export interface AccessStatus {
   urls: string[];
 }
 
-export type CompositionKind = 'chase' | 'color_cycle' | 'rainbow' | 'wave' | 'flicker' | 'steps';
+/** Effects a generator makes the steps of a composition from. */
+export type EffectKind = 'chase' | 'color_cycle' | 'rainbow' | 'wave' | 'flicker';
 
 export interface ChaseParams {
   stepMs: number;
@@ -446,56 +465,53 @@ export interface FlickerParams {
   seed: number;
 }
 
-export interface StepsParams {
-  playMode: 'loop' | 'ping_pong';
-}
+export type EffectParams = ChaseParams | ColorCycleParams | RainbowParams | WaveParams | FlickerParams;
 
-export type CompositionParams = ChaseParams | ColorCycleParams | RainbowParams | WaveParams | FlickerParams | StepsParams;
-
-export interface CompositionTarget {
+/** The fixtures an effect runs on: a group (its members when generating) or fixtures in order. */
+export interface EffectTarget {
   groupId?: number | null;
   fixtureIds?: number[] | null;
 }
 
-export interface CompositionStep {
-  holdMs: number;
-  fadeMs: number;
-  values: Record<number, AttributeValues>;
-}
-
-export interface Composition {
-  id: number;
-  /** scene of a copy, null in the library */
-  sceneId: number | null;
-  /** library origin of a copy */
-  sourceId: number | null;
-  position: number;
-  name: string;
-  kind: CompositionKind;
-  params: CompositionParams;
-  /** null for step sequences */
-  target: CompositionTarget | null;
-  steps: CompositionStep[] | null;
-  level: number;
-  speedFactor: number;
-  restart: boolean;
-  /** runs through once and stays at the end */
-  once: boolean;
+/** What the steps of a composition were generated from. */
+export interface Generator {
+  kind: EffectKind;
+  params: Partial<EffectParams>;
+  target: EffectTarget;
   /** every head of a multi-pixel fixture is an element of its own */
   perHead: boolean;
 }
 
+export type PlayMode = 'loop' | 'ping_pong' | 'once';
+export type IntensityMode = 'absolute' | 'relative';
+
+/** A step plays a look; its own fade/hold override the composition's (null = the composition's). */
+export interface CompositionStep {
+  lookId: number;
+  fadeMs: number | null;
+  holdMs: number | null;
+}
+
+/** The second level: 1–n steps playing looks. Shared by every scene it is in. */
+export interface Composition {
+  id: number;
+  name: string;
+  fadeMs: number;
+  holdMs: number;
+  playMode: PlayMode;
+  /** absolute sets the intensity; relative scales what lies below in the scene (a flicker) */
+  intensityMode: IntensityMode;
+  generator: Generator | null;
+  steps: CompositionStep[];
+}
+
 export interface CompositionRequest {
   name: string;
-  kind: CompositionKind;
-  params: Partial<CompositionParams>;
-  target: CompositionTarget | null;
-  steps?: CompositionStep[] | null;
-  level?: number;
-  speedFactor?: number;
-  restart?: boolean;
-  once?: boolean;
-  perHead?: boolean;
+  fadeMs?: number;
+  holdMs?: number;
+  playMode?: PlayMode;
+  intensityMode?: IntensityMode;
+  steps?: CompositionStep[];
 }
 
 /** A rehearsed GO into the scene on stage; the fade-in starts delayMs after GO, the fade-out at GO. */

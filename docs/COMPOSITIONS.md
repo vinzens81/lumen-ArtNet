@@ -1,7 +1,8 @@
 # Kompositionen & dynamische Szenen
 
-> **Wird abgelöst** durch das Modell mit drei Stufen in [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)
-> (Iteration S). Bis dahin beschreibt dieses Dokument den aktuellen Stand.
+> **Abgelöst** durch das Modell mit drei Stufen in [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)
+> (Iteration S). Dieses Dokument beschreibt das alte Modell; bestehende Projekte werden beim Start umgewandelt.
+> Weiter gültig sind die Mischregeln, das Weiterlaufen beim Szenenwechsel und die Effekte (jetzt als Generatoren).
 
 > **Status:** umgesetzt (K1 Engine, K2 Editor und Vorschau, K3 Extra-Tasten und einmalige Abläufe). Offen sind nur
 > Multi-Pixel-Zellen als Ziel.

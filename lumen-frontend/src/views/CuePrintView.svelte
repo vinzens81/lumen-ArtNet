@@ -1,20 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { api } from '../lib/api';
-  import { cueRows, keyName, sheetSeconds, type CueRow } from '../lib/cueSheet';
+  import { cueRows, sheetSeconds, type CueRow } from '../lib/cueSheet';
   import { curveLabel } from '../lib/sceneTiming';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { ExtraKey, Scene } from '../lib/types';
+  import type { Composition, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
-  let keys = $state<ExtraKey[]>([]);
-  let sceneKeys = $state(new Map<number, number[]>());
+  let compositions = $state<Composition[]>([]);
   let loaded = $state(false);
 
   const project = $derived(app.active);
   const projectId = $derived(app.active?.id ?? null);
-  const rows = $derived<CueRow[]>(project ? cueRows(project, scenes, keys, sceneKeys) : []);
+  const rows = $derived<CueRow[]>(project ? cueRows(project, scenes, compositions) : []);
   const printedAt = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   $effect(() => {
@@ -29,14 +28,7 @@
 
   async function load(id: number) {
     try {
-      const [allScenes, allKeys] = await Promise.all([api.scenes.list(id), api.extraKeys.list(id)]);
-      const cues = allScenes.filter((s) => !s.keyOnly);
-      const slots = allKeys.length === 0
-        ? []
-        : await Promise.all(cues.map((s) => api.extraKeys.ofScene(id, s.id)));
-      scenes = allScenes;
-      keys = allKeys;
-      sceneKeys = new Map(cues.map((s, i) => [s.id, slots[i]?.slots ?? []]));
+      [scenes, compositions] = await Promise.all([api.scenes.list(id), api.compositions.list(id)]);
       loaded = true;
     } catch (e) {
       showError(e);
@@ -113,24 +105,6 @@
         this long after the fade-in. The fade into a scene uses the times of that scene.
       </p>
 
-      {#if keys.length > 0}
-        <h2>Extra keys</h2>
-        <table class="keys-table">
-          <thead>
-            <tr><th class="num">Key</th><th>Plays</th><th>Mode</th><th class="time">Fade</th></tr>
-          </thead>
-          <tbody>
-            {#each [...keys].sort((a, b) => a.slot - b.slot) as key (key.slot)}
-              <tr>
-                <td class="num">{key.slot}</td>
-                <td>{keyName(key, scenes)}{key.composition ? '' : ' (scene)'}</td>
-                <td>{key.mode === 'flash' ? 'Flash (while held)' : 'Toggle'}</td>
-                <td class="time">{sheetSeconds(key.fadeMs)}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      {/if}
     {/if}
   {/if}
 </div>
@@ -180,11 +154,6 @@
   h1 {
     margin: 0;
     font-size: 22px;
-  }
-
-  h2 {
-    margin: 22px 0 6px;
-    font-size: 15px;
   }
 
   .sub,
@@ -281,10 +250,6 @@
     margin-top: 10px;
     font-size: 11px;
     color: var(--paper-dim);
-  }
-
-  .keys-table {
-    max-width: 600px;
   }
 
   @media print {

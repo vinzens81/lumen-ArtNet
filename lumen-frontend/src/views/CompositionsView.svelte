@@ -1,65 +1,84 @@
 <script lang="ts">
   import CompositionEditor from '../components/CompositionEditor.svelte';
-  import ExtraKeysPanel from '../components/ExtraKeysPanel.svelte';
   import Modal from '../components/Modal.svelte';
   import { api } from '../lib/api';
   import { modesOf } from '../lib/color';
-  import { defaultParams, isFast, KINDS, kindIcon, kindLabel } from '../lib/compositions';
+  import { compositionIcon, effectLabel, isFast, scenesUsing } from '../lib/compositions';
+  import { focus } from '../lib/focus.svelte';
   import { live } from '../lib/live.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { Composition, CompositionKind, Fixture, Group } from '../lib/types';
+  import type { Composition, Fixture, Group, Look, Scene } from '../lib/types';
 
-  let library = $state<Composition[]>([]);
+  let compositions = $state<Composition[]>([]);
+  let looks = $state<Look[]>([]);
+  let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
   let groups = $state<Group[]>([]);
   let selectedId = $state<number | null>(null);
   let createOpen = $state(false);
   let deleteOpen = $state(false);
-  let form = $state<{ name: string; kind: CompositionKind; groupId: string }>({ name: '', kind: 'chase', groupId: '' });
+  let form = $state({ name: '', record: false });
 
   const projectId = $derived(app.active?.id ?? null);
-  const selected = $derived(library.find((c) => c.id === selectedId) ?? null);
+  const selected = $derived(compositions.find((c) => c.id === selectedId) ?? null);
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
+  const programmerHasValues = $derived(Object.keys(live.programmer).length > 0);
 
   $effect(() => {
     void live.compositionsRevision;
+    void live.looksRevision;
+    void live.scenesRevision;
     void live.patchRevision;
     if (projectId !== null) load(projectId);
   });
 
   async function load(id: number) {
     try {
-      [library, fixtures, groups] = await Promise.all([
-        api.compositions.library(id),
+      [compositions, looks, scenes, fixtures, groups] = await Promise.all([
+        api.compositions.list(id),
+        api.looks.list(id),
+        api.scenes.list(id),
         api.fixtures.list(id),
         api.groups.list(id),
       ]);
-      if (selectedId === null || !library.some((c) => c.id === selectedId)) selectedId = library[0]?.id ?? null;
+      if (focus.compositionId !== null && compositions.some((c) => c.id === focus.compositionId)) {
+        selectedId = focus.compositionId;
+        focus.compositionId = null;
+      }
+      if (selectedId === null || !compositions.some((c) => c.id === selectedId)) {
+        selectedId = compositions[0]?.id ?? null;
+      }
     } catch (e) {
       showError(e);
     }
   }
 
   function openCreate() {
-    form = { name: '', kind: 'chase', groupId: groups[0] ? String(groups[0].id) : '' };
+    form = { name: '', record: programmerHasValues };
     createOpen = true;
   }
 
   async function create() {
     if (projectId === null) return;
-    const kind = form.kind;
     try {
-      const created = await api.compositions.create(projectId, {
-        name: form.name || kindLabel(kind),
-        kind,
-        params: defaultParams(kind),
-        target: kind === 'steps' ? null : form.groupId ? { groupId: Number(form.groupId) } : { fixtureIds: [] },
-        steps: kind === 'steps' ? [] : null,
-      });
+      let created = await api.compositions.create(projectId, { name: form.name || 'Composition' });
+      if (form.record) created = await api.compositions.recordStep(projectId, created.id);
       createOpen = false;
-      library = [...library, created].sort((a, b) => a.name.localeCompare(b.name));
+      compositions = [...compositions, created].sort((a, b) => a.name.localeCompare(b.name));
       selectedId = created.id;
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  async function duplicate() {
+    if (projectId === null || !selected) return;
+    try {
+      const copy = await api.compositions.duplicate(projectId, selected.id);
+      notify(`Copied to “${copy.name}”`);
+      await load(projectId);
+      selectedId = copy.id;
     } catch (e) {
       showError(e);
     }
@@ -69,17 +88,25 @@
     if (projectId === null || !selected) return;
     try {
       await api.compositions.remove(projectId, selected.id);
-      notify(`Deleted "${selected.name}" – copies in scenes stay`);
+      notify(`Deleted “${selected.name}”`);
       deleteOpen = false;
       selectedId = null;
       await load(projectId);
     } catch (e) {
+      deleteOpen = false;
       showError(e);
     }
   }
 
   function saved(composition: Composition) {
-    library = library.map((c) => (c.id === composition.id ? composition : c));
+    compositions = compositions.map((c) => (c.id === composition.id ? composition : c));
+  }
+
+  function subtitle(composition: Composition): string {
+    const steps = `${composition.steps.length} ${composition.steps.length === 1 ? 'step' : 'steps'}`;
+    const source = composition.generator ? `${effectLabel(composition.generator.kind)} · ` : '';
+    const used = scenesUsing(composition.id, scenes).length;
+    return `${source}${steps}${used > 0 ? ` · ${used} ${used === 1 ? 'scene' : 'scenes'}` : ''}`;
   }
 </script>
 
@@ -88,8 +115,8 @@
     <div>
       <h1>Compositions</h1>
       <p class="dim">
-        Chases, color cycles and other running effects. Insert them into scenes in the Scenes tab – each scene gets
-        its own copy.
+        Steps that play looks – a single look stays, several run through with fades. Scenes use compositions: a change
+        shows in every scene. Chases, rainbows and other effects are generated into steps.
       </p>
     </div>
     <button class="btn primary" type="button" onclick={openCreate} disabled={projectId === null}>+ New composition</button>
@@ -97,22 +124,22 @@
 
   {#if !app.active}
     <div class="glass empty">Activate a project first.</div>
-  {:else if library.length === 0}
+  {:else if compositions.length === 0}
     <div class="glass empty">
       <h2>No compositions yet</h2>
-      <p>Create a chase for a row of fixtures or a color cycle for your RGB PARs.</p>
+      <p>Record a look in the programmer as a first step, or generate a chase for a row of fixtures.</p>
       <button class="btn primary" type="button" onclick={openCreate}>+ New composition</button>
     </div>
   {:else}
     <div class="layout">
-      <nav class="glass list" aria-label="Library">
-        {#each library as composition (composition.id)}
+      <nav class="glass list" aria-label="Compositions">
+        {#each compositions as composition (composition.id)}
           <button type="button" class="item" class:active={composition.id === selectedId}
             onclick={() => (selectedId = composition.id)}>
-            <span class="icon" aria-hidden="true">{kindIcon(composition.kind)}</span>
+            <span class="icon" aria-hidden="true">{compositionIcon(composition)}</span>
             <span class="text">
               <span class="name">{composition.name}</span>
-              <span class="dim small">{kindLabel(composition.kind)}</span>
+              <span class="dim small">{subtitle(composition)}</span>
             </span>
             {#if isFast(composition)}<span class="fast" title="Fast flashing">⚡</span>{/if}
           </button>
@@ -121,8 +148,11 @@
 
       <article class="glass panel">
         {#if selected && projectId !== null}
-          <CompositionEditor {projectId} composition={selected} {fixtures} {groups} {modes} onSaved={saved} />
+          <CompositionEditor {projectId} composition={selected} {looks} {scenes} {fixtures} {groups} {modes}
+            onSaved={saved} />
           <footer class="footer">
+            <button class="btn small ghost" type="button" onclick={duplicate}
+              title="A copy with copies of its own looks, in no scene">⧉ Duplicate</button>
             <button class="btn small ghost danger" type="button" onclick={() => (deleteOpen = true)}>Delete</button>
           </footer>
         {:else}
@@ -130,32 +160,18 @@
         {/if}
       </article>
     </div>
-    {#if projectId !== null}
-      <ExtraKeysPanel {projectId} {library} {fixtures} {groups} {modes} />
-    {/if}
   {/if}
 </section>
 
 <Modal bind:open={createOpen} title="New composition">
   <form id="composition-form" onsubmit={(e) => { e.preventDefault(); create(); }}>
-    <div class="kinds" role="radiogroup" aria-label="Kind">
-      {#each KINDS as kind (kind.kind)}
-        <label class="kind" class:active={form.kind === kind.kind}>
-          <input type="radio" name="kind" value={kind.kind} bind:group={form.kind} />
-          <span class="kind-icon" aria-hidden="true">{kind.icon}</span>
-          <span><strong>{kind.label}</strong><span class="dim small block">{kind.description}</span></span>
-        </label>
-      {/each}
-    </div>
-    <label class="field">Name<input bind:value={form.name} placeholder={kindLabel(form.kind)} /></label>
-    {#if form.kind !== 'steps'}
-      <label class="field">Runs on
-        <select bind:value={form.groupId}>
-          {#each groups as group (group.id)}<option value={String(group.id)}>Group: {group.name}</option>{/each}
-          <option value="">Fixtures – choose afterwards</option>
-        </select>
-      </label>
-    {/if}
+    <label class="field">Name<input bind:value={form.name} placeholder="Composition" /></label>
+    <label class="check">
+      <input type="checkbox" bind:checked={form.record} disabled={!programmerHasValues} />
+      Record the programmer as the first step
+      {#if !programmerHasValues}<span class="dim small">(the programmer is empty)</span>{/if}
+    </label>
+    <p class="dim small">Afterwards: record more steps, add shared looks, or generate steps from an effect.</p>
   </form>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (createOpen = false)}>Cancel</button>
@@ -164,7 +180,7 @@
 </Modal>
 
 <Modal bind:open={deleteOpen} title="Delete composition">
-  <p>Delete <strong>{selected?.name}</strong> from the library? Copies in scenes keep running.</p>
+  <p>Delete <strong>{selected?.name}</strong> with its own looks?</p>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (deleteOpen = false)}>Cancel</button>
     <button class="btn danger" type="button" onclick={remove}>Delete</button>
@@ -269,43 +285,8 @@
     gap: 14px;
   }
 
-  .kinds {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 8px;
-  }
-
-  .kind {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    cursor: pointer;
-  }
-
-  .kind.active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
-  }
-
-  .kind input {
-    position: absolute;
-    opacity: 0;
-    pointer-events: none;
-  }
-
-  .kind-icon {
-    font-size: 20px;
-  }
-
   .small {
     font-size: 12px;
-  }
-
-  .block {
-    display: block;
   }
 
   @media (max-width: 900px) {

@@ -90,7 +90,7 @@ Feld bedeutet: Projektzeit.
 - Die Stay-Zeit (Auto-Follow) beginnt nach Delay + Fade-In.
 - Während des Delays behalten diskrete Kanäle (Gobo, Farbrad, …) ihren alten Wert und springen erst, wenn der
   Fade-In beginnt.
-- Für Szenen nur für Extra-Tasten gibt es die Felder nicht, dort gilt die Fade-Zeit der Taste.
+- Für Szenen außerhalb der Cue-Liste (Fader) gibt es die Felder nicht.
 
 ```
             GO
@@ -173,14 +173,13 @@ eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch l
 ## Fader im Betrieb (z.B. Saallicht)
 
 Bis zu 8 **Fader** pro Projekt spielen je eine Szene in der Höhe, auf die sie geschoben werden – unabhängig von GO,
-z.B. Saallicht oder Arbeitslicht. Belegt werden sie in der Szenenliste („Faders“), meist mit einer Szene „Only for extra
-keys“; im Betriebsmodus stehen sie unter GO (Schieberegler, dazu „0“ und „Full“).
+z.B. Saallicht oder Arbeitslicht. Belegt werden sie in der Szenenliste („Faders“), meist mit einer Szene „Not in the cue
+list“; im Betriebsmodus stehen sie unter GO (Schieberegler, dazu „0“ und „Full“).
 
-- Mischung wie bei einer Extra-Taste mit Szene: Intensität HTP (`max(Bühne, Szene × Level)`), andere Attribute werden
-  mit dem Level eingeblendet. Fader liegen über Playback und Extra-Tasten, Grand Master und Blackout wirken auf sie.
+- Mischung: Intensität HTP (`max(Bühne, Szene × Level)`), andere Attribute werden mit dem Level eingeblendet. Fader liegen über Playback und Extra-Tasten, Grand Master und Blackout wirken auf sie.
 - Der Level gilt im Konfigurations- und im Betriebsmodus und ändert sich nicht durch GO. Er wird nicht gespeichert:
   nach einem Neustart stehen alle Fader auf 0.
-- Laufende Kompositionen der Fader-Szene laufen ab dem Hochziehen.
+- Die Compositions der Fader-Szene laufen ab dem Hochziehen.
 
 ## Mögliche Erweiterungen (Backlog)
 

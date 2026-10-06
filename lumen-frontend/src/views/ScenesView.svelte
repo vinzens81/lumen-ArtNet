@@ -3,32 +3,25 @@
   import Modal from '../components/Modal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import SceneCompositions from '../components/SceneCompositions.svelte';
-  import SceneExtraKeys from '../components/SceneExtraKeys.svelte';
+  import SceneKeys from '../components/SceneKeys.svelte';
+  import UpdateFromProgrammerModal from '../components/UpdateFromProgrammerModal.svelte';
   import { api } from '../lib/api';
-  import { modesOf, previewOf, rgbToCss, swatchesOf } from '../lib/color';
+  import { modesOf, swatchesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import { kindIcon } from '../lib/compositions';
+  import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
   import { parseScript } from '../lib/script';
   import {
     curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
   } from '../lib/sceneTiming';
   import { shortTime } from '../lib/format';
-  import { presetNames } from '../lib/presets';
-  import { programmerSelection } from '../lib/selection.svelte';
   import { stagePreview } from '../lib/stagePreview.svelte';
-  import type { AttributeGroup, FadeCurve, Fixture, Group, Preset, Scene, SceneRevision } from '../lib/types';
-
-  const ATTRIBUTE_GROUPS: { id: AttributeGroup; label: string }[] = [
-    { id: 'intensity', label: 'Intensity' },
-    { id: 'color', label: 'Color' },
-    { id: 'position', label: 'Position' },
-    { id: 'beam', label: 'Beam' },
-    { id: 'other', label: 'Other' },
-  ];
+  import type {
+    Composition, FadeCurve, Fixture, Group, Look, LookRevision, RecordRequest, Scene,
+  } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
@@ -37,17 +30,16 @@
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
-  /** options of “update from programmer”: replace the whole look or merge parts of the programmer */
-  let update = $state({ merge: false, onlySelected: false, groups: [] as AttributeGroup[] });
-  let revisions = $state<SceneRevision[]>([]);
-  let presets = $state<Preset[]>([]);
+  let revisions = $state<LookRevision[]>([]);
+  let compositions = $state<Composition[]>([]);
+  let looks = $state<Look[]>([]);
   let form = $state({
     number: '',
     name: '',
     cueNote: '',
     autoFollow: false,
     autoFollowSeconds: 5,
-    keyOnly: false,
+    outsideCueList: false,
     // empty (null) = the project's time
     fadeInSeconds: null as number | null,
     fadeOutSeconds: null as number | null,
@@ -71,7 +63,7 @@
   });
   /** the scene GO comes from in the show – a rehearsed fade starts there */
   const previousScene = $derived.by(() => {
-    if (!selected || selected.keyOnly) return null;
+    if (!selected || selected.outsideCueList) return null;
     const index = cueScenes.indexOf(selected);
     return index > 0 ? cueScenes[index - 1] : null;
   });
@@ -90,9 +82,19 @@
     });
     return () => cancelAnimationFrame(frame);
   });
-  /** the cue list played by GO, and the scenes that only extra keys play */
-  const cueScenes = $derived(scenes.filter((s) => !s.keyOnly));
-  const keyScenes = $derived(scenes.filter((s) => s.keyOnly));
+  /** the cue list played by GO, and the scenes outside it (played by faders) */
+  const cueScenes = $derived(scenes.filter((s) => !s.outsideCueList));
+  const keyScenes = $derived(scenes.filter((s) => s.outsideCueList));
+  const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
+  const looksById = $derived(lookMap(looks));
+  /** the look of a simple scene: its first composition plays one look – “Update from programmer” changes it */
+  const baseLook = $derived.by(() => {
+    const first = selected?.compositions[0];
+    const composition = first ? compositionsById.get(first.compositionId) : undefined;
+    return composition?.steps.length === 1 ? looksById.get(composition.steps[0].lookId) ?? null : null;
+  });
+  /** the quick update works for a scene without compositions (records one) or with a simple first composition */
+  const canQuickUpdate = $derived(selected !== null && (selected.compositions.length === 0 || baseLook !== null));
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const nextNumber = $derived(
     scenes.length === 0 ? '1' : String(Math.floor(Number(scenes[scenes.length - 1].number)) + 1),
@@ -102,35 +104,31 @@
     void live.scenesRevision;
     void live.patchRevision;
     void live.compositionsRevision;
+    void live.looksRevision;
     if (projectId !== null) load(projectId);
   });
 
   $effect(() => {
-    void live.presetsRevision;
-    if (projectId !== null) api.presets.list(projectId).then((list) => (presets = list), showError);
-  });
-
-  $effect(() => {
-    void live.scenesRevision;
-    if (projectId !== null && selectedId !== null) loadRevisions(projectId, selectedId);
+    void live.looksRevision;
+    const lookId = baseLook?.id ?? null;
+    if (projectId !== null && lookId !== null) loadRevisions(projectId, lookId);
     else revisions = [];
   });
 
-  async function loadRevisions(projectId: number, sceneId: number) {
+  async function loadRevisions(projectId: number, lookId: number) {
     try {
-      const loaded = await api.scenes.revisions(projectId, sceneId);
-      if (selectedId === sceneId) revisions = loaded;
+      const loaded = await api.looks.revisions(projectId, lookId);
+      if (baseLook?.id === lookId) revisions = loaded;
     } catch (e) {
       showError(e);
     }
   }
 
-  async function restore(revision: SceneRevision) {
-    if (!project || !selected) return;
+  async function restore(revision: LookRevision) {
+    if (!project || !selected || !baseLook) return;
     try {
-      await api.scenes.restore(project.id, selected.id, revision.id);
+      await api.looks.restore(project.id, baseLook.id, revision.id);
       notify(`Scene ${selected.number}: look from ${shortTime(new Date(revision.createdAt))} restored`);
-      await load(project.id);
     } catch (e) {
       showError(e);
     }
@@ -145,10 +143,12 @@
 
   async function load(projectId: number) {
     try {
-      [scenes, fixtures, groups] = await Promise.all([
+      [scenes, fixtures, groups, compositions, looks] = await Promise.all([
         api.scenes.list(projectId),
         api.fixtures.list(projectId),
         api.groups.list(projectId),
+        api.compositions.list(projectId),
+        api.looks.list(projectId),
       ]);
       if (selectedId !== null && !scenes.some((s) => s.id === selectedId)) selectedId = null;
     } catch (e) {
@@ -164,7 +164,7 @@
       cueNote: scene.cueNote ?? '',
       autoFollow: scene.autoFollowMs !== null,
       autoFollowSeconds: scene.autoFollowMs !== null ? scene.autoFollowMs / 1000 : 5,
-      keyOnly: scene.keyOnly,
+      outsideCueList: scene.outsideCueList,
       fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
       fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
@@ -174,7 +174,7 @@
   }
 
   function swatches(scene: Scene) {
-    return swatchesOf(fixtures, modes, scene.values);
+    return swatchesOf(fixtures, modes, sceneStartValues(scene, compositionsById, looksById));
   }
 
   async function save() {
@@ -185,7 +185,7 @@
         name: form.name,
         cueNote: form.cueNote || null,
         autoFollowMs: form.autoFollow ? Math.round(form.autoFollowSeconds * 1000) : null,
-        keyOnly: form.keyOnly,
+        outsideCueList: form.outsideCueList,
         fadeInMs: secondsToMs(form.fadeInSeconds),
         fadeOutMs: secondsToMs(form.fadeOutSeconds),
         delayMs: secondsToMs(form.delaySeconds),
@@ -209,20 +209,12 @@
     }
   }
 
-  function openUpdate() {
-    update = { merge: false, onlySelected: false, groups: [] };
-    overwriteOpen = true;
-  }
-
-  async function overwrite() {
+  async function overwrite(request: RecordRequest) {
     if (!project || !selected) return;
     try {
-      await api.scenes.record(project.id, selected.id, update.merge
-        ? { merge: true, fixtureIds: update.onlySelected ? programmerSelection.ids : null, groups: update.groups }
-        : { merge: false });
-      notify(`Scene ${selected.number} ${update.merge ? 'merged with' : 'updated from'} the programmer`);
+      await api.scenes.record(project.id, selected.id, request);
+      notify(`Scene ${selected.number} ${request.merge ? 'merged with' : 'updated from'} the programmer`);
       overwriteOpen = false;
-      await load(project.id);
     } catch (e) {
       showError(e);
     }
@@ -230,7 +222,7 @@
 
   /** A free number right after the scene, among the scenes of its list; null (with an error shown) if none fits. */
   function numberAfter(scene: Scene): string | null {
-    const list = scene.keyOnly ? keyScenes : cueScenes;
+    const list = scene.outsideCueList ? keyScenes : cueScenes;
     const next = list[list.indexOf(scene) + 1];
     const number = numberBetween(scene.number, next?.number ?? null);
     if (number === null) {
@@ -250,10 +242,10 @@
     try {
       const scene = await api.scenes.create(project.id, {
         number,
-        name: selected?.keyOnly ? 'Key look' : 'Blackout',
+        name: selected?.outsideCueList ? 'House lights' : 'Blackout',
         cueNote: null,
         autoFollowMs: null,
-        keyOnly: selected?.keyOnly ?? false,
+        outsideCueList: selected?.outsideCueList ?? false,
       });
       await load(project.id);
       select(scene);
@@ -394,19 +386,24 @@
                 <span class="pulse" aria-hidden="true"></span>ON STAGE
               </span>
             {/if}
-            {#if scene.compositions.length > 0}
-              <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
-                {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
+            {#if scene.compositions.length > 1 || (scene.compositions.length === 1
+              && (compositionsById.get(scene.compositions[0].compositionId)?.steps.length ?? 0) > 1)}
+              {@const used = scene.compositions.flatMap((use) => compositionsById.get(use.compositionId) ?? [])}
+              <span class="badge" title={used.map((c) => c.name).join(', ')}>
+                {used.map((c) => compositionIcon(c)).join(' ')}
               </span>
             {/if}
-            {#if scene.script && !scene.keyOnly}
+            {#if scene.keys.length > 0 && !scene.outsideCueList}
+              <span class="badge" title="Keys {scene.keys.map((k) => k.slot).join(', ')}">⌨ {scene.keys.length}</span>
+            {/if}
+            {#if scene.script && !scene.outsideCueList}
               <span class="badge" title="Has a script">📜</span>
             {/if}
-            {#if timingLabel(scene) && !scene.keyOnly}
+            {#if timingLabel(scene) && !scene.outsideCueList}
               <span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>
             {/if}
             {#if scene.autoFollowMs !== null}
-              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{!scene.keyOnly && i === cueScenes.length - 1 ? ' (last – ignored)' : ''}</span>
+              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{!scene.outsideCueList && i === cueScenes.length - 1 ? ' (last – ignored)' : ''}</span>
             {/if}
           {/snippet}
 
@@ -470,7 +467,7 @@
         {/each}
         {#if drag && drag.to !== drag.from && drag.to === cueScenes.length - 1}<div class="drop-end"></div>{/if}
         {#if keyScenes.length > 0}
-          <h3 class="key-scenes-head" title="GO skips these scenes – they are played by extra keys">Scenes for extra keys</h3>
+          <h3 class="key-scenes-head" title="GO skips these scenes – faders play them">Not in the cue list</h3>
           {#each keyScenes as scene, i (scene.id)}
             <div class="cue-row key-row">
               <span class="handle-space" aria-hidden="true"></span>
@@ -496,7 +493,7 @@
               <label class="field">Name<input bind:value={form.name} required /></label>
             </div>
             <label class="field">Cue note<input bind:value={form.cueNote} placeholder="When to press GO" /></label>
-            {#if !form.keyOnly}
+            {#if !form.outsideCueList}
               <label class="field">Script
                 <textarea bind:value={form.script} rows="8"
                   placeholder={'Text spoken on stage during this scene.\n**Enter Juliet** – stage directions in two asterisks.'}
@@ -518,7 +515,7 @@
                 disabled={!form.autoFollow} /> s
             </label>
             <p class="hint dim">The time starts when the fade-in has finished. Without it the scene stays until GO.</p>
-            {#if !form.keyOnly}
+            {#if !form.outsideCueList}
               <fieldset class="timing">
                 <legend>Fade times of the GO into this scene</legend>
                 <label>In <input class="seconds" type="number" min="0" max="600" step="0.1"
@@ -540,14 +537,14 @@
               </p>
             {/if}
             <label class="check">
-              <input type="checkbox" bind:checked={form.keyOnly} />
-              Only for extra keys <span class="hint dim">(GO skips this scene)</span>
+              <input type="checkbox" bind:checked={form.outsideCueList} />
+              Not in the cue list <span class="hint dim">(GO skips this scene – e.g. house lights on a fader)</span>
             </label>
             <button class="btn primary" type="submit">Save</button>
           </form>
 
           <section>
-            <h3>Look</h3>
+            <h3>On stage</h3>
             <div class="buttons">
               <button class="btn" type="button" onclick={() => selected && loadIntoProgrammer(selected)}>Load into programmer</button>
               {#if stagePreview.status.sceneId === selected.id}
@@ -557,14 +554,18 @@
                 <button class="btn" type="button" onclick={() => projectId !== null && stagePreview.showScene(projectId, selected.id)}
                   title="Play the scene with its compositions on stage, above the playback">▶ Show on stage</button>
               {/if}
-              {#if !selected.keyOnly}
+              {#if !selected.outsideCueList}
                 <button class="btn" type="button"
                   onclick={() => projectId !== null && selected && stagePreview.rehearseFade(projectId, selected.id)}
                   title="Play the GO into this scene on stage: from {previousScene ? `scene ${previousScene.number}` : 'the dark stage'} with the fade times of the show">
                   ⇢ Rehearse fade
                 </button>
               {/if}
-              <button class="btn record-outline" type="button" onclick={openUpdate} disabled={!programmerHasValues}>⏺ Update from programmer</button>
+              <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)}
+                disabled={!programmerHasValues || !canQuickUpdate}
+                title={canQuickUpdate
+                  ? 'Take the programmer into the look of this scene'
+                  : 'The first composition has several steps – change its looks in the composition'}>⏺ Update from programmer</button>
               {#if revisions.length > 0}
                 <button class="btn" type="button" onclick={() => restore(revisions[0])}
                   title="Restore the look from before “{revisions[0].reason}” ({shortTime(new Date(revisions[0].createdAt))})">↶ Undo</button>
@@ -590,21 +591,6 @@
             {#if stagePreview.status.sceneId === selected.id && programmerHasValues}
               <p class="hint warning-text">The programmer is on top of the stage preview – clear it to see the scene as it is.</p>
             {/if}
-            <ul class="fixtures">
-              {#each fixtures.filter((f) => selected?.values[f.id]) as fixture (fixture.id)}
-                {@const preview = previewOf(modes.get(fixture.id) ?? { name: '', dmxChannelCount: 0, heads: 0, channels: [] }, selected.values[fixture.id])}
-                <li>
-                  <span class="swatch" style="--color: {rgbToCss(preview.color)}; --intensity: {preview.intensity}"></span>
-                  {fixture.name}
-                  {#each presetNames(selected.presets, fixture.id, presets) as name (name)}
-                    <span class="preset-tag" title="Takes its values from this preset">{name}</span>
-                  {/each}
-                  <span class="mono dim">{Math.round((selected.values[fixture.id].dimmer ?? 0) * 100)}%</span>
-                </li>
-              {:else}
-                <li class="dim">No fixtures – everything is dark in this scene.</li>
-              {/each}
-            </ul>
           </section>
 
           {#if revisions.length > 0}
@@ -631,15 +617,15 @@
           {/if}
 
           {#if projectId !== null}
-            <SceneCompositions {projectId} sceneId={selected.id} {fixtures} {groups} {modes} />
-            {#if !selected.keyOnly}
-              <SceneExtraKeys {projectId} sceneId={selected.id} />
+            <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes} />
+            {#if !selected.outsideCueList}
+              <SceneKeys {projectId} scene={selected} {compositions} />
             {/if}
           {/if}
 
           <section class="buttons">
             <button class="btn small" type="button" onclick={duplicate}
-              title="Copy look, fade times, script, compositions and extra keys to a new scene right after this one">⧉ Duplicate</button>
+              title="A new scene right after this one with the same compositions, keys, fade times and script">⧉ Duplicate</button>
             <button class="btn small danger" type="button" onclick={() => (deleteOpen = true)}>Delete scene</button>
           </section>
         {/if}
@@ -651,42 +637,10 @@
 <RecordSceneModal bind:open={recordOpen} suggestedNumber={nextNumber}
   onrecorded={(scene) => project && load(project.id).then(() => select(scene))} />
 
-<Modal bind:open={overwriteOpen} title="Update scene">
-  <div class="update-options">
-    <p>Take the programmer into scene <strong>{selected?.number} “{selected?.name}”</strong>:</p>
-    <label class="check">
-      <input type="radio" name="update-mode" checked={!update.merge} onchange={() => (update.merge = false)} />
-      Replace the whole look <span class="hint dim">– fixtures without programmer values go dark</span>
-    </label>
-    <label class="check">
-      <input type="radio" name="update-mode" checked={update.merge} onchange={() => (update.merge = true)} />
-      Merge <span class="hint dim">– take only what the programmer sets, keep the rest of the scene</span>
-    </label>
-    {#if update.merge}
-      <fieldset class="merge-filter">
-        <legend>Only these attributes <span class="hint dim">(none = all)</span></legend>
-        {#each ATTRIBUTE_GROUPS as group (group.id)}
-          <label class="check">
-            <input type="checkbox" checked={update.groups.includes(group.id)} onchange={(e) => {
-              const on = (e.currentTarget as HTMLInputElement).checked;
-              update.groups = on ? [...update.groups, group.id] : update.groups.filter((g) => g !== group.id);
-            }} />
-            {group.label}
-          </label>
-        {/each}
-      </fieldset>
-      <label class="check">
-        <input type="checkbox" bind:checked={update.onlySelected} disabled={programmerSelection.ids.length === 0} />
-        Only the {programmerSelection.ids.length} fixtures selected in the programmer
-      </label>
-    {/if}
-    <p class="hint dim">The look before stays in the history of the scene – “↶ Undo” puts it back.</p>
-  </div>
-  {#snippet actions()}
-    <button class="btn ghost" type="button" onclick={() => (overwriteOpen = false)}>Cancel</button>
-    <button class="btn record" type="button" onclick={overwrite}>⏺ {update.merge ? 'Merge' : 'Replace'}</button>
-  {/snippet}
-</Modal>
+<UpdateFromProgrammerModal bind:open={overwriteOpen}
+  subject={baseLook ? `the look of scene ${selected?.number} “${selected?.name}”` : `scene ${selected?.number} “${selected?.name}”`}
+  note={baseLook && baseLook.owner === null ? 'It is a shared look – it changes everywhere it is played.' : undefined}
+  onconfirm={overwrite} />
 
 <Modal bind:open={deleteOpen} title="Delete scene">
   <p>Delete scene <strong>{selected?.number} “{selected?.name}”</strong>?</p>
@@ -697,34 +651,6 @@
 </Modal>
 
 <style>
-  .preset-tag {
-    padding: 0 6px;
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    color: var(--text-dim);
-    font-size: 0.75rem;
-  }
-
-  .update-options {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-  }
-
-  .update-options p {
-    margin: 0;
-  }
-
-  .merge-filter {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px 16px;
-    margin: 0;
-    padding: 8px 12px;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-  }
-
   .revisions {
     display: flex;
     flex-direction: column;
@@ -1089,27 +1015,9 @@
 
   .buttons {
     display: flex;
+    flex-direction: row;
     flex-wrap: wrap;
     gap: 8px;
-  }
-
-  .fixtures {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .fixtures li {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .fixtures .mono {
-    margin-left: auto;
   }
 
   @media (max-width: 1000px) {

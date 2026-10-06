@@ -6,16 +6,18 @@ import type {
   Backups,
   Composition,
   CompositionRequest,
-  ExtraKey,
   FaderSetup,
-  KeyMode,
   AttributeValues,
   Fixture,
   FixtureRequest,
   FixtureType,
+  KeyMode,
+  Generator,
   Group,
   GroupRequest,
   LibraryIssue,
+  Look,
+  LookRevision,
   OflImportResult,
   MasterState,
   OperatingMode,
@@ -26,7 +28,8 @@ import type {
   ProjectRequest,
   RecordRequest,
   Scene,
-  SceneRevision,
+  SceneComposition,
+  SceneKey,
   SceneRequest,
   PartyButton,
   PartyStatus,
@@ -151,49 +154,45 @@ export const api = {
       put<Scene>(`/api/projects/${projectId}/scenes/${id}`, scene),
     record: (projectId: number, id: number, request?: RecordRequest) =>
       post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`, request),
-    revisions: (projectId: number, id: number) =>
-      get<SceneRevision[]>(`/api/projects/${projectId}/scenes/${id}/revisions`),
-    restore: (projectId: number, id: number, revisionId: number) =>
-      post<Scene>(`/api/projects/${projectId}/scenes/${id}/revisions/${revisionId}/restore`),
+    setCompositions: (projectId: number, id: number, compositions: SceneComposition[]) =>
+      put<Scene>(`/api/projects/${projectId}/scenes/${id}/compositions`, compositions),
+    setKeys: (projectId: number, id: number, keys: SceneKey[]) =>
+      put<Scene>(`/api/projects/${projectId}/scenes/${id}/keys`, keys),
     duplicate: (projectId: number, id: number, number: string | null) =>
       post<Scene>(`/api/projects/${projectId}/scenes/${id}/duplicate`, { number }),
     load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
   },
+  looks: {
+    list: (projectId: number) => get<Look[]>(`/api/projects/${projectId}/looks`),
+    create: (projectId: number, name: string, record: boolean) =>
+      post<Look>(`/api/projects/${projectId}/looks`, { name, record }),
+    update: (projectId: number, id: number, name: string, shared?: boolean) =>
+      put<Look>(`/api/projects/${projectId}/looks/${id}`, { name, shared }),
+    duplicate: (projectId: number, id: number) => post<Look>(`/api/projects/${projectId}/looks/${id}/duplicate`),
+    record: (projectId: number, id: number, request?: RecordRequest) =>
+      post<Look>(`/api/projects/${projectId}/looks/${id}/record`, request),
+    revisions: (projectId: number, id: number) =>
+      get<LookRevision[]>(`/api/projects/${projectId}/looks/${id}/revisions`),
+    restore: (projectId: number, id: number, revisionId: number) =>
+      post<Look>(`/api/projects/${projectId}/looks/${id}/revisions/${revisionId}/restore`),
+    load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/looks/${id}/load`),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/looks/${id}`),
+  },
   compositions: {
-    library: (projectId: number) => get<Composition[]>(`/api/projects/${projectId}/compositions`),
+    list: (projectId: number) => get<Composition[]>(`/api/projects/${projectId}/compositions`),
     get: (projectId: number, id: number) => get<Composition>(`/api/projects/${projectId}/compositions/${id}`),
     create: (projectId: number, composition: CompositionRequest) =>
       post<Composition>(`/api/projects/${projectId}/compositions`, composition),
     update: (projectId: number, id: number, composition: CompositionRequest) =>
       put<Composition>(`/api/projects/${projectId}/compositions/${id}`, composition),
+    duplicate: (projectId: number, id: number) =>
+      post<Composition>(`/api/projects/${projectId}/compositions/${id}/duplicate`),
+    recordStep: (projectId: number, id: number) =>
+      post<Composition>(`/api/projects/${projectId}/compositions/${id}/record-step`),
+    generate: (projectId: number, id: number, generator: Generator) =>
+      post<Composition>(`/api/projects/${projectId}/compositions/${id}/generate`, generator),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/compositions/${id}`),
-    ofScene: (projectId: number, sceneId: number) =>
-      get<Composition[]>(`/api/projects/${projectId}/scenes/${sceneId}/compositions`),
-    insert: (projectId: number, sceneId: number, libraryId: number) =>
-      post<Composition>(`/api/projects/${projectId}/scenes/${sceneId}/compositions`, { libraryId }),
-    reorder: (projectId: number, sceneId: number, ids: number[]) =>
-      put<Composition[]>(`/api/projects/${projectId}/scenes/${sceneId}/compositions/order`, { ids }),
-    reloadFromLibrary: (projectId: number, id: number) =>
-      post<Composition>(`/api/projects/${projectId}/compositions/${id}/reload-from-library`),
-    saveToLibrary: (projectId: number, id: number) =>
-      post<Composition>(`/api/projects/${projectId}/compositions/${id}/save-to-library`),
-  },
-  extraKeys: {
-    list: (projectId: number) => get<ExtraKey[]>(`/api/projects/${projectId}/extra-keys`),
-    assign: (projectId: number, slot: number, libraryId: number, mode: KeyMode, fadeMs: number) =>
-      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { libraryId, mode, fadeMs }),
-    assignScene: (projectId: number, slot: number, sceneId: number, mode: KeyMode, fadeMs: number) =>
-      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { sceneId, mode, fadeMs }),
-    update: (projectId: number, slot: number, mode: KeyMode, fadeMs: number) =>
-      put<ExtraKey>(`/api/projects/${projectId}/extra-keys/${slot}`, { mode, fadeMs }),
-    clear: (projectId: number, slot: number) => del(`/api/projects/${projectId}/extra-keys/${slot}`),
-    ofScene: (projectId: number, sceneId: number) =>
-      get<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`),
-    enableKeyScene: (projectId: number, sceneId: number, keySceneId: number) =>
-      post<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys/scenes/${keySceneId}`),
-    setForScene: (projectId: number, sceneId: number, slots: number[]) =>
-      put<{ slots: number[] }>(`/api/projects/${projectId}/scenes/${sceneId}/extra-keys`, { slots }),
   },
   party: {
     status: () => get<PartyStatus>('/api/party'),

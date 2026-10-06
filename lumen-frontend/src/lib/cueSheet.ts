@@ -1,4 +1,4 @@
-import type { ExtraKey, Project, Scene } from './types';
+import type { Composition, Project, Scene } from './types';
 
 /** A fade time on the cue sheet; `own` marks a scene's own time instead of the project's. */
 export interface SheetTime {
@@ -19,31 +19,21 @@ export interface CueRow {
   autoFollowMs: number | null;
   /** names of the compositions running in the scene */
   compositions: string[];
-  /** extra keys usable in the scene, e.g. "1 Storm" */
+  /** extra keys of the scene, e.g. "1 Storm" */
   keys: string[];
-}
-
-/** Name of an extra key as the operator sees it: its composition or the scene it plays. */
-export function keyName(key: ExtraKey, scenes: Scene[]): string {
-  if (key.composition) return key.composition.name;
-  const scene = scenes.find((s) => s.id === key.sceneId);
-  return scene ? scene.name : '?';
 }
 
 /**
  * The cue list as printed for the operator: the scenes GO plays, in order, with the fade times that apply (the
  * scene's own or the project's).
- *
- * @param sceneKeys slots of the extra keys usable per scene id
  */
 export function cueRows(
   project: Pick<Project, 'fadeInMs' | 'fadeOutMs'>,
   scenes: Scene[],
-  keys: ExtraKey[],
-  sceneKeys: Map<number, number[]>,
+  compositions: Composition[],
 ): CueRow[] {
-  const cues = scenes.filter((s) => !s.keyOnly);
-  const keyNames = new Map(keys.map((k) => [k.slot, `${k.slot} ${keyName(k, scenes)}`]));
+  const cues = scenes.filter((s) => !s.outsideCueList);
+  const names = new Map(compositions.map((c) => [c.id, c.name]));
   return cues.map((scene, index) => ({
     sceneId: scene.id,
     number: scene.number,
@@ -53,11 +43,10 @@ export function cueRows(
     fadeOut: { ms: scene.fadeOutMs ?? project.fadeOutMs, own: scene.fadeOutMs !== null },
     delayMs: scene.delayMs,
     autoFollowMs: index < cues.length - 1 ? scene.autoFollowMs : null,
-    compositions: scene.compositions.map((c) => c.name),
-    keys: [...(sceneKeys.get(scene.id) ?? [])]
-      .sort((a, b) => a - b)
-      .map((slot) => keyNames.get(slot))
-      .filter((name): name is string => name !== undefined),
+    compositions: scene.compositions.map((use) => names.get(use.compositionId) ?? '?'),
+    keys: [...scene.keys]
+      .sort((a, b) => a.slot - b.slot)
+      .map((key) => `${key.slot} ${names.get(key.compositionId) ?? '?'}`),
   }));
 }
 

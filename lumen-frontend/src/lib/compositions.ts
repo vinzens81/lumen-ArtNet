@@ -1,33 +1,37 @@
 import type {
+  AttributeValues,
   ChaseParams,
   Composition,
-  CompositionKind,
-  CompositionParams,
+  EffectKind,
+  EffectParams,
   Fixture,
+  Generator,
+  Look,
   Mode,
+  Scene,
   WaveParams,
 } from './types';
 
-export const KINDS: { kind: CompositionKind; label: string; icon: string; description: string }[] = [
+export const EFFECTS: { kind: EffectKind; label: string; icon: string; description: string }[] = [
   { kind: 'chase', label: 'Chase', icon: '⇉', description: 'A light running along the fixtures' },
   { kind: 'color_cycle', label: 'Color cycle', icon: '◐', description: 'Steps through colors with fades' },
   { kind: 'rainbow', label: 'Rainbow', icon: '🌈', description: 'Runs through all hues' },
   { kind: 'wave', label: 'Wave / pulse', icon: '∿', description: 'Intensity rising and falling' },
   { kind: 'flicker', label: 'Flicker', icon: '🔥', description: 'Candle, fire or a broken tube' },
-  { kind: 'steps', label: 'Step sequence', icon: '▦', description: 'Your own looks, recorded from the programmer' },
 ];
 
-export function kindLabel(kind: CompositionKind): string {
-  return KINDS.find((k) => k.kind === kind)?.label ?? kind;
+export function effectLabel(kind: EffectKind): string {
+  return EFFECTS.find((e) => e.kind === kind)?.label ?? kind;
 }
 
-export function kindIcon(kind: CompositionKind | 'scene'): string {
-  if (kind === 'scene') return '▣';
-  return KINDS.find((k) => k.kind === kind)?.icon ?? '✦';
+/** Icon of a composition: its effect, a static look (one step) or a step sequence. */
+export function compositionIcon(composition: Pick<Composition, 'generator' | 'steps'>): string {
+  if (composition.generator) return EFFECTS.find((e) => e.kind === composition.generator!.kind)?.icon ?? '✦';
+  return composition.steps.length <= 1 ? '▣' : '▦';
 }
 
-/** Parameters a new composition of the kind starts with (the server uses the same defaults). */
-export function defaultParams(kind: CompositionKind): CompositionParams {
+/** Parameters a new effect starts with (the server uses the same defaults). */
+export function defaultParams(kind: EffectKind): EffectParams {
   switch (kind) {
     case 'chase':
       return { stepMs: 500, width: 1, direction: 'forward', softness: 0, min: 0, max: 1 };
@@ -39,45 +43,16 @@ export function defaultParams(kind: CompositionKind): CompositionParams {
       return { shape: 'sine', periodMs: 2000, min: 0, max: 1, spread: 0 };
     case 'flicker':
       return { character: 'candle', strength: 0.5, speed: 1, seed: Math.floor(Math.random() * 100000) };
-    case 'steps':
-      return { playMode: 'loop' };
   }
 }
 
-/** Kinds that set the color: they need fixtures with red/green/blue. */
-export function setsColor(kind: CompositionKind): boolean {
+/** Effects that set the color: they need fixtures with red/green/blue. */
+export function setsColor(kind: EffectKind): boolean {
   return kind === 'color_cycle' || kind === 'rainbow';
 }
 
-/** Kinds that set the intensity. */
-export function setsIntensity(kind: CompositionKind): boolean {
-  return kind !== 'color_cycle' && kind !== 'rainbow';
-}
-
-/**
- * Light changes faster than about 3 times per second can trigger photosensitive epilepsy; theatres often have to
- * announce them.
- */
-export function isFast(composition: Pick<Composition, 'kind' | 'params' | 'speedFactor'>): boolean {
-  const speed = composition.speedFactor || 1;
-  switch (composition.kind) {
-    case 'chase': {
-      const p = composition.params as ChaseParams;
-      return p.max - p.min > 0.3 && p.stepMs / speed < 333;
-    }
-    case 'wave': {
-      const p = composition.params as WaveParams;
-      return p.max - p.min > 0.3 && p.periodMs / speed < 333;
-    }
-    case 'flicker':
-      return (composition.params as { character: string }).character === 'broken_tube';
-    default:
-      return false;
-  }
-}
-
-/** Fixtures of the target that cannot show what the composition does (e.g. a color cycle on a dimmer). */
-export function unsuitableFixtures(kind: CompositionKind, fixtureIds: number[], modes: Map<number, Mode>): number[] {
+/** Fixtures of the target that cannot show what the effect does (e.g. a color cycle on a dimmer). */
+export function unsuitableFixtures(kind: EffectKind, fixtureIds: number[], modes: Map<number, Mode>): number[] {
   return fixtureIds.filter((id) => {
     const functions = new Set(modes.get(id)?.channels.map((c) => c.function) ?? []);
     if (setsColor(kind)) return !(functions.has('red') && functions.has('green') && functions.has('blue'));
@@ -85,42 +60,141 @@ export function unsuitableFixtures(kind: CompositionKind, fixtureIds: number[], 
   });
 }
 
-/** Ordered fixture ids a composition runs on. */
-export function targetFixtures(composition: Composition, groups: { id: number; fixtureIds: number[] }[]): number[] {
-  if (composition.kind === 'steps') {
-    const ids = new Set<number>();
-    for (const step of composition.steps ?? []) Object.keys(step.values).forEach((id) => ids.add(Number(id)));
-    return [...ids].sort((a, b) => a - b);
-  }
-  const target = composition.target;
-  if (target?.groupId != null) return groups.find((g) => g.id === target.groupId)?.fixtureIds ?? [];
-  return target?.fixtureIds ?? [];
+/** Ordered fixture ids an effect runs on. */
+export function generatorFixtures(generator: Pick<Generator, 'target'>, groups: { id: number; fixtureIds: number[] }[]): number[] {
+  const target = generator.target;
+  if (target.groupId != null) return groups.find((g) => g.id === target.groupId)?.fixtureIds ?? [];
+  return target.fixtureIds ?? [];
+}
+
+/** Fade and hold of a step: its own, otherwise the composition's. */
+export function stepTimes(composition: Pick<Composition, 'fadeMs' | 'holdMs'>, step: { fadeMs: number | null; holdMs: number | null }) {
+  return { fadeMs: step.fadeMs ?? composition.fadeMs, holdMs: step.holdMs ?? composition.holdMs };
+}
+
+/** Time once through all steps (ping-pong: there and back). */
+export function cycleMs(composition: Pick<Composition, 'fadeMs' | 'holdMs' | 'steps' | 'playMode'>): number {
+  const durations = composition.steps.map((step) => {
+    const t = stepTimes(composition, step);
+    return t.fadeMs + t.holdMs;
+  });
+  const once = durations.reduce((a, b) => a + b, 0);
+  if (composition.playMode !== 'ping_pong' || durations.length < 3) return once;
+  return once + durations.slice(1, -1).reduce((a, b) => a + b, 0);
 }
 
 /**
- * Pairs of compositions in a scene that set the same thing on the same fixture; the later one wins.
- * Returns messages for the editor.
+ * Light changes faster than about 3 times per second can trigger photosensitive epilepsy; theatres often have to
+ * announce them.
  */
-export function overlaps(
-  compositions: Composition[],
-  groups: { id: number; fixtureIds: number[] }[],
-  fixtures: Fixture[],
-): string[] {
+export function isFast(composition: Pick<Composition, 'generator' | 'steps' | 'fadeMs' | 'holdMs'>, speedFactor = 1): boolean {
+  const generator = composition.generator;
+  const speed = speedFactor || 1;
+  if (generator?.kind === 'chase') {
+    const p = generator.params as ChaseParams;
+    return (p.max ?? 1) - (p.min ?? 0) > 0.3 && (p.stepMs ?? 500) / speed < 333;
+  }
+  if (generator?.kind === 'wave') {
+    const p = generator.params as WaveParams;
+    return (p.max ?? 1) - (p.min ?? 0) > 0.3 && (p.periodMs ?? 2000) / speed < 333;
+  }
+  if (generator?.kind === 'flicker') return (generator.params as { character?: string }).character === 'broken_tube';
+  if (generator) return false;
+  return composition.steps.length > 1 && composition.steps.some((step) => {
+    const t = stepTimes(composition, step);
+    return (t.fadeMs + t.holdMs) / speed < 333;
+  });
+}
+
+/** Looks by id. */
+export function lookMap(looks: Look[]): Map<number, Look> {
+  return new Map(looks.map((l) => [l.id, l]));
+}
+
+/** Fixtures the steps of a composition set, in id order. */
+export function compositionFixtures(composition: Pick<Composition, 'steps'>, looks: Map<number, Look>): number[] {
+  const ids = new Set<number>();
+  for (const step of composition.steps) {
+    Object.keys(looks.get(step.lookId)?.values ?? {}).forEach((id) => ids.add(Number(id)));
+  }
+  return [...ids].sort((a, b) => a - b);
+}
+
+const COLOR_ATTRIBUTES = new Set(['red', 'green', 'blue', 'white', 'warm-white', 'cold-white', 'amber', 'lime', 'uv',
+  'color-wheel', 'cto']);
+
+/** What a composition sets per fixture: intensity and/or color. */
+function setsPerFixture(composition: Composition, looks: Map<number, Look>): Map<number, Set<'intensity' | 'color'>> {
+  const result = new Map<number, Set<'intensity' | 'color'>>();
+  for (const step of composition.steps) {
+    for (const [id, values] of Object.entries(looks.get(step.lookId)?.values ?? {})) {
+      const set = result.get(Number(id)) ?? new Set();
+      for (const attribute of Object.keys(values)) {
+        const base = attribute.replace(/@\d+$/, '');
+        if (base === 'dimmer') set.add('intensity');
+        else if (COLOR_ATTRIBUTES.has(base)) set.add('color');
+      }
+      result.set(Number(id), set);
+    }
+  }
+  return result;
+}
+
+/**
+ * Pairs of compositions in a scene that set the color of the same fixture; the later one wins. (Intensities mix:
+ * the highest wins, nothing gets lost.) Returns messages for the editor.
+ */
+export function overlaps(compositions: Composition[], looks: Map<number, Look>, fixtures: Fixture[]): string[] {
   const names = new Map(fixtures.map((f) => [f.id, f.name]));
+  const sets = compositions.map((c) => setsPerFixture(c, looks));
   const messages: string[] = [];
   for (let i = 0; i < compositions.length; i++) {
     for (let j = i + 1; j < compositions.length; j++) {
-      const a = compositions[i];
-      const b = compositions[j];
-      const sameAttributes =
-        (setsColor(a.kind) && setsColor(b.kind)) || (setsIntensity(a.kind) && setsIntensity(b.kind));
-      if (!sameAttributes) continue;
-      const shared = targetFixtures(a, groups).filter((id) => targetFixtures(b, groups).includes(id));
+      const shared = [...sets[i].keys()].filter((id) => sets[i].get(id)!.has('color') && sets[j].get(id)?.has('color'));
       if (shared.length === 0) continue;
       const list = shared.slice(0, 3).map((id) => names.get(id) ?? `#${id}`).join(', ');
       const more = shared.length > 3 ? ` and ${shared.length - 3} more` : '';
-      messages.push(`"${b.name}" overrides "${a.name}" on ${list}${more}`);
+      messages.push(`"${compositions[j].name}" overrides the color of "${compositions[i].name}" on ${list}${more}`);
     }
   }
   return messages;
+}
+
+/**
+ * Roughly what a scene shows right after GO, for color previews: the first step of every composition, intensity
+ * highest takes precedence (scaled by the level of the use), other attributes from the later composition.
+ */
+export function sceneStartValues(
+  scene: Pick<Scene, 'compositions'>,
+  compositions: Map<number, Composition>,
+  looks: Map<number, Look>,
+): Record<number, AttributeValues> {
+  const result: Record<number, AttributeValues> = {};
+  for (const use of scene.compositions) {
+    const composition = compositions.get(use.compositionId);
+    const first = composition?.steps[0];
+    const values = first ? looks.get(first.lookId)?.values ?? {} : {};
+    if (composition?.intensityMode === 'relative') continue;
+    for (const [id, fixtureValues] of Object.entries(values)) {
+      const own: AttributeValues = { ...(result[Number(id)] ?? {}) };
+      for (const [attribute, value] of Object.entries(fixtureValues)) {
+        own[attribute] = attribute.replace(/@\d+$/, '') === 'dimmer'
+          ? Math.max(own[attribute] ?? 0, value * use.level)
+          : value;
+      }
+      result[Number(id)] = own;
+    }
+  }
+  return result;
+}
+
+/** Scenes (by number) whose compositions or keys use the composition. */
+export function scenesUsing(compositionId: number, scenes: Scene[]): Scene[] {
+  return scenes.filter((s) => s.compositions.some((c) => c.compositionId === compositionId)
+    || s.keys.some((k) => k.compositionId === compositionId));
+}
+
+/** Compositions whose steps play the look. */
+export function compositionsPlaying(lookId: number, compositions: Composition[]): Composition[] {
+  return compositions.filter((c) => c.steps.some((s) => s.lookId === lookId));
 }

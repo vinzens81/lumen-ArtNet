@@ -1,12 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { cueRows, sheetSeconds } from './cueSheet';
-import type { ExtraKey, Scene } from './types';
+import type { Composition, Scene } from './types';
 
 function scene(id: number, number: string, overrides: Partial<Scene> = {}): Scene {
   return {
-    id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null, keyOnly: false,
-    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', fixtureCount: 1, values: {}, presets: {},
-    compositions: [],
+    id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null, outsideCueList: false,
+    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [],
     ...overrides,
   };
 }
@@ -18,7 +17,7 @@ describe('cueRows', () => {
     const rows = cueRows(project, [
       scene(1, '1', { cueNote: 'House lights out' }),
       scene(2, '2', { fadeInMs: 0, fadeOutMs: 0, delayMs: 500 }),
-    ], [], new Map());
+    ], []);
 
     expect(rows.map((r) => r.number)).toEqual(['1', '2']);
     expect(rows[0].cueNote).toBe('House lights out');
@@ -27,28 +26,29 @@ describe('cueRows', () => {
     expect(rows[1].delayMs).toBe(500);
   });
 
-  it('leaves out scenes for extra keys and auto-follow on the last scene', () => {
+  it('leaves out scenes outside the cue list and auto-follow on the last scene', () => {
     const rows = cueRows(project, [
       scene(1, '1', { autoFollowMs: 8000 }),
       scene(2, '2', { autoFollowMs: 4000 }),
-      scene(3, '50', { keyOnly: true, name: 'Lightning' }),
-    ], [], new Map());
+      scene(3, '50', { outsideCueList: true, name: 'House lights' }),
+    ], []);
 
     expect(rows.map((r) => r.number)).toEqual(['1', '2']);
     expect(rows[0].autoFollowMs).toBe(8000);
     expect(rows[1].autoFollowMs).toBeNull();
   });
 
-  it('names the extra keys of each scene', () => {
-    const scenes = [scene(1, '1'), scene(3, '50', { keyOnly: true, name: 'Lightning' })];
-    const keys: ExtraKey[] = [
-      { slot: 2, mode: 'flash', fadeMs: 0, composition: null, sceneId: 3 },
-      { slot: 1, mode: 'toggle', fadeMs: 0, composition: { name: 'Storm' } as ExtraKey['composition'], sceneId: null },
-    ];
+  it('names the compositions and keys of each scene', () => {
+    const compositions = [{ id: 7, name: 'Storm' }, { id: 8, name: 'Candles' }] as Composition[];
+    const scenes = [scene(1, '1', {
+      compositions: [{ compositionId: 8, level: 1, speedFactor: 1, restart: false }],
+      keys: [{ slot: 2, compositionId: 8, mode: 'flash', fadeMs: 0 }, { slot: 1, compositionId: 7, mode: 'toggle', fadeMs: 0 }],
+    })];
 
-    const rows = cueRows(project, scenes, keys, new Map([[1, [2, 1]]]));
+    const rows = cueRows(project, scenes, compositions);
 
-    expect(rows[0].keys).toEqual(['1 Storm', '2 Lightning']);
+    expect(rows[0].compositions).toEqual(['Candles']);
+    expect(rows[0].keys).toEqual(['1 Storm', '2 Candles']);
   });
 });
 

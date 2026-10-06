@@ -39,7 +39,7 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│ ◉ LUMEN  „Der Sturm“ ▾   [Patch] [Bühne] [Szenen] [Universen] [⚙]  KONFIG ◐ BETRIEB │
+│ ◉ LUMEN  „Der Sturm“ ▾   [Patch] [Bühne] [Looks] [Compositions] [Szenen] [Universen] [⚙]  KONFIG ◐ BETRIEB │
 ├────────────┬──────────────────────────────────────────────────┬────────────────┤
 │ GRUPPEN    │                                                  │ PROGRAMMER     │
 │ ▣ Alle     │         BÜHNENANSICHT / LISTE                    │ Front links    │
@@ -69,22 +69,30 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   Jedes Fixture hat eine **Form**: Spot (rund mit Lichtfleck), Bar (LED-Bar, ein Segment pro Kopf) oder Strip
   (LED-Band als dünne Pixel-Linie). „Auto“ zeichnet Geräte der Kategorie `bar` und Multi-Pixel-Geräte als Bar, alle
   anderen als Spot. Für das ausgewählte Fixture lassen sich links Form, Drehung und Länge einstellen; `R` dreht um 15°.
-- **Compositions:** Bibliothek der Kompositionen (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern,
-  Schrittfolge) mit Editor, Live-Vorschau und „Show on stage“. Eingefügt werden sie im Szenen-Editor (Abschnitt
-  „Compositions“), jede Szene bekommt eine eigene Kopie. Siehe [COMPOSITIONS.md](COMPOSITIONS.md).
+- **Looks:** feste Werte aus dem Programmer („⏺ Record look“), mit Farbvorschau, „Load into programmer“, „Update from
+  programmer“ (ersetzen oder mergen), Verlauf mit „↶ Undo“/„Restore“, Duplizieren und Löschen (nicht, solange eine
+  Composition den Look spielt). Links stehen die gemeinsamen Looks; „Show the looks of compositions“ zeigt dazu die
+  eigenen Looks der Compositions (aufgenommene oder erzeugte Schritte), „◆ Make shared“ macht einen davon gemeinsam.
+- **Compositions:** Schritte, die Looks spielen. Editor mit Standardzeiten (Fade, Hold), Ablauf (Loop, Ping-Pong, Once),
+  Intensität (setzt / skaliert das Licht darunter), Schrittliste (Look wählen, eigene Zeiten mit der Standardzeit als
+  Platzhalter, Load/Update des Looks, wiederholen, umsortieren), „⏺ Record step“, gemeinsame Looks hinzufügen und
+  „✦ Generate from an effect…“ (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern). Dazu Live-Vorschau, „Show on stage“
+  und „In scenes …“. Siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md).
 - **DMX:** Monitor aller 512 Kanäle eines Universes, live.
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen. Umsortieren per Drag & Drop am Griff ⋮⋮ (oder Alt+↑/↓): Die Reihenfolge bleibt die Nummer, die gezogene
   Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
   Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
-  dazwischen), ohne Markierung am Ende. Szenen mit „Only for extra keys“ stehen unter der Cue-Liste im Abschnitt
-  „Scenes for extra keys“; GO überspringt sie, gespielt werden sie über Extra-Tasten. Darunter belegt „Faders“ bis zu
-  8 Fader mit einer Szene (z.B. Saallicht), Name optional.
-  „⧉ Duplicate“ im Editor kopiert die Szene direkt dahinter (Bild, Zeiten, Kurve, Text, Kompositionen,
-  Extra-Tasten). Unter „History“ stehen die früheren Bilder der Szene (vor jedem Update/Merge/Restore, die neuesten
-  20) mit Farbvorschau und „Restore“; „↶ Undo“ neben „Update from programmer“ holt das letzte zurück. Bei den Fade-Zeiten
-  gibt es zusätzlich die Kurve (Linear, S-curve, Square law; leer = die des Projekts). Welche davon in einer Szene
-  zur Verfügung stehen, wird im Editor dieser Szene angehakt – eine Taste wird dabei automatisch vergeben. „▶ Show on stage“ spielt die Szene samt Kompositionen auf der echten Bühne
+  dazwischen), ohne Markierung am Ende. Szenen mit „Not in the cue list“ stehen unter der Cue-Liste in einem eigenen
+  Abschnitt; GO überspringt sie, gespielt werden sie von Fadern. Darunter belegt „Faders“ bis zu 8 Fader mit einer
+  Szene (z.B. Saallicht), Name optional.
+  Im Editor: Abschnitt **Compositions** (vorhandene hinzufügen, „⏺ From programmer“, „✦ Effect“; pro Einsatz Level,
+  Tempo und „Restart at GO“; umsortieren; ein Klick auf den Namen öffnet die Composition – Änderungen gelten in allen
+  Szenen) und **Keys** 1–8 (Composition, Toggle/Flash, Fade). Eine neue Szene übernimmt die Tasten der Szene davor.
+  „Update from programmer“ und „↶ Undo“ wirken auf den Look der ersten Composition, wenn diese einen Schritt hat (der
+  Schnellweg für einfache Szenen). „⧉ Duplicate“ kopiert die Szene direkt dahinter mit denselben Compositions und
+  Tasten. Bei den Fade-Zeiten gibt es zusätzlich die Kurve (Linear, S-curve, Square law; leer = die des Projekts).
+  „▶ Show on stage“ spielt die Szene samt Compositions auf der echten Bühne
   (über dem Playback, unter dem Programmer), „■ Stop showing“ bzw. „■ Stop“ in der Kopfleiste beendet das.
 - **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
   „Back up now“. Die globalen Fade-Zeiten stehen beim Projekt. Später Tastenkürzel und MIDI-Mapping mit MIDI-Learn
@@ -172,9 +180,8 @@ Unter den Extra-Tasten liegen die belegten Fader (z.B. Saallicht) mit Schiebereg
 sofort, unabhängig von GO; auf dem Handy sind sie ausgeblendet. Siehe [PLAYBACK.md](PLAYBACK.md#fader-im-betrieb-zb-saallicht).
 
 ### Extra-Tasten (Betrieb)
-Unter GO liegt die Tastenleiste mit den belegten Extra-Tasten (Name, Typ-Symbol, an/aus). Sie leuchten beim Ein- und
-Ausblenden mit. In der aktuellen Szene nicht freigeschaltete Tasten sind ausgegraut. Auf dem Handy ist die Leiste
-ausgeblendet.
+Unter GO liegt die Tastenleiste mit den Tasten der aktuellen Szene (Name der Composition, an/aus). Sie leuchten beim
+Ein- und Ausblenden mit. Auf dem Handy ist die Leiste ausgeblendet.
 
 ---
 

@@ -30,6 +30,7 @@ class LiveState {
   patchRevision = $state(0);
   projectsRevision = $state(0);
   scenesRevision = $state(0);
+  looksRevision = $state(0);
   nodesRevision = $state(0);
   accessRevision = $state(0);
   playback = $state<PlaybackStatus | null>(null);
@@ -83,6 +84,7 @@ class LiveState {
       this.patchRevision++;
       this.projectsRevision++;
       this.scenesRevision++;
+      this.looksRevision++;
       this.nodesRevision++;
       this.accessRevision++;
       this.libraryRevision++;
@@ -175,6 +177,9 @@ class LiveState {
         break;
       case 'scenes':
         this.scenesRevision++;
+        break;
+      case 'looks':
+        this.looksRevision++;
         break;
       case 'nodes':
         this.nodesRevision++;

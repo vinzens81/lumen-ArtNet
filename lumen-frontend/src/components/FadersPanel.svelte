@@ -13,8 +13,8 @@
   const freeSlot = $derived(
     Array.from({ length: MAX_SLOTS }, (_, i) => i + 1).find((slot) => !faders.some((f) => f.slot === slot)) ?? null,
   );
-  /** scenes for extra keys first: they are made for this */
-  const choices = $derived([...scenes].sort((a, b) => Number(b.keyOnly) - Number(a.keyOnly)));
+  /** scenes outside the cue list first: they are made for this */
+  const choices = $derived([...scenes].sort((a, b) => Number(b.outsideCueList) - Number(a.outsideCueList)));
 
   $effect(() => {
     void live.fadersRevision;
@@ -69,7 +69,7 @@
       <select value={fader.sceneId} aria-label="Scene of fader {fader.slot}"
         onchange={(e) => save({ ...fader, sceneId: Number((e.currentTarget as HTMLSelectElement).value) })}>
         {#each choices as scene (scene.id)}
-          <option value={scene.id}>{scene.number} {scene.name}{scene.keyOnly ? ' (extra keys)' : ''}</option>
+          <option value={scene.id}>{scene.number} {scene.name}{scene.outsideCueList ? ' (not in cue list)' : ''}</option>
         {/each}
       </select>
       <button type="button" class="btn small ghost" onclick={() => remove(fader.slot)}

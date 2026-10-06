@@ -6,19 +6,21 @@
   import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
-  import { kindIcon } from '../lib/compositions';
+  import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
   import { parseScript, stepLine } from '../lib/script';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
-  import type { Fixture, PlaybackStatus, Scene } from '../lib/types';
+  import type { Composition, Fixture, Look, PlaybackStatus, Scene } from '../lib/types';
 
   const GO_GUARD_MS = 300;
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
+  let compositions = $state<Composition[]>([]);
+  let looks = $state<Look[]>([]);
   let now = $state(performance.now());
   let lastGo = 0;
   let listElement: HTMLElement | undefined = $state();
@@ -50,9 +52,12 @@
   const status = $derived(live.playback);
   const byId = $derived(new Map(scenes.map((s) => [s.id, s])));
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
-  const swatches = $derived(
-    new Map<number, Swatch[]>(scenes.map((s) => [s.id, swatchesOf(fixtures, modes, s.values)])),
-  );
+  const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
+  const swatches = $derived.by(() => {
+    const looksById = lookMap(looks);
+    return new Map<number, Swatch[]>(scenes.map((s) => [s.id,
+      swatchesOf(fixtures, modes, sceneStartValues(s, compositionsById, looksById))]));
+  });
   const current = $derived(status?.currentSceneId != null ? byId.get(status.currentSceneId) : undefined);
   const next = $derived(status?.nextSceneId != null ? byId.get(status.nextSceneId) : undefined);
   const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
@@ -86,12 +91,17 @@
   $effect(() => {
     void live.scenesRevision;
     void live.patchRevision;
+    void live.compositionsRevision;
+    void live.looksRevision;
     if (projectId !== null) {
-      Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId)])
-        .then(([sceneList, fixtureList]) => {
-          // scenes only for extra keys are not part of the cue list
-          scenes = sceneList.filter((scene) => !scene.keyOnly);
+      Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId), api.compositions.list(projectId),
+        api.looks.list(projectId)])
+        .then(([sceneList, fixtureList, compositionList, lookList]) => {
+          // scenes for faders are not part of the cue list
+          scenes = sceneList.filter((scene) => !scene.outsideCueList);
           fixtures = fixtureList;
+          compositions = compositionList;
+          looks = lookList;
         })
         .catch(showError);
     }
@@ -283,9 +293,10 @@
           {#if scene.cueNote}<span class="note">{scene.cueNote}</span>{/if}
         </span>
         <Swatches swatches={swatches.get(scene.id) ?? []} max={10} />
-        {#if scene.compositions.length > 0}
-          <span class="badge" title={scene.compositions.map((c) => c.name).join(', ')}>
-            {scene.compositions.map((c) => kindIcon(c.kind)).join(' ')}
+        {#if scene.compositions.length > 1}
+          {@const used = scene.compositions.flatMap((use) => compositionsById.get(use.compositionId) ?? [])}
+          <span class="badge" title={used.map((c) => c.name).join(', ')}>
+            {used.map((c) => compositionIcon(c)).join(' ')}
           </span>
         {/if}
         {#if timingLabel(scene)}<span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>{/if}

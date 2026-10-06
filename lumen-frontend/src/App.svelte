@@ -12,6 +12,7 @@
   import { isPrintPage, modeOfRoute, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
+  import LooksView from './views/LooksView.svelte';
   import CuePrintView from './views/CuePrintView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
   import PartyButtonsView from './views/PartyButtonsView.svelte';
@@ -33,6 +34,7 @@
     { route: '/setup/patch', label: 'Patch' },
     { route: '/setup/programmer', label: 'Programmer' },
     { route: '/setup/stage', label: 'Stage' },
+    { route: '/setup/looks', label: 'Looks' },
     { route: '/setup/compositions', label: 'Compositions' },
     { route: '/setup/scenes', label: 'Scenes' },
     { route: '/setup/party', label: 'Party', experimental: true },
@@ -282,6 +284,8 @@
       <StageView />
     {:else if router.route === '/setup/scenes'}
       <ScenesView />
+    {:else if router.route === '/setup/looks'}
+      <LooksView />
     {:else if router.route === '/setup/compositions'}
       <CompositionsView />
     {:else if router.route === '/setup/dmx'}

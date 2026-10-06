@@ -1,155 +1,179 @@
 <script lang="ts">
   import { api } from '../lib/api';
-  import { isFast, kindIcon, kindLabel, overlaps } from '../lib/compositions';
+  import { compositionIcon, effectLabel, isFast, lookMap, overlaps, scenesUsing } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
-  import { notify, showError } from '../lib/toasts.svelte';
-  import type { Composition, Fixture, Group, Mode } from '../lib/types';
+  import { showError } from '../lib/toasts.svelte';
+  import type { Composition, Fixture, Group, Look, Mode, Scene, SceneComposition } from '../lib/types';
   import CompositionEditor from './CompositionEditor.svelte';
   import Modal from './Modal.svelte';
 
+  /** The compositions of a scene: which, in which order, and level, tempo and restart of each use. */
   let {
     projectId,
-    sceneId,
+    scene,
+    scenes,
+    compositions,
+    looks,
     fixtures,
     groups,
     modes,
-  }: { projectId: number; sceneId: number; fixtures: Fixture[]; groups: Group[]; modes: Map<number, Mode> } = $props();
+  }: {
+    projectId: number;
+    scene: Scene;
+    scenes: Scene[];
+    compositions: Composition[];
+    looks: Look[];
+    fixtures: Fixture[];
+    groups: Group[];
+    modes: Map<number, Mode>;
+  } = $props();
 
-  let copies = $state<Composition[]>([]);
-  let library = $state<Composition[]>([]);
-  let insertId = $state('');
-  let editingId = $state<number | null>(null);
+  let uses = $state<SceneComposition[]>([]);
+  let addId = $state('');
+  let editing = $state<{ id: number; generate: boolean } | null>(null);
 
-  const editing = $derived(copies.find((c) => c.id === editingId) ?? null);
-  const libraryNames = $derived(new Map(library.map((c) => [c.id, c.name])));
-  const warnings = $derived(overlaps(copies, groups, fixtures));
+  const byId = $derived(new Map(compositions.map((c) => [c.id, c])));
+  const editingComposition = $derived(editing ? byId.get(editing.id) ?? null : null);
+  const available = $derived(compositions.filter((c) => !uses.some((u) => u.compositionId === c.id)));
+  const warnings = $derived(overlaps(uses.flatMap((u) => byId.get(u.compositionId) ?? []), lookMap(looks), fixtures));
+  const programmerHasValues = $derived(Object.keys(live.programmer).length > 0);
 
+  // the scene's uses; slider moves change them here first and are saved when let go
   $effect(() => {
-    void live.compositionsRevision;
-    load(projectId, sceneId);
+    uses = scene.compositions.map((u) => ({ ...u }));
   });
 
-  async function load(project: number, scene: number) {
+  async function save(next: SceneComposition[]) {
+    uses = next;
     try {
-      [copies, library] = await Promise.all([api.compositions.ofScene(project, scene), api.compositions.library(project)]);
+      await api.scenes.setCompositions(projectId, scene.id, next);
     } catch (e) {
       showError(e);
     }
   }
 
-  async function insert() {
-    const id = Number(insertId);
-    insertId = '';
-    if (!id) return;
-    try {
-      const copy = await api.compositions.insert(projectId, sceneId, id);
-      copies = [...copies, copy];
-    } catch (e) {
-      showError(e);
-    }
+  function change(index: number, patch: Partial<SceneComposition>) {
+    save(uses.map((u, i) => (i === index ? { ...u, ...patch } : u)));
   }
 
-  async function move(index: number, step: number) {
-    const ids = copies.map((c) => c.id);
+  function move(index: number, step: number) {
+    const next = [...uses];
     const other = index + step;
-    if (other < 0 || other >= ids.length) return;
-    [ids[index], ids[other]] = [ids[other], ids[index]];
+    if (other < 0 || other >= next.length) return;
+    [next[index], next[other]] = [next[other], next[index]];
+    save(next);
+  }
+
+  function add() {
+    const id = Number(addId);
+    addId = '';
+    if (id) save([...uses, { compositionId: id, level: 1, speedFactor: 1, restart: false }]);
+  }
+
+  /** A new composition for this scene: the programmer as its first step, or an effect to generate. */
+  async function create(kind: 'programmer' | 'effect') {
+    const count = uses.length + 1;
     try {
-      copies = await api.compositions.reorder(projectId, sceneId, ids);
+      let created = await api.compositions.create(projectId, {
+        name: kind === 'effect' ? `${scene.name} – effect` : `${scene.name} – ${count}`,
+      });
+      if (kind === 'programmer') created = await api.compositions.recordStep(projectId, created.id);
+      await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false }]);
+      if (kind === 'effect') editing = { id: created.id, generate: true };
     } catch (e) {
       showError(e);
     }
   }
 
-  async function remove(copy: Composition) {
-    try {
-      await api.compositions.remove(projectId, copy.id);
-      copies = copies.filter((c) => c.id !== copy.id);
-    } catch (e) {
-      showError(e);
-    }
+  function detail(composition: Composition): string {
+    const steps = `${composition.steps.length} ${composition.steps.length === 1 ? 'step' : 'steps'}`;
+    const others = scenesUsing(composition.id, scenes).filter((s) => s.id !== scene.id).length;
+    return [
+      composition.generator ? effectLabel(composition.generator.kind) : steps,
+      composition.intensityMode === 'relative' ? 'relative' : null,
+      others > 0 ? `also in ${others} ${others === 1 ? 'scene' : 'scenes'}` : null,
+    ].filter(Boolean).join(' · ');
   }
 
-  async function reloadFromLibrary(copy: Composition) {
-    try {
-      const updated = await api.compositions.reloadFromLibrary(projectId, copy.id);
-      copies = copies.map((c) => (c.id === updated.id ? updated : c));
-      notify(`"${updated.name}" reloaded from the library`);
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function saveToLibrary(copy: Composition) {
-    try {
-      const updated = await api.compositions.saveToLibrary(projectId, copy.id);
-      notify(`"${updated.name}" saved to the library – other scenes keep their copies`);
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  function saved(updated: Composition) {
-    copies = copies.map((c) => (c.id === updated.id ? updated : c));
+  function sliderValue(event: Event): number {
+    return Number((event.currentTarget as HTMLInputElement).value);
   }
 </script>
 
 <section class="compositions">
   <h3>Compositions</h3>
-  <p class="hint dim">Run over the look of this scene. Later ones win where they set the same thing.</p>
+  <p class="hint dim">
+    Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
+    scene too keeps running.
+  </p>
 
-  {#if copies.length > 0}
+  {#if uses.length > 0}
     <ol class="list">
-      {#each copies as copy, i (copy.id)}
+      {#each uses as use, i (use.compositionId)}
+        {@const composition = byId.get(use.compositionId)}
         <li>
-          <span class="icon" aria-hidden="true">{kindIcon(copy.kind)}</span>
-          <button type="button" class="link" onclick={() => (editingId = copy.id)} title="Edit in this scene">
-            <span class="name">{copy.name}</span>
-            <span class="dim small">
-              {kindLabel(copy.kind)} · {Math.round(copy.level * 100)} %{copy.speedFactor !== 1 ? ` · ${copy.speedFactor}×` : ''}
-              {copy.restart ? ' · restarts' : ''}
-              {copy.sourceId === null ? ' · not in library' : ''}
+          <div class="use-head">
+            <span class="icon" aria-hidden="true">{composition ? compositionIcon(composition) : '?'}</span>
+            <button type="button" class="link" onclick={() => (editing = { id: use.compositionId, generate: false })}
+              title="Edit the composition – it changes in every scene that uses it">
+              <span class="name">{composition?.name ?? '(deleted)'}</span>
+              {#if composition}<span class="dim small">{detail(composition)}</span>{/if}
+            </button>
+            {#if composition && isFast(composition, use.speedFactor)}<span class="fast" title="Fast flashing">⚡</span>{/if}
+            <span class="actions">
+              <button class="btn small ghost" type="button" onclick={() => move(i, -1)} aria-label="Move up">↑</button>
+              <button class="btn small ghost" type="button" onclick={() => move(i, 1)} aria-label="Move down">↓</button>
+              <button class="btn small ghost danger" type="button" onclick={() => save(uses.filter((_, j) => j !== i))}
+                aria-label="Remove from scene">✕</button>
             </span>
-          </button>
-          {#if isFast(copy)}<span class="fast" title="Fast flashing">⚡</span>{/if}
-          <span class="actions">
-            <button class="btn small ghost" type="button" onclick={() => move(i, -1)} aria-label="Move up">↑</button>
-            <button class="btn small ghost" type="button" onclick={() => move(i, 1)} aria-label="Move down">↓</button>
-            <button class="btn small ghost danger" type="button" onclick={() => remove(copy)} aria-label="Remove from scene">✕</button>
-          </span>
+          </div>
+          <div class="use">
+            <label class="mini">Level <span class="mono">{Math.round(use.level * 100)} %</span>
+              <input type="range" min="0" max="1" step="0.01" value={use.level}
+                oninput={(e) => (uses[i].level = sliderValue(e))} onchange={(e) => change(i, { level: sliderValue(e) })} /></label>
+            <label class="mini">Tempo <span class="mono">{use.speedFactor.toFixed(2)}×</span>
+              <input type="range" min="0.25" max="4" step="0.05" value={use.speedFactor}
+                oninput={(e) => (uses[i].speedFactor = sliderValue(e))}
+                onchange={(e) => change(i, { speedFactor: sliderValue(e) })} /></label>
+            <label class="check small" title="Start from the beginning at GO, even if it already runs in the scene before">
+              <input type="checkbox" checked={use.restart} onchange={(e) => change(i, { restart: e.currentTarget.checked })} />
+              Restart at GO
+            </label>
+          </div>
         </li>
       {/each}
     </ol>
+  {:else}
+    <p class="dim small">No compositions – the scene is dark.</p>
   {/if}
   {#each warnings as warning, i (i)}<p class="hint warning-text">{warning}</p>{/each}
 
-  <label class="field">
-    <span class="sr-only">Insert composition</span>
-    <select bind:value={insertId} onchange={insert} disabled={library.length === 0}>
-      <option value="">{library.length === 0 ? 'Create compositions in the Compositions tab' : '+ Insert from library…'}</option>
-      {#each library as composition (composition.id)}
-        <option value={String(composition.id)}>{kindIcon(composition.kind)} {composition.name}</option>
-      {/each}
-    </select>
-  </label>
+  <div class="add">
+    <label class="field grow">
+      <span class="sr-only">Add a composition</span>
+      <select bind:value={addId} onchange={add} disabled={available.length === 0}>
+        <option value="">{available.length === 0 ? 'No other compositions yet' : '+ Add a composition…'}</option>
+        {#each available as composition (composition.id)}
+          <option value={String(composition.id)}>{compositionIcon(composition)} {composition.name}</option>
+        {/each}
+      </select>
+    </label>
+    <button class="btn small record-outline" type="button" onclick={() => create('programmer')}
+      disabled={!programmerHasValues} title="A new composition with the programmer as its step">⏺ From programmer</button>
+    <button class="btn small" type="button" onclick={() => create('effect')}
+      title="A new composition generated from a chase, rainbow, flicker, …">✦ Effect</button>
+  </div>
 </section>
 
-<Modal wide bind:open={() => editing !== null, (open) => { if (!open) editingId = null; }} title="Composition in this scene">
-  {#if editing}
-    <CompositionEditor {projectId} composition={editing} {fixtures} {groups} {modes} onSaved={saved} />
-    <p class="hint dim">
-      Changes apply to this scene only.
-      {#if editing.sourceId !== null}From library: <strong>{libraryNames.get(editing.sourceId) ?? '?'}</strong>{/if}
-    </p>
+<Modal wide bind:open={() => editingComposition !== null, (open) => { if (!open) editing = null; }} title="Composition">
+  {#if editingComposition && editing}
+    {#key editingComposition.id}
+      <CompositionEditor {projectId} composition={editingComposition} {looks} {scenes} {fixtures} {groups} {modes}
+        startWithGenerator={editing.generate} />
+    {/key}
   {/if}
   {#snippet actions()}
-    {#if editing}
-      {#if editing.sourceId !== null}
-        <button class="btn ghost" type="button" onclick={() => editing && reloadFromLibrary(editing)}>Reload from library</button>
-      {/if}
-      <button class="btn ghost" type="button" onclick={() => editing && saveToLibrary(editing)}>Save to library</button>
-    {/if}
-    <button class="btn primary" type="button" onclick={() => (editingId = null)}>Done</button>
+    <button class="btn primary" type="button" onclick={() => (editing = null)}>Done</button>
   {/snippet}
 </Modal>
 
@@ -171,11 +195,33 @@
 
   .list li {
     display: flex;
-    align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 4px;
     padding: 6px 8px;
     border-radius: var(--radius-sm);
     background: var(--panel-raised);
+  }
+
+  .use-head,
+  .use,
+  .add {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .use {
+    flex-wrap: wrap;
+    padding-left: 28px;
+  }
+
+  .mini {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    width: 130px;
+    font-size: 11px;
+    color: var(--text-dim);
   }
 
   .icon {
@@ -187,6 +233,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    align-items: flex-start;
     min-width: 0;
     padding: 0;
     border: 0;
@@ -211,6 +258,10 @@
 
   .fast {
     color: var(--warning);
+  }
+
+  .grow {
+    flex: 1;
   }
 
   .hint {

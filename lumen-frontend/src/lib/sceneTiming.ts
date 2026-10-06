@@ -42,7 +42,7 @@ export function sceneRequestOf(scene: Scene): SceneRequest {
     name: scene.name,
     cueNote: scene.cueNote,
     autoFollowMs: scene.autoFollowMs,
-    keyOnly: scene.keyOnly,
+    outsideCueList: scene.outsideCueList,
     fadeInMs: scene.fadeInMs,
     fadeOutMs: scene.fadeOutMs,
     delayMs: scene.delayMs,

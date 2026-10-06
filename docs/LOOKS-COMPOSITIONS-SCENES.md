@@ -1,7 +1,8 @@
 # Looks, Compositions, Scenes – drei Stufen
 
-> **Status:** geplant (Iteration S, siehe [ROADMAP.md](ROADMAP.md)). Ersetzt nach der Umsetzung das Modell aus
+> **Status:** umgesetzt (Iteration S, siehe [ROADMAP.md](ROADMAP.md)). Ersetzt das Modell aus
 > [COMPOSITIONS.md](COMPOSITIONS.md) (Szene = Basis + Kopien von Kompositionen, Szenen auf Extra-Tasten).
+> Abweichungen vom Plan stehen unter [Umsetzung](#umsetzung).
 
 ## Warum
 
@@ -143,7 +144,7 @@ entfällt: scene_value, scene_preset, scene_revision*, composition.scene_id/key_
 Einmalig beim ersten Start mit der neuen Version, vorher legt Lumen automatisch ein Backup an. Derselbe Umwandler
 liest auch alte Export-Dateien.
 
-1. **Feste Werte einer Szene** → gemeinsamer Look und Composition „4 Jahrmarkt“ (1 Schritt) an erster Stelle der
+1. **Feste Werte einer Szene** → Composition „4 Jahrmarkt“ (1 Schritt) mit eigenem Look an erster Stelle der
    Szene. Presets und Verlauf kommen mit.
 2. **Kopien von Kompositionen in Szenen** → Kopien mit gleicher Herkunft und gleichem Inhalt werden zu **einer**
    Composition (so läuft sie weiter nahtlos von Szene zu Szene). Abweichende Kopien werden eigene Compositions
@@ -155,7 +156,7 @@ liest auch alte Export-Dateien.
 6. **Extra-Tasten mit Komposition** → Taste in jeder Szene, in der sie freigeschaltet war.
 7. **Szenen auf Tasten** und Szenen nur für Tasten: Besteht die Szene aus einer Composition, kommt diese auf die
    Taste. Besteht sie aus mehreren, verteilt Lumen sie auf freie Tasten derselben Szenen; reicht der Platz nicht,
-   bleibt die Taste leer. Was umgebaut oder weggelassen wurde, steht in einem **Bericht** nach dem Start.
+   bleibt die Taste leer. Was umgebaut oder weggelassen wurde, steht als Warnung im **Log** des Starts.
 8. **Szenen nur für Tasten**, die ein Fader spielt, bleiben als Szenen „not in cue list“. Die übrigen werden nach der
    Umwandlung nicht mehr gebraucht und ebenfalls als „not in cue list“ behalten – löschen kann man sie von Hand.
 
@@ -166,7 +167,7 @@ liest auch alte Export-Dateien.
 - **Looks:** Liste mit Farbvorschau und „used in …“; Load, Update, Umbenennen, Duplizieren, Löschen, Verlauf
 - **Compositions:** Liste mit animierter Vorschau. Editor: Standardzeiten und Ablauf; Schrittliste, pro Schritt Look
   wählen (gemeinsam oder eigen), „Record step“, Fade/Hold mit Platzhalter; „Generate…“ öffnet den Generator
-  (Vorschau vor dem Übernehmen), „Regenerate“; Live-Vorschau und „Show on stage“; „used in scenes …“
+  „Regenerate“; Live-Vorschau und „Show on stage“; „used in scenes …“
 - **Scenes:** Szenen-Editor mit Compositions (vorhandene hinzufügen, neu aus dem Programmer, neu per Generator),
   Reihenfolge per Drag & Drop, Level, Tempo, Restart; Abschnitt „Keys 1–8“; Zeiten und Textbuch wie bisher
 - **Show-Modus:** unverändert; die Tastenleiste zeigt die Tasten der aktuellen Szene mit Namen
@@ -192,3 +193,31 @@ Auf einem eigenen Branch, jeder Schritt mit grünem `./build.sh`.
 | Composition in mehreren Szenen | **geteilt**: eine Änderung wirkt in allen Szenen; pro Einsatz nur Level, Tempo, Restart |
 | Taste beim GO | bleibt an, wenn dieselbe Composition in der neuen Szene auf einer Taste liegt |
 | Fader | spielen weiterhin eine **ganze Szene** (Szenen „not in cue list“) |
+
+## Umsetzung
+
+- **Domain:** `NamedLook` (Look mit Name und optionalem Besitzer) und `LookRevision` im Paket `look`; `Composition`,
+  `CompositionStep`, `CompositionSpec` (Standardzeiten, `PlayMode`, `IntensityMode`, `GeneratorSettings`); `Scene`
+  mit `SceneComposition` und `SceneKey`. Die Engine blieb: Eine Composition wird zur `StepSequence` ihrer Looks
+  (`Composition.sequence`), `Playback` spielt Szenen ohne eigene Werte, nur mit Compositions. Weiterlaufen bei
+  gleicher Composition-ID. `ExtraKeys` nimmt pro Szene die Tasten und führt eine eingeschaltete Taste weiter, wenn
+  ihre Composition in der neuen Szene auf irgendeiner Taste liegt; sonst blendet sie mit ihrer Fade-Zeit aus.
+- **Generatoren** (`Generator`) tasten die bisherigen Effekte ab: Ein hartes Lauflicht spielt exakt wie vorher, weiche
+  Übergänge werden linear überblendet. Sehr schnelle Effekte bekommen weniger Schritte, damit kein Schritt kürzer als
+  20 ms ist.
+- **Eigene Looks:** Auch der Schnellweg „Record scene“ und die Umwandlung legen den Look als eigenen Look der neuen
+  Composition an (nicht als gemeinsamen) – sonst würde der Reiter „Looks“ mit einem Look pro Szene volllaufen.
+  „◆ Make shared“ macht ihn bei Bedarf gemeinsam.
+- **Umwandlung:** Flyway `V19` benennt die alten Tabellen in `legacy_*` um, `LegacyMigrationService` wandelt beim
+  Start jedes Projekt einmal um (vorher ein Backup `…-before-looks.db`) und merkt es sich in `legacy_conversion`.
+  Alte Export-Dateien (Version 1) gehen durch denselben `LegacyConverter`. Farbeffekte bekommen ihre eigene Intensität
+  nur noch, wenn keine der Szenen, in denen sie laufen, den Geräten eine Intensität gibt (früher galt sie nur ohne
+  Basis-Intensität). Level und Tempo einer Taste gibt es nicht mehr; abweichende Werte stehen im Log.
+  Geprüft mit einer echten Datenbank (Schema V12): Szenen, Kompositionen, Tasten und die Resume-Szene kamen richtig an.
+- **REST:** `/looks` (CRUD, `record`, `revisions`, `restore`, `load`, `duplicate`), `/compositions` (CRUD,
+  `duplicate`, `record-step`, `generate`), `/scenes/{id}/compositions` und `/scenes/{id}/keys` (PUT, ganze Liste).
+  Weggefallen: `/extra-keys`, `/scenes/{id}/revisions`, `reload-from-library`, `save-to-library`. WebSocket-Thema
+  `looks`. Export Version 2.
+- **UI:** neuer Reiter „Looks“, Composition-Editor mit Schritten aus Looks und Generator (`EffectForm`), Szenen-Editor
+  mit Compositions und Tasten. Einen Vorschau-Schritt vor dem Erzeugen gibt es nicht: Erzeugen ersetzt die Schritte
+  sofort, die Live-Vorschau zeigt das Ergebnis, „Generate steps again“ ändert es.

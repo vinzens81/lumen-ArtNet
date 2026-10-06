@@ -332,21 +332,24 @@ Geprüft mit Tests (Rundweg OFL → YAML → Bibliothek, Renderer, Lauflicht üb
 Testserver (Pixel-Bar auf dem DMX-Ausgang, OFL-Import). Mit echter Pixel-Hardware und echten OFL-Dateien großer
 Hersteller noch nicht ausprobiert.
 
-## 🟨 Iteration S – Looks, Compositions, Scenes (drei Stufen) 🧱
+## ✅ Iteration S – Looks, Compositions, Scenes (drei Stufen) 🧱
 Konzept und Entscheidungen: [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md). Ersetzt Szenen mit Basis +
 Kompositions-Kopien und Szenen auf Extra-Tasten durch drei Stufen: **Look** (feste Werte) → **Composition**
 (1–n Schritte aus Looks mit Standard- und Schrittzeiten) → **Scene** (Menge geteilter Compositions plus Tasten 1–8).
 Lauflicht, Regenbogen & Co. werden zu Generatoren, die Schritte erzeugen.
 
-- ⬜ S1 – Domain & Engine (Looks, Compositions, Szenen, Generatoren, Playback und Tasten)
-- ⬜ S2 – Datenbank `V19` & Umwandlung bestehender Projekte und Export-Dateien
-- ⬜ S3 – REST & WebSocket
-- ⬜ S4 – UI (Looks, Compositions mit Generator, Szenen mit Tasten, Show-Modus)
-- ⬜ S5 – Doku nachziehen
+- ✅ S1 – Domain & Engine (Looks, Compositions, Szenen, Generatoren, Playback und Tasten)
+- ✅ S2 – Datenbank `V19` & Umwandlung bestehender Projekte und Export-Dateien (Version 1 → 2)
+- ✅ S3 – REST & WebSocket
+- ✅ S4 – UI (Reiter „Looks“, Compositions mit Generator, Szenen mit Compositions und Tasten, Show-Modus, Cue-Liste)
+- ✅ S5 – Doku nachgezogen
 
 **DoD:** Ein bestehendes Projekt startet nach der Umwandlung und spielt im Show-Modus genauso wie vorher; eine neue
 Szene aus drei geteilten Compositions (statisch, Farbwechsel aus drei Looks, Lauflicht per Generator) mit einer Taste
 ist im Browser gebaut und gespielt.
+Geprüft: Umwandlung einer echten Datenbank (Schema V12) und der Testdatenbank, im Browser (Testserver) eine Szene mit
+Composition aus dem Programmer und einem erzeugten Regenbogen gebaut, Regenbogen auf Taste 1, im Show-Modus GO und
+Taste – die DMX-Werte zeigen den Regenbogen über der Szene. Mit echter Hardware noch nicht gespielt.
 
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
