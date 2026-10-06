@@ -52,6 +52,12 @@
   $effect(() => {
     if (headScope > headCount) headScope = 0;
   });
+  // other fixtures start with all heads again, so a head chosen before does not stick by accident
+  const selectionKey = $derived(selection.join(','));
+  $effect(() => {
+    void selectionKey;
+    headScope = 0;
+  });
   /** attributes the controls offer, without head: of the whole fixture, or of the chosen head */
   const available = $derived(new Set(selected.flatMap((e) => e.attributes)
     .filter((a) => headOf(a) === headScope)

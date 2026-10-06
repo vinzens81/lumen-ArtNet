@@ -215,10 +215,12 @@
       confirmDelete = true;
       return;
     }
+    // the live reload after the delete can drop the fixture from the list before the request returns
+    const fixture = selected;
     try {
-      await api.fixtures.remove(project.id, selected.id);
-      located = located.filter((id) => id !== selected.id);
-      notify(`Removed "${selected.name}"`);
+      await api.fixtures.remove(project.id, fixture.id);
+      located = located.filter((id) => id !== fixture.id);
+      notify(`Removed "${fixture.name}"`);
       panel = 'list';
       selectedId = null;
       await loadAll(project.id);

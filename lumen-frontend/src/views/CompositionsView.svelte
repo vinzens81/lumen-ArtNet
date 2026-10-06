@@ -87,9 +87,11 @@
 
   async function remove() {
     if (projectId === null || !selected) return;
+    // the live reload after the delete can drop it from the list before the request returns
+    const composition = selected;
     try {
-      await api.compositions.remove(projectId, selected.id);
-      notify(`Deleted “${selected.name}”`);
+      await api.compositions.remove(projectId, composition.id);
+      notify(`Deleted “${composition.name}”`);
       deleteOpen = false;
       selectedId = null;
       await load(projectId);

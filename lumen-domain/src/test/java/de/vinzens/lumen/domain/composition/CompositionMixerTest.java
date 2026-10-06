@@ -31,6 +31,20 @@ class CompositionMixerTest {
 	}
 
 	@Test
+	void aLookOnOneHeadStaysOnThatHead() {
+		// a dimmer pack with four channels as heads; the look switches on channel 1 only
+		var head1 = DIMMER.withHead(1);
+		var step = new StepSequence(List.of(new StepSequence.Step(1, 0, Map.of(7L, values(Map.of(head1, 1.0))))),
+				StepSequence.PlayMode.LOOP);
+		var composition = new ActiveComposition(1, Optional.of(1L), step, List.of(7L), 1, 1, false);
+
+		var look = CompositionMixer.apply(Map.of(), composition, 0, FixtureAttributes.ALL);
+
+		assertThat(look.get(7L).get(head1)).contains(1.0);
+		assertThat(look.get(7L).get(DIMMER)).as("the other heads stay dark").contains(0.0);
+	}
+
+	@Test
 	void relativeIntensityScalesTheBase() {
 		var flicker = active(new Flicker(Flicker.Character.CANDLE, 1, 1, 7), 0.5, 1L);
 		var base = Map.of(1L, values(Map.of(DIMMER, 0.8)));

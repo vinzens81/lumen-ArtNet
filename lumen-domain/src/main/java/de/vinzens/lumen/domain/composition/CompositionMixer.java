@@ -38,7 +38,9 @@ public final class CompositionMixer {
 			var values = composition.pattern().valuesAt(scaled, i, elements.size(), element.fixtureId());
 			var supported = result.computeIfAbsent(element.fixtureId(), id -> new HashMap<>());
 			values.values().forEach((attribute, value) -> {
-				var target = attribute.withHead(element.head());
+				// running along heads, the pattern's values go to the head; on a whole fixture a value keeps its
+				// own head (a look can set head 1 of a dimmer pack only)
+				var target = element.head() == 0 ? attribute : attribute.withHead(element.head());
 				if (attributes.has(element.fixtureId(), target)) {
 					supported.put(target, value);
 				}
@@ -116,7 +118,7 @@ public final class CompositionMixer {
 			var mixed = new HashMap<>(base.values());
 			values.values().forEach((attribute, value) -> {
 				var baseValue = base.get(attribute);
-				mixed.put(attribute, attribute.equals(Values.DIMMER)
+				mixed.put(attribute, attribute.withoutHead().equals(Values.DIMMER)
 						? Math.max(baseValue.orElse(0.0), value * level)
 						: baseValue.map(b -> b + (value - b) * level).orElse(value));
 			});
