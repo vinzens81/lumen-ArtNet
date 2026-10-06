@@ -223,7 +223,7 @@
   <header class="head">
     <div>
       <h1>Stage</h1>
-      <p class="dim">Drag fixtures to where they hang. They glow like the light on stage right now.</p>
+      <p class="dim">Drag fixtures to where they hang. They glow like the light on stage right now. Point at one to see its name.</p>
     </div>
     <div class="actions">
       <button class="btn ghost" type="button" onclick={() => fileInput?.click()} disabled={projectId === null}>
@@ -572,6 +572,19 @@
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
+  }
+
+  /* names only on hover, while dragging and for the selected fixture (touch has no hover) */
+  .label {
+    visibility: hidden;
+    opacity: 0;
+    transition: opacity 0.12s, visibility 0.12s;
+  }
+
+  .fixture:is(:hover, :focus-visible, .selected, .dragging) .label,
+  .line:is(:hover, :focus-visible, .selected, .dragging) + .line-label {
+    visibility: visible;
+    opacity: 1;
   }
 
   .line-pool {
