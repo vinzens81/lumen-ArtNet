@@ -32,10 +32,10 @@ public enum StateTopic {
 	COMPOSITIONS,
 	/** The stage preview of the composition editor started or stopped. */
 	STAGE_PREVIEW,
-	/** Tempo, palettes, intensities or buttons of party mode changed. */
+	/** Fields of the party matrix were switched on or off. */
 	PARTY,
-	/** Party buttons of the active project were added, changed or removed. */
-	PARTY_BUTTONS,
+	/** The party matrix of the active project changed. */
+	PARTY_MATRIX,
 	/** Presets of the active project were added, changed or removed. */
 	PRESETS,
 	/** The fader setup of the active project changed. */

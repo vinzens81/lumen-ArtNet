@@ -6,7 +6,7 @@ import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.playback.port.in.ManageFadersUseCase;
 import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
-import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.domain.composition.Fader;
 
 import java.util.List;
@@ -15,14 +15,14 @@ import java.util.Objects;
 public class FaderService implements ManageFadersUseCase {
 
 	private final ProjectRepository projects;
-	private final SceneRepository scenes;
+	private final CompositionRepository compositions;
 	private final FaderRepository faders;
 	private final StateEvents events;
 
-	public FaderService(ProjectRepository projects, SceneRepository scenes, FaderRepository faders,
+	public FaderService(ProjectRepository projects, CompositionRepository compositions, FaderRepository faders,
 			StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
-		this.scenes = Objects.requireNonNull(scenes, "scenes");
+		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.faders = Objects.requireNonNull(faders, "faders");
 		this.events = Objects.requireNonNull(events, "events");
 	}
@@ -36,10 +36,10 @@ public class FaderService implements ManageFadersUseCase {
 	@Override
 	public Fader save(long projectId, Fader fader) {
 		requireProject(projectId);
-		scenes.findById(fader.sceneId())
-				.filter(scene -> scene.projectId() == projectId)
-				.orElseThrow(() -> new NotFoundException("Scene " + fader.sceneId() + " does not exist in project "
-						+ projectId));
+		compositions.findById(fader.compositionId())
+				.filter(composition -> composition.projectId() == projectId)
+				.orElseThrow(() -> new NotFoundException("Composition " + fader.compositionId()
+						+ " does not exist in project " + projectId));
 		var saved = faders.save(projectId, fader);
 		events.publish(StateTopic.FADERS);
 		return saved;

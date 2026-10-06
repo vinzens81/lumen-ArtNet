@@ -1,46 +1,91 @@
-import type { Group, PartyStatus } from './types';
+import type { Composition, PartyCell, PartyMatrix, PartyStatus, Scene } from './types';
 
-/** Fixtures of the selected groups, each once, in group order; `all` selects every fixture. */
-export function selectedFixtures(
-  groups: Group[],
-  selectedGroupIds: Set<number>,
-  all: boolean,
-  allFixtureIds: number[],
-): number[] {
-  if (all) return [...allFixtureIds];
-  const result = new Set<number>();
-  for (const group of groups) {
-    if (selectedGroupIds.has(group.id)) group.fixtureIds.forEach((id) => result.add(id));
+export const MAX_MATRIX_SIZE = 12;
+export const DEFAULT_COLOR = '#1c2230';
+export const DEFAULT_BORDER = '#3cf0ff';
+
+/** The fields as a grid: rows of columns, null for an empty place. */
+export function matrixGrid(matrix: PartyMatrix): (PartyCell | null)[][] {
+  const grid: (PartyCell | null)[][] = Array.from({ length: matrix.rows },
+    () => Array.from({ length: matrix.columns }, () => null));
+  for (const cell of matrix.cells) {
+    if (cell.row < matrix.rows && cell.column < matrix.columns) grid[cell.row][cell.column] = cell;
   }
-  return [...result];
+  return grid;
 }
 
-/**
- * Where the beat stands, counted from the status: `beat` is the beat within a bar of four (0–3), `phase` runs from
- * 0 at the beat to 1 just before the next one.
- */
-export function beatAt(msSinceBeat: number, beatMs: number, msSinceStatus: number): { beat: number; phase: number } {
-  if (beatMs <= 0) return { beat: 0, phase: 0 };
-  const beats = (msSinceBeat + Math.max(0, msSinceStatus)) / beatMs;
-  const whole = Math.floor(beats);
-  return { beat: ((whole % 4) + 4) % 4, phase: beats - whole };
+export function cellAt(matrix: PartyMatrix, row: number, column: number): PartyCell | null {
+  return matrix.cells.find((c) => c.row === row && c.column === column) ?? null;
 }
 
-/** The intensity all given fixtures share, or null if they differ (or none is given). */
-export function commonIntensity(fixtureIds: number[], status: PartyStatus | null): number | null {
-  if (fixtureIds.length === 0) return null;
-  const levels = new Set(fixtureIds.map((id) => status?.fixtures[id]?.intensity ?? 0));
-  return levels.size === 1 ? [...levels][0] : null;
+/** A new field at a place: a text until it gets something to play. */
+export function emptyCell(row: number, column: number): PartyCell {
+  return { row, column, label: null, sceneId: null, compositionId: null, color: DEFAULT_COLOR,
+    borderColor: DEFAULT_BORDER, mode: 'toggle', group: null };
 }
 
-/** The palette all given fixtures share, or null. */
-export function commonPalette(fixtureIds: number[], status: PartyStatus | null): string | null {
-  if (fixtureIds.length === 0) return null;
-  const palettes = new Set(fixtureIds.map((id) => status?.fixtures[id]?.palette ?? null));
-  return palettes.size === 1 ? [...palettes][0] : null;
+/** The matrix with the field put at its place (replacing what was there). */
+export function withCell(matrix: PartyMatrix, cell: PartyCell): PartyMatrix {
+  const cells = matrix.cells.filter((c) => c.row !== cell.row || c.column !== cell.column);
+  return { ...matrix, cells: [...cells, cell].sort((a, b) => a.row - b.row || a.column - b.column) };
 }
 
-/** Keyboard key of the button at this place in the grid: 1–9, the others have none. */
-export function buttonKey(index: number): string | null {
-  return index < 9 ? String(index + 1) : null;
+export function withoutCell(matrix: PartyMatrix, row: number, column: number): PartyMatrix {
+  return { ...matrix, cells: matrix.cells.filter((c) => c.row !== row || c.column !== column) };
+}
+
+/** A new size; fields and lines outside it are dropped. */
+export function resized(matrix: PartyMatrix, rows: number, columns: number): PartyMatrix {
+  const clamp = (n: number) => Math.max(1, Math.min(MAX_MATRIX_SIZE, Math.round(n) || 1));
+  const r = clamp(rows);
+  const c = clamp(columns);
+  return {
+    rows: r,
+    columns: c,
+    separators: matrix.separators.filter((s) => s < r),
+    cells: matrix.cells.filter((cell) => cell.row < r && cell.column < c),
+  };
+}
+
+/** Switches the line above the row on or off. */
+export function toggledSeparator(matrix: PartyMatrix, row: number): PartyMatrix {
+  const separators = matrix.separators.includes(row)
+    ? matrix.separators.filter((s) => s !== row)
+    : [...matrix.separators, row].sort((a, b) => a - b);
+  return { ...matrix, separators };
+}
+
+/** What the field shows: its label, else the name of what it plays. */
+export function cellLabel(cell: PartyCell, scenes: Map<number, Scene>, compositions: Map<number, Composition>): string {
+  if (cell.label) return cell.label;
+  if (cell.sceneId !== null) {
+    const scene = scenes.get(cell.sceneId);
+    return scene ? `${scene.number} ${scene.name}` : '(missing scene)';
+  }
+  if (cell.compositionId !== null) return compositions.get(cell.compositionId)?.name ?? '(missing composition)';
+  return '';
+}
+
+export function playsSomething(cell: PartyCell): boolean {
+  return cell.sceneId !== null || cell.compositionId !== null;
+}
+
+export function isOn(status: PartyStatus | null, row: number, column: number): boolean {
+  return status?.on.some((p) => p.row === row && p.column === column) ?? false;
+}
+
+/** Group names used in the matrix, sorted – offered when editing a field. */
+export function groupNames(matrix: PartyMatrix): string[] {
+  return [...new Set(matrix.cells.flatMap((c) => (c.group ? [c.group] : [])))].sort((a, b) => a.localeCompare(b));
+}
+
+/** Dark or light text, whichever reads better on the fill color. */
+export function textColorFor(fill: string): string {
+  const n = Number.parseInt(fill.slice(1), 16);
+  if (!/^#[0-9a-fA-F]{6}$/.test(fill) || Number.isNaN(n)) return '#e8ecf4';
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+    const c = v / 255;
+    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.35 ? '#0b0d12' : '#e8ecf4';
 }

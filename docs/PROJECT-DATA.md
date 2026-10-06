@@ -30,7 +30,10 @@ und welche Szenen es gibt.
   V18 = Form pro Fixture in der Bühnenansicht (`fixture.stage_shape`, `stage_rotation`, `stage_length`),
   V19 = Looks, Compositions, Szenen in drei Stufen (Iteration S, siehe
   [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)); die Tabellen des alten Modells bleiben als `legacy_*`
-  erhalten und werden beim Start einmal umgewandelt (`legacy_conversion` merkt sich die Projekte).
+  erhalten und werden beim Start einmal umgewandelt (`legacy_conversion` merkt sich die Projekte),
+  V20 = parallele Schritte (`composition_step.parallel`), V21 = Fader spielen Compositions (`fader.composition_id`,
+  `scene.outside_cue_list` entfällt; für noch nicht umgewandelte Projekte bleiben `legacy_fader` und
+  `legacy_outside_cue_list`), V22 = Party-Matrix (`party_matrix`, `party_cell`; `party_button*` entfällt).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -90,7 +93,6 @@ scene
   name            TEXT NOT NULL                 -- "Akt 1 – Morgendämmerung"
   cue_note        TEXT                          -- Regiehinweis: "GO bei: '…und dann ging die Sonne auf'"
   auto_follow_ms  INTEGER NULL                  -- NULL = Stay bis GO; sonst automatisches GO nach Ablauf
-  outside_cue_list INTEGER NOT NULL DEFAULT 0   -- 1 = GO überspringt die Szene (für Fader); bis V18 key_only
   fade_in_ms      INTEGER NULL                  -- Fade-In beim GO in diese Szene, NULL = Projektzeit
   fade_out_ms     INTEGER NULL                  -- Fade-Out des Bildes davor beim GO in diese Szene, NULL = Projektzeit
   delay_ms        INTEGER NOT NULL DEFAULT 0    -- Fade-In startet so lange nach dem GO
@@ -117,7 +119,8 @@ composition                                     -- Schritte, die Looks spielen
   intensity_mode  TEXT NOT NULL                 -- 'absolute' | 'relative'
   generator_kind, generator (JSON), generator_group_id, generator_per_head   -- nur für „Regenerate“
 composition_generator_fixture                   -- feste Fixture-Liste als Ziel des Generators
-composition_step                                -- composition_id, step_index, look_id, fade_ms/hold_ms (NULL = Standard)
+composition_step                                -- composition_id, step_index, look_id, fade_ms/hold_ms (NULL = Standard),
+                                                --   parallel (1 = startet mit dem Schritt davor, gleiche Zeile)
 
 look                                            -- feste Werte, normalisiert 0..1
   id, project_id, name
@@ -148,9 +151,23 @@ look_revision_value / look_revision_preset      -- Werte und Preset-Verweise des
 fader                                           -- Fader im Betrieb, z.B. Saallicht
   project_id      FK → project ON DELETE CASCADE
   slot            INTEGER NOT NULL              -- 1–8
-  name            TEXT                          -- NULL = Name der Szene
-  scene_id        FK → scene ON DELETE CASCADE
+  name            TEXT                          -- NULL = Name der Composition
+  composition_id  FK → composition ON DELETE CASCADE
   PRIMARY KEY(project_id, slot)
+
+party_matrix                                    -- Größe der Party-Matrix (fehlt = 4 × 4, leer)
+  project_id      PK, FK → project ON DELETE CASCADE
+  rows, columns   INTEGER 1–12
+  separators      TEXT                          -- Zeilen mit Trennlinie darüber, z.B. '2,4'
+
+party_cell                                      -- ein Feld; ohne Szene und Composition nur Text
+  project_id, row_index, column_index           -- PK
+  label           TEXT NULL                     -- NULL = Name dessen, was es spielt
+  scene_id        FK → scene ON DELETE SET NULL
+  composition_id  FK → composition ON DELETE SET NULL
+  color, border_color TEXT                      -- '#rrggbb'
+  key_mode        TEXT                          -- 'toggle' | 'flash'
+  group_name      TEXT NULL                     -- Felder einer Gruppe schließen sich aus
 
 app_setting                                     -- projektübergreifende Einstellungen
   key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
@@ -171,7 +188,7 @@ playback_state                                  -- für Wiederaufnahme nach Abst
 
 ```json
 {
-  "format": "lumen-project", "version": 2, "exportedAt": "2026-10-06T19:30:00Z",
+  "format": "lumen-project", "version": 3, "exportedAt": "2026-10-06T19:30:00Z",
   "project":   { "name": "Der Sturm", "venue": "Stadttheater", "fadeInMs": 3000, "fadeOutMs": 3000 },
   "universes": [ { "id": 1, "number": 1, "name": "Bühne", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
                    "mode": "auto", "ipAddresses": [] } ],
@@ -182,18 +199,24 @@ playback_state                                  -- für Wiederaufnahme nach Abst
                    "values": { "7": { "dimmer": 1.0, "blue": 0.8 } }, "presets": { "7": { "color": 3 } } } ],
   "compositions": [ { "id": 4, "name": "Sturm", "fadeMs": 1000, "holdMs": 2000, "playMode": "loop",
                       "intensityMode": "absolute", "generator": null,
-                      "steps": [ { "lookId": 11, "fadeMs": null, "holdMs": null } ] } ],
+                      "steps": [ { "lookId": 11, "fadeMs": null, "holdMs": null, "parallel": false } ] } ],
   "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
                    "compositions": [ { "compositionId": 4, "level": 1, "speedFactor": 1, "restart": false } ],
                    "keys": [ { "slot": 1, "compositionId": 4, "mode": "flash", "fadeMs": 0 } ] } ],
   "stagePlan": { "contentType": "image/png", "data": "<Base64>" },
   "presets":   [ { "id": 3, "name": "Warm", "group": "color", "values": { "7": { "red": 1.0, "green": 0.6 } } } ],
-  "faders":    [ { "slot": 1, "name": "Saallicht", "scene": "90" } ]
+  "faders":    [ { "slot": 1, "name": "Saallicht", "compositionId": 4 } ],
+  "partyMatrix": { "rows": 2, "columns": 4, "separators": [1],
+                   "cells": [ { "row": 0, "column": 0, "label": "Rot", "compositionId": 4, "color": "#c01020",
+                                "borderColor": "#ff4060", "mode": "toggle", "group": "Farben" },
+                              { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" } ] }
 }
 ```
 
 Die IDs verbinden nur die Teile der Datei. Dateien der Version 1 (vor Iteration S: Werte direkt in den Szenen,
-Kompositions-Kopien, projektweite Extra-Tasten) werden beim Import wie eine alte Datenbank umgewandelt. Beim Import
+Kompositions-Kopien, projektweite Extra-Tasten) werden beim Import wie eine alte Datenbank umgewandelt. In Version 2
+spielten Fader eine Szene (per Nummer) und Szenen konnten außerhalb der Cue-Liste stehen: Der Fader spielt dann die
+erste Composition der Szene, solche Szenen fallen weg. Party-Buttons älterer Dateien werden ignoriert. Beim Import
 entsteht ein **neues Projekt** mit neuen IDs; heißt schon ein
 Projekt so, bekommt es den Zusatz „(imported)“. Verweise auf unbekannte Universen/Fixtures werden abgelehnt, ohne
 ein halbes Projekt zu hinterlassen. Fehlende Gerätetypen sind erlaubt und erscheinen als Patch-Problem.

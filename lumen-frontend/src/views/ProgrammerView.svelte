@@ -252,7 +252,7 @@
       <p class="hint dim">Click selects one fixture, Shift/⌘-click adds more. Esc clears the selection.</p>
     </aside>
 
-    <!-- Fixture cards ----------------------------------------------------------------------------------- -->
+    <!-- Fixture list ------------------------------------------------------------------------------------ -->
     <div class="center">
     <div class="toolbar">
       <span class="dim">{Object.keys(live.programmer).length} fixtures with programmer values</span>
@@ -261,27 +261,35 @@
       <button class="btn small record" type="button" onclick={() => (recordOpen = true)}
         disabled={Object.keys(live.programmer).length === 0}>⏺ Record scene</button>
     </div>
-    <section class="cards">
+    <section class="fixtures glass" aria-label="Fixtures">
+      <div class="fixture-head dim" aria-hidden="true">
+        <span></span><span>Fixture</span><span>Address</span><span class="level-head">Level</span>
+      </div>
       {#each entries as entry (entry.fixture.id)}
+        {@const own = live.programmer[entry.fixture.id]}
         <button
           type="button"
-          class="card glass"
+          class="fixture"
           class:selected={selection.includes(entry.fixture.id)}
+          class:programmed={own !== undefined}
           style={preview(entry)}
           onclick={(e) => toggle(entry.fixture.id, e)}
           aria-pressed={selection.includes(entry.fixture.id)}
         >
-          <span class="lamp"><FixtureIcon category={entry.type.category} size={22} /></span>
-          <span class="card-name">{entry.fixture.name}</span>
-          <span class="card-meta mono">{universeNumber.get(entry.fixture.universeId)}·{entry.fixture.address}</span>
-          <span class="card-level mono">{Math.round((live.programmer[entry.fixture.id]?.dimmer ?? 0) * 100)}%</span>
-          {#if entry.mode.heads > 0}
-            <span class="card-heads" aria-hidden="true">
-              {#each headPreviewsOf(entry.mode, live.programmer[entry.fixture.id] ?? {}, masterLevel) as head, i (i)}
-                <span style="--glow: {rgbToCss(head.color)}; --intensity: {head.intensity.toFixed(3)}"></span>
-              {/each}
-            </span>
-          {/if}
+          <span class="lamp"><FixtureIcon category={entry.type.category} size={16} /></span>
+          <span class="fixture-text">
+            <span class="fixture-name">{entry.fixture.name}</span>
+            <span class="fixture-type">{entry.type.model} · {entry.mode.name}</span>
+            {#if entry.mode.heads > 0}
+              <span class="fixture-heads" aria-hidden="true">
+                {#each headPreviewsOf(entry.mode, own ?? {}, masterLevel) as head, i (i)}
+                  <span style="--glow: {rgbToCss(head.color)}; --intensity: {head.intensity.toFixed(3)}"></span>
+                {/each}
+              </span>
+            {/if}
+          </span>
+          <span class="fixture-address mono">{universeNumber.get(entry.fixture.universeId)}·{entry.fixture.address}</span>
+          <span class="fixture-level mono">{own?.dimmer !== undefined ? `${Math.round(own.dimmer * 100)}%` : '–'}</span>
         </button>
       {/each}
     </section>
@@ -302,6 +310,8 @@
           </div>
           <button class="btn small ghost" type="button" onclick={() => live.clear(selection)}>Clear</button>
         </header>
+
+        <div class="controls">
 
         {#if headCount > 0}
           <section>
@@ -425,6 +435,7 @@
             {/if}
           </section>
         {/if}
+        </div>
       {/if}
     </aside>
   </div>
@@ -453,7 +464,8 @@
 <style>
   .programmer {
     display: grid;
-    grid-template-columns: 220px minmax(0, 1fr) 340px;
+    /* the controls get most of the room: complex fixtures have many attributes */
+    grid-template-columns: 200px minmax(260px, 2fr) minmax(360px, 3fr);
     gap: 12px;
     align-items: start;
   }
@@ -541,93 +553,116 @@
     font-size: 12px;
   }
 
-  .cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(176px, 1fr));
-    gap: 12px;
+  .fixtures {
+    display: flex;
+    flex-direction: column;
+    padding: 6px;
     min-width: 0;
   }
 
-  .card {
-    position: relative;
+  .fixture-head,
+  .fixture {
     display: grid;
-    grid-template-columns: auto 1fr;
-    grid-template-rows: auto auto;
-    gap: 2px 12px;
+    grid-template-columns: 30px minmax(0, 1fr) auto 48px;
+    gap: 10px;
     align-items: center;
-    padding: 14px;
+  }
+
+  .fixture-head {
+    padding: 4px 10px 6px;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .level-head {
+    text-align: right;
+  }
+
+  .fixture {
+    padding: 7px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: transparent;
     color: var(--text);
     font: inherit;
     text-align: left;
     cursor: pointer;
-    overflow: hidden;
-    transition: border-color 0.15s, box-shadow 0.25s;
-    box-shadow:
-      var(--shadow),
-      0 0 calc(40px * var(--intensity)) color-mix(in srgb, var(--glow) calc(var(--intensity) * 70%), transparent);
   }
 
-  .card::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(120% 90% at 0% 0%, var(--glow), transparent 70%);
-    opacity: calc(var(--intensity) * 0.35);
-    pointer-events: none;
+  .fixture + .fixture {
+    margin-top: 1px;
   }
 
-  .card.selected {
+  .fixture:hover {
+    background: var(--panel-raised);
+  }
+
+  .fixture.selected {
     border-color: var(--accent);
-    outline: 2px solid var(--accent);
-    outline-offset: -1px;
+    background: var(--accent-soft);
   }
 
   .lamp {
-    grid-row: span 2;
     display: grid;
     place-items: center;
-    width: 42px;
-    height: 42px;
+    width: 28px;
+    height: 28px;
     border-radius: 50%;
     color: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), var(--text-faint));
     background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 45%), rgba(255, 255, 255, 0.04));
-    box-shadow: 0 0 calc(24px * var(--intensity)) var(--glow);
+    box-shadow: 0 0 calc(18px * var(--intensity)) var(--glow);
   }
 
-  .card-name {
+  .fixture-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  /* long names wrap instead of being cut off */
+  .fixture-name {
     font-weight: 600;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    overflow-wrap: anywhere;
   }
 
-  .card-meta {
+  .fixture.programmed .fixture-name::after {
+    content: ' ●';
+    color: var(--accent);
+    font-size: 9px;
+    vertical-align: middle;
+  }
+
+  .fixture-type {
     font-size: 11px;
     color: var(--text-faint);
+    overflow-wrap: anywhere;
   }
 
-  .card-level {
-    position: absolute;
-    right: 12px;
-    bottom: 10px;
-    font-size: 11px;
-    color: var(--text-dim);
-  }
-
-  .card-heads {
-    position: absolute;
-    left: 12px;
-    right: 56px;
-    bottom: 8px;
+  .fixture-heads {
     display: flex;
     gap: 2px;
+    max-width: 220px;
+    margin-top: 2px;
   }
 
-  .card-heads span {
+  .fixture-heads span {
     flex: 1;
     height: 4px;
     border-radius: 2px;
     background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), #1b2030);
+  }
+
+  .fixture-address {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  .fixture-level {
+    font-size: 12px;
+    color: var(--text-dim);
+    text-align: right;
   }
 
   .heads {
@@ -655,6 +690,21 @@
     display: flex;
     justify-content: space-between;
     gap: 8px;
+  }
+
+  /* sections side by side when there is room, so a complex fixture fits without endless scrolling */
+  .controls {
+    columns: 300px;
+    column-gap: 20px;
+  }
+
+  .controls > section {
+    break-inside: avoid;
+    margin-bottom: 14px;
+  }
+
+  .controls > :global(*) {
+    break-inside: avoid;
   }
 
   .small {
@@ -786,7 +836,7 @@
 
   @media (max-width: 1200px) {
     .programmer {
-      grid-template-columns: minmax(0, 1fr) 320px;
+      grid-template-columns: minmax(240px, 2fr) minmax(320px, 3fr);
     }
 
     .groups {

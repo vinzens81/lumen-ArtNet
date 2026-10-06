@@ -31,7 +31,7 @@ import type {
   SceneComposition,
   SceneKey,
   SceneRequest,
-  PartyButton,
+  PartyMatrix,
   PartyStatus,
   Preset,
   PresetGroup,
@@ -129,8 +129,8 @@ export const api = {
   },
   faders: {
     list: (projectId: number) => get<FaderSetup[]>(`/api/projects/${projectId}/faders`),
-    save: (projectId: number, slot: number, name: string | null, sceneId: number) =>
-      put<FaderSetup>(`/api/projects/${projectId}/faders/${slot}`, { name, sceneId }),
+    save: (projectId: number, slot: number, name: string | null, compositionId: number) =>
+      put<FaderSetup>(`/api/projects/${projectId}/faders/${slot}`, { name, compositionId }),
     remove: (projectId: number, slot: number) => del(`/api/projects/${projectId}/faders/${slot}`),
   },
   presets: {
@@ -196,28 +196,14 @@ export const api = {
   },
   party: {
     status: () => get<PartyStatus>('/api/party'),
-    tap: () => post<PartyStatus>('/api/party/tap'),
-    setBpm: (bpm: number) => put<PartyStatus>('/api/party/bpm', { bpm }),
-    palette: (fixtureIds: number[], palette: string) =>
-      post<PartyStatus>('/api/party/palette', { fixtureIds, palette }),
-    intensity: (fixtureIds: number[], level: number) =>
-      put<PartyStatus>('/api/party/intensity', { fixtureIds, level }),
-    press: (buttonId: number) => post<PartyStatus>(`/api/party/buttons/${buttonId}/press`),
-    release: (buttonId: number) => post<PartyStatus>(`/api/party/buttons/${buttonId}/release`),
+    press: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/press`),
+    release: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/release`),
     clear: () => post<PartyStatus>('/api/party/clear'),
   },
-  partyButtons: {
-    list: (projectId: number) => get<PartyButton[]>(`/api/projects/${projectId}/party-buttons`),
-    record: (projectId: number, name: string, mode: KeyMode) =>
-      post<PartyButton>(`/api/projects/${projectId}/party-buttons`, { name, mode }),
-    update: (projectId: number, id: number, name: string, mode: KeyMode) =>
-      put<PartyButton>(`/api/projects/${projectId}/party-buttons/${id}`, { name, mode }),
-    rerecord: (projectId: number, id: number) =>
-      post<PartyButton>(`/api/projects/${projectId}/party-buttons/${id}/record`),
-    load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/party-buttons/${id}/load`),
-    reorder: (projectId: number, ids: number[]) =>
-      put<PartyButton[]>(`/api/projects/${projectId}/party-buttons/order`, { ids }),
-    delete: (projectId: number, id: number) => del(`/api/projects/${projectId}/party-buttons/${id}`),
+  partyMatrix: {
+    get: (projectId: number) => get<PartyMatrix>(`/api/projects/${projectId}/party-matrix`),
+    save: (projectId: number, matrix: PartyMatrix) =>
+      put<PartyMatrix>(`/api/projects/${projectId}/party-matrix`, matrix),
   },
   stagePreview: {
     status: () => get<StagePreviewStatus>('/api/stage-preview'),

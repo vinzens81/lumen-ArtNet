@@ -1,68 +1,77 @@
 package de.vinzens.lumen.adapter.web.party;
 
-import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.application.party.port.in.ControlPartyUseCase.PartyStatus;
-import de.vinzens.lumen.domain.party.Palette;
-import de.vinzens.lumen.domain.party.PartyButton;
+import de.vinzens.lumen.domain.composition.KeyMode;
+import de.vinzens.lumen.domain.party.PartyCell;
+import de.vinzens.lumen.domain.party.PartyMatrix;
 
-import java.time.Duration;
-import java.time.Instant;
-import java.util.Arrays;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
 
-/** JSON form of party mode. */
+/** JSON form of party mode. Rows and columns count from 0. */
 public final class PartyDtos {
 
 	private PartyDtos() {
 	}
 
+	/** @param on the fields that are on */
+	public record PartyResponse(List<PositionDto> on) {
+
+		public static PartyResponse from(PartyStatus status) {
+			return new PartyResponse(status.on().stream()
+					.sorted(Comparator.comparingInt(PartyCell.Position::row).thenComparingInt(PartyCell.Position::column))
+					.map(position -> new PositionDto(position.row(), position.column()))
+					.toList());
+		}
+	}
+
+	public record PositionDto(int row, int column) {
+	}
+
 	/**
-	 * @param msSinceBeat    time since the last beat when the status was made; clients run the beat indicator from
-	 *                       there with {@code beatMs}
-	 * @param fixtures       palette id (or null) and intensity per fixture id that party mode has touched
-	 * @param palettes       the built-in palettes in their order
+	 * @param separators rows a line is drawn above
+	 * @param cells      the fields that are not empty
 	 */
-	public record PartyResponse(double bpm, long beatMs, long msSinceBeat, Map<Long, FixtureState> fixtures,
-			List<ButtonState> buttons, List<PaletteResponse> palettes) {
+	public record PartyMatrixDto(Integer rows, Integer columns, List<Integer> separators, List<PartyCellDto> cells) {
 
-		public static PartyResponse from(PartyStatus status, Instant now) {
-			var fixtures = new TreeMap<Long, FixtureState>();
-			status.fixtures().forEach((id, state) -> fixtures.put(id,
-					new FixtureState(state.palette().map(Palette::id).orElse(null), state.intensity())));
-			return new PartyResponse(Math.round(status.bpm() * 10) / 10.0, status.beatLength().toMillis(),
-					Math.max(0, Duration.between(status.lastBeat(), now).toMillis()), fixtures,
-					status.buttons().stream()
-							.map(b -> new ButtonState(b.id(), b.name(), b.mode().id(), b.on()))
-							.toList(),
-					Arrays.stream(Palette.values()).map(PaletteResponse::from).toList());
+		public PartyMatrix toMatrix() {
+			return new PartyMatrix(Objects.requireNonNullElse(rows, 4), Objects.requireNonNullElse(columns, 4),
+					Set.copyOf(separators == null ? List.of() : separators),
+					(cells == null ? List.<PartyCellDto>of() : cells).stream().map(PartyCellDto::toCell).toList());
+		}
+
+		public static PartyMatrixDto from(PartyMatrix matrix) {
+			return new PartyMatrixDto(matrix.rows(), matrix.columns(), matrix.separators().stream().sorted().toList(),
+					matrix.cells().stream().map(PartyCellDto::from).toList());
 		}
 	}
 
-	public record FixtureState(String palette, double intensity) {
-	}
+	/**
+	 * A field; without scene and composition it only shows its label.
+	 *
+	 * @param label       shown on the field, {@code null} = the name of what it plays
+	 * @param color       fill color {@code #rrggbb}, {@code null} = the default
+	 * @param borderColor border color {@code #rrggbb}, {@code null} = the default
+	 * @param mode        toggle or flash, {@code null} = toggle
+	 * @param group       fields of the same group exclude each other, {@code null} = no group
+	 */
+	public record PartyCellDto(int row, int column, String label, Long sceneId, Long compositionId, String color,
+			String borderColor, String mode, String group) {
 
-	public record ButtonState(long id, String name, String mode, boolean on) {
-	}
-
-	/** @param color display color {@code #rrggbb} */
-	public record PaletteResponse(String id, String label, String color) {
-
-		static PaletteResponse from(Palette palette) {
-			var color = palette.color();
-			return new PaletteResponse(palette.id(), palette.label(), "#%02x%02x%02x".formatted(
-					Math.round(color.red() * 255), Math.round(color.green() * 255), Math.round(color.blue() * 255)));
+		PartyCell toCell() {
+			return new PartyCell(row, column, Optional.ofNullable(label), Optional.ofNullable(sceneId),
+					Optional.ofNullable(compositionId), Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
+					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
+					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group));
 		}
-	}
 
-	/** A party button with its values, for the setup tab. */
-	public record PartyButtonResponse(long id, int position, String name, String mode, int fixtureCount,
-			Map<Long, Map<String, Double>> values) {
-
-		static PartyButtonResponse from(PartyButton button) {
-			return new PartyButtonResponse(button.id(), button.position(), button.name(), button.mode().id(),
-					button.values().size(), ValuesJson.toJson(button.values()));
+		static PartyCellDto from(PartyCell cell) {
+			return new PartyCellDto(cell.row(), cell.column(), cell.label().orElse(null), cell.sceneId().orElse(null),
+					cell.compositionId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
+					cell.group().orElse(null));
 		}
 	}
 }

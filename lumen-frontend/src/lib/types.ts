@@ -234,8 +234,6 @@ export interface Scene {
   name: string;
   cueNote: string | null;
   autoFollowMs: number | null;
-  /** GO skips the scene; it is played by a fader (e.g. house lights) */
-  outsideCueList: boolean;
   /** fade-in of the GO into this scene, null = the project's */
   fadeInMs: number | null;
   /** fade-out of the look before at the GO into this scene, null = the project's */
@@ -254,7 +252,6 @@ export interface Scene {
 export interface SceneRequest {
   number?: string | null;
   name: string;
-  outsideCueList?: boolean;
   cueNote: string | null;
   autoFollowMs: number | null;
   fadeInMs?: number | null;
@@ -323,12 +320,12 @@ export interface FaderStatus {
   level: number;
 }
 
-/** Which scene a fader plays. */
+/** Which composition a fader plays. */
 export interface FaderSetup {
   slot: number;
-  /** null = the scene's name */
+  /** null = the composition's name */
   name: string | null;
-  sceneId: number;
+  compositionId: number;
 }
 
 export type OperatingMode = 'setup' | 'show' | 'party';
@@ -485,11 +482,15 @@ export interface Generator {
 export type PlayMode = 'loop' | 'ping_pong' | 'once';
 export type IntensityMode = 'absolute' | 'relative';
 
-/** A step plays a look; its own fade/hold override the composition's (null = the composition's). */
+/**
+ * A step plays a look; its own fade/hold override the composition's (null = the composition's). A parallel step starts
+ * together with the step before it: they form one row with the times of the row's first step.
+ */
 export interface CompositionStep {
   lookId: number;
   fadeMs: number | null;
   holdMs: number | null;
+  parallel: boolean;
 }
 
 /** The second level: 1–n steps playing looks. Shared by every scene it is in. */
@@ -531,39 +532,36 @@ export interface StagePreviewStatus {
   fade: RehearsedFade | null;
 }
 
-/** A built-in color palette of party mode. */
-export interface PartyPalette {
-  id: string;
-  label: string;
-  /** display color #rrggbb */
+/**
+ * A field of the party matrix (rows and columns from 0): plays a scene or a composition, or – with neither – only
+ * shows its label.
+ */
+export interface PartyCell {
+  row: number;
+  column: number;
+  /** null = the name of what it plays */
+  label: string | null;
+  sceneId: number | null;
+  compositionId: number | null;
+  /** fill #rrggbb */
   color: string;
-}
-
-export interface PartyButtonState {
-  id: number;
-  name: string;
+  /** border #rrggbb */
+  borderColor: string;
   mode: KeyMode;
-  on: boolean;
+  /** fields of the same group exclude each other */
+  group: string | null;
 }
 
-/** Live state of party mode, pushed as 'party'. */
+/** The party mode of a project: a grid of fields, lines above the rows in `separators`. */
+export interface PartyMatrix {
+  rows: number;
+  columns: number;
+  separators: number[];
+  /** only the fields that are not empty */
+  cells: PartyCell[];
+}
+
+/** Live state of party mode, pushed as 'party': the fields that are on. */
 export interface PartyStatus {
-  bpm: number;
-  beatMs: number;
-  /** time since the last beat when the status was made */
-  msSinceBeat: number;
-  /** palette and intensity of the fixtures party mode has touched */
-  fixtures: Record<number, { palette: string | null; intensity: number }>;
-  buttons: PartyButtonState[];
-  palettes: PartyPalette[];
-}
-
-/** A party button with its values (setup tab). */
-export interface PartyButton {
-  id: number;
-  position: number;
-  name: string;
-  mode: KeyMode;
-  fixtureCount: number;
-  values: Record<number, AttributeValues>;
+  on: { row: number; column: number }[];
 }

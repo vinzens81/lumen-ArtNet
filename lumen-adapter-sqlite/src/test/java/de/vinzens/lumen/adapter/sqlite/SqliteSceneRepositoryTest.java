@@ -108,7 +108,7 @@ class SqliteSceneRepositoryTest {
 	@Test
 	void timingRoundTripWithProjectTimesAsNull() {
 		var flash = new SceneTiming(Optional.of(Duration.ZERO), Optional.empty(), Duration.ofMillis(1500));
-		var spec = new SceneSpec(SceneNumber.parse("7"), "Flash", Optional.empty(), Optional.empty(), false, flash);
+		var spec = new SceneSpec(SceneNumber.parse("7"), "Flash", Optional.empty(), Optional.empty(), flash);
 
 		var scene = create(spec);
 
@@ -119,7 +119,7 @@ class SqliteSceneRepositoryTest {
 
 	@Test
 	void scriptRoundTrip() {
-		var spec = new SceneSpec(SceneNumber.parse("1"), "Prologue", Optional.empty(), Optional.empty(), false,
+		var spec = new SceneSpec(SceneNumber.parse("1"), "Prologue", Optional.empty(), Optional.empty(),
 				SceneTiming.DEFAULT, "Two households, both alike in dignity.\n\n**Enter Chorus**");
 
 		var scene = create(spec);

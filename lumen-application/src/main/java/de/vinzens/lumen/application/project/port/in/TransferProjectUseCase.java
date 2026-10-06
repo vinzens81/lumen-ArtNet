@@ -4,7 +4,7 @@ import de.vinzens.lumen.application.legacy.LegacyShow;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.look.NamedLook;
-import de.vinzens.lumen.domain.party.PartyButton;
+import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.PatchedFixture;
@@ -32,26 +32,26 @@ public interface TransferProjectUseCase {
 	/**
 	 * Everything that belongs to a project, connected by the ids in this export: fixtures refer to universes, groups
 	 * and looks to fixtures, looks to presets and their composition, compositions to looks (and generator targets to
-	 * groups and fixtures), scenes to compositions, faders to scenes. Party buttons refer to fixtures.
+	 * groups and fixtures), scenes, faders and the fields of the party matrix to compositions (fields also to scenes).
 	 *
 	 * @param legacy scenes, compositions and keys of a file from before iteration S; then {@code looks},
 	 *               {@code compositions} and {@code scenes} are empty and the import converts the old show
 	 */
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
 			List<Group> groups, List<NamedLook> looks, List<Composition> compositions, List<Scene> scenes,
-			Optional<StagePlan> stagePlan, List<PartyButton> partyButtons, List<Preset> presets, List<Fader> faders,
+			Optional<StagePlan> stagePlan, PartyMatrix partyMatrix, List<Preset> presets, List<Fader> faders,
 			LegacyShow legacy) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
 			Objects.requireNonNull(legacy, "legacy");
+			Objects.requireNonNull(partyMatrix, "partyMatrix");
 			universes = List.copyOf(universes);
 			fixtures = List.copyOf(fixtures);
 			groups = List.copyOf(groups);
 			looks = List.copyOf(looks);
 			compositions = List.copyOf(compositions);
 			scenes = List.copyOf(scenes);
-			partyButtons = List.copyOf(partyButtons);
 			presets = List.copyOf(presets);
 			faders = List.copyOf(faders);
 		}

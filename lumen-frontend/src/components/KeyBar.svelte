@@ -4,6 +4,10 @@
 
   let { keys }: { keys: KeyStatus[] } = $props();
 
+  const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
+  /** every slot keeps its place, used or not – so the keys and GO never move when the scene changes */
+  const bySlot = $derived(new Map(keys.map((k) => [k.slot, k])));
+
   /** keys held down right now (pointer or keyboard), so a flash key is released exactly once */
   const held = new Set<number>();
 
@@ -39,9 +43,10 @@
 
 <svelte:window {onkeydown} {onkeyup} />
 
-{#if keys.length > 0}
-  <div class="keys" role="group" aria-label="Extra keys">
-    {#each keys as key (key.slot)}
+<div class="keys" role="group" aria-label="Extra keys">
+  {#each SLOTS as slot (slot)}
+    {@const key = bySlot.get(slot)}
+    {#if key}
       <button type="button" class="key" class:on={key.on} class:fading={key.level > 0 && !key.on}
         style="--level: {key.level}"
         title="{key.name} – {key.mode === 'flash' ? 'hold' : 'press to switch on and off'} (key {key.slot})"
@@ -52,9 +57,11 @@
         <span class="name">{key.name}</span>
         <span class="mode">{key.mode === 'flash' ? 'flash' : key.on ? 'on' : 'off'}</span>
       </button>
-    {/each}
-  </div>
-{/if}
+    {:else}
+      <div class="key empty" aria-hidden="true"><span class="slot mono">{slot}</span></div>
+    {/if}
+  {/each}
+</div>
 
 <style>
   .keys {
@@ -86,6 +93,14 @@
 
   .key.on {
     border-color: var(--accent);
+  }
+
+  .key.empty {
+    border-style: dashed;
+    border-color: var(--border);
+    background: transparent;
+    box-shadow: none;
+    cursor: default;
   }
 
   .key:disabled {

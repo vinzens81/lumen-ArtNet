@@ -9,7 +9,7 @@ import de.vinzens.lumen.application.legacy.LegacyShow.LegacyKey;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyScene;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.look.port.out.LookRepository;
-import de.vinzens.lumen.application.party.port.out.PartyButtonRepository;
+import de.vinzens.lumen.application.party.port.out.PartyMatrixRepository;
 import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.preset.port.out.PresetRepository;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase;
@@ -23,7 +23,6 @@ import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
-import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.GeneratorSettings;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
@@ -33,6 +32,8 @@ import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
+import de.vinzens.lumen.domain.party.PartyCell;
+import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
@@ -63,7 +64,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final CompositionRepository compositions;
 	private final SceneRepository scenes;
 	private final StagePlanRepository stagePlans;
-	private final PartyButtonRepository partyButtons;
+	private final PartyMatrixRepository partyMatrices;
 	private final PresetRepository presets;
 	private final FaderRepository faders;
 	private final QueryFixtureLibraryUseCase library;
@@ -72,7 +73,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, LookRepository looks, CompositionRepository compositions,
-			SceneRepository scenes, StagePlanRepository stagePlans, PartyButtonRepository partyButtons,
+			SceneRepository scenes, StagePlanRepository stagePlans, PartyMatrixRepository partyMatrices,
 			PresetRepository presets, FaderRepository faders, QueryFixtureLibraryUseCase library, Clock clock,
 			PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
@@ -83,7 +84,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
-		this.partyButtons = Objects.requireNonNull(partyButtons, "partyButtons");
+		this.partyMatrices = Objects.requireNonNull(partyMatrices, "partyMatrices");
 		this.presets = Objects.requireNonNull(presets, "presets");
 		this.faders = Objects.requireNonNull(faders, "faders");
 		this.library = Objects.requireNonNull(library, "library");
@@ -97,7 +98,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
 				fixtures.findByProject(projectId), groups.findByProject(projectId), looks.findByProject(projectId),
 				compositions.findByProject(projectId), scenes.findByProject(projectId), stagePlans.find(projectId),
-				partyButtons.findByProject(projectId), presets.findByProject(projectId),
+				partyMatrices.find(projectId), presets.findByProject(projectId),
 				faders.findByProject(projectId), LegacyShow.EMPTY);
 	}
 
@@ -139,7 +140,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		}
 		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
 
-		var writer = new ShowContentWriter(looks, compositions, scenes);
+		var writer = new ShowContentWriter(looks, compositions, scenes, faders);
 		var sceneIds = new HashMap<Long, Long>();
 		if (isLegacy(export)) {
 			var legacy = ids.legacy(export.legacy());
@@ -153,6 +154,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			converted.report().forEach(line -> LOG.log(Level.INFO, "Import of \"{0}\": {1}",
 					export.project().name(), line));
 			writer.write(projectId, converted.content(), sceneIds);
+			writer.removeScenes(converted.content(), sceneIds);
 		} else {
 			for (var scene : export.scenes()) {
 				sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), List.of(), List.of()).id());
@@ -166,15 +168,21 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			var content = new ShowContent(
 					export.looks().stream().map(ids::look).toList(),
 					export.compositions().stream().map(ids::composition).toList(),
-					sceneCompositions, sceneKeys);
-			writer.write(projectId, content, sceneIds);
+					sceneCompositions, sceneKeys, export.faders(), Set.of());
+			var written = writer.write(projectId, content, sceneIds);
+			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds()));
 		}
-		for (var fader : export.faders()) {
-			faders.save(projectId, new Fader(fader.slot(), fader.name(), sceneIds.get(fader.sceneId())));
-		}
-		for (var button : export.partyButtons()) {
-			partyButtons.create(projectId, button.name(), button.mode(), ids.values(button.values()));
-		}
+	}
+
+	/** The matrix with the new ids; a field whose scene or composition is not in the export shows only its text. */
+	private static PartyMatrix partyMatrix(PartyMatrix matrix, Map<Long, Long> sceneIds,
+			Map<Long, Long> compositionIds) {
+		var cells = matrix.cells().stream()
+				.map(cell -> new PartyCell(cell.row(), cell.column(), cell.label(),
+						cell.sceneId().map(sceneIds::get), cell.compositionId().map(compositionIds::get), cell.color(),
+						cell.borderColor(), cell.mode(), cell.group()))
+				.toList();
+		return new PartyMatrix(matrix.rows(), matrix.columns(), matrix.separators(), cells);
 	}
 
 	private static boolean isLegacy(ProjectExport export) {
@@ -228,14 +236,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 
 		LegacyShow legacy(LegacyShow show) {
 			var legacyScenes = show.scenes().stream()
-					.map(scene -> new LegacyScene(scene.id(), scene.spec(), look(scene.look())))
+					.map(scene -> new LegacyScene(scene.id(), scene.spec(), look(scene.look()), scene.outsideCueList()))
 					.toList();
 			var legacyCompositions = show.compositions().stream().map(this::composition).toList();
 			var keys = show.keys().stream()
 					.map(key -> new LegacyKey(key.slot(), key.mode(), key.fade(), key.composition().map(this::composition),
 							key.sceneId()))
 					.toList();
-			return new LegacyShow(legacyScenes, legacyCompositions, keys, show.sceneKeys());
+			return new LegacyShow(legacyScenes, legacyCompositions, keys, show.sceneKeys(), show.faders());
 		}
 
 		LegacyComposition composition(LegacyComposition c) {
@@ -324,13 +332,17 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			if (!faderSlots.add(fader.slot())) {
 				errors.add("Fader " + fader.slot() + " is used twice");
 			}
+			if (!compositionIds.contains(fader.compositionId())) {
+				errors.add("Fader " + fader.slot() + " plays unknown composition " + fader.compositionId());
+			}
+		}
+		for (var fader : export.legacy().faders()) {
+			if (!faderSlots.add(fader.slot())) {
+				errors.add("Fader " + fader.slot() + " is used twice");
+			}
 			if (!sceneIds.contains(fader.sceneId())) {
 				errors.add("Fader " + fader.slot() + " refers to unknown scene " + fader.sceneId());
 			}
-		}
-		for (var button : export.partyButtons()) {
-			button.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
-					errors.add("Party button '" + button.name() + "' refers to unknown fixture " + id));
 		}
 		if (!errors.isEmpty()) {
 			throw new DomainValidationException(List.copyOf(errors));

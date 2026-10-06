@@ -30,7 +30,6 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
-import java.time.Clock;
 import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -49,7 +48,7 @@ import java.util.concurrent.TimeUnit;
  * {@value #FLUSH_INTERVAL_MS} ms, so fast fader moves do not flood the clients.
  *
  * <p>Server → client: {@code programmer} (all values), {@code master}, {@code playback}, {@code mode},
- * {@code party} (tempo, palettes, buttons), {@code health} (every second), {@code partyButtons}, {@code compositions},
+ * {@code party} (fields of the matrix that are on), {@code health} (every second), {@code partyMatrix}, {@code compositions},
  * {@code library}, {@code access}, {@code patch}, {@code scenes}, {@code nodes}, {@code projects}, {@code presets},
  * {@code faders} (the last ten ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
@@ -79,7 +78,6 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	private final QueryOutputUseCase output;
 	private final PreviewCompositionUseCase preview;
 	private final ControlPartyUseCase party;
-	private final Clock clock;
 	private final ConfigLock lock;
 	private final JsonMapper json;
 	private final Map<String, WebSocketSession> sessions = new ConcurrentHashMap<>();
@@ -93,7 +91,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 
 	LiveSocketHandler(ControlProgrammerUseCase programmer, ControlMasterUseCase master, ControlPlaybackUseCase playback,
 			ControlModeUseCase mode, QueryHealthUseCase health, QueryOutputUseCase output,
-			PreviewCompositionUseCase preview, ControlPartyUseCase party, Clock clock, ConfigLock lock,
+			PreviewCompositionUseCase preview, ControlPartyUseCase party, ConfigLock lock,
 			StateEvents events, JsonMapper json) {
 		this.programmer = programmer;
 		this.master = master;
@@ -103,7 +101,6 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 		this.output = output;
 		this.preview = preview;
 		this.party = party;
-		this.clock = clock;
 		this.lock = lock;
 		this.json = json;
 		events.subscribe(this::markDirty);
@@ -223,9 +220,9 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case COMPOSITIONS, STAGE_PREVIEW -> message.put("type", "compositions");
 			case PARTY -> {
 				message.put("type", "party");
-				message.put("status", PartyResponse.from(party.status(), clock.instant()));
+				message.put("status", PartyResponse.from(party.status()));
 			}
-			case PARTY_BUTTONS -> message.put("type", "partyButtons");
+			case PARTY_MATRIX -> message.put("type", "partyMatrix");
 			case PRESETS -> message.put("type", "presets");
 			case FADERS -> message.put("type", "faders");
 			case HEALTH -> {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   compositionFixtures, compositionIcon, cycleMs, defaultParams, generatorFixtures, isFast, lookMap, overlaps,
-  sceneStartValues, unsuitableFixtures,
+  moveStart, sceneStartValues, startOf, stepRows, unsuitableFixtures,
 } from './compositions';
 import type { Composition, Fixture, Look, Mode } from './types';
 
@@ -14,7 +14,7 @@ function composition(id: number, lookIds: number[], extra: Partial<Composition> 
     playMode: 'loop',
     intensityMode: 'absolute',
     generator: null,
-    steps: lookIds.map((lookId) => ({ lookId, fadeMs: null, holdMs: null })),
+    steps: lookIds.map((lookId) => ({ lookId, fadeMs: null, holdMs: null, parallel: false })),
     ...extra,
   };
 }
@@ -60,6 +60,28 @@ describe('compositions', () => {
     c.steps[1].holdMs = 3000;
     expect(cycleMs(c)).toBe(5000);
     expect(cycleMs({ ...c, playMode: 'ping_pong' })).toBe(8000);
+  });
+
+  it('groups parallel steps into rows that take the time of their first step', () => {
+    const c = composition(1, [1, 2, 3], { fadeMs: 0, holdMs: 1000 });
+    c.steps[0].holdMs = 4000;
+    c.steps[1].parallel = true;
+    expect(stepRows(c.steps)).toEqual([[0, 1], [2]]);
+    expect(cycleMs(c)).toBe(5000);
+    expect(startOf(c.steps, 1)).toEqual({ with: 0 });
+    expect(startOf(c.steps, 2)).toEqual({ after: 0 });
+  });
+
+  it('moves a step to start at the begin, with a row or after a row', () => {
+    const steps = composition(1, [1, 2, 3]).steps;
+    steps[1].holdMs = 500;
+    const atBegin = moveStart(steps, 1, { with: 0 });
+    expect(atBegin.map((s) => [s.lookId, s.parallel, s.holdMs])).toEqual([[1, false, null], [2, true, null], [3, false, null]]);
+    const withLast = moveStart(atBegin, 0, { with: 1 });
+    expect(withLast.map((s) => [s.lookId, s.parallel])).toEqual([[2, false], [3, false], [1, true]]);
+    const after = moveStart(withLast, 2, { after: 0 });
+    expect(stepRows(after)).toEqual([[0], [1], [2]]);
+    expect(after.map((s) => s.lookId)).toEqual([2, 1, 3]);
   });
 
   it('reports compositions that override the color of others', () => {

@@ -66,7 +66,7 @@ class SqliteCompositionRepositoryTest {
 	void stepsWithDefaultAndOwnTimesSurviveReopening() {
 		var spec = new CompositionSpec("Dusk", 1.5, 2, PlayMode.PING_PONG, IntensityMode.RELATIVE, Optional.empty());
 		var steps = List.of(CompositionStep.of(warm), new CompositionStep(cold, Optional.of(0.0), Optional.of(4.25)),
-				CompositionStep.of(warm));
+				CompositionStep.parallelOf(warm));
 
 		var created = repos.compositions().create(project, spec, steps);
 

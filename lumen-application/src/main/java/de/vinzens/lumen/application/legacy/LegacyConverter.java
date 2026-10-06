@@ -8,6 +8,7 @@ import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.CompositionStep;
+import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.composition.Generator;
 import de.vinzens.lumen.domain.composition.GeneratorSettings;
@@ -46,6 +47,8 @@ import java.util.stream.IntStream;
  * <li>effects (chase, rainbow, …) are turned into steps by the {@link Generator}; their settings are kept</li>
  * <li>extra keys become keys of the scenes they were usable in; a key that played a scene plays its compositions
  * (more than one go on free keys)</li>
+ * <li>a fader that played a scene plays the first composition of that scene; scenes outside the cue list are removed
+ * (listed in {@link ShowContent#removedScenes()}), their compositions stay</li>
  * </ol>
  * What could not be taken over exactly is listed in the report. Ids in the result are new and only connect its parts.
  */
@@ -150,10 +153,39 @@ public final class LegacyConverter {
 				list.add(new SceneComposition(id, copy.level(), copy.speedFactor(), copy.restart()));
 			}
 			convertKeys();
+			var faders = convertFaders();
+			var removed = new HashSet<Long>();
+			for (var scene : scenes.values()) {
+				if (scene.outsideCueList()) {
+					removed.add(scene.id());
+					report.add("Scene " + label(scene) + " was outside the cue list – removed, its compositions stay");
+				}
+			}
 			var compositions = new ArrayList<Composition>();
 			drafts.forEach((id, draft) -> compositions.add(build(id, draft)));
-			return new Result(new ShowContent(looks, compositions, freeze(sceneCompositions), freeze(sceneKeys)),
-					report);
+			return new Result(new ShowContent(looks, compositions, freeze(sceneCompositions), freeze(sceneKeys),
+					faders, removed), report);
+		}
+
+		/** A fader played a scene; now it plays the first composition of that scene. */
+		private List<Fader> convertFaders() {
+			var result = new ArrayList<Fader>();
+			for (var fader : show.faders()) {
+				var scene = scenes.get(fader.sceneId());
+				var uses = sceneCompositions.getOrDefault(fader.sceneId(), List.of());
+				if (scene == null || uses.isEmpty()) {
+					report.add("Fader " + fader.slot() + " played an empty scene – left out");
+					continue;
+				}
+				if (uses.size() > 1) {
+					report.add("Fader " + fader.slot() + " played scene " + label(scene) + " with " + uses.size()
+							+ " parts – it now plays only \"" + drafts.get(uses.getFirst().compositionId()).name()
+							+ "\"");
+				}
+				result.add(new Fader(fader.slot(), fader.name().or(() -> Optional.of(scene.spec().name())),
+						uses.getFirst().compositionId()));
+			}
+			return result;
 		}
 
 		private long compositionOf(LegacyComposition copy, String where) {
@@ -194,7 +226,7 @@ public final class LegacyConverter {
 				}
 				for (var scene : scenes.values()) {
 					var enabled = show.sceneKeys().getOrDefault(scene.id(), Set.of()).contains(key.slot());
-					if (!enabled || scene.spec().outsideCueList()) {
+					if (!enabled || scene.outsideCueList()) {
 						continue;
 					}
 					sceneKeys.get(scene.id()).add(new SceneKey(key.slot(), played.getFirst(), key.mode(), key.fade()));

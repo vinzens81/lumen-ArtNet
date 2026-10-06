@@ -4,7 +4,7 @@ import type { Composition, Scene } from './types';
 
 function scene(id: number, number: string, overrides: Partial<Scene> = {}): Scene {
   return {
-    id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null, outsideCueList: false,
+    id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null,
     fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [],
     ...overrides,
   };
@@ -26,11 +26,10 @@ describe('cueRows', () => {
     expect(rows[1].delayMs).toBe(500);
   });
 
-  it('leaves out scenes outside the cue list and auto-follow on the last scene', () => {
+  it('leaves out auto-follow on the last scene', () => {
     const rows = cueRows(project, [
       scene(1, '1', { autoFollowMs: 8000 }),
       scene(2, '2', { autoFollowMs: 4000 }),
-      scene(3, '50', { outsideCueList: true, name: 'House lights' }),
     ], []);
 
     expect(rows.map((r) => r.number)).toEqual(['1', '2']);

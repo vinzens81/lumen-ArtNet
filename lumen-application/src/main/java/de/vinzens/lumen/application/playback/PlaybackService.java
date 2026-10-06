@@ -115,12 +115,9 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	}
 
 	private Loaded load(Project project) {
-		// scenes for faders are not part of the cue list
-		var cueList = scenes.findByProject(project.id()).stream()
-				.filter(scene -> !scene.spec().outsideCueList())
-				.toList();
-		return new Loaded(project, cueList, compositions.scenes(project.id()), compositions.keys(project.id()),
-				compositions.faders(faderSetup.findByProject(project.id())), states.currentScene(project.id()));
+		return new Loaded(project, scenes.findByProject(project.id()), compositions.scenes(project.id()),
+				compositions.keys(project.id()), compositions.faders(project.id(), faderSetup.findByProject(project.id())),
+				states.currentScene(project.id()));
 	}
 
 	private synchronized void apply(long sequence, Optional<Loaded> loaded) {

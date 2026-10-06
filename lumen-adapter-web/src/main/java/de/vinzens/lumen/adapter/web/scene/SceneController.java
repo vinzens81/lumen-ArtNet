@@ -54,9 +54,8 @@ class SceneController {
 	SceneResponse create(@PathVariable long projectId, @RequestBody SceneRequest request) {
 		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
-				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.outsideCueList()), timing(request), script(request),
-				Boolean.TRUE.equals(request.record())));
+				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request), timing(request),
+				script(request), Boolean.TRUE.equals(request.record())));
 	}
 
 	@PutMapping("/{sceneId}")
@@ -65,8 +64,8 @@ class SceneController {
 			throw new DomainValidationException(List.of("number is missing"));
 		}
 		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
-				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.outsideCueList()), timing(request), script(request)));
+				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request), timing(request),
+				script(request)));
 	}
 
 	/** Copies the scene with its compositions and keys; without {@code number} it goes to the end. */
@@ -134,7 +133,6 @@ class SceneController {
 	/**
 	 * @param number       cue number as text, e.g. "2.5"
 	 * @param autoFollowMs stay time before the next scene starts automatically, {@code null} = wait for GO
-	 * @param outsideCueList GO skips the scene; it is played by a fader (e.g. house lights)
 	 * @param fadeInMs     fade-in of the GO into this scene, {@code null} = the project's
 	 * @param fadeOutMs    fade-out of the look before at the GO into this scene, {@code null} = the project's
 	 * @param delayMs      the fade-in starts this long after GO, {@code null} = 0
@@ -142,8 +140,7 @@ class SceneController {
 	 * @param script       text spoken on stage during the scene, {@code **…**} marks stage directions;
 	 *                     {@code null} = no text
 	 */
-	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
-			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script, Boolean record) {
+	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script, Boolean record) {
 	}
 
 	/** @param number cue number of the copy, {@code null} = after the last scene */
@@ -185,7 +182,6 @@ class SceneController {
 	}
 
 	/**
-	 * @param outsideCueList GO skips the scene; it is played by a fader
 	 * @param fadeInMs       own fade-in time, {@code null} = the project's
 	 * @param fadeOutMs      own fade-out time, {@code null} = the project's
 	 * @param fadeCurve      own fade curve, {@code null} = the project's
@@ -194,14 +190,14 @@ class SceneController {
 	 * @param keys           extra keys usable while the scene is on stage
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs,
-			boolean outsideCueList, Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
+			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
 			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys) {
 
 		static SceneResponse from(Scene scene) {
 			var spec = scene.spec();
 			var timing = spec.timing();
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.outsideCueList(),
+					spec.autoFollow().map(Duration::toMillis).orElse(null),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionDto::from).toList(),

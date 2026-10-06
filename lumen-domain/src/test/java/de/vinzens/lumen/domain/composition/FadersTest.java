@@ -1,7 +1,6 @@
 package de.vinzens.lumen.domain.composition;
 
 import de.vinzens.lumen.domain.composition.Faders.PlayableFader;
-import de.vinzens.lumen.domain.composition.Faders.SceneLook;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -25,7 +24,7 @@ class FadersTest {
 	private final Faders faders = new Faders();
 
 	@Test
-	void faderLaysItsSceneOverThePlaybackAtItsLevel() {
+	void faderLaysItsCompositionOverThePlaybackAtItsLevel() {
 		faders.configure(List.of(fader(1, 10, Map.of(5L, new FixtureValues(Map.of(DIMMER, 1.0, RED, 1.0))))));
 		var stage = Map.of(5L, new FixtureValues(Map.of(DIMMER, 0.2, RED, 0.0)), 6L,
 				new FixtureValues(Map.of(DIMMER, 0.7)));
@@ -40,7 +39,7 @@ class FadersTest {
 	}
 
 	@Test
-	void levelStaysWhileTheFaderKeepsItsScene() {
+	void levelStaysWhileTheFaderKeepsItsComposition() {
 		faders.configure(List.of(fader(1, 10, Map.of()), fader(2, 11, Map.of())));
 		faders.set(1, 0.8, NOW);
 		faders.set(2, 0.3, NOW);
@@ -59,11 +58,11 @@ class FadersTest {
 		assertThat(faders.set(1, 0, NOW)).as("already down").isFalse();
 	}
 
-	private static PlayableFader fader(int slot, long sceneId, Map<Long, FixtureValues> values) {
-		// a scene with fixed values: one composition with one step
+	private static PlayableFader fader(int slot, long compositionId, Map<Long, FixtureValues> values) {
+		// fixed values: one composition with one step
 		var look = new StepSequence(List.of(new StepSequence.Step(1, 0, values)), StepSequence.PlayMode.LOOP);
-		var composition = new ActiveComposition(sceneId, Optional.of(sceneId), look, List.copyOf(values.keySet()), 1,
-				1, false);
-		return new PlayableFader(slot, "Fader " + slot, new SceneLook(sceneId, List.of(composition)));
+		var composition = new ActiveComposition(compositionId, Optional.of(compositionId), look,
+				List.copyOf(values.keySet()), 1, 1, false);
+		return new PlayableFader(slot, "Fader " + slot, composition);
 	}
 }

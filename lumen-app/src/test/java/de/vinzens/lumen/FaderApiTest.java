@@ -21,7 +21,7 @@ class FaderApiTest {
 	MockMvcTester mvc;
 
 	@Test
-	void houseLightFaderPlaysItsSceneAtItsLevel() throws Exception {
+	void houseLightFaderPlaysItsCompositionAtItsLevel() throws Exception {
 		var project = id(post("/api/projects", "{\"name\": \"Faders\"}"));
 		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
 		var universe = id(post("/api/projects/" + project + "/universes", "{\"number\": 1}"));
@@ -31,13 +31,14 @@ class FaderApiTest {
 		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
 		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + house).contentType(MediaType.APPLICATION_JSON)
 				.content("{\"dimmer\": 1}")).hasStatusOk();
-		var scene = id(post("/api/projects/" + project + "/scenes",
-				"{\"name\": \"House full\", \"keyOnly\": true, \"record\": true}"));
+		var composition = id(post("/api/projects/" + project + "/compositions", "{\"name\": \"House full\"}"));
+		assertThat(post("/api/projects/" + project + "/compositions/" + composition + "/record-step", ""))
+				.hasStatusOk();
 		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
 
-		assertThat(put("/api/projects/" + project + "/faders/1", "{\"name\": \"House\", \"sceneId\": %d}"
-				.formatted(scene))).hasStatusOk();
-		assertThat(put("/api/projects/" + project + "/faders/9", "{\"sceneId\": %d}".formatted(scene)))
+		assertThat(put("/api/projects/" + project + "/faders/1", "{\"name\": \"House\", \"compositionId\": %d}"
+				.formatted(composition))).hasStatusOk();
+		assertThat(put("/api/projects/" + project + "/faders/9", "{\"compositionId\": %d}".formatted(composition)))
 				.hasStatus(400);
 		assertThat(put("/api/playback/faders/1", "{\"level\": 0.5}")).hasStatusOk().bodyJson()
 				.extractingPath("$.faders[0].level").isEqualTo(0.5);
@@ -53,6 +54,27 @@ class FaderApiTest {
 				.extractingPath("$[0].name").isEqualTo("House");
 
 		assertThat(put("/api/playback/faders/1", "{\"level\": 0}")).hasStatusOk();
+	}
+
+	@Test
+	void aFaderOfAVersion2FilePlaysTheFirstCompositionOfItsSceneOutsideTheCueList() throws Exception {
+		var file = """
+				{"format": "lumen-project", "version": 2, "project": {"name": "Old faders"},
+				 "compositions": [{"id": 1, "name": "Dawn"}, {"id": 2, "name": "House full"}],
+				 "scenes": [{"number": "1", "name": "Dawn", "compositions": [{"compositionId": 1}]},
+				            {"number": "50", "name": "House", "outsideCueList": true,
+				             "compositions": [{"compositionId": 2}]}],
+				 "faders": [{"slot": 1, "scene": "50"}],
+				 "partyButtons": [{"name": "Strobe", "mode": "flash", "values": {}}]}""";
+
+		var copy = id(post("/api/projects/import", file));
+
+		assertThat(mvc.get().uri("/api/projects/" + copy + "/scenes")).bodyJson()
+				.extractingPath("$[*].name").asArray().containsExactly("Dawn");
+		var house = JsonPath.<List<Integer>>read(body("/api/projects/" + copy + "/compositions"),
+				"$[?(@.name == 'House full')].id").getFirst();
+		assertThat(mvc.get().uri("/api/projects/" + copy + "/faders")).bodyJson()
+				.extractingPath("$[0].compositionId").isEqualTo(house);
 	}
 
 	private MvcTestResult post(String uri, String json) {

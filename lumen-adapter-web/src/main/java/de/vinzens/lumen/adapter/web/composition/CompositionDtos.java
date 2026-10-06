@@ -60,21 +60,22 @@ public final class CompositionDtos {
 
 	/**
 	 * @param fadeMs fade into the step, {@code null} = the composition's default
-	 * @param holdMs hold of the step, {@code null} = the composition's default
+	 * @param holdMs   hold of the step, {@code null} = the composition's default
+	 * @param parallel starts together with the step before it (same row, the row's times), {@code null} = false
 	 */
-	public record StepDto(Long lookId, Long fadeMs, Long holdMs) {
+	public record StepDto(Long lookId, Long fadeMs, Long holdMs, Boolean parallel) {
 
 		CompositionStep toStep() {
 			if (lookId == null) {
 				throw new DomainValidationException(List.of("lookId of a step is missing"));
 			}
 			return new CompositionStep(lookId, Optional.ofNullable(fadeMs).map(ms -> ms / 1000.0),
-					Optional.ofNullable(holdMs).map(ms -> ms / 1000.0));
+					Optional.ofNullable(holdMs).map(ms -> ms / 1000.0), Boolean.TRUE.equals(parallel));
 		}
 
 		static StepDto from(CompositionStep step) {
 			return new StepDto(step.lookId(), step.fadeSeconds().map(CompositionDtos::millis).orElse(null),
-					step.holdSeconds().map(CompositionDtos::millis).orElse(null));
+					step.holdSeconds().map(CompositionDtos::millis).orElse(null), step.parallel());
 		}
 	}
 

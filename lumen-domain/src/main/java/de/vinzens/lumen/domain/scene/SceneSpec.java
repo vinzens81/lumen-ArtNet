@@ -11,12 +11,11 @@ import java.util.Optional;
  *
  * @param cueNote    note for the operator, e.g. "GO on: '…and then the sun rose'"
  * @param autoFollow if set, the next scene starts automatically this long after the fade-in has finished
- * @param outsideCueList GO skips the scene; it is played by a fader (e.g. house lights)
  * @param timing     fade times of the GO into this scene
  * @param script     text spoken on stage during this scene, empty if none; {@code **…**} marks stage directions
  */
 public record SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
-		boolean outsideCueList, SceneTiming timing, String script) {
+		SceneTiming timing, String script) {
 
 	public static final Duration MAX_AUTO_FOLLOW = Duration.ofHours(1);
 	/** About 50 printed pages – far more than one scene needs. */
@@ -42,18 +41,12 @@ public record SceneSpec(SceneNumber number, String name, Optional<String> cueNot
 
 	/** A scene without text. */
 	public SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
-			boolean outsideCueList, SceneTiming timing) {
-		this(number, name, cueNote, autoFollow, outsideCueList, timing, "");
+			SceneTiming timing) {
+		this(number, name, cueNote, autoFollow, timing, "");
 	}
 
 	/** A scene with the project's fade times. */
-	public SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow,
-			boolean outsideCueList) {
-		this(number, name, cueNote, autoFollow, outsideCueList, SceneTiming.DEFAULT);
-	}
-
-	/** A scene of the cue list with the project's fade times. */
 	public SceneSpec(SceneNumber number, String name, Optional<String> cueNote, Optional<Duration> autoFollow) {
-		this(number, name, cueNote, autoFollow, false);
+		this(number, name, cueNote, autoFollow, SceneTiming.DEFAULT);
 	}
 }

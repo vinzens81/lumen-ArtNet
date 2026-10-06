@@ -1,5 +1,6 @@
 package de.vinzens.lumen.adapter.web.project;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionRequest;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.GeneratorDto;
@@ -14,6 +15,7 @@ import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseResponse;
 import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
 import de.vinzens.lumen.adapter.web.scene.TimingJson;
 import de.vinzens.lumen.application.legacy.LegacyShow;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyFader;
 import de.vinzens.lumen.application.project.port.in.TransferProjectUseCase.ProjectExport;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
@@ -24,7 +26,8 @@ import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.look.LookSpec;
 import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.output.FixtureValues;
-import de.vinzens.lumen.domain.party.PartyButton;
+import de.vinzens.lumen.domain.party.PartyCell;
+import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.preset.PresetSpec;
 import de.vinzens.lumen.domain.project.FixtureSpec;
@@ -51,12 +54,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * File format of an exported project (JSON), version {@value #VERSION}. Ids only connect the parts of the file:
  * fixtures refer to universes, groups and looks to fixtures, looks to presets and their composition, compositions to
- * looks, scenes to compositions, faders to scene numbers. On import everything gets new ids. Files of version 1 (before
- * looks) are read by {@link LegacyProjectFile}.
+ * looks, scenes and faders to compositions, fields of the party matrix to compositions and scene numbers. On import
+ * everything gets new ids. Files of version 1 (before looks) are read by {@link LegacyProjectFile}. In files of version
+ * 2, faders played a scene (by number) and scenes could be outside the cue list: such a fader plays the first
+ * composition of its scene, such scenes are left out. Party buttons of older files are left out.
  *
  * @param format  always {@value #FORMAT}
  * @param version format version, currently {@value #VERSION}
@@ -64,10 +70,10 @@ import java.util.Optional;
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups, List<LookEntry> looks,
 		List<CompositionEntry> compositions, List<SceneEntry> scenes, StagePlanEntry stagePlan,
-		List<PartyButtonEntry> partyButtons, List<PresetEntry> presets, List<FaderEntry> faders) {
+		PartyMatrixEntry partyMatrix, List<PresetEntry> presets, List<FaderEntry> faders) {
 
 	static final String FORMAT = "lumen-project";
-	static final int VERSION = 2;
+	static final int VERSION = 3;
 
 	static ProjectFile from(ProjectExport export, Instant now, JsonMapper json) {
 		var spec = export.project();
@@ -83,10 +89,10 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				export.compositions().stream().map(c -> CompositionEntry.from(c, json)).toList(),
 				export.scenes().stream().map(SceneEntry::from).toList(),
 				export.stagePlan().map(plan -> new StagePlanEntry(plan.contentType(), plan.data())).orElse(null),
-				export.partyButtons().stream().map(PartyButtonEntry::from).toList(),
+				PartyMatrixEntry.from(export.partyMatrix(), sceneNumbers),
 				export.presets().stream().map(PresetEntry::from).toList(),
-				export.faders().stream().map(f -> new FaderEntry(f.slot(), f.name().orElse(null),
-						sceneNumbers.get(f.sceneId()))).toList());
+				export.faders().stream().map(f -> new FaderEntry(f.slot(), f.name().orElse(null), f.compositionId(),
+						null)).toList());
 	}
 
 	/** Reads a file of any supported version. */
@@ -98,7 +104,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		var version = file.path("version").asInt(0);
 		return switch (version) {
 			case 1 -> json.treeToValue(file, LegacyProjectFile.class).toExport(json);
-			case VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
+			case 2, VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
 			default -> throw new DomainValidationException(List.of("Project file version " + version
 					+ " is not supported (supported: up to " + VERSION + ")"));
 		};
@@ -108,14 +114,20 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		if (project == null) {
 			throw new DomainValidationException(List.of("project is missing"));
 		}
-		// scenes have no id in the file: faders refer to them by number
+		// version 2: faders refer to scenes by number, scenes outside the cue list are left out
 		var sceneList = list(scenes);
+		var firstComposition = new HashMap<String, Long>();
 		var sceneIds = new HashMap<String, Long>();
 		var exportScenes = new ArrayList<Scene>();
 		for (int i = 0; i < sceneList.size(); i++) {
-			var scene = sceneList.get(i).toScene(i + 1);
-			sceneIds.put(scene.spec().number().toString(), scene.id());
-			exportScenes.add(scene);
+			var entry = sceneList.get(i);
+			var scene = entry.toScene(i + 1);
+			scene.compositions().stream().findFirst().ifPresent(use ->
+					firstComposition.put(scene.spec().number().toString(), use.compositionId()));
+			if (!Boolean.TRUE.equals(entry.outsideCueList())) {
+				exportScenes.add(scene);
+				sceneIds.put(scene.spec().number().toString(), scene.id());
+			}
 		}
 		return new ProjectExport(project.toSpec(),
 				list(universes).stream().map(UniverseEntry::toUniverse).toList(),
@@ -126,25 +138,34 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				exportScenes,
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
 						plan.data() == null ? new byte[0] : plan.data())),
-				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList(),
+				partyMatrix == null ? PartyMatrix.EMPTY : partyMatrix.toMatrix(sceneIds),
 				list(presets).stream().map(PresetEntry::toPreset).toList(),
-				list(faders).stream().map(f -> f.toFader(sceneIds)).toList(),
+				list(faders).stream().flatMap(f -> f.toFader(firstComposition).stream()).toList(),
 				LegacyShow.EMPTY);
 	}
 
 	/**
-	 * A party button with its values per fixture id; files from before party mode have none.
-	 *
-	 * @param mode toggle or flash
-	 */
-	/**
 	 * A fader of the show; files from before faders have none.
 	 *
-	 * @param scene number of the scene it plays
+	 * @param compositionId the composition it plays
+	 * @param scene         files of version 1 and 2: number of the scene it played
 	 */
-	record FaderEntry(Integer slot, String name, String scene) {
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	record FaderEntry(Integer slot, String name, Long compositionId, String scene) {
 
-		Fader toFader(Map<String, Long> sceneIds) {
+		/** @param firstComposition version 2: the first composition per scene number; a fader of an empty scene is left out */
+		Optional<Fader> toFader(Map<String, Long> firstComposition) {
+			if (slot == null || (compositionId == null && scene == null)) {
+				throw new DomainValidationException(List.of("A fader has no slot or composition"));
+			}
+			if (compositionId != null) {
+				return Optional.of(new Fader(slot, Optional.ofNullable(name), compositionId));
+			}
+			return Optional.ofNullable(firstComposition.get(SceneNumber.parse(scene).toString()))
+					.map(id -> new Fader(slot, Optional.ofNullable(name), id));
+		}
+
+		LegacyFader toLegacyFader(Map<String, Long> sceneIds) {
 			if (slot == null || scene == null) {
 				throw new DomainValidationException(List.of("A fader has no slot or scene"));
 			}
@@ -152,7 +173,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			if (sceneId == null) {
 				throw new DomainValidationException(List.of("Fader " + slot + " refers to unknown scene " + scene));
 			}
-			return new Fader(slot, Optional.ofNullable(name), sceneId);
+			return new LegacyFader(slot, Optional.ofNullable(name), sceneId);
 		}
 	}
 
@@ -180,20 +201,54 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	record PartyButtonEntry(String name, String mode, Map<Long, Map<String, Double>> values) {
+	/**
+	 * The party matrix; files before version 3 have none.
+	 *
+	 * @param separators rows a line is drawn above
+	 */
+	record PartyMatrixEntry(Integer rows, Integer columns, List<Integer> separators, List<PartyCellEntry> cells) {
 
-		static PartyButtonEntry from(PartyButton button) {
-			return new PartyButtonEntry(button.name(), button.mode().id(), ValuesJson.toJson(button.values()));
+		static PartyMatrixEntry from(PartyMatrix matrix, Map<Long, String> sceneNumbers) {
+			return new PartyMatrixEntry(matrix.rows(), matrix.columns(), matrix.separators().stream().sorted().toList(),
+					matrix.cells().stream().map(cell -> PartyCellEntry.from(cell, sceneNumbers)).toList());
 		}
 
-		PartyButton toButton() {
-			var keyMode = Arrays.stream(KeyMode.values()).filter(m -> m.id().equals(mode)).findFirst()
-					.orElseThrow(() -> new DomainValidationException(List.of("Party button '" + name
-							+ "' has unknown mode '" + mode + "'")));
-			var fixtureValues = new HashMap<Long, FixtureValues>();
-			(values == null ? Map.<Long, Map<String, Double>>of() : values)
-					.forEach((fixtureId, attributes) -> fixtureValues.put(fixtureId, ValuesJson.fromJson(attributes)));
-			return new PartyButton(0, 0, 0, name, keyMode, fixtureValues);
+		PartyMatrix toMatrix(Map<String, Long> sceneIds) {
+			return new PartyMatrix(Objects.requireNonNullElse(rows, 4), Objects.requireNonNullElse(columns, 4),
+					Set.copyOf(list(separators)), list(cells).stream().map(cell -> cell.toCell(sceneIds)).toList());
+		}
+	}
+
+	/**
+	 * A field of the party matrix.
+	 *
+	 * @param scene         number of the scene it plays
+	 * @param compositionId the composition it plays
+	 * @param mode          toggle or flash
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	record PartyCellEntry(int row, int column, String label, String scene, Long compositionId, String color,
+			String borderColor, String mode, String group) {
+
+		static PartyCellEntry from(PartyCell cell, Map<Long, String> sceneNumbers) {
+			return new PartyCellEntry(cell.row(), cell.column(), cell.label().orElse(null),
+					cell.sceneId().map(sceneNumbers::get).orElse(null), cell.compositionId().orElse(null),
+					cell.color(), cell.borderColor(), cell.mode().id(), cell.group().orElse(null));
+		}
+
+		PartyCell toCell(Map<String, Long> sceneIds) {
+			var sceneId = Optional.ofNullable(scene).map(number -> {
+				var id = sceneIds.get(SceneNumber.parse(number).toString());
+				if (id == null) {
+					throw new DomainValidationException(List.of("Field " + (row + 1) + "/" + (column + 1)
+							+ " of the party matrix refers to unknown scene " + number));
+				}
+				return id;
+			});
+			return new PartyCell(row, column, Optional.ofNullable(label), sceneId, Optional.ofNullable(compositionId),
+					Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
+					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
+					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group));
 		}
 	}
 
@@ -306,13 +361,14 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	}
 
 	/**
-	 * @param outsideCueList GO skips the scene; it is played by a fader
+	 * @param outsideCueList files of version 2: GO skipped the scene, it was played by a fader
 	 * @param fadeInMs       own fade times, {@code null} = the project's
 	 * @param fadeCurve      own fade curve, {@code null} = the project's
 	 * @param script         text spoken on stage
 	 * @param compositions   compositions of the scene in their order, referring to composition ids of the file
 	 * @param keys           extra keys of the scene
 	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
 			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script,
 			List<SceneCompositionEntry> compositions, List<SceneKeyEntry> keys) {
@@ -321,7 +377,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			var spec = scene.spec();
 			var timing = spec.timing();
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.outsideCueList(),
+					spec.autoFollow().map(Duration::toMillis).orElse(null), null,
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
 					TimingJson.fadeCurve(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionEntry::from).toList(),
@@ -329,8 +385,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 
 		Scene toScene(long id) {
-			return new Scene(id, 0, sceneSpec(number, name, cueNote, autoFollowMs, outsideCueList, fadeInMs, fadeOutMs,
-					delayMs, fadeCurve, script),
+			return new Scene(id, 0, sceneSpec(number, name, cueNote, autoFollowMs, fadeInMs, fadeOutMs, delayMs,
+					fadeCurve, script),
 					list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
 					list(keys).stream().map(SceneKeyEntry::toKey).toList());
 		}
@@ -366,14 +422,13 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	static SceneSpec sceneSpec(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
-			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script) {
+	static SceneSpec sceneSpec(String number, String name, String cueNote, Long autoFollowMs, Long fadeInMs,
+			Long fadeOutMs, Long delayMs, String fadeCurve, String script) {
 		if (number == null) {
 			throw new DomainValidationException(List.of("Scene '" + name + "' has no number"));
 		}
 		return new SceneSpec(SceneNumber.parse(number), name, Optional.ofNullable(cueNote),
-				Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), Boolean.TRUE.equals(outsideCueList),
-				TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs, fadeCurve), Objects.requireNonNullElse(script, ""));
+				Optional.ofNullable(autoFollowMs).map(Duration::ofMillis), TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs, fadeCurve), Objects.requireNonNullElse(script, ""));
 	}
 
 	/** Values per fixture id from JSON. */

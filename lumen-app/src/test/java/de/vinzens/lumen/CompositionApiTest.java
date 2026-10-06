@@ -270,7 +270,7 @@ class CompositionApiTest {
 				.formatted(chase));
 
 		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
-		assertThat(JsonPath.<Integer>read(file, "$.version")).isEqualTo(2);
+		assertThat(JsonPath.<Integer>read(file, "$.version")).isEqualTo(3);
 		var copy = "/api/projects/" + id(post("/api/projects/import", file));
 
 		var compositions = body(copy + "/compositions");

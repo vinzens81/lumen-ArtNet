@@ -109,8 +109,7 @@ public class CompositionService implements ManageCompositionsUseCase {
 			}
 		}
 		var steps = original.steps().stream()
-				.map(step -> new CompositionStep(copiedLooks.getOrDefault(step.lookId(), step.lookId()),
-						step.fadeSeconds(), step.holdSeconds()))
+				.map(step -> step.withLook(copiedLooks.getOrDefault(step.lookId(), step.lookId())))
 				.toList();
 		events.publish(StateTopic.LOOKS);
 		return published(compositions.update(copy.id(), spec, steps));

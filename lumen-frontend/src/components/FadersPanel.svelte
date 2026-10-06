@@ -2,19 +2,18 @@
   import { api } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { FaderSetup, Scene } from '../lib/types';
+  import type { Composition, FaderSetup } from '../lib/types';
 
   const MAX_SLOTS = 8;
 
-  let { projectId, scenes }: { projectId: number; scenes: Scene[] } = $props();
+  let { projectId, compositions }: { projectId: number; compositions: Composition[] } = $props();
 
   let faders = $state<FaderSetup[]>([]);
 
   const freeSlot = $derived(
     Array.from({ length: MAX_SLOTS }, (_, i) => i + 1).find((slot) => !faders.some((f) => f.slot === slot)) ?? null,
   );
-  /** scenes outside the cue list first: they are made for this */
-  const choices = $derived([...scenes].sort((a, b) => Number(b.outsideCueList) - Number(a.outsideCueList)));
+  const choices = $derived([...compositions].sort((a, b) => a.name.localeCompare(b.name)));
 
   $effect(() => {
     void live.fadersRevision;
@@ -31,7 +30,7 @@
 
   async function save(fader: FaderSetup) {
     try {
-      await api.faders.save(projectId, fader.slot, fader.name?.trim() || null, fader.sceneId);
+      await api.faders.save(projectId, fader.slot, fader.name?.trim() || null, fader.compositionId);
       await load(projectId);
     } catch (e) {
       showError(e);
@@ -39,9 +38,9 @@
   }
 
   async function add() {
-    const scene = choices[0];
-    if (freeSlot === null || !scene) return;
-    await save({ slot: freeSlot, name: null, sceneId: scene.id });
+    const composition = choices[0];
+    if (freeSlot === null || !composition) return;
+    await save({ slot: freeSlot, name: null, compositionId: composition.id });
     notify(`Fader ${freeSlot} added – it appears in show mode`);
   }
 
@@ -58,25 +57,25 @@
 <section class="faders">
   <h3>Faders</h3>
   <p class="hint dim">
-    A fader plays a scene at the level it is pushed to, over the cue list – e.g. the house lights or a work light.
-    It sits under GO in show mode. Usually the scene is one “only for extra keys”.
+    A fader plays a composition at the level it is pushed to, over the cue list – e.g. the house lights or a work
+    light. It sits under GO in show mode.
   </p>
   {#each faders as fader (fader.slot)}
     <div class="row">
       <span class="slot mono">{fader.slot}</span>
-      <input class="name" value={fader.name ?? ''} placeholder="Scene name" aria-label="Name of fader {fader.slot}"
+      <input class="name" value={fader.name ?? ''} placeholder="Composition name" aria-label="Name of fader {fader.slot}"
         onchange={(e) => save({ ...fader, name: (e.currentTarget as HTMLInputElement).value })} />
-      <select value={fader.sceneId} aria-label="Scene of fader {fader.slot}"
-        onchange={(e) => save({ ...fader, sceneId: Number((e.currentTarget as HTMLSelectElement).value) })}>
-        {#each choices as scene (scene.id)}
-          <option value={scene.id}>{scene.number} {scene.name}{scene.outsideCueList ? ' (not in cue list)' : ''}</option>
+      <select value={fader.compositionId} aria-label="Composition of fader {fader.slot}"
+        onchange={(e) => save({ ...fader, compositionId: Number((e.currentTarget as HTMLSelectElement).value) })}>
+        {#each choices as composition (composition.id)}
+          <option value={composition.id}>{composition.name}</option>
         {/each}
       </select>
       <button type="button" class="btn small ghost" onclick={() => remove(fader.slot)}
         aria-label="Remove fader {fader.slot}">✕</button>
     </div>
   {/each}
-  <button type="button" class="btn small" onclick={add} disabled={freeSlot === null || scenes.length === 0}>
+  <button type="button" class="btn small" onclick={add} disabled={freeSlot === null || compositions.length === 0}>
     + Fader
   </button>
 </section>

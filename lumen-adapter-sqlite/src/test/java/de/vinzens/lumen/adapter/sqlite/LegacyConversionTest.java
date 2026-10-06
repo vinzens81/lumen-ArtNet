@@ -30,8 +30,8 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * A database of the model before iteration S (schema V18 with scenes, compositions and extra keys) is migrated to V19
- * and converted at startup.
+ * A database of the model before iteration S (schema V18 with scenes, compositions and extra keys) is migrated and
+ * converted at startup; so is a converted database with faders playing scenes outside the cue list (schema V20).
  */
 class LegacyConversionTest {
 
@@ -54,10 +54,14 @@ class LegacyConversionTest {
 
 		assertThat(reports).containsOnlyKeys(1L);
 		var scenes = repos.scenes().findByProject(1);
-		assertThat(scenes).extracting(s -> s.spec().name()).containsExactly("Dawn", "Fair", "Storm look");
+		assertThat(scenes).as("the scene only for keys is gone").extracting(s -> s.spec().name())
+				.containsExactly("Dawn", "Fair");
 		var dawn = scenes.get(0);
 		var fair = scenes.get(1);
-		assertThat(scenes.get(2).spec().outsideCueList()).as("was only for keys").isTrue();
+		assertThat(repos.faders().findByProject(1)).singleElement().satisfies(fader -> {
+			assertThat(fader.name()).contains("Storm look");
+			assertThat(composition(repos, fader.compositionId()).spec().name()).isEqualTo("3 Storm look");
+		});
 
 		var dawnLook = composition(repos, dawn.compositions().getFirst().compositionId());
 		assertThat(dawnLook.spec().name()).isEqualTo("1 Dawn");
@@ -91,24 +95,47 @@ class LegacyConversionTest {
 				.as("converted only once").isEmpty();
 	}
 
+	@Test
+	void faderOfAConvertedShowPlaysTheFirstCompositionOfItsScene() {
+		var file = dir.resolve("lumen.db");
+		var jdbc = migrateTo(file, "20");
+		sql(jdbc, "INSERT INTO project (id, name, active, created_at, updated_at) VALUES (1, 'Show', 1, '"
+				+ Instant.EPOCH + "', '" + Instant.EPOCH + "')");
+		sql(jdbc, "INSERT INTO composition (id, project_id, name, fade_ms, hold_ms, play_mode, intensity_mode) VALUES "
+				+ "(1, 1, 'Dawn', 0, 1000, 'loop', 'absolute'), (2, 1, 'House full', 0, 1000, 'loop', 'absolute'), "
+				+ "(3, 1, 'Glow', 0, 1000, 'loop', 'absolute')");
+		sql(jdbc, "INSERT INTO scene (id, project_id, number, name, outside_cue_list) VALUES (1, 1, '1', 'Dawn', 0), "
+				+ "(50, 1, '50', 'House', 1), (51, 1, '51', 'Empty', 1)");
+		sql(jdbc, "INSERT INTO scene_composition (scene_id, composition_id, position, level, speed_factor, restart) "
+				+ "VALUES (1, 1, 0, 1, 1, 0), (50, 3, 1, 1, 1, 0), (50, 2, 0, 1, 1, 0)");
+		sql(jdbc, "INSERT INTO fader (project_id, slot, name, scene_id) VALUES (1, 1, NULL, 50), (1, 2, 'Own', 51)");
+
+		var repos = new SqliteRepositories(SqliteDatabase.open(file));
+
+		assertThat(repos.scenes().findByProject(1)).extracting(s -> s.spec().name()).containsExactly("Dawn");
+		assertThat(repos.faders().findByProject(1)).as("a fader of an empty scene is gone").singleElement()
+				.satisfies(fader -> {
+					assertThat(fader.slot()).isEqualTo(1);
+					assertThat(fader.name()).contains("House");
+					assertThat(fader.compositionId()).isEqualTo(2);
+				});
+		assertThat(repos.compositions().findByProject(1)).as("compositions stay").hasSize(3);
+		assertThat(repos.legacyShows().pendingProjects()).isEmpty();
+	}
+
 	private static Composition composition(SqliteRepositories repos, long id) {
 		return repos.compositions().findById(id).orElseThrow();
 	}
 
 	private static LegacyMigrationService migration(SqliteRepositories repos) {
 		return new LegacyMigrationService(repos.legacyShows(), repos.projects(), repos.fixtures(), repos.groups(),
-				repos.looks(), repos.compositions(), repos.scenes(), library(),
+				repos.looks(), repos.compositions(), repos.scenes(), repos.faders(), library(),
 				Clock.fixed(Instant.parse("2026-10-06T12:00:00Z"), ZoneOffset.UTC));
 	}
 
 	/** Scenes 1 and 2 of the cue list, scene 3 only for keys; a chase, a step sequence and two extra keys. */
 	private static void oldShow(Path file) {
-		var config = new SQLiteConfig();
-		config.enforceForeignKeys(true);
-		var dataSource = new SQLiteDataSource(config);
-		dataSource.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
-		Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target("18").load().migrate();
-		var jdbc = JdbcClient.create(dataSource);
+		var jdbc = migrateTo(file, "18");
 		sql(jdbc, "INSERT INTO project (id, name, active, created_at, updated_at) VALUES (1, 'Show', 1, '"
 				+ Instant.EPOCH + "', '" + Instant.EPOCH + "')");
 		sql(jdbc, "INSERT INTO universe (id, project_id, number, target) VALUES (1, 1, 1, 'broadcast')");
@@ -139,6 +166,16 @@ class LegacyConversionTest {
 		sql(jdbc, "INSERT INTO extra_key_scene (project_id, key_slot, scene_id, key_mode, key_fade_ms) "
 				+ "VALUES (1, 2, 3, 'toggle', 500)");
 		sql(jdbc, "INSERT INTO scene_extra_key (scene_id, key_slot) VALUES (1, 1), (2, 1), (2, 2)");
+		sql(jdbc, "INSERT INTO fader (project_id, slot, name, scene_id) VALUES (1, 1, NULL, 3)");
+	}
+
+	private static JdbcClient migrateTo(Path file, String version) {
+		var config = new SQLiteConfig();
+		config.enforceForeignKeys(true);
+		var dataSource = new SQLiteDataSource(config);
+		dataSource.setUrl("jdbc:sqlite:" + file.toAbsolutePath());
+		Flyway.configure().dataSource(dataSource).locations("classpath:db/migration").target(version).load().migrate();
+		return JdbcClient.create(dataSource);
 	}
 
 	private static void sql(JdbcClient jdbc, String statement) {

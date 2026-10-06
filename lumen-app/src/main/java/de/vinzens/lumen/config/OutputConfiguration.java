@@ -131,10 +131,10 @@ class OutputConfiguration {
 	}
 
 	@Bean
-	PartyService partyService(SqliteRepositories repositories, OutputEngine outputEngine, Clock clock,
-			StateEvents stateEvents) {
-		var party = new PartyService(repositories.projects(), repositories.partyButtons(), outputEngine, clock,
-				stateEvents);
+	PartyService partyService(SqliteRepositories repositories, CompositionResolver compositionResolver,
+			OutputEngine outputEngine, Clock clock, StateEvents stateEvents) {
+		var party = new PartyService(repositories.projects(), repositories.partyMatrices(), compositionResolver,
+				outputEngine, clock, stateEvents);
 		outputEngine.addLayerSource(party);
 		return party;
 	}

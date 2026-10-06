@@ -9,7 +9,6 @@ import de.vinzens.lumen.domain.composition.CompositionMixer;
 import de.vinzens.lumen.domain.composition.ExtraKeys.PlayableKey;
 import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.Faders.PlayableFader;
-import de.vinzens.lumen.domain.composition.Faders.SceneLook;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.look.Look;
@@ -65,14 +64,26 @@ public class CompositionResolver {
 		return result;
 	}
 
-	/** Faders ready to play; a fader whose scene no longer exists is left out. */
-	public List<PlayableFader> faders(List<Fader> faders) {
+	/** Faders ready to play; a fader whose composition no longer exists is left out. */
+	public List<PlayableFader> faders(long projectId, List<Fader> faders) {
+		var project = load(projectId);
 		var result = new ArrayList<PlayableFader>();
 		for (var fader : faders) {
-			scenes.findById(fader.sceneId()).ifPresent(scene -> result.add(new PlayableFader(fader.slot(),
-					fader.name().orElse(scene.spec().name()),
-					new SceneLook(scene.id(), load(scene.projectId()).compositionsOf(scene)))));
+			var composition = project.compositions().get(fader.compositionId());
+			if (composition != null) {
+				result.add(new PlayableFader(fader.slot(), fader.name().orElse(composition.spec().name()),
+						ActiveComposition.of(composition, project.looks())));
+			}
 		}
+		return result;
+	}
+
+	/** Every composition of the project on its own, at full level and speed, by id. */
+	public Map<Long, ActiveComposition> compositions(long projectId) {
+		var project = load(projectId);
+		var result = new HashMap<Long, ActiveComposition>();
+		project.compositions().forEach((id, composition) ->
+				result.put(id, ActiveComposition.of(composition, project.looks())));
 		return result;
 	}
 

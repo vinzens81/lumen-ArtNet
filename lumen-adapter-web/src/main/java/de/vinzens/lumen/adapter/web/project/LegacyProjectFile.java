@@ -7,7 +7,6 @@ import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.FaderEntry;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.FixtureEntry;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.GroupEntry;
-import de.vinzens.lumen.adapter.web.project.ProjectFile.PartyButtonEntry;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.PresetEntry;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.StagePlanEntry;
 import de.vinzens.lumen.adapter.web.project.ProjectFile.UniverseEntry;
@@ -21,6 +20,7 @@ import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.look.Look;
+import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.project.StagePlan;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import tools.jackson.databind.JsonNode;
@@ -47,7 +47,7 @@ import static de.vinzens.lumen.adapter.web.project.ProjectFile.fixtureValues;
 record LegacyProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups,
 		List<SceneEntry> scenes, StagePlanEntry stagePlan, List<CompositionEntry> compositions,
-		List<ExtraKeyEntry> extraKeys, List<PartyButtonEntry> partyButtons, List<PresetEntry> presets,
+		List<ExtraKeyEntry> extraKeys, List<PresetEntry> presets,
 		List<FaderEntry> faders) {
 
 	ProjectExport toExport(JsonMapper json) {
@@ -83,10 +83,11 @@ record LegacyProjectFile(String format, Integer version, Instant exportedAt, Pro
 				List.of(), List.of(), List.of(),
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
 						plan.data() == null ? new byte[0] : plan.data())),
-				list(partyButtons).stream().map(PartyButtonEntry::toButton).toList(),
+				PartyMatrix.EMPTY,
 				list(presets).stream().map(PresetEntry::toPreset).toList(),
-				list(faders).stream().map(f -> f.toFader(sceneIds)).toList(),
-				new LegacyShow(legacyScenes, legacyCompositions, keys, sceneKeys));
+				List.of(),
+				new LegacyShow(legacyScenes, legacyCompositions, keys, sceneKeys,
+						list(faders).stream().map(f -> f.toLegacyFader(sceneIds)).toList()));
 	}
 
 	/**
@@ -100,8 +101,9 @@ record LegacyProjectFile(String format, Integer version, Instant exportedAt, Pro
 			Map<Long, Map<String, Long>> presets, List<Integer> extraKeys) {
 
 		LegacyScene toScene(long id) {
-			return new LegacyScene(id, ProjectFile.sceneSpec(number, name, cueNote, autoFollowMs, keyOnly, fadeInMs,
-					fadeOutMs, delayMs, fadeCurve, script), new Look(fixtureValues(values), PresetRefsJson.fromJson(presets)));
+			return new LegacyScene(id, ProjectFile.sceneSpec(number, name, cueNote, autoFollowMs, fadeInMs,
+					fadeOutMs, delayMs, fadeCurve, script), new Look(fixtureValues(values), PresetRefsJson.fromJson(presets)),
+					Boolean.TRUE.equals(keyOnly));
 		}
 	}
 

@@ -20,7 +20,7 @@ public final class SqliteRepositories {
 	private final SqlitePlaybackStateRepository playbackStates;
 	private final SqliteStagePlanRepository stagePlans;
 	private final SqliteCompositionRepository compositions;
-	private final SqlitePartyButtonRepository partyButtons;
+	private final SqlitePartyMatrixRepository partyMatrices;
 	private final SqlitePresetRepository presets;
 	private final SqliteFaderRepository faders;
 	private final SqliteExpectedNodeRepository expectedNodes;
@@ -42,7 +42,7 @@ public final class SqliteRepositories {
 		this.playbackStates = new SqlitePlaybackStateRepository(jdbc);
 		this.stagePlans = new SqliteStagePlanRepository(jdbc);
 		this.compositions = new SqliteCompositionRepository(jdbc, transactions);
-		this.partyButtons = new SqlitePartyButtonRepository(jdbc, transactions);
+		this.partyMatrices = new SqlitePartyMatrixRepository(jdbc, transactions);
 		this.presets = new SqlitePresetRepository(jdbc, transactions);
 		this.faders = new SqliteFaderRepository(jdbc);
 		this.expectedNodes = new SqliteExpectedNodeRepository(jdbc);
@@ -110,7 +110,7 @@ public final class SqliteRepositories {
 		return presets;
 	}
 
-	public SqlitePartyButtonRepository partyButtons() {
-		return partyButtons;
+	public SqlitePartyMatrixRepository partyMatrices() {
+		return partyMatrices;
 	}
 }

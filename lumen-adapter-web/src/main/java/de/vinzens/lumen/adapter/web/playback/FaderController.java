@@ -17,7 +17,7 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Which scene each fader of the show plays, e.g. the house lights. The levels are set through the playback.
+ * Which composition each fader of the show plays, e.g. the house lights. The levels are set through the playback.
  */
 @RestController
 @RequestMapping("/api/projects/{projectId}/faders")
@@ -36,11 +36,11 @@ class FaderController {
 
 	@PutMapping("/{slot}")
 	FaderResponse save(@PathVariable long projectId, @PathVariable int slot, @RequestBody FaderRequest request) {
-		if (request.sceneId() == null) {
-			throw new DomainValidationException(List.of("sceneId is missing"));
+		if (request.compositionId() == null) {
+			throw new DomainValidationException(List.of("compositionId is missing"));
 		}
 		return FaderResponse.from(faders.save(projectId, new Fader(slot, Optional.ofNullable(request.name()),
-				request.sceneId())));
+				request.compositionId())));
 	}
 
 	@DeleteMapping("/{slot}")
@@ -49,14 +49,14 @@ class FaderController {
 		faders.delete(projectId, slot);
 	}
 
-	/** @param name shown on the fader, {@code null} = the scene's name */
-	record FaderRequest(String name, Long sceneId) {
+	/** @param name shown on the fader, {@code null} = the composition's name */
+	record FaderRequest(String name, Long compositionId) {
 	}
 
-	record FaderResponse(int slot, String name, long sceneId) {
+	record FaderResponse(int slot, String name, long compositionId) {
 
 		static FaderResponse from(Fader fader) {
-			return new FaderResponse(fader.slot(), fader.name().orElse(null), fader.sceneId());
+			return new FaderResponse(fader.slot(), fader.name().orElse(null), fader.compositionId());
 		}
 	}
 }

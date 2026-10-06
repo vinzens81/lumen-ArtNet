@@ -15,7 +15,7 @@
   import LooksView from './views/LooksView.svelte';
   import CuePrintView from './views/CuePrintView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
-  import PartyButtonsView from './views/PartyButtonsView.svelte';
+  import PartyMatrixView from './views/PartyMatrixView.svelte';
   import PartyView from './views/PartyView.svelte';
   import PatchView from './views/PatchView.svelte';
   import ProgrammerView from './views/ProgrammerView.svelte';
@@ -37,7 +37,7 @@
     { route: '/setup/looks', label: 'Looks' },
     { route: '/setup/compositions', label: 'Compositions' },
     { route: '/setup/scenes', label: 'Scenes' },
-    { route: '/setup/party', label: 'Party', experimental: true },
+    { route: '/setup/party', label: 'Party' },
     { route: '/setup/dmx', label: 'DMX' },
     { route: '/setup/settings', label: 'Settings' },
   ];
@@ -264,8 +264,8 @@
         title={blocked('show') ? 'Back to setup first, then start show mode' : ''}
         onclick={() => switchTo('show')}>Show</button>
       <button type="button" class:on={pageMode === 'party'} disabled={blocked('party')}
-        title={blocked('party') ? 'Back to setup first, then start party mode' : 'Experimental – may change a lot'}
-        onclick={() => switchTo('party')}>Party<sup class="exp">exp</sup></button>
+        title={blocked('party') ? 'Back to setup first, then start party mode' : 'Switch scenes and compositions live from the party matrix'}
+        onclick={() => switchTo('party')}>Party</button>
     </div>
   </header>
 
@@ -293,7 +293,7 @@
     {:else if router.route === '/setup/settings'}
       <SettingsView />
     {:else if router.route === '/setup/party'}
-      <PartyButtonsView />
+      <PartyMatrixView />
     {:else if router.route === '/party'}
       <PartyView />
     {:else}
@@ -311,7 +311,7 @@
 
 <Modal bind:open={leaveOpen} title="Leave {pageMode} mode?">
   <p>
-    {pageMode === 'show' ? 'The playback keeps its place.' : 'The party look is kept for later.'}
+    {pageMode === 'show' ? 'The playback keeps its place.' : 'Fields that are on stay on for later.'}
     In setup mode the programmer is unlocked again and can change the light on stage.
   </p>
   {#snippet actions()}

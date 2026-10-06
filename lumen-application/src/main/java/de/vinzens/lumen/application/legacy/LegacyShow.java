@@ -20,21 +20,23 @@ import java.util.Set;
  * {@link LegacyConverter}.
  *
  * @param sceneKeys the slots of the extra keys usable per scene id
+ * @param faders    faders, which played a scene
  */
 public record LegacyShow(List<LegacyScene> scenes, List<LegacyComposition> compositions, List<LegacyKey> keys,
-		Map<Long, Set<Integer>> sceneKeys) {
+		Map<Long, Set<Integer>> sceneKeys, List<LegacyFader> faders) {
 
-	public static final LegacyShow EMPTY = new LegacyShow(List.of(), List.of(), List.of(), Map.of());
+	public static final LegacyShow EMPTY = new LegacyShow(List.of(), List.of(), List.of(), Map.of(), List.of());
 
 	public LegacyShow {
 		scenes = List.copyOf(scenes);
 		compositions = List.copyOf(compositions);
 		keys = List.copyOf(keys);
 		sceneKeys = Map.copyOf(sceneKeys);
+		faders = List.copyOf(faders);
 	}
 
-	/** @param spec with {@code outsideCueList} set for scenes that were only played by extra keys */
-	public record LegacyScene(long id, SceneSpec spec, Look look) {
+	/** @param outsideCueList only played by extra keys or a fader, skipped by GO */
+	public record LegacyScene(long id, SceneSpec spec, Look look, boolean outsideCueList) {
 
 		public LegacyScene {
 			Objects.requireNonNull(spec, "spec");
@@ -57,6 +59,14 @@ public record LegacyShow(List<LegacyScene> scenes, List<LegacyComposition> compo
 			Objects.requireNonNull(name, "name");
 			Objects.requireNonNull(pattern, "pattern");
 			Objects.requireNonNull(target, "target");
+		}
+	}
+
+	/** A fader as it was before it played a composition: it played a whole scene. */
+	public record LegacyFader(int slot, Optional<String> name, long sceneId) {
+
+		public LegacyFader {
+			Objects.requireNonNull(name, "name");
 		}
 	}
 

@@ -24,18 +24,17 @@ public interface ManageScenesUseCase {
 	 * Creates a scene. It takes over the keys of the scene before it in the cue list.
 	 *
 	 * @param number               the cue number, or empty for the next whole number after the last scene
-	 * @param outsideCueList       GO skips the scene (played by a fader)
 	 * @param timing               fade times of the GO into the scene
 	 * @param script               text spoken on stage during the scene, empty if none
 	 * @param recordFromProgrammer the quick way: the programmer becomes a look and a composition with one step,
 	 *                             which is the scene's first composition (active project only)
 	 */
 	Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean outsideCueList, SceneTiming timing, String script,
+			Optional<Duration> autoFollow, SceneTiming timing, String script,
 			boolean recordFromProgrammer);
 
 	Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean outsideCueList, SceneTiming timing, String script);
+			Optional<Duration> autoFollow, SceneTiming timing, String script);
 
 	/**
 	 * Copies a scene: the copy uses the same compositions (shared, so they continue seamlessly) and the same keys.

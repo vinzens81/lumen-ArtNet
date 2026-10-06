@@ -111,10 +111,11 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		for (int i = 0; i < steps.size(); i++) {
 			var step = steps.get(i);
 			jdbc.sql("""
-					INSERT INTO composition_step (composition_id, step_index, look_id, fade_ms, hold_ms)
-					VALUES (?, ?, ?, ?, ?)""")
+					INSERT INTO composition_step (composition_id, step_index, look_id, fade_ms, hold_ms, parallel)
+					VALUES (?, ?, ?, ?, ?, ?)""")
 					.params(id, i, step.lookId(), step.fadeSeconds().map(SqliteCompositionRepository::millis)
-							.orElse(null), step.holdSeconds().map(SqliteCompositionRepository::millis).orElse(null))
+							.orElse(null), step.holdSeconds().map(SqliteCompositionRepository::millis).orElse(null),
+							step.parallel() ? 1 : 0)
 					.update();
 		}
 	}
@@ -124,7 +125,8 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		jdbc.sql("SELECT * FROM composition_step WHERE " + where + " ORDER BY composition_id, step_index")
 				.param(param).query(rs -> {
 					result.computeIfAbsent(rs.getLong("composition_id"), id -> new ArrayList<>()).add(
-							new CompositionStep(rs.getLong("look_id"), seconds(rs, "fade_ms"), seconds(rs, "hold_ms")));
+							new CompositionStep(rs.getLong("look_id"), seconds(rs, "fade_ms"), seconds(rs, "hold_ms"),
+									rs.getInt("parallel") != 0));
 				});
 		return result;
 	}

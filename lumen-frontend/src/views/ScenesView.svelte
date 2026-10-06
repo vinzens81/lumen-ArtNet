@@ -39,7 +39,6 @@
     cueNote: '',
     autoFollow: false,
     autoFollowSeconds: 5,
-    outsideCueList: false,
     // empty (null) = the project's time
     fadeInSeconds: null as number | null,
     fadeOutSeconds: null as number | null,
@@ -63,9 +62,9 @@
   });
   /** the scene GO comes from in the show – a rehearsed fade starts there */
   const previousScene = $derived.by(() => {
-    if (!selected || selected.outsideCueList) return null;
-    const index = cueScenes.indexOf(selected);
-    return index > 0 ? cueScenes[index - 1] : null;
+    if (!selected) return null;
+    const index = scenes.indexOf(selected);
+    return index > 0 ? scenes[index - 1] : null;
   });
 
   // progress of a rehearsed fade, interpolated from the moment the status arrived
@@ -82,9 +81,6 @@
     });
     return () => cancelAnimationFrame(frame);
   });
-  /** the cue list played by GO, and the scenes outside it (played by faders) */
-  const cueScenes = $derived(scenes.filter((s) => !s.outsideCueList));
-  const keyScenes = $derived(scenes.filter((s) => s.outsideCueList));
   const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
   const looksById = $derived(lookMap(looks));
   /** the look of a simple scene: its first composition plays one look – “Update from programmer” changes it */
@@ -164,7 +160,6 @@
       cueNote: scene.cueNote ?? '',
       autoFollow: scene.autoFollowMs !== null,
       autoFollowSeconds: scene.autoFollowMs !== null ? scene.autoFollowMs / 1000 : 5,
-      outsideCueList: scene.outsideCueList,
       fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
       fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
@@ -185,7 +180,6 @@
         name: form.name,
         cueNote: form.cueNote || null,
         autoFollowMs: form.autoFollow ? Math.round(form.autoFollowSeconds * 1000) : null,
-        outsideCueList: form.outsideCueList,
         fadeInMs: secondsToMs(form.fadeInSeconds),
         fadeOutMs: secondsToMs(form.fadeOutSeconds),
         delayMs: secondsToMs(form.delaySeconds),
@@ -220,10 +214,9 @@
     }
   }
 
-  /** A free number right after the scene, among the scenes of its list; null (with an error shown) if none fits. */
+  /** A free number right after the scene; null (with an error shown) if none fits. */
   function numberAfter(scene: Scene): string | null {
-    const list = scene.outsideCueList ? keyScenes : cueScenes;
-    const next = list[list.indexOf(scene) + 1];
+    const next = scenes[scenes.indexOf(scene) + 1];
     const number = numberBetween(scene.number, next?.number ?? null);
     if (number === null) {
       showError(new Error(`No free scene number after ${scene.number} – renumber the next scene first`));
@@ -242,10 +235,9 @@
     try {
       const scene = await api.scenes.create(project.id, {
         number,
-        name: selected?.outsideCueList ? 'House lights' : 'Blackout',
+        name: 'Blackout',
         cueNote: null,
         autoFollowMs: null,
-        outsideCueList: selected?.outsideCueList ?? false,
       });
       await load(project.id);
       select(scene);
@@ -284,7 +276,7 @@
 
   function moveDrag(event: PointerEvent) {
     if (!drag || !listElement) return;
-    const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row:not(.key-row)')];
+    const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row')];
     // position among the other scenes: count rows (except the dragged one) whose middle is above the pointer
     let to = 0;
     rows.forEach((row, i) => {
@@ -306,14 +298,13 @@
     if (!event.altKey || (event.key !== 'ArrowUp' && event.key !== 'ArrowDown')) return;
     event.preventDefault();
     const to = index + (event.key === 'ArrowUp' ? -1 : 1);
-    if (to >= 0 && to < cueScenes.length) moveTo(scene.id, to);
+    if (to >= 0 && to < scenes.length) moveTo(scene.id, to);
   }
 
   async function moveTo(sceneId: number, to: number) {
     const scene = scenes.find((s) => s.id === sceneId);
     if (!project || !scene) return;
-    // only among the cue list; scenes for extra keys keep their numbers
-    const others = cueScenes.filter((s) => s.id !== sceneId).map((s) => s.number);
+    const others = scenes.filter((s) => s.id !== sceneId).map((s) => s.number);
     const number = numberAt(others, to);
     if (number === null) {
       showError(new Error('No free scene number at that place – renumber a neighbor first'));
@@ -393,17 +384,17 @@
                 {used.map((c) => compositionIcon(c)).join(' ')}
               </span>
             {/if}
-            {#if scene.keys.length > 0 && !scene.outsideCueList}
+            {#if scene.keys.length > 0}
               <span class="badge" title="Keys {scene.keys.map((k) => k.slot).join(', ')}">⌨ {scene.keys.length}</span>
             {/if}
-            {#if scene.script && !scene.outsideCueList}
+            {#if scene.script}
               <span class="badge" title="Has a script">📜</span>
             {/if}
-            {#if timingLabel(scene) && !scene.outsideCueList}
+            {#if timingLabel(scene)}
               <span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>
             {/if}
             {#if scene.autoFollowMs !== null}
-              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{!scene.outsideCueList && i === cueScenes.length - 1 ? ' (last – ignored)' : ''}</span>
+              <span class="badge accent" title="Continues automatically">⟳ {scene.autoFollowMs / 1000} s{i === scenes.length - 1 ? ' (last – ignored)' : ''}</span>
             {/if}
           {/snippet}
 
@@ -449,11 +440,17 @@
         {#if scenes.length === 0}
           <div class="empty">
             <h2>No scenes yet</h2>
-            <p>Build a look in the programmer, then record it as a scene.</p>
-            <button class="btn primary" type="button" onclick={() => navigate('/setup/programmer')}>Open programmer</button>
+            <p>
+              Build a look in the programmer and record it into a composition (one step or many), then add compositions
+              to a scene. “⏺ Record scene” does all three in one go: look, composition with one step, and scene.
+            </p>
+            <div class="buttons">
+              <button class="btn primary" type="button" onclick={() => navigate('/setup/programmer')}>Open programmer</button>
+              <button class="btn" type="button" onclick={() => navigate('/setup/compositions')}>Open compositions</button>
+            </div>
           </div>
         {/if}
-        {#each cueScenes as scene, i (scene.id)}
+        {#each scenes as scene, i (scene.id)}
           <div class="cue-row" class:dragging={drag?.id === scene.id} class:drop-before={dropBefore(i)}>
           <button type="button" class="handle" aria-label="Move scene {scene.number} (drag, or Alt+↑/↓)"
             title="Drag to move – the scene gets a number between its new neighbors"
@@ -465,21 +462,9 @@
           </button>
           </div>
         {/each}
-        {#if drag && drag.to !== drag.from && drag.to === cueScenes.length - 1}<div class="drop-end"></div>{/if}
-        {#if keyScenes.length > 0}
-          <h3 class="key-scenes-head" title="GO skips these scenes – faders play them">Not in the cue list</h3>
-          {#each keyScenes as scene, i (scene.id)}
-            <div class="cue-row key-row">
-              <span class="handle-space" aria-hidden="true"></span>
-              <button type="button" class="cue" class:selected={scene.id === selectedId}
-                class:on-stage={stagePreview.status.sceneId === scene.id} onclick={() => select(scene)}>
-                {@render cueContent(scene, i)}
-              </button>
-            </div>
-          {/each}
-        {/if}
+        {#if drag && drag.to !== drag.from && drag.to === scenes.length - 1}<div class="drop-end"></div>{/if}
         {#if projectId !== null}
-          <FadersPanel {projectId} {scenes} />
+          <FadersPanel {projectId} {compositions} />
         {/if}
       </div>
 
@@ -487,13 +472,12 @@
         {#if !selected}
           <p class="dim">Select a scene to edit it.</p>
         {:else}
-          <form onsubmit={(e) => { e.preventDefault(); save(); }}>
+          <form id="scene-form" onsubmit={(e) => { e.preventDefault(); save(); }}>
             <div class="row">
               <label class="field number-field">Number<input bind:value={form.number} required inputmode="decimal" /></label>
               <label class="field">Name<input bind:value={form.name} required /></label>
             </div>
             <label class="field">Cue note<input bind:value={form.cueNote} placeholder="When to press GO" /></label>
-            {#if !form.outsideCueList}
               <label class="field">Script
                 <textarea bind:value={form.script} rows="8"
                   placeholder={'Text spoken on stage during this scene.\n**Enter Juliet** – stage directions in two asterisks.'}
@@ -507,7 +491,6 @@
                 {/if}
                 In show mode ↑/↓ step through the sentences; <span class="mono">**text**</span> is skipped.
               </p>
-            {/if}
             <label class="check">
               <input type="checkbox" bind:checked={form.autoFollow} />
               Continue automatically after
@@ -515,7 +498,6 @@
                 disabled={!form.autoFollow} /> s
             </label>
             <p class="hint dim">The time starts when the fade-in has finished. Without it the scene stays until GO.</p>
-            {#if !form.outsideCueList}
               <fieldset class="timing">
                 <legend>Fade times of the GO into this scene</legend>
                 <label>In <input class="seconds" type="number" min="0" max="600" step="0.1"
@@ -535,12 +517,6 @@
                 Empty = the project's time. “Out” fades the scene before, “Delay” holds back the fade-in – e.g. In 0 and
                 Out 0 for a flash.
               </p>
-            {/if}
-            <label class="check">
-              <input type="checkbox" bind:checked={form.outsideCueList} />
-              Not in the cue list <span class="hint dim">(GO skips this scene – e.g. house lights on a fader)</span>
-            </label>
-            <button class="btn primary" type="submit">Save</button>
           </form>
 
           <section>
@@ -554,13 +530,11 @@
                 <button class="btn" type="button" onclick={() => projectId !== null && stagePreview.showScene(projectId, selected.id)}
                   title="Play the scene with its compositions on stage, above the playback">▶ Show on stage</button>
               {/if}
-              {#if !selected.outsideCueList}
-                <button class="btn" type="button"
-                  onclick={() => projectId !== null && selected && stagePreview.rehearseFade(projectId, selected.id)}
-                  title="Play the GO into this scene on stage: from {previousScene ? `scene ${previousScene.number}` : 'the dark stage'} with the fade times of the show">
-                  ⇢ Rehearse fade
-                </button>
-              {/if}
+              <button class="btn" type="button"
+                onclick={() => projectId !== null && selected && stagePreview.rehearseFade(projectId, selected.id)}
+                title="Play the GO into this scene on stage: from {previousScene ? `scene ${previousScene.number}` : 'the dark stage'} with the fade times of the show">
+                ⇢ Rehearse fade
+              </button>
               <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)}
                 disabled={!programmerHasValues || !canQuickUpdate}
                 title={canQuickUpdate
@@ -618,16 +592,16 @@
 
           {#if projectId !== null}
             <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes} />
-            {#if !selected.outsideCueList}
-              <SceneKeys {projectId} scene={selected} {compositions} />
-            {/if}
+            <SceneKeys {projectId} scene={selected} {compositions} />
           {/if}
 
-          <section class="buttons">
+          <footer class="editor-foot">
             <button class="btn small" type="button" onclick={duplicate}
               title="A new scene right after this one with the same compositions, keys, fade times and script">⧉ Duplicate</button>
             <button class="btn small danger" type="button" onclick={() => (deleteOpen = true)}>Delete scene</button>
-          </section>
+            <button class="btn primary save" type="submit" form="scene-form"
+              title="Saves number, name, cue note, script, auto-follow and fade times">Save</button>
+          </footer>
         {/if}
       </aside>
     </div>
@@ -731,8 +705,8 @@
 
   .layout {
     display: grid;
-    /* half for the list, half for the selected scene – the editor has far more content */
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    /* a narrow list, most of the room for the selected scene: script, compositions, keys */
+    grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
     gap: 12px;
     align-items: start;
   }
@@ -797,19 +771,6 @@
   .drop-end {
     position: relative;
     top: 0;
-  }
-
-  .key-scenes-head {
-    margin: 18px 10px 6px;
-    font-size: 11px;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--text-dim);
-  }
-
-  .handle-space {
-    flex: none;
-    width: 26px;
   }
 
   .handle {
@@ -928,6 +889,26 @@
     flex-direction: column;
     gap: 16px;
     padding: 16px;
+  }
+
+  /* always reachable at the bottom of the scrolling editor */
+  .editor-foot {
+    position: sticky;
+    bottom: -16px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    margin: 0 -16px -16px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border);
+    background: var(--panel-solid);
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+
+  .editor-foot .save {
+    margin-left: auto;
+    min-width: 120px;
   }
 
   .editor form {

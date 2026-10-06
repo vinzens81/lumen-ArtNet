@@ -2,12 +2,15 @@
   import { api } from '../lib/api';
   import { modesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
-  import { channelOwners, fixtureHue, UNIVERSE_SIZE } from '../lib/patch';
+  import { channelOwners, fixtureHue, patchedChannels, UNIVERSE_SIZE } from '../lib/patch';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import type { Fixture, Universe } from '../lib/types';
 
-  /** embedded in the show view: without page heading, inside the show's panel */
+  /**
+   * embedded in the show view: without page heading, inside the show's panel, and compact – only the channels
+   * fixtures use, of all universes one below the other
+   */
   let { embedded = false }: { embedded?: boolean } = $props();
 
   let universes = $state<Universe[]>([]);
@@ -24,6 +27,8 @@
   );
   const values = $derived(universeNumber !== null ? live.dmx[universeNumber] : undefined);
   const active = $derived(values ? values.filter((v) => v > 0).length : 0);
+  const patchedByUniverse = $derived(new Map(universes.map((u) => [u.id,
+    patchedChannels(fixtures.filter((f) => f.universeId === u.id), modes)])));
 
   $effect(() => {
     void live.patchRevision;
@@ -31,6 +36,10 @@
   });
 
   $effect(() => {
+    if (embedded) {
+      const stops = universes.map((u) => live.watch(`dmx:${u.number}`));
+      return () => stops.forEach((stop) => stop());
+    }
     if (universeNumber !== null) return live.watch(`dmx:${universeNumber}`);
   });
 
@@ -65,7 +74,7 @@
       </div>
     {/if}
     <div class="controls">
-      {#if universes.length > 0}
+      {#if universes.length > 0 && !embedded}
         <label class="field">Universe
           <select bind:value={universeNumber}>
             {#each universes as u (u.id)}
@@ -75,7 +84,9 @@
         </label>
       {/if}
       <label class="toggle"><input type="checkbox" bind:checked={percent} /> Percent</label>
-      <label class="toggle"><input type="checkbox" bind:checked={onlyPatched} /> Patched only</label>
+      {#if !embedded}
+        <label class="toggle"><input type="checkbox" bind:checked={onlyPatched} /> Patched only</label>
+      {/if}
     </div>
   </header>
 
@@ -83,6 +94,34 @@
     <div class="glass empty">Activate a project to see its output.</div>
   {:else if universes.length === 0}
     <div class="glass empty">This project has no universes yet.</div>
+  {:else if embedded}
+    <div class="compact">
+      {#each universes as u (u.id)}
+        {@const universeValues = live.dmx[u.number]}
+        <section class="universe" aria-label="DMX values of {u.displayName}">
+          <h4>{u.displayName}</h4>
+          {#each patchedByUniverse.get(u.id) ?? [] as entry (entry.fixture.id)}
+            <div class="fixture-row">
+              <span class="fixture-name" title={entry.fixture.name}>
+                {entry.fixture.name} <span class="mono dim">{entry.fixture.address}</span>
+              </span>
+              <div class="cells">
+                {#each entry.channels as c (c.channel)}
+                  {@const value = universeValues?.[c.channel - 1] ?? 0}
+                  <div class="cell patched" style="--level: {value / 255}; --hue: {fixtureHue(entry.fixture.id)}"
+                    title="Channel {c.channel}: {value} ({Math.round((value / 255) * 100)} %) · {c.name}">
+                    <span class="channel">{c.name}</span>
+                    <span class="value mono">{show(value)}</span>
+                  </div>
+                {/each}
+              </div>
+            </div>
+          {:else}
+            <p class="small dim">No fixtures patched.</p>
+          {/each}
+        </section>
+      {/each}
+    </div>
   {:else}
     <div class="panel" class:glass={!embedded}>
       <p class="small dim">
@@ -217,6 +256,54 @@
   .channel {
     font-size: 8px;
     color: var(--text-faint);
+  }
+
+  .compact {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .universe {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .universe h4 {
+    margin: 0 0 2px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .fixture-row {
+    display: grid;
+    grid-template-columns: minmax(90px, 160px) minmax(0, 1fr);
+    gap: 8px;
+    align-items: center;
+  }
+
+  .fixture-name {
+    overflow: hidden;
+    font-size: 12px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .cells {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+    gap: 2px;
+  }
+
+  .cells .channel {
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    padding: 0 2px;
   }
 
   .value {

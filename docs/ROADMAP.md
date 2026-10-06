@@ -351,6 +351,24 @@ Geprüft: Umwandlung einer echten Datenbank (Schema V12) und der Testdatenbank, 
 Composition aus dem Programmer und einem erzeugten Regenbogen gebaut, Regenbogen auf Taste 1, im Show-Modus GO und
 Taste – die DMX-Werte zeigen den Regenbogen über der Szene. Mit echter Hardware noch nicht gespielt.
 
+## ✅ Iteration CR – Change Requests nach Iteration S (2026-10-06) 🛠️
+- **Parallele Schritte:** Schritte einer Composition können zusammen starten („Start“: Begin / with … / after …).
+  Sie bilden eine Zeile mit gemeinsamer Fade-/Hold-Zeit und stehen im Editor nebeneinander. Flyway `V20`
+- **Fader spielen Compositions**, „not in cue list“ entfällt: bestehende Fader spielen die erste Composition ihrer
+  Szene, Szenen außerhalb der Cue-Liste sind entfernt (Flyway `V21`, ebenso die Umwandlung alter Projekte und der
+  Import von Export-Dateien der Version 1 und 2). Export Version 3
+- **Programmer:** Fixture-Liste statt Kacheln (lange Namen lesbar), das Steuer-Panel bekommt den meisten Platz und
+  ordnet seine Abschnitte in Spalten an
+- **Scenes:** Hinweis auf den Weg über Compositions, „Save“ unten im Editor, Liste 30 % / Editor 70 %
+- **Show:** Fortschritt als Stapel (davor, jetzt, nächste, übernächste kleiner und eingerückt, „+ n more“), die acht
+  Tastenplätze sind immer reserviert, der DMX-Tab zeigt nur belegte Kanäle aller Universen, nach Fixture gruppiert
+- **Party-Modus neu als Matrix** (ersetzt Paletten, Tap-Tempo und Party-Buttons): Felder mit Szene, Composition oder
+  Text, Beschriftung, Füll- und Rahmenfarbe, Toggle/Flash, Gruppen (nur ein Feld an), höherer Wert gewinnt,
+  Trennlinien zwischen Zeilen. Flyway `V22`, siehe [PARTY-MODE.md](PARTY-MODE.md)
+
+**DoD:** `./build.sh` grün. Geprüft im Browser (Testserver): Composition mit parallelen Schritten, Start umstellen,
+Szenen-Editor, Programmer-Liste, Party-Matrix einrichten und im Party-Modus schalten, Show-Stapel und DMX-Tab.
+
 ## ⬜ Iteration M – MIDI-Controller 🎛️ (optional, ab Iteration 7 jederzeit möglich)
 Konzept: [MIDI.md](MIDI.md)
 - Modul `lumen-adapter-midi` mit `javax.sound.midi`: Geräteerkennung, Hotplug, Eingangs-Events
@@ -390,7 +408,7 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
   Zeiten fett), Auto-Follow, laufende Kompositionen, freigeschaltete Extra-Tasten, Abhak-Kästchen; darunter die
   Extra-Tasten. PDF über „Als PDF sichern“ im Druckdialog statt einer PDF-Bibliothek im Server
 
-## 🧪 Iteration 11+ – Party-Modus 🪩 (experimentell, zurückgestellt)
+## 🧪 Iteration 11+ – Party-Modus 🪩 (Schritt 1 ersetzt durch die Party-Matrix, siehe Iteration CR)
 Konzept und Entscheidungen: [PARTY-MODE.md](PARTY-MODE.md). Schritt 1 ist da und im UI als „experimental“ markiert,
 überzeugt aber noch nicht. Zurückgestellt (2026-10-05): vor dem Weiterbauen wird die Bedienung neu überlegt.
 Grob in Teilschritten:

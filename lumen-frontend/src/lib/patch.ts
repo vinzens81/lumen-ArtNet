@@ -109,3 +109,22 @@ export function channelOwners(fixtures: Fixture[], modes: Map<number, Mode>): (C
   }
   return owners;
 }
+
+/** The DMX channels a fixture occupies (1-based), with their names. */
+export interface PatchedChannels {
+  fixture: Fixture;
+  channels: { channel: number; name: string }[];
+}
+
+/** Only the channels fixtures use, grouped by fixture in address order – for a compact monitor. */
+export function patchedChannels(fixtures: Fixture[], modes: Map<number, Mode>): PatchedChannels[] {
+  const owners = channelOwners(fixtures, modes);
+  const byFixture = new Map<number, PatchedChannels>();
+  owners.forEach((owner, index) => {
+    if (!owner) return;
+    const entry = byFixture.get(owner.fixture.id) ?? { fixture: owner.fixture, channels: [] };
+    entry.channels.push({ channel: index + 1, name: owner.channel });
+    byFixture.set(owner.fixture.id, entry);
+  });
+  return [...byFixture.values()].sort((a, b) => a.fixture.address - b.fixture.address);
+}

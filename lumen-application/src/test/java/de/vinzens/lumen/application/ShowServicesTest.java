@@ -183,7 +183,7 @@ class ShowServicesTest {
 
 	private Scene create(String number, boolean record) {
 		return scenes.create(1, Optional.of(SceneNumber.parse(number)), "Scene", Optional.empty(), Optional.empty(),
-				false, SceneTiming.DEFAULT, "", record);
+				SceneTiming.DEFAULT, "", record);
 	}
 
 	private static Look lit(long fixtureId, double level) {

@@ -32,9 +32,8 @@ export function cueRows(
   scenes: Scene[],
   compositions: Composition[],
 ): CueRow[] {
-  const cues = scenes.filter((s) => !s.outsideCueList);
   const names = new Map(compositions.map((c) => [c.id, c.name]));
-  return cues.map((scene, index) => ({
+  return scenes.map((scene, index) => ({
     sceneId: scene.id,
     number: scene.number,
     name: scene.name,
@@ -42,7 +41,7 @@ export function cueRows(
     fadeIn: { ms: scene.fadeInMs ?? project.fadeInMs, own: scene.fadeInMs !== null },
     fadeOut: { ms: scene.fadeOutMs ?? project.fadeOutMs, own: scene.fadeOutMs !== null },
     delayMs: scene.delayMs,
-    autoFollowMs: index < cues.length - 1 ? scene.autoFollowMs : null,
+    autoFollowMs: index < scenes.length - 1 ? scene.autoFollowMs : null,
     compositions: scene.compositions.map((use) => names.get(use.compositionId) ?? '?'),
     keys: [...scene.keys]
       .sort((a, b) => a.slot - b.slot)

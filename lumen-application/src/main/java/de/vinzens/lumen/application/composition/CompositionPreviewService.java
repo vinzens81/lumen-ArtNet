@@ -131,10 +131,6 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		var target = scenes.findById(sceneId).filter(s -> s.projectId() == projectId)
 				.orElseThrow(() -> new NotFoundException("Scene " + sceneId + " does not exist in project "
 						+ projectId));
-		if (target.spec().outsideCueList()) {
-			throw new ConflictException("Scene " + target.spec().number()
-					+ " is not in the cue list – it has no fade from a previous scene");
-		}
 		var previous = previousInCueList(projectId, target);
 		var cueList = previous.map(p -> List.of(p, target)).orElse(List.of(target));
 		var playback = new Playback(cueList, resolver.scenes(projectId), project.spec().fadeIn(),
@@ -152,7 +148,6 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	/** The scene GO comes from in the show: the one before in the cue list, empty for the first (dark stage). */
 	private Optional<Scene> previousInCueList(long projectId, Scene target) {
 		return scenes.findByProject(projectId).stream()
-				.filter(scene -> !scene.spec().outsideCueList())
 				.filter(scene -> scene.spec().number().compareTo(target.spec().number()) < 0)
 				.reduce((first, second) -> second);
 	}

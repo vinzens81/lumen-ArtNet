@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { channelOwners, locateValues, nextFreeAddress, numberedNames, occupancy, plannedFixtures } from './patch';
+import { channelOwners, locateValues, patchedChannels, nextFreeAddress, numberedNames, occupancy, plannedFixtures } from './patch';
 import type { Channel, Fixture, Mode } from './types';
 
 function fixture(id: number, address: number, channelCount: number | null): Fixture {
@@ -102,6 +102,17 @@ describe('channelOwners', () => {
     expect(owners[10]?.channel).toBe('Pan fine');
     expect(owners[11]?.channel).toBe('Dimmer');
     expect(owners[12]).toBeNull();
+  });
+
+  it('lists only the channels fixtures use, by fixture in address order', () => {
+    const channel = (name: string, offset: number) => ({ name, offset, dmxChannelCount: 1 }) as Channel;
+    const mode: Mode = { name: '2ch', dmxChannelCount: 2, heads: 0, channels: [channel('Dimmer', 0), channel('Red', 1)] };
+    const modes = new Map<number, Mode>([[1, mode], [2, mode]]);
+
+    const result = patchedChannels([fixture(1, 300, 2), fixture(2, 5, 2)], modes);
+
+    expect(result.map((r) => r.fixture.id)).toEqual([2, 1]);
+    expect(result[1].channels).toEqual([{ channel: 300, name: 'Dimmer' }, { channel: 301, name: 'Red' }]);
   });
 });
 

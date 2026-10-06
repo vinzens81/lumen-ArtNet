@@ -23,6 +23,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class CompositionTest {
 
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
+	private static final Attribute RED = Attribute.of(ChannelFunction.RED);
 	private static final Map<Long, Look> LOOKS = Map.of(
 			1L, Look.of(Map.of(5L, new FixtureValues(Map.of(DIMMER, 1.0)))),
 			2L, Look.of(Map.of(6L, new FixtureValues(Map.of(DIMMER, 0.5)))));
@@ -40,6 +41,38 @@ class CompositionTest {
 		assertThat(sequence.playMode()).isEqualTo(StepSequence.PlayMode.PING_PONG);
 		assertThat(sequence.intensityMode()).isEqualTo(IntensityMode.RELATIVE);
 		assertThat(sequence.ownFixtures()).contains(List.of(5L, 6L));
+	}
+
+	@Test
+	void parallelStepsPlayTogetherInOneRowWithTheTimesOfItsFirstStep() {
+		var looks = Map.of(
+				1L, Look.of(Map.of(5L, new FixtureValues(Map.of(DIMMER, 1.0, RED, 1.0)))),
+				2L, Look.of(Map.of(5L, new FixtureValues(Map.of(DIMMER, 0.4, RED, 0.2)),
+						6L, new FixtureValues(Map.of(DIMMER, 0.5)))),
+				3L, Look.of(Map.of(7L, new FixtureValues(Map.of(DIMMER, 1.0)))));
+		var composition = new Composition(9, 1, CompositionSpec.of("Parallel"), List.of(
+				new CompositionStep(1, Optional.of(0.5), Optional.of(4.0)), CompositionStep.parallelOf(2),
+				CompositionStep.of(3)));
+
+		var sequence = composition.sequence(looks);
+
+		assertThat(composition.rows()).hasSize(2);
+		assertThat(sequence.steps()).hasSize(2);
+		var first = sequence.steps().getFirst();
+		assertThat(first.fadeSeconds()).isEqualTo(0.5);
+		assertThat(first.holdSeconds()).isEqualTo(4.0);
+		assertThat(first.values()).containsOnlyKeys(5L, 6L);
+		assertThat(first.values().get(5L).get(DIMMER)).as("intensity HTP").contains(1.0);
+		assertThat(first.values().get(5L).get(RED)).as("colour from the later step").contains(0.2);
+		assertThat(sequence.steps().get(1).values()).containsOnlyKeys(7L);
+	}
+
+	@Test
+	void aParallelStepHasNoTimesOfItsOwnAndCannotComeFirst() {
+		assertThatThrownBy(() -> new CompositionStep(1, Optional.of(1.0), Optional.empty(), true))
+				.hasMessageContaining("parallel");
+		assertThatThrownBy(() -> new Composition(9, 1, CompositionSpec.of("Bad"),
+				List.of(CompositionStep.parallelOf(1)))).hasMessageContaining("first step");
 	}
 
 	@Test

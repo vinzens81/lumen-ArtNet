@@ -19,16 +19,17 @@ public class SqliteFaderRepository implements FaderRepository {
 	public List<Fader> findByProject(long projectId) {
 		return jdbc.sql("SELECT * FROM fader WHERE project_id = ? ORDER BY slot").param(projectId)
 				.query((rs, rowNum) -> new Fader(rs.getInt("slot"), Optional.ofNullable(rs.getString("name")),
-						rs.getLong("scene_id")))
+						rs.getLong("composition_id")))
 				.list();
 	}
 
 	@Override
 	public Fader save(long projectId, Fader fader) {
 		jdbc.sql("""
-				INSERT INTO fader (project_id, slot, name, scene_id) VALUES (?, ?, ?, ?)
-				ON CONFLICT (project_id, slot) DO UPDATE SET name = excluded.name, scene_id = excluded.scene_id""")
-				.params(projectId, fader.slot(), fader.name().orElse(null), fader.sceneId())
+				INSERT INTO fader (project_id, slot, name, composition_id) VALUES (?, ?, ?, ?)
+				ON CONFLICT (project_id, slot) DO UPDATE SET name = excluded.name,
+				    composition_id = excluded.composition_id""")
+				.params(projectId, fader.slot(), fader.name().orElse(null), fader.compositionId())
 				.update();
 		return fader;
 	}

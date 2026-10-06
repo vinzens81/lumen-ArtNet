@@ -1,6 +1,7 @@
 package de.vinzens.lumen.application.legacy;
 
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyComposition;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyFader;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyKey;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyScene;
 import de.vinzens.lumen.application.project.ShowContent;
@@ -137,7 +138,7 @@ class LegacyConverterTest {
 		var stormKey = new LegacyKey(1, KeyMode.FLASH, Duration.ofSeconds(1), Optional.of(storm), Optional.empty());
 		var sceneKey = new LegacyKey(2, KeyMode.TOGGLE, Duration.ZERO, Optional.empty(), Optional.of(9L));
 		var keyScene = new LegacyScene(9, new SceneSpec(SceneNumber.of(9), "Police", Optional.empty(),
-				Optional.empty(), true), Look.of(Map.of(4L, values(1))));
+				Optional.empty()), Look.of(Map.of(4L, values(1))), true);
 		var siren = composition(21, Optional.of(9L), Optional.empty(), "Siren", CHASE);
 		var show = show(List.of(scene(1, "1", Map.of()), scene(2, "2", Map.of()), keyScene), List.of(siren),
 				List.of(stormKey, sceneKey), Map.of(1L, Set.of(1, 2), 2L, Set.of(1)));
@@ -154,6 +155,29 @@ class LegacyConverterTest {
 		assertThat(keys.get(9L)).as("not in the cue list: no keys").isEmpty();
 		assertThat(result.report()).anySatisfy(line -> assertThat(line).contains("Key 1", "full level"));
 		assertThat(result.report()).anySatisfy(line -> assertThat(line).contains("Key 2", "free keys"));
+		assertThat(result.content().removedScenes()).as("outside the cue list").containsExactly(9L);
+	}
+
+	@Test
+	void aFaderPlaysTheFirstCompositionOfItsScene() {
+		var house = new LegacyScene(50, new SceneSpec(SceneNumber.of(50), "House", Optional.empty(),
+				Optional.empty()), Look.of(Map.of(4L, values(1))), true);
+		var siren = composition(21, Optional.of(50L), Optional.empty(), "Siren", CHASE);
+		var empty = new LegacyScene(51, new SceneSpec(SceneNumber.of(51), "Empty", Optional.empty(),
+				Optional.empty()), Look.EMPTY, true);
+		var show = new LegacyShow(List.of(scene(1, "1", Map.of()), house, empty), List.of(siren), List.of(), Map.of(),
+				List.of(new LegacyFader(1, Optional.empty(), 50), new LegacyFader(2, Optional.of("Work"), 51)));
+
+		var result = convert(show);
+
+		assertThat(result.content().faders()).singleElement().satisfies(fader -> {
+			assertThat(fader.slot()).isEqualTo(1);
+			assertThat(fader.name()).contains("House");
+			assertThat(fader.compositionId()).isEqualTo(uses(result.content(), 50).getFirst().compositionId());
+		});
+		assertThat(result.content().removedScenes()).containsExactlyInAnyOrder(50L, 51L);
+		assertThat(result.report()).anySatisfy(line -> assertThat(line).contains("Fader 1", "only"));
+		assertThat(result.report()).anySatisfy(line -> assertThat(line).contains("Fader 2", "left out"));
 	}
 
 	private static LegacyConverter.Result convert(LegacyShow show) {
@@ -162,14 +186,14 @@ class LegacyConverterTest {
 
 	private static LegacyShow show(List<LegacyScene> scenes, List<LegacyComposition> compositions,
 			List<LegacyKey> keys, Map<Long, Set<Integer>> sceneKeys) {
-		return new LegacyShow(scenes, compositions, keys, sceneKeys);
+		return new LegacyShow(scenes, compositions, keys, sceneKeys, List.of());
 	}
 
 	private static LegacyScene scene(long id, String number, Map<Long, Double> dimmers) {
 		var values = new HashMap<Long, FixtureValues>();
 		dimmers.forEach((fixtureId, level) -> values.put(fixtureId, values(level)));
 		return new LegacyScene(id, new SceneSpec(SceneNumber.parse(number), "Scene " + number, Optional.empty(),
-				Optional.empty()), Look.of(values));
+				Optional.empty()), Look.of(values), false);
 	}
 
 	private static FixtureValues values(double dimmer) {

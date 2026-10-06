@@ -65,8 +65,7 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene create(long projectId, Optional<SceneNumber> number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean outsideCueList, SceneTiming timing, String script,
-			boolean recordFromProgrammer) {
+			Optional<Duration> autoFollow, SceneTiming timing, String script, boolean recordFromProgrammer) {
 		if (recordFromProgrammer) {
 			requireActive(projectId);
 		} else {
@@ -77,7 +76,7 @@ public class SceneService implements ManageScenesUseCase {
 				? SceneNumber.of(1)
 				: existing.getLast().spec().number().nextWhole());
 		requireFreeNumber(existing, sceneNumber, null);
-		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, outsideCueList, timing, script);
+		var spec = new SceneSpec(sceneNumber, name, cueNote, autoFollow, timing, script);
 		var content = recordFromProgrammer
 				? List.of(SceneComposition.of(recordedComposition(projectId, spec.name())))
 				: List.<SceneComposition>of();
@@ -95,13 +94,9 @@ public class SceneService implements ManageScenesUseCase {
 		return composition.id();
 	}
 
-	/** A new scene of the cue list takes the keys of the scene before it, so inserting a scene keeps e.g. a storm key. */
+	/** A new scene takes the keys of the scene before it, so inserting a scene keeps e.g. a storm key. */
 	private static List<SceneKey> inheritedKeys(List<Scene> existing, SceneSpec created) {
-		if (created.outsideCueList()) {
-			return List.of();
-		}
 		return existing.stream()
-				.filter(scene -> !scene.spec().outsideCueList())
 				.filter(scene -> scene.spec().number().compareTo(created.number()) < 0)
 				.reduce((first, second) -> second)
 				.map(Scene::keys)
@@ -110,11 +105,11 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene update(long projectId, long sceneId, SceneNumber number, String name, Optional<String> cueNote,
-			Optional<Duration> autoFollow, boolean outsideCueList, SceneTiming timing, String script) {
+			Optional<Duration> autoFollow, SceneTiming timing, String script) {
 		requireScene(projectId, sceneId);
 		requireFreeNumber(scenes.findByProject(projectId), number, sceneId);
 		return published(scenes.updateSpec(sceneId,
-				new SceneSpec(number, name, cueNote, autoFollow, outsideCueList, timing, script)));
+				new SceneSpec(number, name, cueNote, autoFollow, timing, script)));
 	}
 
 	@Override
@@ -125,7 +120,7 @@ public class SceneService implements ManageScenesUseCase {
 		requireFreeNumber(existing, sceneNumber, null);
 		var spec = original.spec();
 		return published(scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
-				spec.autoFollow(), spec.outsideCueList(), spec.timing(), spec.script()), original.compositions(),
+				spec.autoFollow(), spec.timing(), spec.script()), original.compositions(),
 				original.keys()));
 	}
 
@@ -140,9 +135,6 @@ public class SceneService implements ManageScenesUseCase {
 	@Override
 	public Scene setKeys(long projectId, long sceneId, List<SceneKey> keys) {
 		var scene = requireScene(projectId, sceneId);
-		if (scene.spec().outsideCueList() && !keys.isEmpty()) {
-			throw new DomainValidationException(List.of("a scene outside the cue list has no keys"));
-		}
 		requireCompositions(projectId, keys.stream().map(SceneKey::compositionId));
 		new Scene(scene.id(), projectId, scene.spec(), scene.compositions(), keys); // validates
 		return published(scenes.replaceKeys(sceneId, keys));

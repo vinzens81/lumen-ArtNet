@@ -2,6 +2,7 @@ import type {
   AttributeValues,
   ChaseParams,
   Composition,
+  CompositionStep,
   EffectKind,
   EffectParams,
   Fixture,
@@ -72,9 +73,56 @@ export function stepTimes(composition: Pick<Composition, 'fadeMs' | 'holdMs'>, s
   return { fadeMs: step.fadeMs ?? composition.fadeMs, holdMs: step.holdMs ?? composition.holdMs };
 }
 
-/** Time once through all steps (ping-pong: there and back). */
+/** Step indexes grouped into rows: a parallel step joins the row of the step before it. */
+export function stepRows(steps: Pick<CompositionStep, 'parallel'>[]): number[][] {
+  const rows: number[][] = [];
+  steps.forEach((step, i) => {
+    if (step.parallel && rows.length > 0) rows[rows.length - 1].push(i);
+    else rows.push([i]);
+  });
+  return rows;
+}
+
+/** The rows' first steps: they carry the times of their row. */
+export function rowLeaders<T extends Pick<CompositionStep, 'parallel'>>(steps: T[]): T[] {
+  return stepRows(steps).map((row) => steps[row[0]]);
+}
+
+/** Where a step starts: together with a row (row 0 = at the begin), or in a new row right after a row. */
+export type StepStart = { with: number } | { after: number };
+
+/** The start of the step at the index, as the editor shows it. */
+export function startOf(steps: Pick<CompositionStep, 'parallel'>[], index: number): StepStart {
+  const rows = stepRows(steps);
+  const row = rows.findIndex((r) => r.includes(index));
+  return steps[index].parallel || row === 0 ? { with: row } : { after: row - 1 };
+}
+
+/**
+ * Moves a step to start with a row or after a row (rows as before the move). The first step of every row is not
+ * parallel and keeps its times; the others lose theirs, they play with the times of their row.
+ */
+export function moveStart<T extends CompositionStep>(steps: T[], index: number, start: StepStart): T[] {
+  const rows = stepRows(steps).map((row) => row.map((i) => steps[i]));
+  const moving = steps[index];
+  const targetRow = 'with' in start ? start.with : start.after;
+  const anchor = rows[targetRow];
+  if (!anchor) return steps;
+  const remaining = rows.map((row) => row.filter((s) => s !== moving));
+  const target = remaining[targetRow];
+  if ('with' in start) {
+    target.push(moving);
+  } else {
+    remaining.splice(targetRow + 1, 0, [moving]);
+  }
+  return remaining.filter((row) => row.length > 0).flatMap((row) => row.map((step, i) => (i === 0
+    ? { ...step, parallel: false }
+    : { ...step, parallel: true, fadeMs: null, holdMs: null })));
+}
+
+/** Time once through all steps (ping-pong: there and back); parallel steps take the time of their row. */
 export function cycleMs(composition: Pick<Composition, 'fadeMs' | 'holdMs' | 'steps' | 'playMode'>): number {
-  const durations = composition.steps.map((step) => {
+  const durations = rowLeaders(composition.steps).map((step) => {
     const t = stepTimes(composition, step);
     return t.fadeMs + t.holdMs;
   });
@@ -100,7 +148,8 @@ export function isFast(composition: Pick<Composition, 'generator' | 'steps' | 'f
   }
   if (generator?.kind === 'flicker') return (generator.params as { character?: string }).character === 'broken_tube';
   if (generator) return false;
-  return composition.steps.length > 1 && composition.steps.some((step) => {
+  const leaders = rowLeaders(composition.steps);
+  return leaders.length > 1 && leaders.some((step) => {
     const t = stepTimes(composition, step);
     return (t.fadeMs + t.holdMs) / speed < 333;
   });
@@ -172,10 +221,10 @@ export function sceneStartValues(
   const result: Record<number, AttributeValues> = {};
   for (const use of scene.compositions) {
     const composition = compositions.get(use.compositionId);
-    const first = composition?.steps[0];
-    const values = first ? looks.get(first.lookId)?.values ?? {} : {};
-    if (composition?.intensityMode === 'relative') continue;
-    for (const [id, fixtureValues] of Object.entries(values)) {
+    if (!composition || composition.intensityMode === 'relative') continue;
+    const firstRow = (stepRows(composition.steps)[0] ?? []).map((i) => composition.steps[i]);
+    const entries = firstRow.flatMap((step) => Object.entries(looks.get(step.lookId)?.values ?? {}));
+    for (const [id, fixtureValues] of entries) {
       const own: AttributeValues = { ...(result[Number(id)] ?? {}) };
       for (const [attribute, value] of Object.entries(fixtureValues)) {
         own[attribute] = attribute.replace(/@\d+$/, '') === 'dimmer'

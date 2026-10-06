@@ -1,31 +1,43 @@
-# Party-Modus (Zukunft)
+# Party-Modus
 
-> **Status: experimentell, vorerst zurückgestellt (2026-10-05).** Schritt 1 ist umgesetzt und im UI als
-> „experimental“ markiert, gefällt so aber noch nicht. Die Bedienung wird vor dem Weiterbauen neu überlegt;
-> bis dahin bleibt der Stand, wie er ist (siehe [ROADMAP.md](ROADMAP.md), Iteration 11).
+> **Status: umgesetzt als Party-Matrix (2026-10-06).** Der erste Versuch (Tap-Tempo, Farbpaletten, Intensität pro
+> Gruppe, Party-Buttons aus dem Programmer) ist komplett ersetzt; seine Tabellen sind mit Flyway `V22` entfernt.
+> Ab „Theater vs. Party“ steht die ursprüngliche Ideensammlung, sie ist nicht umgesetzt.
 
 Der Theater-Modus spielt eine **feste Szenenliste** per GO ab. Der Party-Modus ist das Gegenteil: **Live-Lichtsteuerung**
-ohne Ablauf, wie an einem klassischen Lichtpult bei Konzerten oder in der Disco („Busking“). Spontan, rhythmisch
-und effektlastig.
+ohne Ablauf – man schaltet vorbereitete Szenen und Compositions frei an und aus.
 
-## Entscheidungen (2026-10-05) und Umfang von Schritt 1
+## Die Matrix
 
-| Thema | Entscheidung |
-|---|---|
-| Modus | **Dritter Betriebsmodus „Party“** neben Setup und Show, Server-Zustand wie die Show: alle Browser wechseln mit, der Programmer wird geleert und gesperrt, ein PIN sperrt beim Start alle Browser, zurück nur mit Freigabe. Show und Party werden nur aus dem Setup gestartet, ein direkter Wechsel zwischen beiden ist nicht möglich. Das Theater-Playback bleibt erhalten, gibt im Party-Modus aber nichts aus |
-| Farben | **10 fest eingebaute Farbpaletten**: Red, Amber, Yellow, Green, Cyan, Blue, Magenta, UV, Warm white, White. Keine eigenen Farbpaletten (übersichtlich) |
-| Eigene Buttons | **Party-Buttons** pro Projekt: im Setup-Tab „Party“ aus dem Programmer aufgenommen (wie Szenen), also beliebige Kanäle wie Gobo, Prisma, Strobe, Rohkanäle. Toggle oder Flash (solange gedrückt) |
-| Gerät | Zuerst **Web-Ansicht auf dem Laptop** (Maus und Tastatur), Tablet später |
-| Tempo | **Tap-Tempo** (Button und Taste `T`), BPM-Anzeige und Beat-Anzeiger; Mikrofon später |
+- Pro Projekt eine **Matrix** aus Zeilen × Spalten (je 1–12, Standard 4 × 4), eingerichtet im Setup-Reiter „Party“.
+- Jedes **Feld** ist leer, ein **Text** (nur Beschriftung, z.B. eine Überschrift „Farben“), eine **Szene** (spielt alle
+  ihre Compositions, ohne Fades und Tasten) oder eine **Composition**.
+- Pro Feld: **Beschriftung** (leer = Name dessen, was es spielt), **Füllfarbe**, eigene **Rahmenfarbe**, **Toggle**
+  (an/aus) oder **Flash** (an, solange gedrückt) und optional eine **Gruppe**.
+- **Gruppen:** Von den Feldern einer Gruppe ist höchstens eines an – schaltet man Rot ein, geht Blau aus. Alles ohne
+  Gruppe läuft beliebig parallel.
+- **Kollisionen:** Setzen mehrere Felder dasselbe Attribut eines Fixtures, gewinnt der **höhere Wert** – für alle
+  Attribute, nicht nur die Intensität.
+- **Trennlinien** zwischen Zeilen gliedern die Matrix optisch (im Editor: Klick zwischen zwei Zeilen).
+- Jedes Feld spielt seine Compositions ab dem Moment, in dem es angeht. Grand Master und Blackout wirken wie immer.
 
-Schritt 1 umfasst Modus, Tempo, Paletten, Intensität pro Gruppe und Party-Buttons. Effekte im Takt (Kompositionen mit
-BPM-Kopplung), Executors und Speed-Master folgen in den nächsten Schritten.
+## Verhalten
 
-**Wie die Ausgabe entsteht:** Die Party-Ebene (Priorität 60, über dem Playback) hält pro Fixture eine Farbe und eine
-Intensität. Eine Palette setzt die passenden Kanäle des Geräts: RGB, dazu Weiß (Weißanteil), Amber und UV, wo
-vorhanden; Geräte nur mit Farbrad bekommen das Fach mit der ähnlichsten Farbe. Tippt man eine Farbe auf dunkle
-Geräte, gehen sie auf 100 %. Aktive Party-Buttons liegen darüber: ihre Werte gewinnen (zuletzt gedrückter zuerst),
-nur die Intensität mischt HTP.
+- Dritter Betriebsmodus „Party“ wie bisher: Server-Zustand, alle Browser wechseln mit, der Programmer ist gesperrt,
+  das Theater-Playback bleibt stehen und gibt nichts aus. Party-Ebene mit Priorität 60 über dem Playback.
+- Felder bleiben an, wenn man den Modus wechselt; ein anderes Projekt beginnt mit allen Feldern aus. Ändert man die
+  Matrix, bleibt ein Feld an, solange es an derselben Stelle dasselbe spielt.
+- Wird eine Szene oder Composition gelöscht, wird ihr Feld zum Textfeld.
+- „All off“ schaltet alles aus.
+
+## Umsetzung
+
+- Domain: `PartyMatrix`, `PartyCell`, `PartySwitchboard` (an/aus, Gruppen, Ausgabe mit Maximum pro Attribut).
+- Anwendung: `PartyService` (Steuerung und Ausgabe-Ebene), `PartyMatrixService` (Einrichten, prüft Verweise).
+- REST: `GET/PUT /api/projects/{id}/party-matrix` (immer die ganze Matrix), `GET /api/party`,
+  `POST /api/party/cells/{row}/{column}/press|release`, `POST /api/party/clear`; WebSocket `party` (welche Felder an
+  sind) und `partyMatrix`. Die Matrix reist im Projekt-Export mit (Version 3; Szenen über ihre Nummer).
+- Flyway `V22`: `party_matrix`, `party_cell`.
 
 ## Theater vs. Party
 

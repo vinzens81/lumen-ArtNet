@@ -10,6 +10,7 @@
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
   import { parseScript, stepLine } from '../lib/script';
+  import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
@@ -61,7 +62,7 @@
   const current = $derived(status?.currentSceneId != null ? byId.get(status.currentSceneId) : undefined);
   const next = $derived(status?.nextSceneId != null ? byId.get(status.nextSceneId) : undefined);
   const resumeScene = $derived(status?.resumeSceneId != null ? byId.get(status.resumeSceneId) : undefined);
-  const outgoing = $derived(status?.fade?.fromSceneId != null ? byId.get(status.fade.fromSceneId) : undefined);
+  const stack = $derived(showStack(scenes, status));
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
 
@@ -97,8 +98,7 @@
       Promise.all([api.scenes.list(projectId), api.fixtures.list(projectId), api.compositions.list(projectId),
         api.looks.list(projectId)])
         .then(([sceneList, fixtureList, compositionList, lookList]) => {
-          // scenes for faders are not part of the cue list
-          scenes = sceneList.filter((scene) => !scene.outsideCueList);
+          scenes = sceneList;
           fixtures = fixtureList;
           compositions = compositionList;
           looks = lookList;
@@ -334,54 +334,87 @@
         </div>
       </article>
     {/if}
-    <article class="panel glass now-panel">
-      <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
-      {#if current}
-        <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
-      {:else if atEnd}
-        <div class="big dim">End of show</div>
-      {:else}
-        <div class="big dim">Ready – stage is dark</div>
-      {/if}
-      <!-- always rendered, so the panel keeps its height when a fade ends -->
-      {#if status?.fade && fadeInProgress < 1}
-        <div class="bar"><span style="width: {fadeInProgress * 100}%"></span></div>
-        {#if delayLeft > 0}
-          <div class="dim small mono">Fade in starts in {seconds(delayLeft)}</div>
+    <ol class="progress" aria-label="Show progress">
+      <li class="step previous" class:empty={!stack.previous}>
+        {#if stack.previous}
+          {@const fadingOut = status?.fade && fadeOutProgress < 1 && status.fade.fromSceneId === stack.previous.id}
+          <article class="panel glass small-panel">
+            <h3>{fadingOut ? 'Fading out' : 'Before'}</h3>
+            <div class="medium"><span class="mono">{stack.previous.number}</span> {stack.previous.name}</div>
+            {#if fadingOut && status?.fade}
+              <div class="bar out"><span style="width: {(1 - fadeOutProgress) * 100}%"></span></div>
+              <div class="dim small mono">{seconds(Math.max(0, status.fade.fadeOutMs - elapsed))} left</div>
+            {/if}
+          </article>
         {:else}
-          <div class="dim small mono">
-            Fade in · {seconds(Math.max(0, status.fade.delayMs + status.fade.fadeInMs - elapsed))} left
-          </div>
+          <div class="placeholder dim small">{atEnd || current ? '' : 'Start of the show'}</div>
         {/if}
-      {:else if autoFollowLeft !== null}
-        <div class="bar follow"><span style="width: {(1 - autoFollowLeft / (current?.autoFollowMs ?? 1)) * 100}%"></span></div>
-        <div class="small mono follow-text">Continues automatically in {seconds(autoFollowLeft)}</div>
-      {:else}
-        <div class="bar idle"></div>
-        <div class="dim small mono">{status?.paused ? 'Paused' : 'Stays until GO'}</div>
-      {/if}
-    </article>
+      </li>
 
-    {#if status?.fade && fadeOutProgress < 1}
-      <article class="panel glass out-panel">
-        <h3>Fading out</h3>
-        <div class="medium">{outgoing ? `${outgoing.number} ${outgoing.name}` : 'Previous look'}</div>
-        <div class="bar out"><span style="width: {(1 - fadeOutProgress) * 100}%"></span></div>
-        <div class="dim small mono">{seconds(Math.max(0, status.fade.fadeOutMs - elapsed))} left</div>
-      </article>
-    {/if}
+      <li class="step now">
+        <article class="panel glass now-panel">
+          <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
+          {#if current}
+            <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
+          {:else if atEnd}
+            <div class="big dim">End of show</div>
+          {:else}
+            <div class="big dim">Ready – stage is dark</div>
+          {/if}
+          <!-- always rendered, so the panel keeps its height when a fade ends -->
+          {#if status?.fade && fadeInProgress < 1}
+            <div class="bar"><span style="width: {fadeInProgress * 100}%"></span></div>
+            {#if delayLeft > 0}
+              <div class="dim small mono">Fade in starts in {seconds(delayLeft)}</div>
+            {:else}
+              <div class="dim small mono">
+                Fade in · {seconds(Math.max(0, status.fade.delayMs + status.fade.fadeInMs - elapsed))} left
+              </div>
+            {/if}
+          {:else if autoFollowLeft !== null}
+            <div class="bar follow"><span style="width: {(1 - autoFollowLeft / (current?.autoFollowMs ?? 1)) * 100}%"></span></div>
+            <div class="small mono follow-text">Continues automatically in {seconds(autoFollowLeft)}</div>
+          {:else}
+            <div class="bar idle"></div>
+            <div class="dim small mono">{status?.paused ? 'Paused' : 'Stays until GO'}</div>
+          {/if}
+        </article>
+      </li>
 
-    <article class="panel glass next-panel">
-      <h3>Next</h3>
-      {#if next}
-        <div class="big"><span class="mono">{next.number}</span> {next.name}</div>
-        {#if next.cueNote}<div class="cue">{next.cueNote}</div>{/if}
-      {:else if status?.nextIsEnd}
-        <div class="big">End – fade to black</div>
-      {:else}
-        <div class="big dim">—</div>
+      <li class="step next">
+        <article class="panel glass next-panel">
+          <h3>Next</h3>
+          {#if stack.next?.kind === 'scene'}
+            <div class="big"><span class="mono">{stack.next.scene.number}</span> {stack.next.scene.name}</div>
+            {#if stack.next.scene.cueNote}<div class="cue">{stack.next.scene.cueNote}</div>{/if}
+          {:else if stack.next?.kind === 'end'}
+            <div class="big">End – fade to black</div>
+          {:else}
+            <div class="big dim">—</div>
+          {/if}
+        </article>
+      </li>
+
+      {#if stack.afterNext}
+        <li class="step after">
+          <article class="panel glass small-panel">
+            <h3>Then</h3>
+            {#if stack.afterNext.kind === 'scene'}
+              <div class="medium"><span class="mono">{stack.afterNext.scene.number}</span> {stack.afterNext.scene.name}</div>
+            {:else}
+              <div class="medium dim">End – fade to black</div>
+            {/if}
+          </article>
+        </li>
       {/if}
-    </article>
+
+      {#if stack.more > 0}
+        <li class="step more">
+          <div class="more-cards" aria-hidden="true"><span></span><span></span></div>
+          <span class="dim small">+ {stack.more} more {stack.more === 1 ? 'scene' : 'scenes'}</span>
+        </li>
+      {/if}
+    </ol>
 
     </div>
 
@@ -740,8 +773,124 @@
     min-height: 48px;
   }
 
-  .out-panel {
-    opacity: 0.85;
+  /* the progress of the show as a stack: the scene on stage big, before and after it smaller and indented */
+  .progress {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin: 0;
+    padding: 0 0 0 22px;
+    list-style: none;
+  }
+
+  /* the rail of the show */
+  .progress::before {
+    content: '';
+    position: absolute;
+    left: 7px;
+    top: 14px;
+    bottom: 14px;
+    width: 2px;
+    border-radius: 1px;
+    background: linear-gradient(to bottom, var(--text-faint), var(--accent) 30%, var(--border-strong) 60%,
+      transparent);
+  }
+
+  .step {
+    position: relative;
+  }
+
+  .step::before {
+    content: '';
+    position: absolute;
+    left: -20px;
+    top: 18px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid var(--border-strong);
+    background: var(--bg);
+  }
+
+  .step.previous::before {
+    border-color: var(--text-faint);
+    background: var(--text-faint);
+  }
+
+  .step.now::before {
+    left: -22px;
+    width: 14px;
+    height: 14px;
+    top: 22px;
+    border-color: var(--accent);
+    background: var(--accent);
+    box-shadow: 0 0 12px var(--accent-glow);
+  }
+
+  .step.empty::before,
+  .step.more::before {
+    display: none;
+  }
+
+  .step.previous {
+    margin-left: 18px;
+    opacity: 0.6;
+  }
+
+  .step.next {
+    margin-left: 12px;
+  }
+
+  .step.after {
+    margin-left: 28px;
+    opacity: 0.75;
+  }
+
+  .step.more {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-left: 44px;
+  }
+
+  .small-panel {
+    gap: 6px;
+    padding: 10px 14px;
+  }
+
+  .small-panel h3 {
+    font-size: 11px;
+  }
+
+  .now-panel {
+    border-color: var(--accent);
+    box-shadow: 0 0 30px var(--accent-soft);
+  }
+
+  .placeholder {
+    min-height: 20px;
+    padding: 0 4px;
+  }
+
+  /* more scenes waiting: the edges of a pile of cards */
+  .more-cards {
+    position: relative;
+    width: 34px;
+    height: 18px;
+  }
+
+  .more-cards span {
+    position: absolute;
+    inset: 0;
+    border: 1px solid var(--border-strong);
+    border-radius: 6px;
+    background: var(--panel);
+  }
+
+  .more-cards span:last-child {
+    transform: translate(5px, 5px);
+    opacity: 0.6;
   }
 
   .go {
@@ -824,7 +973,9 @@
     .list,
     .key-bar,
     .fader-bar,
-    .out-panel,
+    .step.previous,
+    .step.after,
+    .step.more,
     .controls .secondary,
     .go .hint,
     kbd {

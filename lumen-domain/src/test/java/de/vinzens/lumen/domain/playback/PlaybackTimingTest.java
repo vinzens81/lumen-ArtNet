@@ -120,7 +120,7 @@ class PlaybackTimingTest {
 		advance(1000);
 
 		var edited = new Scene(1, 1, new SceneSpec(dawn.spec().number(), "Scene 1", Optional.empty(),
-				Optional.empty(), false, timing(0, 0, 0)));
+				Optional.empty(), timing(0, 0, 0)));
 		playback.reload(List.of(edited), looks, Duration.ofSeconds(2), Duration.ofSeconds(4), now);
 
 		assertThat(dimmer(1)).isCloseTo(0.5, within(1e-9));
@@ -169,6 +169,6 @@ class PlaybackTimingTest {
 	private Scene scene(long id, SceneTiming timing, Optional<Duration> autoFollow) {
 		looks.put(id, List.of(StaticLooks.of(1000 + id, Map.of(id, new FixtureValues(Map.of(DIMMER, 1.0))))));
 		return new Scene(id, 1, new SceneSpec(SceneNumber.of((int) id), "Scene " + id, Optional.empty(), autoFollow,
-				false, timing));
+				timing));
 	}
 }

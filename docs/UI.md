@@ -77,15 +77,21 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   Intensität (setzt / skaliert das Licht darunter), Schrittliste (Look wählen, eigene Zeiten mit der Standardzeit als
   Platzhalter, Load/Update des Looks, wiederholen, umsortieren), „⏺ Record step“, gemeinsame Looks hinzufügen und
   „✦ Generate from an effect…“ (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern). Dazu Live-Vorschau, „Show on stage“
-  und „In scenes …“. Siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md).
+  und „In scenes …“. Die Schritte stehen in **Zeilen**: Schritte einer Zeile laufen parallel und stehen nebeneinander,
+  Fade/Hold gelten für die ganze Zeile. „Start“ pro Schritt: „Begin“ (erste Zeile), „with …“ (parallel zu einer Zeile)
+  oder „after …“ (neue Zeile danach); „⏺ ∥“ nimmt den Programmer als parallelen Schritt in eine Zeile auf.
+  Siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md#parallele-schritte).
+- **Party:** Editor der Party-Matrix (siehe [PARTY-MODE.md](PARTY-MODE.md)): Zeilen und Spalten (je bis 12), Feld
+  anklicken und als Text, Szene oder Composition einrichten, Beschriftung, Füll- und Rahmenfarbe, Toggle/Flash und
+  Gruppe; ein Klick zwischen zwei Zeilen zieht eine Trennlinie.
 - **DMX:** Monitor aller 512 Kanäle eines Universes, live.
 - **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
   aufnehmen. Umsortieren per Drag & Drop am Griff ⋮⋮ (oder Alt+↑/↓): Die Reihenfolge bleibt die Nummer, die gezogene
   Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
   Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
-  dazwischen), ohne Markierung am Ende. Szenen mit „Not in the cue list“ stehen unter der Cue-Liste in einem eigenen
-  Abschnitt; GO überspringt sie, gespielt werden sie von Fadern. Darunter belegt „Faders“ bis zu 8 Fader mit einer
-  Szene (z.B. Saallicht), Name optional.
+  dazwischen), ohne Markierung am Ende. Jede Szene gehört zur Cue-Liste. Darunter belegt „Faders“ bis zu 8 Fader mit
+  einer Composition (z.B. Saallicht), Name optional. Die Liste nimmt 30 % der Breite ein, der Editor 70 %; „Save“
+  steht unten im Editor und bleibt beim Scrollen sichtbar.
   Im Editor: Abschnitt **Compositions** (vorhandene hinzufügen, „⏺ From programmer“, „✦ Effect“; pro Einsatz Level,
   Tempo und „Restart at GO“; umsortieren; ein Klick auf den Namen öffnet die Composition – Änderungen gelten in allen
   Szenen) und **Keys** 1–8 (Composition, Toggle/Flash, Fade). Eine neue Szene übernimmt die Tasten der Szene davor.
@@ -99,6 +105,9 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   ([MIDI.md](MIDI.md)).
 
 ### Programmer (rechts)
+Die Fixtures stehen in der Mitte als **Liste** (Leuchtpunkt, voller Name – lange Namen brechen um –, Gerätetyp und
+Modus, Adresse, Level, bei Multi-Pixel-Geräten die Köpfe). Das Panel rechts bekommt den größten Teil der Breite
+(Gruppen : Liste : Panel ≈ 200 px : 2 : 3); seine Abschnitte stehen nebeneinander in Spalten, sobald Platz ist.
 Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte eine neue YAML:
 - RGB/RGBW → **Farbrad** + Presets + Weißanteil · `color-wheel` → **Farbknöpfe** aus den YAML-`ranges`
 - `pan`/`tilt` → **XY-Pad** · `strobe`/`shutter` → segmentierter Fader · `generic` → Fader mit Name
@@ -156,7 +165,9 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 
 - **Szenenliste** links: erledigte Szenen gedimmt, aktuelle hervorgehoben, nächste markiert.
   Antippen merkt eine Szene als *nächste* vor (Sprung), ausgelöst wird sie erst mit GO.
-- **Jetzt / Ausblendend / Nächste** mit Fortschrittsbalken und Restzeit der laufenden Fades.
+- **Fortschritt als Stapel** rechts: die Szene davor (klein, eingerückt; während des Fades „Fading out“ mit Balken),
+  **Jetzt** groß, **Next** etwas kleiner, „Then“ (die übernächste) noch kleiner und „+ n more scenes“; eine Linie mit
+  Punkten verbindet sie.
 - **Regiehinweis** der nächsten Szene groß sichtbar (das Stichwort für GO).
 - **GO-Button** riesig, auf Touch reagiert er sofort (pointerdown). Doppel-GO-Schutz über eine kurze Sperrzeit
   (konfigurierbar, z.B. 300 ms).
@@ -171,8 +182,8 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 `1`–`8` Extra-Tasten (Flash: solange gedrückt)
 
 ### DMX im Betrieb
-Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt die 512 Kanalwerte
-live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
+Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt nur die belegten
+Kanäle, nach Fixture gruppiert und alle Universen untereinander, live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
 der Browser.
 
 ### Fader (Betrieb)
@@ -181,7 +192,7 @@ sofort, unabhängig von GO; auf dem Handy sind sie ausgeblendet. Siehe [PLAYBACK
 
 ### Extra-Tasten (Betrieb)
 Unter GO liegt die Tastenleiste mit den Tasten der aktuellen Szene (Name der Composition, an/aus). Sie leuchten beim
-Ein- und Ausblenden mit. Auf dem Handy ist die Leiste ausgeblendet.
+Ein- und Ausblenden mit. Alle 8 Plätze sind immer da (unbelegte gestrichelt), damit GO und die Tasten nie springen. Auf dem Handy ist die Leiste ausgeblendet.
 
 ---
 

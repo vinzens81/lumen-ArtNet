@@ -16,7 +16,7 @@ import de.vinzens.lumen.application.project.PatchService;
 import de.vinzens.lumen.application.project.ProjectService;
 import de.vinzens.lumen.application.project.ProjectTransferService;
 import de.vinzens.lumen.application.project.StageService;
-import de.vinzens.lumen.application.party.PartyButtonService;
+import de.vinzens.lumen.application.party.PartyMatrixService;
 import de.vinzens.lumen.application.playback.FaderService;
 import de.vinzens.lumen.application.preset.PresetService;
 import de.vinzens.lumen.application.scene.SceneService;
@@ -64,7 +64,7 @@ class PersistenceConfiguration {
 			Clock clock, OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
 				repositories.groups(), repositories.looks(), repositories.compositions(), repositories.scenes(),
-				repositories.stagePlans(), repositories.partyButtons(), repositories.presets(), repositories.faders(),
+				repositories.stagePlans(), repositories.partyMatrices(), repositories.presets(), repositories.faders(),
 				library, clock, outputEngine);
 	}
 
@@ -77,7 +77,7 @@ class PersistenceConfiguration {
 			SqliteBackups backups, Clock clock) {
 		var migration = new LegacyMigrationService(repositories.legacyShows(), repositories.projects(),
 				repositories.fixtures(), repositories.groups(), repositories.looks(), repositories.compositions(),
-				repositories.scenes(), library, clock);
+				repositories.scenes(), repositories.faders(), library, clock);
 		if (!repositories.legacyShows().pendingProjects().isEmpty()) {
 			var backup = backups.create("before-looks");
 			log.info("Converting shows into looks, compositions and scenes; backup: {}", backup.name());
@@ -150,7 +150,7 @@ class PersistenceConfiguration {
 
 	@Bean
 	FaderService faderService(SqliteRepositories repositories, StateEvents stateEvents) {
-		return new FaderService(repositories.projects(), repositories.scenes(), repositories.faders(), stateEvents);
+		return new FaderService(repositories.projects(), repositories.compositions(), repositories.faders(), stateEvents);
 	}
 
 	@Bean
@@ -160,8 +160,8 @@ class PersistenceConfiguration {
 	}
 
 	@Bean
-	PartyButtonService partyButtonService(SqliteRepositories repositories, OutputEngine outputEngine,
-			StateEvents stateEvents) {
-		return new PartyButtonService(repositories.projects(), repositories.partyButtons(), outputEngine, stateEvents);
+	PartyMatrixService partyMatrixService(SqliteRepositories repositories, StateEvents stateEvents) {
+		return new PartyMatrixService(repositories.projects(), repositories.scenes(), repositories.compositions(),
+				repositories.partyMatrices(), stateEvents);
 	}
 }

@@ -49,6 +49,15 @@ Eine **Composition** ist eine Folge von 1–n Schritten. Jeder Schritt verweist 
   eine Variante gibt es „Duplicate“. Es gibt keine Kopien und keine Unterscheidung Bibliothek/Szene mehr.
 - **Pro Kopf** bei Multi-Pixel-Geräten bleibt erhalten (Werte wie `red@3` in den Looks).
 
+### Parallele Schritte
+
+Schritte können **gleichzeitig** laufen (Change Request vom 2026-10-06): Jeder Schritt hat ein „Start“ – nach dem
+Schritt davor (Standard), „Begin“ oder zusammen mit einer anderen Zeile. Gleichzeitig startende Schritte bilden eine
+**Zeile** und stehen im Editor nebeneinander. Entschieden: Eine Zeile hat **eine** Fade- und Hold-Zeit (die ihres
+ersten Schritts), damit „Start after“ eindeutig bleibt; Loop, Ping-Pong und Once laufen über die Zeilen. Gespeichert
+wird nur `composition_step.parallel` (startet mit dem Schritt davor, Flyway `V20`). Treffen sich zwei Looks einer
+Zeile auf einem Fixture, gilt für die Intensität HTP, für alles andere der spätere Schritt.
+
 Regeln innerhalb der Schritte (wie heute bei Schrittfolgen): Ein Fixture der Composition, das in einem Schritt nicht
 vorkommt oder dort keine Intensität hat, liefert in diesem Schritt Intensität 0. Mit HTP bleibt so das Grundlicht
 anderer Compositions stehen. Übrige Attribute behalten ihren letzten Wert.
@@ -92,9 +101,9 @@ Fade-Kurve, Auto-Follow und Textbuch.
   Szenen sind damit so schnell gebaut wie heute. „Update“ in der Szene aktualisiert den Look ihrer ersten
   Composition, wenn diese nur einen Schritt hat.
 - **Keine Szenen in Szenen:** Szenen auf Extra-Tasten gibt es nicht mehr.
-- **Szenen außerhalb der GO-Liste** bleiben für die **Fader** (Saallicht, Arbeitslicht): Ein Fader spielt weiterhin
-  eine ganze Szene. Solche Szenen (heute „key only“) heißen künftig „not in cue list“, GO überspringt sie, und sie
-  können nicht auf Tasten liegen.
+- **Fader** (Saallicht, Arbeitslicht) spielen eine **Composition**. Szenen außerhalb der GO-Liste gibt es nicht mehr
+  (Change Request 2026-10-06, Flyway `V21`): Ein Fader, der eine solche Szene spielte, spielt deren erste Composition,
+  die Szene wurde entfernt.
 
 ### Tasten
 
@@ -108,7 +117,7 @@ Fade-Kurve, Auto-Follow und Textbuch.
 
 ## Was gleich bleibt
 
-Programmer, Presets (verweisen jetzt aus Looks statt aus Szenen), Fader (spielen Szenen), Party-Buttons, Fade-Logik
+Programmer, Presets (verweisen jetzt aus Looks statt aus Szenen), Fader (spielen heute Compositions), Party-Modus (heute eine Matrix, siehe [PARTY-MODE.md](PARTY-MODE.md)), Fade-Logik
 und Crossfade, „Show on stage“ (für Look, Composition und Szene), Probe-Überblendung, Cue-Liste zum Drucken.
 
 ## Datenmodell (Flyway V19)
@@ -192,7 +201,7 @@ Auf einem eigenen Branch, jeder Schritt mit grünem `./build.sh`.
 | Vorlagen (Lauflicht, Regenbogen, …) | **Generatoren**, die Schritte einer normalen Composition erzeugen; keine eigene Art |
 | Composition in mehreren Szenen | **geteilt**: eine Änderung wirkt in allen Szenen; pro Einsatz nur Level, Tempo, Restart |
 | Taste beim GO | bleibt an, wenn dieselbe Composition in der neuen Szene auf einer Taste liegt |
-| Fader | spielen weiterhin eine **ganze Szene** (Szenen „not in cue list“) |
+| Fader | spielen eine **Composition** (seit 2026-10-06; vorher eine Szene „not in cue list“) |
 
 ## Umsetzung
 

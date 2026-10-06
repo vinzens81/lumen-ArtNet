@@ -2,6 +2,7 @@ package de.vinzens.lumen.adapter.sqlite;
 
 import de.vinzens.lumen.application.legacy.LegacyShow;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyComposition;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyFader;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyKey;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyScene;
 import de.vinzens.lumen.application.legacy.port.out.LegacyShowStore;
@@ -29,7 +30,8 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * Reads the show data of the model before iteration S, which migration V19 kept in the {@code legacy_*} tables.
+ * Reads the show data of the model before iteration S, which migration V19 kept in the {@code legacy_*} tables (V21
+ * added the faders and the scenes outside the cue list of projects still waiting for their conversion).
  */
 public class SqliteLegacyShowStore implements LegacyShowStore {
 
@@ -60,9 +62,17 @@ public class SqliteLegacyShowStore implements LegacyShowStore {
 	public LegacyShow load(long projectId) {
 		var looks = lookTables.load("legacy_scene", "scene_id",
 				"scene_id IN (SELECT id FROM scene WHERE project_id = ?)", projectId);
+		var outside = Set.copyOf(jdbc.sql("""
+				SELECT o.scene_id FROM legacy_outside_cue_list o JOIN scene s ON s.id = o.scene_id
+				WHERE s.project_id = ?""").param(projectId).query(Long.class).list());
 		var legacyScenes = scenes.findByProject(projectId).stream()
-				.map(scene -> new LegacyScene(scene.id(), scene.spec(), looks.getOrDefault(scene.id(), Look.EMPTY)))
+				.map(scene -> new LegacyScene(scene.id(), scene.spec(), looks.getOrDefault(scene.id(), Look.EMPTY),
+						outside.contains(scene.id())))
 				.toList();
+		var faders = jdbc.sql("SELECT * FROM legacy_fader WHERE project_id = ? ORDER BY slot").param(projectId)
+				.query((rs, n) -> new LegacyFader(rs.getInt("slot"), Optional.ofNullable(rs.getString("name")),
+						rs.getLong("scene_id")))
+				.list();
 		var rows = jdbc.sql("SELECT * FROM legacy_composition WHERE project_id = ? ORDER BY id").param(projectId)
 				.query(this::row).list();
 		var compositions = new ArrayList<LegacyComposition>();
@@ -88,7 +98,7 @@ public class SqliteLegacyShowStore implements LegacyShowStore {
 				WHERE s.project_id = ?""").param(projectId).query(rs -> {
 			sceneKeys.computeIfAbsent(rs.getLong("scene_id"), id -> new TreeSet<>()).add(rs.getInt("key_slot"));
 		});
-		return new LegacyShow(legacyScenes, compositions, keys, sceneKeys);
+		return new LegacyShow(legacyScenes, compositions, keys, sceneKeys, faders);
 	}
 
 	@Override

@@ -61,11 +61,11 @@ public class SqliteSceneRepository implements SceneRepository {
 		long id = transactions.execute(status -> {
 			var generated = new GeneratedKeyHolder();
 			jdbc.sql("""
-					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, outside_cue_list, fade_in_ms,
-					                   fade_out_ms, delay_ms, fade_curve, script)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, fade_in_ms, fade_out_ms,
+					                   delay_ms, fade_curve, script)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-							millis(spec.autoFollow()), spec.outsideCueList() ? 1 : 0, millis(spec.timing().fadeIn()),
+							millis(spec.autoFollow()), millis(spec.timing().fadeIn()),
 							millis(spec.timing().fadeOut()), spec.timing().delay().toMillis(), curve(spec),
 							spec.script())
 					.update(generated);
@@ -80,11 +80,11 @@ public class SqliteSceneRepository implements SceneRepository {
 	@Override
 	public Scene updateSpec(long id, SceneSpec spec) {
 		jdbc.sql("""
-				UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, outside_cue_list = ?,
-				                 fade_in_ms = ?, fade_out_ms = ?, delay_ms = ?, fade_curve = ?, script = ?
+				UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, fade_in_ms = ?,
+				                 fade_out_ms = ?, delay_ms = ?, fade_curve = ?, script = ?
 				WHERE id = ?""")
 				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), millis(spec.autoFollow()),
-						spec.outsideCueList() ? 1 : 0, millis(spec.timing().fadeIn()), millis(spec.timing().fadeOut()),
+						millis(spec.timing().fadeIn()), millis(spec.timing().fadeOut()),
 						spec.timing().delay().toMillis(), curve(spec), spec.script(), id)
 				.update();
 		return findById(id).orElseThrow();
@@ -164,7 +164,7 @@ public class SqliteSceneRepository implements SceneRepository {
 				Optional.ofNullable(rs.getString("fade_curve")).map(FadeCurve::parse));
 		var spec = new SceneSpec(SceneNumber.parse(rs.getString("number")), rs.getString("name"),
 				Optional.ofNullable(rs.getString("cue_note")), optionalMillis(rs, "auto_follow_ms"),
-				rs.getInt("outside_cue_list") == 1, timing, rs.getString("script"));
+				timing, rs.getString("script"));
 		return new Scene(id, rs.getLong("project_id"), spec, compositions.getOrDefault(id, List.of()),
 				keys.getOrDefault(id, List.of()));
 	}

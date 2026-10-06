@@ -48,9 +48,7 @@ class LiveState {
   /** composition id → values of its on-screen preview, while a view watches 'preview:<id>' */
   previews = $state<Record<number, Record<number, AttributeValues>>>({});
   party = $state<PartyStatus | null>(null);
-  /** performance.now() when the party status arrived, to run the beat indicator locally */
-  partyReceivedAt = $state(0);
-  partyButtonsRevision = $state(0);
+  partyMatrixRevision = $state(0);
   /** render loop and Art-Net status, pushed every second */
   health = $state<OutputHealth | null>(null);
 
@@ -89,7 +87,7 @@ class LiveState {
       this.accessRevision++;
       this.libraryRevision++;
       this.compositionsRevision++;
-      this.partyButtonsRevision++;
+      this.partyMatrixRevision++;
       this.presetsRevision++;
       this.fadersRevision++;
       this.sendSubscriptions();
@@ -194,8 +192,8 @@ class LiveState {
       case 'party':
         this.updateParty(message.status as PartyStatus);
         break;
-      case 'partyButtons':
-        this.partyButtonsRevision++;
+      case 'partyMatrix':
+        this.partyMatrixRevision++;
         break;
       case 'mode':
         this.mode = message.mode as OperatingMode;
@@ -338,7 +336,6 @@ class LiveState {
   /** Takes over a party status, e.g. the answer to a party command. */
   updateParty(status: PartyStatus) {
     this.party = status;
-    this.partyReceivedAt = performance.now();
   }
 
   async setMode(mode: OperatingMode) {
