@@ -31,6 +31,15 @@ public record Mode(String name, List<ChannelDefinition> channels) {
 	}
 
 	/**
+	 * Only the heads have dimmer channels, the fixture as a whole has none – e.g. a dimmer pack with four channels.
+	 * Its dimmer without head is then no channel but a value for all heads.
+	 */
+	public boolean dimmersOnlyPerHead() {
+		return hasHeadDimmers() && channels.stream()
+				.noneMatch(c -> c.function() == ChannelFunction.DIMMER && c.head() == 0);
+	}
+
+	/**
 	 * Distinct attributes of this mode in channel order. A fixture without a dimmer channel gets a virtual dimmer;
 	 * heads without a dimmer channel get a virtual one each. Every attribute of the heads also exists for the whole
 	 * fixture, setting all heads at once.

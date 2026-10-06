@@ -12,7 +12,7 @@
   import { programmerSelection } from '../lib/selection.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { Fixture, Group, Universe } from '../lib/types';
+  import type { AttributeValues, Fixture, Group, Universe } from '../lib/types';
 
   let universes = $state<Universe[]>([]);
   let fixtures = $state<Fixture[]>([]);
@@ -68,6 +68,14 @@
 
   function selectGroup(group: Group) {
     select(group.fixtureIds.filter((id) => entries.some((e) => e.fixture.id === id)));
+  }
+
+  /** The dimmer in the programmer; of a dimmer pack (channels per head) the highest channel. */
+  function level(values: AttributeValues | undefined): number | null {
+    if (!values) return null;
+    if (values.dimmer !== undefined) return values.dimmer;
+    const heads = Object.entries(values).filter(([a]) => /^dimmer@\d+$/.test(a)).map(([, v]) => v);
+    return heads.length > 0 ? Math.max(...heads) : null;
   }
 
   function preview(entry: ProgrammerEntry) {
@@ -190,7 +198,7 @@
             {/if}
           </span>
           <span class="fixture-address mono">{universeNumber.get(entry.fixture.universeId)}·{entry.fixture.address}</span>
-          <span class="fixture-level mono">{own?.dimmer !== undefined ? `${Math.round(own.dimmer * 100)}%` : '–'}</span>
+          <span class="fixture-level mono">{level(own) !== null ? `${Math.round(level(own)! * 100)}%` : '–'}</span>
         </button>
       {/each}
     </section>

@@ -58,3 +58,23 @@ export function supportedValues(mode: Mode, values: Record<string, number>): Rec
   const attributes = new Set(attributesOf(mode));
   return Object.fromEntries(Object.entries(values).filter(([attribute]) => attributes.has(attribute)));
 }
+
+/**
+ * Only the heads have dimmers, the fixture as a whole has none – e.g. a dimmer pack with four channels (as
+ * Mode.dimmersOnlyPerHead() on the server). Its channels are set directly; there is no master to set.
+ */
+export function dimmersOnlyPerHead(mode: Mode): boolean {
+  return mode.channels.some((c) => c.function === 'dimmer' && c.head > 0)
+    && !mode.channels.some((c) => c.function === 'dimmer' && c.head === 0);
+}
+
+/** Heads that have a dimmer channel, in order. */
+export function headDimmers(mode: Mode): number[] {
+  return [...new Set(mode.channels.filter((c) => c.function === 'dimmer' && c.head > 0).map((c) => c.head))]
+    .sort((a, b) => a - b);
+}
+
+/** Whether the heads have nothing but their dimmer – then choosing a head offers nothing new. */
+export function onlyHeadDimmers(mode: Mode): boolean {
+  return mode.channels.every((c) => c.head === 0 || c.function === 'dimmer');
+}

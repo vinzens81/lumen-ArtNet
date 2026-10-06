@@ -60,6 +60,11 @@ class OutputEngineTest {
 			PhysicalProperties.NONE, List.of(new Mode("2ch", List.of(
 					channel(ChannelFunction.PAN), channel(ChannelFunction.DIMMER)))));
 
+	/** a dimmer pack: four channels as heads, no dimmer for the whole fixture */
+	private static final FixtureType PACK = new FixtureType("pack", "Generic", "Dimmer pack", FixtureCategory.DIMMER,
+			PhysicalProperties.NONE, List.of(new Mode("4ch", List.of(headDimmer(1), headDimmer(2), headDimmer(3),
+					headDimmer(4)))));
+
 	private final List<Project> projects = new ArrayList<>();
 	private final List<Universe> universes = new ArrayList<>();
 	private final List<PatchedFixture> fixtures = new ArrayList<>();
@@ -76,6 +81,8 @@ class OutputEngineTest {
 		fixtures.add(new PatchedFixture(100, 1, new FixtureSpec("PAR", Optional.empty(), "par", "2ch", 10, 5,
 				Optional.empty(), 0)));
 		fixtures.add(new PatchedFixture(101, 1, new FixtureSpec("Head", Optional.empty(), "head", "2ch", 10, 20,
+				Optional.empty(), 0)));
+		fixtures.add(new PatchedFixture(102, 1, new FixtureSpec("Pack", Optional.empty(), "pack", "4ch", 11, 1,
 				Optional.empty(), 0)));
 		groups.add(new Group(7, 1, new GroupSpec("All", Optional.empty(), 0, List.of(100L, 101L))));
 		var events = new StateEvents();
@@ -120,6 +127,16 @@ class OutputEngineTest {
 		assertThat(result.get(100L).values()).containsOnlyKeys(DIMMER, RED);
 		assertThat(result.get(101L).values()).containsOnlyKeys(DIMMER, PAN);
 		assertThat(published).containsExactly(StateTopic.PROGRAMMER);
+	}
+
+	@Test
+	void aDimmerPackKeepsEveryChannelInsteadOfAMasterItDoesNotHave() {
+		engine.setValues(102, new FixtureValues(Map.of(DIMMER.withHead(2), 0.3)));
+		var values = engine.setValues(List.of(102L), new FixtureValues(Map.of(DIMMER, 1.0))).get(102L);
+
+		assertThat(values.values()).as("no hidden master, every channel set").containsOnly(
+				Map.entry(DIMMER.withHead(1), 1.0), Map.entry(DIMMER.withHead(2), 1.0),
+				Map.entry(DIMMER.withHead(3), 1.0), Map.entry(DIMMER.withHead(4), 1.0));
 	}
 
 	@Test
@@ -236,6 +253,11 @@ class OutputEngineTest {
 				new ArtNetTarget.Broadcast()));
 	}
 
+	private static ChannelDefinition headDimmer(int head) {
+		return new ChannelDefinition(ChannelFunction.DIMMER, Optional.empty(), 8, 0, false, List.of(), Optional.empty(),
+				head);
+	}
+
 	private static ChannelDefinition channel(ChannelFunction function) {
 		return new ChannelDefinition(function, Optional.empty(), 8, 0, false, List.of(), Optional.empty());
 	}
@@ -249,7 +271,7 @@ class OutputEngineTest {
 
 			@Override
 			public Optional<FixtureType> fixtureType(String id) {
-				return List.of(PAR, HEAD).stream().filter(type -> type.id().equals(id)).findFirst();
+				return List.of(PAR, HEAD, PACK).stream().filter(type -> type.id().equals(id)).findFirst();
 			}
 
 			@Override

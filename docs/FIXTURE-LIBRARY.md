@@ -157,6 +157,9 @@ Ungewöhnliche Reihenfolgen (z.B. erst alle Rot-, dann alle Grün-Kanäle) gehen
   eigenen Wert – der Farbkreis färbt also die ganze Bar, im Programmer lässt sich unter „Heads“ ein einzelner Kopf wählen.
 - **Dimmer pro Kopf:** Haben die Köpfe keinen eigenen Dimmerkanal, bekommt jeder einen virtuellen (`dimmer@3`). Gibt es
   einen Dimmer für das ganze Gerät, dimmt der alles, der Kopf-Dimmer senkt nur seinen Kopf zusätzlich ab.
+- **Dimmerpacks** (nur die Köpfe haben Dimmer, das Gerät selbst keinen, z.B. ein 4-Kanal-Dimmerpack): Es gibt keinen
+  Master. Der Programmer zeigt „All channels“ und die Kanäle einzeln; ein Wert für das ganze Gerät (auch per API oder
+  aus einer Gruppe) wird sofort auf die Kanäle verteilt, im Programmer und in Looks stehen nur Kanalwerte.
 - **Kompositionen:** Mit „Each head separately“ läuft z.B. ein Lauflicht über die Segmente statt über ganze Geräte.
 
 ### Import aus der Open Fixture Library

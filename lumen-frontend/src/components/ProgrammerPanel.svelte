@@ -1,5 +1,8 @@
 <script lang="ts">
-  import { attributeOf, baseOf, defaultValue, headOf, supportedValues, valueFor, withHead } from '../lib/attributes';
+  import {
+    attributeOf, baseOf, defaultValue, dimmersOnlyPerHead, headDimmers, headOf, onlyHeadDimmers, supportedValues,
+    valueFor, withHead,
+  } from '../lib/attributes';
   import { hsvToRgb, rgbToCss, rgbToHsv, type Rgb } from '../lib/color';
   import { live } from '../lib/live.svelte';
   import type { ProgrammerEntry } from '../lib/programmer';
@@ -68,12 +71,34 @@
     return valueFor(live.programmer[entry.fixture.id] ?? {}, attribute) ?? defaultValue(entry.mode, attribute);
   }
 
+  /**
+   * Dimmer packs (only the heads have dimmers): their channels are shown and set directly, "All channels" sets each
+   * of them – there is no master to set.
+   */
+  const channelMode = $derived(selected.length > 0 && selected.every((e) => dimmersOnlyPerHead(e.mode)));
+  const channels = $derived([...new Set(selected.flatMap((e) => headDimmers(e.mode)))].sort((a, b) => a - b));
+  /** choosing a head would offer nothing the channel faders do not */
+  const showHeads = $derived(headCount > 0 && !(channelMode && selected.every((e) => onlyHeadDimmers(e.mode))));
+
   function reference(attribute: string): { value: number; mixed: boolean } {
-    const scoped = withHead(attribute, headScope);
-    const withAttribute = selected.filter((e) => e.attributes.includes(scoped));
-    if (withAttribute.length === 0) return { value: 0, mixed: false };
-    const values = withAttribute.map((e) => valueOf(e, scoped));
+    return referenceOf([withHead(attribute, headScope)]);
+  }
+
+  /** The value the attributes share across the selection, or the first one and `mixed`. */
+  function referenceOf(attributes: string[]): { value: number; mixed: boolean } {
+    const values = selected.flatMap((e) => attributes.filter((a) => e.attributes.includes(a)).map((a) => valueOf(e, a)));
+    if (values.length === 0) return { value: 0, mixed: false };
     return { value: values[0], mixed: values.some((v) => Math.abs(v - values[0]) > 0.002) };
+  }
+
+  /** Sets the channels of the selected dimmer packs; `heads` empty = every channel. */
+  function setChannels(level: number, heads: number[] = []) {
+    const perFixture: Record<number, AttributeValues> = {};
+    for (const entry of selected) {
+      const own = headDimmers(entry.mode).filter((h) => heads.length === 0 || heads.includes(h));
+      if (own.length > 0) perFixture[entry.fixture.id] = Object.fromEntries(own.map((h) => [`dimmer@${h}`, level]));
+    }
+    if (Object.keys(perFixture).length > 0) live.setValues(perFixture);
   }
 
   function set(values: AttributeValues) {
@@ -131,7 +156,7 @@
 
 <div class="controls" class:compact>
 
-{#if headCount > 0}
+{#if showHeads}
   <section>
     <h3>Heads</h3>
     <div class="heads" role="radiogroup" aria-label="Heads the controls set">
@@ -155,13 +180,28 @@
 
 <section>
   <h3>Intensity</h3>
-  <Fader label="Dimmer" value={reference('dimmer').value} mixed={reference('dimmer').mixed}
-    onchange={(v) => set({ dimmer: v })} />
-  <div class="quick">
-    {#each [0, 0.25, 0.5, 0.75, 1] as level (level)}
-      <button type="button" class="btn small" onclick={() => set({ dimmer: level })}>{level * 100}%</button>
+  {#if channelMode}
+    {@const all = referenceOf(channels.map((h) => `dimmer@${h}`))}
+    <Fader label="All channels" value={all.value} mixed={all.mixed} onchange={(v) => setChannels(v)} />
+    <div class="quick">
+      {#each [0, 0.25, 0.5, 0.75, 1] as level (level)}
+        <button type="button" class="btn small" onclick={() => setChannels(level)}>{level * 100}%</button>
+      {/each}
+    </div>
+    {#each channels as head (head)}
+      {@const own = referenceOf([`dimmer@${head}`])}
+      <Fader label="Channel {head}" value={own.value} mixed={own.mixed} onchange={(v) => setChannels(v, [head])} />
     {/each}
-  </div>
+    <p class="hint dim">The channels are set one by one – the fixture has no master dimmer.</p>
+  {:else}
+    <Fader label="Dimmer" value={reference('dimmer').value} mixed={reference('dimmer').mixed}
+      onchange={(v) => set({ dimmer: v })} />
+    <div class="quick">
+      {#each [0, 0.25, 0.5, 0.75, 1] as level (level)}
+        <button type="button" class="btn small" onclick={() => set({ dimmer: level })}>{level * 100}%</button>
+      {/each}
+    </div>
+  {/if}
 </section>
 
 {#if hasRgb}
@@ -397,6 +437,11 @@
 
   .raw .num {
     text-align: right;
+  }
+
+  .hint {
+    margin: 0;
+    font-size: 11px;
   }
 
   .head-actions {

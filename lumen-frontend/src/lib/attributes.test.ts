@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { attributesOf, baseOf, defaultValue, headOf, valueFor, withHead } from './attributes';
+import {
+  attributesOf, baseOf, defaultValue, dimmersOnlyPerHead, headDimmers, headOf, onlyHeadDimmers, valueFor, withHead,
+} from './attributes';
 import { headPreviewsOf, previewOf } from './color';
 import type { Channel, Mode } from './types';
 
@@ -15,6 +17,21 @@ const bar: Mode = {
   name: '6ch', dmxChannelCount: 6, heads: 2,
   channels: [1, 2].flatMap((head) => ['red', 'green', 'blue'].map((fn, i) => channel(fn, (head - 1) * 3 + i + 1, head))),
 };
+
+/** a dimmer pack: four channels as heads, no dimmer for the whole fixture */
+const pack: Mode = { name: '4ch', dmxChannelCount: 4, heads: 4, channels: [1, 2, 3, 4].map((h) => channel('dimmer', h, h)) };
+
+describe('dimmer packs', () => {
+  it('have their channels per head and no master', () => {
+    expect(dimmersOnlyPerHead(pack)).toBe(true);
+    expect(headDimmers(pack)).toEqual([1, 2, 3, 4]);
+    expect(onlyHeadDimmers(pack)).toBe(true);
+    expect(dimmersOnlyPerHead(bar)).toBe(false);
+    expect(onlyHeadDimmers(bar)).toBe(false);
+    const blinder: Mode = { ...pack, channels: [channel('dimmer', 1), ...pack.channels.slice(0, 2)] };
+    expect(dimmersOnlyPerHead(blinder)).toBe(false);
+  });
+});
 
 describe('multi-pixel attributes', () => {
   it('splits head and base', () => {

@@ -21,6 +21,7 @@ import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.DmxFrame;
 import de.vinzens.lumen.domain.output.DmxRenderer;
 import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.output.HeadDimmers;
 import de.vinzens.lumen.domain.output.LayerMerger;
 import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.output.MasterState;
@@ -206,7 +207,8 @@ public class OutputEngine
 			throw new DomainValidationException(List.of("Fixture " + fixtureId + " has no attributes " + unknown
 					+ " (available: " + allowed.stream().map(Attribute::id).toList() + ")"));
 		}
-		var result = programmer.updateAndGet(p -> p.with(fixtureId, values)).values(fixtureId);
+		var kept = HeadDimmers.spread(fixture.mode(), values);
+		var result = programmer.updateAndGet(p -> p.with(fixtureId, kept)).values(fixtureId);
 		events.publish(StateTopic.PROGRAMMER);
 		return result;
 	}
@@ -226,7 +228,7 @@ public class OutputEngine
 					used.add(attribute);
 				}
 			});
-			perFixture.put(fixture.fixtureId(), new FixtureValues(supported));
+			perFixture.put(fixture.fixtureId(), HeadDimmers.spread(fixture.mode(), new FixtureValues(supported)));
 		}
 		var unused = values.values().keySet().stream()
 				.filter(attribute -> !used.contains(attribute))
@@ -308,7 +310,7 @@ public class OutputEngine
 		}
 	}
 
-	/** Only the values of attributes the fixture has. */
+	/** Only the values of attributes the fixture has, a dimmer pack's dimmer spread to its channels. */
 	private static FixtureValues supported(RenderFixture fixture, FixtureValues values) {
 		var allowed = fixture.mode().attributes();
 		var supported = new HashMap<Attribute, Double>();
@@ -317,7 +319,7 @@ public class OutputEngine
 				supported.put(attribute, value);
 			}
 		});
-		return new FixtureValues(supported);
+		return HeadDimmers.spread(fixture.mode(), new FixtureValues(supported));
 	}
 
 	@Override
