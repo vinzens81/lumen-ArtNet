@@ -52,6 +52,32 @@ class StageApiTest {
 		assertThat(mvc.get().uri(plan)).hasStatus(404);
 	}
 
+	@Test
+	void fixturesKeepTheirStageShapeAcrossMovesAndTheExport() throws Exception {
+		var project = id(post("/api/projects", "{\"name\": \"Shapes\"}"));
+		var universe = id(post("/api/projects/" + project + "/universes", "{\"number\": 1}"));
+		var bar = id(post("/api/projects/" + project + "/fixtures", fixture("Bar", universe, 1)));
+		var fixtures = "/api/projects/" + project + "/fixtures";
+
+		assertThat(mvc.get().uri(fixtures)).bodyJson().extractingPath("$[0].stageShape.kind").isEqualTo("auto");
+		assertThat(put(fixtures + "/" + bar + "/stage-shape",
+				"{\"kind\": \"strip\", \"rotation\": -90, \"length\": 0.4}")).hasStatus(204);
+		assertThat(put(fixtures + "/positions", "{\"positions\": {\"%d\": {\"x\": 0.5, \"y\": 0.5}}}".formatted(bar)))
+				.hasStatus(204);
+		assertThat(mvc.get().uri(fixtures)).bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$[0].stageShape.kind").isEqualTo("strip");
+			assertThat(json).extractingPath("$[0].stageShape.rotation").isEqualTo(270);
+			assertThat(json).extractingPath("$[0].stageShape.length").isEqualTo(0.4);
+		});
+		assertThat(put(fixtures + "/" + bar + "/stage-shape", "{\"kind\": \"star\"}")).hasStatus(400);
+		assertThat(put(fixtures + "/" + bar + "/stage-shape", "{\"kind\": \"bar\", \"length\": 2}")).hasStatus(400);
+
+		var file = mvc.get().uri("/api/projects/" + project + "/export").exchange().getResponse().getContentAsString();
+		var copy = id(post("/api/projects/import", file));
+		assertThat(mvc.get().uri("/api/projects/" + copy + "/fixtures")).bodyJson()
+				.extractingPath("$[0].stageShape.kind").isEqualTo("strip");
+	}
+
 	private static String fixture(String name, long universe, int address) {
 		return """
 				{"name": "%s", "fixtureTypeId": "generic-dimmer", "mode": "1ch", "universeId": %d, "address": %d}

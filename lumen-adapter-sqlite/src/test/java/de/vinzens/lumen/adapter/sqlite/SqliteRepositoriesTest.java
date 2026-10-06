@@ -6,6 +6,7 @@ import de.vinzens.lumen.domain.project.ExpectedNode;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.project.UniverseSpec;
@@ -101,6 +102,20 @@ class SqliteRepositoriesTest {
 
 		assertThat(repos.fixtures().findById(fixture.id())).get()
 				.satisfies(f -> assertThat(f.spec()).isEqualTo(spec));
+	}
+
+	@Test
+	void stageShapeRoundTrip() {
+		var project = repos.projects().create(projectSpec("P"), NOW);
+		var universe = repos.universes().create(project.id(), universeSpec(1));
+		var fixture = repos.fixtures().create(project.id(), fixtureSpec("Strip", universe.id(), 1));
+		assertThat(fixture.spec().stageShape()).isEqualTo(StageShape.DEFAULT);
+
+		var shape = new StageShape(StageShape.Kind.STRIP, 90, 0.4);
+		repos.fixtures().update(fixture.id(), fixture.spec().withStageShape(shape));
+
+		assertThat(repos.fixtures().findById(fixture.id())).get()
+				.satisfies(f -> assertThat(f.spec().stageShape()).isEqualTo(shape));
 	}
 
 	@Test

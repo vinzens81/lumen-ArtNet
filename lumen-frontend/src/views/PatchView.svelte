@@ -199,6 +199,7 @@
         address: form.address,
         position: selected.position,
         sortOrder: selected.sortOrder,
+        stageShape: selected.stageShape,
       });
       notify(`Saved "${form.name}"`);
       universeId = form.universeId;

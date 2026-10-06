@@ -356,6 +356,10 @@ Im Konfigurationsmodus steuern Fader Gruppen-Dimmer.
   eine während der Show gelöschte Szene bleibt bis zum nächsten GO stehen, nach dem Ende kommt keine neu angelegte
   Szene auf die Bühne. WebSocket-Watchdog (3,5 s ohne Nachricht → neu verbinden), Wake Lock mit NoSleep.js-Fallback
   für Tablets über HTTP, `caffeinate` in `run.sh`, ruhigere Test-Ausgabe
+- ✅ **Formen in der Bühnenansicht:** Spot, Bar (LED-Bar) und Strip (LED-Band, z.B. DIY-ESP), jeweils mit Drehung
+  und – bei Bar/Strip – Länge. Bar und Strip zeigen jeden Kopf eines Multi-Pixel-Geräts in seiner eigenen Farbe,
+  „Auto“ wählt anhand von Kategorie und Köpfen. Flyway `V18`, `PUT /api/projects/{id}/fixtures/{fid}/stage-shape`,
+  reist im Projekt-Export mit. Geprüft im Browser (Testserver: 8-Pixel-Bar, als Strip gedrehte Bar)
 - Externe GO-Taste: USB-Fußschalter (als Tastatur), OSC (z.B. aus QLab); MIDI siehe eigene Iteration
 - sACN als zweiter `DmxOutputPort`
 - Hostnamen (mDNS, z.B. `artnet-dimmer.local`) als Art-Net-Ziel – noch offen, ob gewünscht

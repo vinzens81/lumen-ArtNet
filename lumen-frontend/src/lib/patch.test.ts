@@ -15,6 +15,7 @@ function fixture(id: number, address: number, channelCount: number | null): Fixt
     lastAddress: channelCount === null ? null : address + channelCount - 1,
     position: null,
     sortOrder: 0,
+    stageShape: { kind: 'auto', rotation: 0, length: 0.15 },
   };
 }
 

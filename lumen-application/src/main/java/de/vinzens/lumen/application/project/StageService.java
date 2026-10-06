@@ -8,10 +8,10 @@ import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.PatchChangeListener;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.project.port.out.StagePlanRepository;
-import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
 import de.vinzens.lumen.domain.project.StagePlan;
+import de.vinzens.lumen.domain.project.StageShape;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -51,13 +51,25 @@ public class StageService implements ManageStageUseCase {
 			if (position.equals(spec.position())) {
 				continue;
 			}
-			changed.add(fixtures.update(fixture.id(), new FixtureSpec(spec.name(), spec.shortName(),
-					spec.fixtureTypeId(), spec.modeName(), spec.universeId(), spec.address(), position,
-					spec.sortOrder())));
+			changed.add(fixtures.update(fixture.id(), spec.withPosition(position)));
 		}
 		if (!changed.isEmpty()) {
 			listener.patchChanged();
 		}
+		return changed;
+	}
+
+	@Override
+	public PatchedFixture shapeFixture(long projectId, long fixtureId, StageShape shape) {
+		requireProject(projectId);
+		var fixture = fixtures.findById(fixtureId).filter(f -> f.projectId() == projectId)
+				.orElseThrow(() -> new NotFoundException("Fixture " + fixtureId + " does not exist in project "
+						+ projectId));
+		if (fixture.spec().stageShape().equals(shape)) {
+			return fixture;
+		}
+		var changed = fixtures.update(fixtureId, fixture.spec().withStageShape(shape));
+		listener.patchChanged();
 		return changed;
 	}
 

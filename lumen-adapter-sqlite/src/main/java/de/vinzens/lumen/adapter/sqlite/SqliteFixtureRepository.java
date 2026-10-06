@@ -4,6 +4,7 @@ import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.StageShape;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
@@ -34,7 +35,11 @@ public class SqliteFixtureRepository implements FixtureRepository {
 						rs.getLong("universe_id"),
 						rs.getInt("address"),
 						hasX && hasY ? Optional.of(new Position(x, y)) : Optional.empty(),
-						rs.getInt("sort_order")));
+						rs.getInt("sort_order"),
+						new StageShape(
+								StageShape.Kind.fromId(rs.getString("stage_shape")).orElse(StageShape.Kind.AUTO),
+								rs.getInt("stage_rotation"),
+								rs.getDouble("stage_length"))));
 	};
 
 	private final JdbcClient jdbc;
@@ -59,10 +64,11 @@ public class SqliteFixtureRepository implements FixtureRepository {
 		var keys = new GeneratedKeyHolder();
 		jdbc.sql("""
 				INSERT INTO fixture (project_id, name, short_name, fixture_type_id, mode_name, universe_id, address,
-				    pos_x, pos_y, sort_order)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+				    pos_x, pos_y, sort_order, stage_shape, stage_rotation, stage_length)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 				.params(projectId, spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(), spec.modeName(),
-						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder())
+						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder(),
+						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length())
 				.update(keys);
 		return findById(generatedId(keys)).orElseThrow();
 	}
@@ -71,10 +77,12 @@ public class SqliteFixtureRepository implements FixtureRepository {
 	public PatchedFixture update(long id, FixtureSpec spec) {
 		jdbc.sql("""
 				UPDATE fixture SET name = ?, short_name = ?, fixture_type_id = ?, mode_name = ?, universe_id = ?,
-				    address = ?, pos_x = ?, pos_y = ?, sort_order = ?
+				    address = ?, pos_x = ?, pos_y = ?, sort_order = ?, stage_shape = ?, stage_rotation = ?,
+				    stage_length = ?
 				WHERE id = ?""")
 				.params(spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(), spec.modeName(),
-						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder(), id)
+						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder(),
+						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length(), id)
 				.update();
 		return findById(id).orElseThrow();
 	}

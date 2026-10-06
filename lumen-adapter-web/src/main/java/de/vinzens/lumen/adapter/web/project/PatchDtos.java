@@ -9,6 +9,7 @@ import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.PatchIssue;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
 
@@ -85,15 +86,39 @@ final class PatchDtos {
 	record PositionDto(double x, double y) {
 	}
 
+	/**
+	 * @param kind     {@code auto} (default), {@code spot}, {@code bar} or {@code strip}
+	 * @param rotation clockwise in degrees, 0 = across the stage
+	 * @param length   bar/strip length as a fraction of the stage width
+	 */
+	record StageShapeDto(String kind, Integer rotation, Double length) {
+
+		StageShape toShape() {
+			return new StageShape(kind == null ? StageShape.Kind.AUTO : StageShape.Kind.parse(kind),
+					Math.floorMod(Objects.requireNonNullElse(rotation, 0), 360),
+					Objects.requireNonNullElse(length, StageShape.DEFAULT_LENGTH));
+		}
+
+		static StageShape toShape(StageShapeDto dto) {
+			return dto == null ? StageShape.DEFAULT : dto.toShape();
+		}
+
+		static StageShapeDto from(StageShape shape) {
+			return new StageShapeDto(shape.kind().id(), shape.rotation(), shape.length());
+		}
+	}
+
+	/** @param stageShape missing = drawn automatically ({@code auto}) */
 	record FixtureRequest(String name, String shortName, String fixtureTypeId, String mode, Long universeId,
-			Integer address, PositionDto position, Integer sortOrder) {
+			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape) {
 
 		FixtureSpec toSpec() {
 			return new FixtureSpec(name, Optional.ofNullable(shortName), fixtureTypeId, mode,
 					Objects.requireNonNullElse(universeId, 0L),
 					Objects.requireNonNullElse(address, 0),
 					Optional.ofNullable(position).map(p -> new Position(p.x(), p.y())),
-					Objects.requireNonNullElse(sortOrder, 0));
+					Objects.requireNonNullElse(sortOrder, 0),
+					StageShapeDto.toShape(stageShape));
 		}
 	}
 
@@ -103,14 +128,15 @@ final class PatchDtos {
 	 */
 	record FixtureResponse(long id, String name, String shortName, String fixtureTypeId, String mode,
 			long universeId, int address, Integer channelCount, Integer lastAddress, PositionDto position,
-			int sortOrder) {
+			int sortOrder, StageShapeDto stageShape) {
 
 		static FixtureResponse from(PatchedFixture fixture, Optional<Integer> channelCount) {
 			var spec = fixture.spec();
 			return new FixtureResponse(fixture.id(), spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(),
 					spec.modeName(), spec.universeId(), spec.address(), channelCount.orElse(null),
 					channelCount.map(count -> spec.address() + count - 1).orElse(null),
-					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder());
+					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder(),
+					StageShapeDto.from(spec.stageShape()));
 		}
 	}
 

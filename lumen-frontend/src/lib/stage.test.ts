@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { beamOffset, freeSpots, toStage } from './stage';
+import { beamOffset, clampLength, drawnShape, freeSpots, rotate, toStage } from './stage';
+import type { Mode } from './types';
 
 describe('toStage', () => {
   it('maps pointer coordinates into the stage area and clamps them', () => {
@@ -34,5 +35,36 @@ describe('beamOffset', () => {
     const quarter = beamOffset({ pan: 0.5 + 1 / 6, tilt: 1 }, true, 0.2); // +90°
     expect(quarter.x).toBeCloseTo(0.2);
     expect(quarter.y).toBeCloseTo(0);
+  });
+});
+
+describe('drawnShape', () => {
+  const single: Mode = { name: '3ch', dmxChannelCount: 3, heads: 0, channels: [] };
+  const pixels: Mode = { name: '26ch', dmxChannelCount: 26, heads: 8, channels: [] };
+
+  it('keeps an explicit choice', () => {
+    expect(drawnShape('strip', single, 'par')).toBe('strip');
+    expect(drawnShape('spot', pixels, 'bar')).toBe('spot');
+  });
+
+  it('draws bars and multi-pixel fixtures as bars, everything else as spots', () => {
+    expect(drawnShape('auto', single, 'bar')).toBe('bar');
+    expect(drawnShape('auto', pixels, 'other')).toBe('bar');
+    expect(drawnShape('auto', single, 'par')).toBe('spot');
+    expect(drawnShape('auto', undefined, undefined)).toBe('spot');
+  });
+});
+
+describe('rotate and clampLength', () => {
+  it('wraps the rotation around', () => {
+    expect(rotate(345, 15)).toBe(0);
+    expect(rotate(0, -15)).toBe(345);
+    expect(rotate(90, 720)).toBe(90);
+  });
+
+  it('keeps the length within the stage', () => {
+    expect(clampLength(0)).toBe(0.02);
+    expect(clampLength(1.4)).toBe(1);
+    expect(clampLength(0.333)).toBe(0.33);
   });
 });

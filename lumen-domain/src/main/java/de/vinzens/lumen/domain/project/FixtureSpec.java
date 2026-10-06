@@ -12,6 +12,7 @@ import java.util.Optional;
  * @param fixtureTypeId reference into the fixture library
  * @param universeId    universe within the project
  * @param address       DMX start address (1–512)
+ * @param stageShape    how the fixture is drawn in the stage view
  */
 public record FixtureSpec(
 		String name,
@@ -21,13 +22,15 @@ public record FixtureSpec(
 		long universeId,
 		int address,
 		Optional<Position> position,
-		int sortOrder) {
+		int sortOrder,
+		StageShape stageShape) {
 
 	public static final int MAX_ADDRESS = 512;
 
 	public FixtureSpec {
 		Objects.requireNonNull(shortName, "shortName");
 		Objects.requireNonNull(position, "position");
+		Objects.requireNonNull(stageShape, "stageShape");
 		new Validation()
 				.requireText(name, "name")
 				.requireText(fixtureTypeId, "fixtureTypeId")
@@ -37,5 +40,26 @@ public record FixtureSpec(
 				.throwIfInvalid();
 		name = name.strip();
 		shortName = shortName.map(String::strip).filter(s -> !s.isEmpty());
+	}
+
+	/** Without a stage shape: drawn as {@link StageShape#DEFAULT}. */
+	public FixtureSpec(String name, Optional<String> shortName, String fixtureTypeId, String modeName, long universeId,
+			int address, Optional<Position> position, int sortOrder) {
+		this(name, shortName, fixtureTypeId, modeName, universeId, address, position, sortOrder, StageShape.DEFAULT);
+	}
+
+	public FixtureSpec withPosition(Optional<Position> newPosition) {
+		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, universeId, address, newPosition, sortOrder,
+				stageShape);
+	}
+
+	public FixtureSpec withStageShape(StageShape newShape) {
+		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, universeId, address, position, sortOrder,
+				newShape);
+	}
+
+	public FixtureSpec withUniverseId(long newUniverseId) {
+		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, newUniverseId, address, position, sortOrder,
+				stageShape);
 	}
 }

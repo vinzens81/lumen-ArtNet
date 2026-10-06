@@ -66,6 +66,9 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
     ([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md#import-aus-der-open-fixture-library)), Warnungen erscheinen im Dialog.
 - **Stage:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild). Oben ist die
   Hinterbühne, unten das Publikum. Die Fixtures leuchten wie die echte Ausgabe; nicht platzierte stehen links.
+  Jedes Fixture hat eine **Form**: Spot (rund mit Lichtfleck), Bar (LED-Bar, ein Segment pro Kopf) oder Strip
+  (LED-Band als dünne Pixel-Linie). „Auto“ zeichnet Geräte der Kategorie `bar` und Multi-Pixel-Geräte als Bar, alle
+  anderen als Spot. Für das ausgewählte Fixture lassen sich links Form, Drehung und Länge einstellen; `R` dreht um 15°.
 - **Compositions:** Bibliothek der Kompositionen (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern,
   Schrittfolge) mit Editor, Live-Vorschau und „Show on stage“. Eingefügt werden sie im Szenen-Editor (Abschnitt
   „Compositions“), jede Szene bekommt eine eigene Kopie. Siehe [COMPOSITIONS.md](COMPOSITIONS.md).

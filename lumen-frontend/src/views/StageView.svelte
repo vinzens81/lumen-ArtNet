@@ -1,11 +1,27 @@
 <script lang="ts">
   import { api } from '../lib/api';
-  import { modesOf, previewOf, rgbToCss } from '../lib/color';
+  import { headPreviewsOf, modesOf, previewOf, rgbToCss } from '../lib/color';
   import { live } from '../lib/live.svelte';
-  import { beamOffset, DEFAULT_ASPECT, freeSpots, toStage } from '../lib/stage';
+  import {
+    beamOffset, clampLength, DEFAULT_ASPECT, DEFAULT_SHAPE, drawnShape, freeSpots, rotate, SHAPE_KINDS, toStage,
+    type DrawnShape,
+  } from '../lib/stage';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import type { Fixture, Position } from '../lib/types';
+  import type { Fixture, Position, StageShape } from '../lib/types';
+
+  interface Glow {
+    color: string;
+    intensity: number;
+  }
+
+  /** what is drawn for a fixture: its form and, for bars and strips, one lit segment per head */
+  interface Look {
+    shape: DrawnShape;
+    rotation: number;
+    length: number;
+    segments: Glow[];
+  }
 
   let fixtures = $state<Fixture[]>([]);
   let planVersion = $state(0);
@@ -23,6 +39,7 @@
   const placed = $derived(fixtures.filter((f) => f.position !== null));
   const unplaced = $derived(fixtures.filter((f) => f.position === null));
   const masterLevel = $derived(live.master.blackout ? 0 : live.master.level);
+  const selected = $derived(placed.find((f) => f.id === selectedId) ?? null);
 
   $effect(() => {
     void live.patchRevision;
@@ -51,6 +68,53 @@
     const preview = previewOf(mode, live.output[fixture.id] ?? {}, masterLevel);
     const movable = mode.channels.some((c) => c.function === 'pan' || c.function === 'tilt');
     return { color: rgbToCss(preview.color), intensity: preview.intensity, movable };
+  }
+
+  function shapeOf(fixture: Fixture): StageShape {
+    return fixture.stageShape ?? DEFAULT_SHAPE;
+  }
+
+  function look(fixture: Fixture, g: Glow): Look {
+    const mode = modes.get(fixture.id);
+    const own = shapeOf(fixture);
+    const shape = drawnShape(own.kind, mode, app.fixtureType(fixture.fixtureTypeId)?.category);
+    const heads = shape !== 'spot' && mode ? headPreviewsOf(mode, live.output[fixture.id] ?? {}, masterLevel) : [];
+    const segments = heads.length > 0
+      ? heads.map((p) => ({ color: rgbToCss(p.color), intensity: p.intensity }))
+      : [{ color: g.color, intensity: g.intensity }];
+    return { shape, rotation: own.rotation, length: own.length, segments };
+  }
+
+  /** soft light along a bar or strip, following the colors of its segments */
+  function linePool(segments: Glow[]): string {
+    const stops = segments.map((s) => `color-mix(in srgb, ${s.color} ${Math.round(s.intensity * 70)}%, transparent)`);
+    return `linear-gradient(90deg, ${(stops.length > 1 ? stops : [stops[0], stops[0]]).join(', ')})`;
+  }
+
+  /** how far the label sits below a turned bar or strip, as a share of the stage width */
+  function labelDrop(l: Look): number {
+    return Math.abs(Math.sin((l.rotation * Math.PI) / 180)) * l.length / 2;
+  }
+
+  /** Changes the shape on screen at once; saves it unless the change is still in progress (slider). */
+  function reshape(fixture: Fixture, change: Partial<StageShape>, save = true) {
+    const shape = { ...shapeOf(fixture), ...change };
+    fixtures = fixtures.map((f) => (f.id === fixture.id ? { ...f, stageShape: shape } : f));
+    if (save) saveShape(fixture.id, shape);
+  }
+
+  async function saveShape(fixtureId: number, shape: StageShape) {
+    if (projectId === null) return;
+    try {
+      await api.stage.shape(projectId, fixtureId, shape);
+    } catch (e) {
+      showError(e);
+      await load(projectId);
+    }
+  }
+
+  function sliderValue(event: Event): number {
+    return Number((event.currentTarget as HTMLInputElement).value);
   }
 
   async function place(positions: Record<number, Position | null>) {
@@ -107,6 +171,9 @@
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId !== null) {
       event.preventDefault();
       removeSelected();
+    } else if ((event.key === 'r' || event.key === 'R') && selected && !event.metaKey && !event.ctrlKey) {
+      event.preventDefault();
+      reshape(selected, { rotation: rotate(shapeOf(selected).rotation, event.shiftKey ? -15 : 15) });
     }
   }
 
@@ -199,8 +266,40 @@
             </li>
           {/each}
         </ul>
-        {#if selectedId !== null && placed.some((f) => f.id === selectedId)}
-          <button class="btn small ghost" type="button" onclick={removeSelected}>Take selected off stage</button>
+        {#if selected}
+          {@const own = shapeOf(selected)}
+          {@const l = look(selected, glow(selected))}
+          <section class="shape-panel" aria-label="Shape of {selected.name}">
+            <h3>{selected.name}</h3>
+            <div class="kinds" role="group" aria-label="Shape">
+              {#each SHAPE_KINDS as option (option.kind)}
+                <button type="button" class="kind" class:active={own.kind === option.kind}
+                  aria-pressed={own.kind === option.kind} onclick={() => reshape(selected, { kind: option.kind })}>
+                  <span class="kind-icon {option.kind === 'auto' ? l.shape : option.kind}" aria-hidden="true"></span>
+                  {option.label}
+                </button>
+              {/each}
+            </div>
+            {#if own.kind === 'auto'}
+              <p class="dim small">Drawn as {l.shape} – from the fixture type.</p>
+            {/if}
+            <label class="slider">
+              <span>Rotation <span class="mono dim">{own.rotation}°</span></span>
+              <input type="range" min="0" max="355" step="5" value={own.rotation}
+                oninput={(e) => reshape(selected, { rotation: sliderValue(e) }, false)}
+                onchange={(e) => reshape(selected, { rotation: sliderValue(e) })} />
+            </label>
+            {#if l.shape !== 'spot'}
+              <label class="slider">
+                <span>Length <span class="mono dim">{Math.round(own.length * 100)} % of the stage</span></span>
+                <input type="range" min="2" max="100" step="1" value={Math.round(own.length * 100)}
+                  oninput={(e) => reshape(selected, { length: clampLength(sliderValue(e) / 100) }, false)}
+                  onchange={(e) => reshape(selected, { length: clampLength(sliderValue(e) / 100) })} />
+              </label>
+            {/if}
+            <p class="dim small">R turns by 15°, Shift+R back.</p>
+            <button class="btn small ghost" type="button" onclick={removeSelected}>Take off stage</button>
+          </section>
         {/if}
       </aside>
 
@@ -218,18 +317,38 @@
             {@const at = positionOf(fixture)}
             {#if at}
               {@const g = glow(fixture)}
-              {@const beam = beamOffset(live.output[fixture.id], g.movable)}
-              <span class="pool" aria-hidden="true"
-                style="left: {(at.x + beam.x) * 100}%; top: {(at.y + beam.y) * 100}%; --glow: {g.color}; --intensity: {g.intensity}"></span>
-              <button type="button" class="fixture" class:selected={selectedId === fixture.id}
-                class:dragging={drag?.id === fixture.id}
-                style="left: {at.x * 100}%; top: {at.y * 100}%; --glow: {g.color}; --intensity: {g.intensity}"
-                onpointerdown={(e) => startDrag(e, fixture)} onpointermove={moveDrag} onpointerup={endDrag}
-                onpointercancel={() => (drag = null)}
-                title="{fixture.name} · {Math.round(g.intensity * 100)} %">
-                <span class="lens"></span>
-                <span class="label">{label(fixture)}</span>
-              </button>
+              {@const l = look(fixture, g)}
+              {#if l.shape === 'spot'}
+                {@const beam = beamOffset(live.output[fixture.id], g.movable)}
+                <span class="pool" aria-hidden="true"
+                  style="left: {(at.x + beam.x) * 100}%; top: {(at.y + beam.y) * 100}%; --glow: {g.color}; --intensity: {g.intensity}"></span>
+                <button type="button" class="fixture" class:selected={selectedId === fixture.id}
+                  class:dragging={drag?.id === fixture.id}
+                  style="left: {at.x * 100}%; top: {at.y * 100}%; --glow: {g.color}; --intensity: {g.intensity}"
+                  onpointerdown={(e) => startDrag(e, fixture)} onpointermove={moveDrag} onpointerup={endDrag}
+                  onpointercancel={() => (drag = null)}
+                  title="{fixture.name} · {Math.round(g.intensity * 100)} %">
+                  <span class="lens"></span>
+                  <span class="label">{label(fixture)}</span>
+                </button>
+              {:else}
+                <span class="line-pool" aria-hidden="true"
+                  style="left: {at.x * 100}%; top: {at.y * 100}%; width: {l.length * 110}%; rotate: {l.rotation}deg; background: {linePool(l.segments)}"></span>
+                <button type="button" class="line {l.shape}" class:selected={selectedId === fixture.id}
+                  class:dragging={drag?.id === fixture.id}
+                  style="left: {at.x * 100}%; top: {at.y * 100}%; width: {l.length * 100}%; rotate: {l.rotation}deg"
+                  onpointerdown={(e) => startDrag(e, fixture)} onpointermove={moveDrag} onpointerup={endDrag}
+                  onpointercancel={() => (drag = null)}
+                  title="{fixture.name} · {Math.round(g.intensity * 100)} %">
+                  <span class="body">
+                    {#each l.segments as segment, i (i)}
+                      <span class="segment" style="--glow: {segment.color}; --intensity: {segment.intensity}"></span>
+                    {/each}
+                  </span>
+                </button>
+                <span class="label line-label" aria-hidden="true"
+                  style="left: {at.x * 100}%; top: {at.y * 100}%; --drop: {labelDrop(l) * 100}cqw">{label(fixture)}</span>
+              {/if}
             {/if}
           {/each}
         </div>
@@ -362,6 +481,8 @@
       #07080c;
     touch-action: none;
     user-select: none;
+    /* bars and strips are sized in stage widths, also across their height when turned */
+    container-type: size;
   }
 
   .plan-image {
@@ -451,6 +572,151 @@
     font-size: 11px;
     font-weight: 600;
     white-space: nowrap;
+  }
+
+  .line-pool {
+    position: absolute;
+    height: 9%;
+    translate: -50% -50%;
+    border-radius: 50%;
+    filter: blur(14px);
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+
+  /* bar or strip: centred on its position and turned around it; the padding makes thin strips easy to grab */
+  .line {
+    position: absolute;
+    display: block;
+    padding: 8px 0;
+    border: 0;
+    background: none;
+    translate: -50% -50%;
+    cursor: grab;
+    touch-action: none;
+  }
+
+  .line.dragging {
+    cursor: grabbing;
+    z-index: 2;
+  }
+
+  .line .body {
+    display: flex;
+    gap: 2px;
+    height: 14px;
+    padding: 2px;
+    border: 1px solid var(--border-strong);
+    border-radius: 4px;
+    background: #0d0f14;
+  }
+
+  .line.strip .body {
+    gap: 1px;
+    height: 6px;
+    padding: 0;
+    border-color: var(--border);
+    border-radius: 999px;
+    overflow: visible;
+  }
+
+  .segment {
+    flex: 1;
+    min-width: 0;
+    border-radius: 1px;
+    background: color-mix(in srgb, var(--glow) calc(var(--intensity) * 100%), #111);
+    box-shadow: 0 0 calc(12px * var(--intensity)) var(--glow);
+  }
+
+  .line.strip .segment {
+    border-radius: 999px;
+  }
+
+  .line.selected .body {
+    border-color: var(--accent);
+    outline: 3px solid var(--accent-soft);
+  }
+
+  .line-label {
+    position: absolute;
+    translate: -50% calc(var(--drop) + 12px);
+    pointer-events: none;
+  }
+
+  .shape-panel {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .shape-panel h3 {
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .shape-panel p {
+    margin: 0;
+  }
+
+  .kinds {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px;
+  }
+
+  .kind {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--panel-raised);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .kind.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .kind-icon {
+    flex: none;
+    width: 18px;
+    height: 18px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    opacity: 0.8;
+  }
+
+  .kind-icon.bar {
+    height: 8px;
+    border-radius: 2px;
+  }
+
+  .kind-icon.strip {
+    height: 0;
+    border-width: 2px 0 0;
+    border-radius: 0;
+  }
+
+  .slider {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 13px;
+  }
+
+  .slider input {
+    width: 100%;
+    accent-color: var(--accent);
   }
 
   .drag-ghost {

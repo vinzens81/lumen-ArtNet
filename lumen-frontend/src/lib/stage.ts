@@ -1,4 +1,4 @@
-import type { AttributeValues, Position } from './types';
+import type { AttributeValues, Mode, Position, StageShape, StageShapeKind } from './types';
 
 export const DEFAULT_ASPECT = 16 / 9;
 
@@ -45,4 +45,34 @@ export function beamOffset(values: AttributeValues | undefined, movable: boolean
   const angle = ((values.pan ?? 0.5) - 0.5) * 1.5 * 2 * Math.PI;
   const distance = Math.abs((values.tilt ?? 0.5) - 0.5) * 2 * reach;
   return { x: Math.sin(angle) * distance, y: Math.cos(angle) * distance };
+}
+
+export type DrawnShape = Exclude<StageShapeKind, 'auto'>;
+
+export const SHAPE_KINDS: { kind: StageShapeKind; label: string }[] = [
+  { kind: 'auto', label: 'Auto' },
+  { kind: 'spot', label: 'Spot' },
+  { kind: 'bar', label: 'Bar' },
+  { kind: 'strip', label: 'Strip' },
+];
+
+export const DEFAULT_SHAPE: StageShape = { kind: 'auto', rotation: 0, length: 0.15 };
+
+/**
+ * The form a fixture is drawn in: its own choice, or for "auto" a bar for LED bars and multi-pixel fixtures,
+ * otherwise a round spot.
+ */
+export function drawnShape(kind: StageShapeKind, mode: Mode | undefined, category: string | undefined): DrawnShape {
+  if (kind !== 'auto') return kind;
+  return category === 'bar' || (mode?.heads ?? 0) > 1 ? 'bar' : 'spot';
+}
+
+/** Rotation turned by `delta` degrees, kept within 0–359. */
+export function rotate(rotation: number, delta: number): number {
+  return ((Math.round(rotation + delta) % 360) + 360) % 360;
+}
+
+/** Bar/strip length within the allowed range, rounded to whole percent of the stage width. */
+export function clampLength(length: number): number {
+  return Math.min(1, Math.max(0.02, Math.round(length * 100) / 100));
 }

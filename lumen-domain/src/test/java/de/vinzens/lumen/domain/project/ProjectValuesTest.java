@@ -75,6 +75,14 @@ class ProjectValuesTest {
 	}
 
 	@Test
+	void stageShapeValidatesRotationAndLength() {
+		assertThatThrownBy(() -> new StageShape(StageShape.Kind.BAR, 360, 0.2)).hasMessageContaining("rotation");
+		assertThatThrownBy(() -> new StageShape(StageShape.Kind.BAR, 0, 0)).hasMessageContaining("length");
+		assertThatThrownBy(() -> StageShape.Kind.parse("star")).hasMessageContaining("auto, spot, bar, strip");
+		assertThat(StageShape.Kind.parse("strip")).isEqualTo(StageShape.Kind.STRIP);
+	}
+
+	@Test
 	void groupSpecRejectsDuplicateMembersAndInvalidColor() {
 		assertThatThrownBy(() -> new GroupSpec("Front", Optional.of("orange"), 0, List.of(1L, 1L)))
 				.isInstanceOfSatisfying(DomainValidationException.class, e -> assertThat(e.errors()).hasSize(2));

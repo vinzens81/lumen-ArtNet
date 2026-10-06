@@ -9,6 +9,7 @@ import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.scene.TimingJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
+import de.vinzens.lumen.adapter.web.project.PatchDtos.StageShapeDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseRequest;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseResponse;
 import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
@@ -288,21 +289,23 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
+	/** @param stageShape missing in files before stage shapes = {@code auto} */
 	record FixtureEntry(Long id, String name, String shortName, String fixtureTypeId, String mode, Long universeId,
-			Integer address, PositionDto position, Integer sortOrder) {
+			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape) {
 
 		static FixtureEntry from(PatchedFixture fixture) {
 			var spec = fixture.spec();
 			return new FixtureEntry(fixture.id(), spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(),
 					spec.modeName(), spec.universeId(), spec.address(),
-					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder());
+					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder(),
+					StageShapeDto.from(spec.stageShape()));
 		}
 
 		PatchedFixture toFixture() {
 			return new PatchedFixture(require(id, "fixture id"), 0, new FixtureSpec(name, Optional.ofNullable(shortName),
 					fixtureTypeId, mode, Objects.requireNonNullElse(universeId, 0L), Objects.requireNonNullElse(address, 0),
 					Optional.ofNullable(position).map(p -> new Position(p.x(), p.y())),
-					Objects.requireNonNullElse(sortOrder, 0)));
+					Objects.requireNonNullElse(sortOrder, 0), StageShapeDto.toShape(stageShape)));
 		}
 	}
 

@@ -139,6 +139,17 @@ export interface Position {
   y: number;
 }
 
+export type StageShapeKind = 'auto' | 'spot' | 'bar' | 'strip';
+
+/** How a fixture is drawn in the stage view. */
+export interface StageShape {
+  kind: StageShapeKind;
+  /** clockwise in degrees (0–359), 0 = across the stage */
+  rotation: number;
+  /** bar/strip length as a fraction of the stage width (0.02–1) */
+  length: number;
+}
+
 export interface Fixture {
   id: number;
   name: string;
@@ -151,6 +162,7 @@ export interface Fixture {
   lastAddress: number | null;
   position: Position | null;
   sortOrder: number;
+  stageShape: StageShape;
 }
 
 export interface FixtureRequest {
@@ -162,6 +174,8 @@ export interface FixtureRequest {
   address: number;
   position: Position | null;
   sortOrder: number;
+  /** missing = drawn automatically */
+  stageShape?: StageShape;
 }
 
 export interface PatchIssue {

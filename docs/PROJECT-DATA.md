@@ -26,7 +26,8 @@ und welche Szenen es gibt.
   (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
   V10 = Textbuch pro Szene (`scene.script`, Iteration T), V11 = Netzwerk-Interface pro Universe
   (`universe.network_interface`, Iteration N), V12 = erwartete Art-Net-Nodes pro Projekt (`expected_node`,
-  Iteration H; reist nicht im Projekt-Export mit, weil die Nodes zum Aufbau vor Ort gehören).
+  Iteration H; reist nicht im Projekt-Export mit, weil die Nodes zum Aufbau vor Ort gehören), …,
+  V18 = Form pro Fixture in der Bühnenansicht (`fixture.stage_shape`, `stage_rotation`, `stage_length`).
 - **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
 
@@ -66,6 +67,9 @@ fixture                                         -- gepatchte Instanz
   address         INTEGER NOT NULL              -- 1–512
   pos_x, pos_y    REAL                          -- 0..1, Bühnenansicht
   sort_order      INTEGER
+  stage_shape     TEXT NOT NULL DEFAULT 'auto'  -- Form in der Bühnenansicht: auto | spot | bar | strip
+  stage_rotation  INTEGER NOT NULL DEFAULT 0    -- 0–359°, im Uhrzeigersinn, 0 = quer zur Bühne
+  stage_length    REAL NOT NULL DEFAULT 0.15    -- Länge von Bar/Strip als Anteil der Bühnenbreite
 
 fixture_group
   id, project_id, name, color, sort_order

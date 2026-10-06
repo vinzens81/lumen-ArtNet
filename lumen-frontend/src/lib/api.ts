@@ -34,6 +34,7 @@ import type {
   PresetGroup,
   PresetRefs,
   StagePreviewStatus,
+  StageShape,
   Universe,
   UniverseRequest,
 } from './types';
@@ -232,6 +233,8 @@ export const api = {
   stage: {
     place: (projectId: number, positions: Record<number, Position | null>) =>
       put<void>(`/api/projects/${projectId}/fixtures/positions`, { positions }),
+    shape: (projectId: number, fixtureId: number, shape: StageShape) =>
+      put<void>(`/api/projects/${projectId}/fixtures/${fixtureId}/stage-shape`, shape),
     planUrl: (projectId: number, version: number) => `/api/projects/${projectId}/stage/plan?v=${version}`,
     uploadPlan: (projectId: number, image: Blob) => put<void>(`/api/projects/${projectId}/stage/plan`, image),
     removePlan: (projectId: number) => del(`/api/projects/${projectId}/stage/plan`),

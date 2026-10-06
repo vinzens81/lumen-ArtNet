@@ -23,7 +23,6 @@ import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
-import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
@@ -113,8 +112,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		var fixtureIds = new HashMap<Long, Long>();
 		for (var fixture : export.fixtures()) {
 			var spec = fixture.spec();
-			var copy = new FixtureSpec(spec.name(), spec.shortName(), spec.fixtureTypeId(), spec.modeName(),
-					universeIds.get(spec.universeId()), spec.address(), spec.position(), spec.sortOrder());
+			var copy = spec.withUniverseId(universeIds.get(spec.universeId()));
 			fixtureIds.put(fixture.id(), fixtures.create(projectId, copy).id());
 		}
 		var groupIds = new HashMap<Long, Long>();

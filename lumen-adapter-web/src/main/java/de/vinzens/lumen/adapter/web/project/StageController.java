@@ -1,6 +1,7 @@
 package de.vinzens.lumen.adapter.web.project;
 
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
+import de.vinzens.lumen.adapter.web.project.PatchDtos.StageShapeDto;
 import de.vinzens.lumen.application.project.port.in.ManageStageUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.project.Position;
@@ -25,7 +26,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Stage view: fixture positions (0–1 within the stage area) and the floor plan image.
+ * Stage view: fixture positions (0–1 within the stage area), their shapes and the floor plan image.
  */
 @RestController
 @RequestMapping("/api/projects/{projectId}")
@@ -48,6 +49,17 @@ class StageController {
 		request.positions().forEach((fixtureId, position) -> positions.put(fixtureId,
 				Optional.ofNullable(position).map(p -> new Position(p.x(), p.y()))));
 		stage.placeFixtures(projectId, positions);
+	}
+
+	/** How the fixture is drawn: kind, rotation, length. */
+	@PutMapping("/fixtures/{fixtureId}/stage-shape")
+	@ResponseStatus(HttpStatus.NO_CONTENT)
+	void shapeFixture(@PathVariable long projectId, @PathVariable long fixtureId,
+			@RequestBody StageShapeDto request) {
+		if (request == null) {
+			throw new DomainValidationException(List.of("stage shape is missing"));
+		}
+		stage.shapeFixture(projectId, fixtureId, request.toShape());
 	}
 
 	@GetMapping("/stage/plan")
