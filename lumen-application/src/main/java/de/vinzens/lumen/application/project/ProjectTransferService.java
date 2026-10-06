@@ -1,6 +1,14 @@
 package de.vinzens.lumen.application.project;
 
+import de.vinzens.lumen.application.composition.PatchAttributes;
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
+import de.vinzens.lumen.application.legacy.LegacyConverter;
+import de.vinzens.lumen.application.legacy.LegacyShow;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyComposition;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyKey;
+import de.vinzens.lumen.application.legacy.LegacyShow.LegacyScene;
+import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.look.port.out.LookRepository;
 import de.vinzens.lumen.application.party.port.out.PartyButtonRepository;
 import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.preset.port.out.PresetRepository;
@@ -15,20 +23,24 @@ import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
-import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Fader;
+import de.vinzens.lumen.domain.composition.GeneratorSettings;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.library.AttributeGroup;
+import de.vinzens.lumen.domain.look.Look;
+import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
-import de.vinzens.lumen.domain.scene.Look;
+import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 
+import java.lang.System.Logger.Level;
 import java.time.Clock;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -37,36 +49,44 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 
 public class ProjectTransferService implements TransferProjectUseCase {
+
+	private static final System.Logger LOG = System.getLogger(ProjectTransferService.class.getName());
 
 	private final ProjectRepository projects;
 	private final UniverseRepository universes;
 	private final FixtureRepository fixtures;
 	private final GroupRepository groups;
+	private final LookRepository looks;
+	private final CompositionRepository compositions;
 	private final SceneRepository scenes;
 	private final StagePlanRepository stagePlans;
-	private final CompositionRepository compositions;
 	private final PartyButtonRepository partyButtons;
 	private final PresetRepository presets;
 	private final FaderRepository faders;
+	private final QueryFixtureLibraryUseCase library;
 	private final Clock clock;
 	private final PatchChangeListener listener;
 
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
-			FixtureRepository fixtures, GroupRepository groups, SceneRepository scenes, StagePlanRepository stagePlans,
-			CompositionRepository compositions, PartyButtonRepository partyButtons, PresetRepository presets,
-			FaderRepository faders, Clock clock, PatchChangeListener listener) {
+			FixtureRepository fixtures, GroupRepository groups, LookRepository looks, CompositionRepository compositions,
+			SceneRepository scenes, StagePlanRepository stagePlans, PartyButtonRepository partyButtons,
+			PresetRepository presets, FaderRepository faders, QueryFixtureLibraryUseCase library, Clock clock,
+			PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
 		this.groups = Objects.requireNonNull(groups, "groups");
+		this.looks = Objects.requireNonNull(looks, "looks");
+		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.stagePlans = Objects.requireNonNull(stagePlans, "stagePlans");
-		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.partyButtons = Objects.requireNonNull(partyButtons, "partyButtons");
 		this.presets = Objects.requireNonNull(presets, "presets");
 		this.faders = Objects.requireNonNull(faders, "faders");
+		this.library = Objects.requireNonNull(library, "library");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
 	}
@@ -75,16 +95,10 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	public ProjectExport export(long projectId) {
 		var project = projects.findById(projectId).orElseThrow(() -> ProjectService.notFound(projectId));
 		return new ProjectExport(project.spec(), universes.findByProject(projectId),
-				fixtures.findByProject(projectId), groups.findByProject(projectId), scenes.findByProject(projectId),
-				stagePlans.find(projectId), allCompositions(projectId), compositions.findKeys(projectId),
-				compositions.findSceneKeys(projectId), partyButtons.findByProject(projectId),
-				presets.findByProject(projectId), faders.findByProject(projectId));
-	}
-
-	private List<Composition> allCompositions(long projectId) {
-		var result = new ArrayList<>(compositions.findLibrary(projectId));
-		compositions.findByScenes(projectId).values().forEach(result::addAll);
-		return result;
+				fixtures.findByProject(projectId), groups.findByProject(projectId), looks.findByProject(projectId),
+				compositions.findByProject(projectId), scenes.findByProject(projectId), stagePlans.find(projectId),
+				partyButtons.findByProject(projectId), presets.findByProject(projectId),
+				faders.findByProject(projectId), LegacyShow.EMPTY);
 	}
 
 	@Override
@@ -105,92 +119,135 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	}
 
 	private void copyContents(long projectId, ProjectExport export) {
-		var universeIds = new HashMap<Long, Long>();
+		var ids = new Ids();
 		for (var universe : export.universes()) {
-			universeIds.put(universe.id(), universes.create(projectId, universe.spec()).id());
+			ids.universes.put(universe.id(), universes.create(projectId, universe.spec()).id());
 		}
-		var fixtureIds = new HashMap<Long, Long>();
 		for (var fixture : export.fixtures()) {
 			var spec = fixture.spec();
-			var copy = spec.withUniverseId(universeIds.get(spec.universeId()));
-			fixtureIds.put(fixture.id(), fixtures.create(projectId, copy).id());
+			var copy = spec.withUniverseId(ids.universes.get(spec.universeId()));
+			ids.fixtures.put(fixture.id(), fixtures.create(projectId, copy).id());
 		}
-		var groupIds = new HashMap<Long, Long>();
 		for (var group : export.groups()) {
 			var spec = group.spec();
-			groupIds.put(group.id(), groups.create(projectId, new GroupSpec(spec.name(), spec.color(), spec.sortOrder(),
-					spec.fixtureIds().stream().map(fixtureIds::get).toList())).id());
+			ids.groups.put(group.id(), groups.create(projectId, new GroupSpec(spec.name(), spec.color(),
+					spec.sortOrder(), spec.fixtureIds().stream().map(ids.fixtures::get).toList())).id());
 		}
-		var presetIds = new HashMap<Long, Long>();
 		for (var preset : export.presets()) {
-			presetIds.put(preset.id(), presets.create(projectId, preset.spec(), remap(preset.values(), fixtureIds)).id());
-		}
-		var sceneIds = new HashMap<Long, Long>();
-		for (var scene : export.scenes()) {
-			var refs = new HashMap<Long, Map<AttributeGroup, Long>>();
-			scene.presets().refs().forEach((fixtureId, groups) -> {
-				var mapped = new HashMap<AttributeGroup, Long>();
-				groups.forEach((group, presetId) -> mapped.put(group, presetIds.get(presetId)));
-				refs.put(fixtureIds.get(fixtureId), mapped);
-			});
-			var look = new Look(remap(scene.values(), fixtureIds), new PresetRefs(refs));
-			sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), look).id());
+			ids.presets.put(preset.id(), presets.create(projectId, preset.spec(),
+					ids.values(preset.values())).id());
 		}
 		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
 
-		// library first, so copies can refer to their origin
-		var compositionIds = new HashMap<Long, Long>();
-		var ordered = new ArrayList<>(export.compositions());
-		ordered.sort((a, b) -> Boolean.compare(!a.inLibrary(), !b.inLibrary()));
-		for (var composition : ordered) {
-			var spec = remap(composition.spec(), fixtureIds, groupIds);
-			var created = compositions.create(projectId, composition.sceneId().map(sceneIds::get),
-					composition.sourceId().map(compositionIds::get), spec);
-			compositionIds.put(composition.id(), created.id());
-		}
-		for (var key : export.keys()) {
-			switch (key.content()) {
-				case ExtraKey.Content.PlaysComposition plays -> compositions.saveKey(projectId, key.slot(),
-						plays.composition().sourceId().map(compositionIds::get), key.mode(), key.fade(),
-						remap(plays.composition().spec(), fixtureIds, groupIds));
-				case ExtraKey.Content.PlaysScene plays -> compositions.saveSceneKey(projectId, key.slot(),
-						sceneIds.get(plays.sceneId()), key.mode(), key.fade());
+		var writer = new ShowContentWriter(looks, compositions, scenes);
+		var sceneIds = new HashMap<Long, Long>();
+		if (isLegacy(export)) {
+			var legacy = ids.legacy(export.legacy());
+			for (var scene : legacy.scenes()) {
+				sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), List.of(), List.of()).id());
 			}
+			var members = new HashMap<Long, List<Long>>();
+			groups.findByProject(projectId).forEach(group -> members.put(group.id(), group.spec().fixtureIds()));
+			var converted = LegacyConverter.convert(legacy, members,
+					PatchAttributes.of(fixtures.findByProject(projectId), library));
+			converted.report().forEach(line -> LOG.log(Level.INFO, "Import of \"{0}\": {1}",
+					export.project().name(), line));
+			writer.write(projectId, converted.content(), sceneIds);
+		} else {
+			for (var scene : export.scenes()) {
+				sceneIds.put(scene.id(), scenes.create(projectId, scene.spec(), List.of(), List.of()).id());
+			}
+			var sceneCompositions = new HashMap<Long, List<SceneComposition>>();
+			var sceneKeys = new HashMap<Long, List<SceneKey>>();
+			export.scenes().forEach(scene -> {
+				sceneCompositions.put(scene.id(), scene.compositions());
+				sceneKeys.put(scene.id(), scene.keys());
+			});
+			var content = new ShowContent(
+					export.looks().stream().map(ids::look).toList(),
+					export.compositions().stream().map(ids::composition).toList(),
+					sceneCompositions, sceneKeys);
+			writer.write(projectId, content, sceneIds);
 		}
-		export.sceneKeys().forEach((sceneId, slots) -> compositions.saveSceneKeys(sceneIds.get(sceneId), slots));
 		for (var fader : export.faders()) {
 			faders.save(projectId, new Fader(fader.slot(), fader.name(), sceneIds.get(fader.sceneId())));
 		}
 		for (var button : export.partyButtons()) {
-			var values = new HashMap<Long, FixtureValues>();
-			button.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
-			partyButtons.create(projectId, button.name(), button.mode(), values);
+			partyButtons.create(projectId, button.name(), button.mode(), ids.values(button.values()));
 		}
 	}
 
-	/** Values with the fixture ids of the new project. */
-	private static Map<Long, FixtureValues> remap(Map<Long, FixtureValues> values, Map<Long, Long> fixtureIds) {
-		var result = new HashMap<Long, FixtureValues>();
-		values.forEach((fixtureId, fixtureValues) -> result.put(fixtureIds.get(fixtureId), fixtureValues));
-		return result;
+	private static boolean isLegacy(ProjectExport export) {
+		return !export.legacy().scenes().isEmpty() || !export.legacy().compositions().isEmpty()
+				|| !export.legacy().keys().isEmpty();
 	}
 
-	/** The spec with fixture and group ids of the new project. */
-	private static CompositionSpec remap(CompositionSpec spec, Map<Long, Long> fixtureIds, Map<Long, Long> groupIds) {
-		Target target = switch (spec.target()) {
-			case Target.Group group -> new Target.Group(groupIds.get(group.groupId()));
-			case Target.Fixtures list -> new Target.Fixtures(list.fixtureIds().stream().map(fixtureIds::get).toList());
-			case Target.Steps steps -> steps;
-		};
-		Pattern pattern = spec.pattern();
-		if (pattern instanceof StepSequence sequence) {
-			pattern = new StepSequence(sequence.steps().stream().map(step -> {
-				var values = new HashMap<Long, FixtureValues>();
-				step.values().forEach((fixtureId, v) -> values.put(fixtureIds.get(fixtureId), v));
-				return new StepSequence.Step(step.holdSeconds(), step.fadeSeconds(), values);
-			}).toList(), sequence.playMode());
+	/** Ids of the export → ids in the new project. */
+	private static final class Ids {
+
+		final Map<Long, Long> universes = new HashMap<>();
+		final Map<Long, Long> fixtures = new HashMap<>();
+		final Map<Long, Long> groups = new HashMap<>();
+		final Map<Long, Long> presets = new HashMap<>();
+
+		Map<Long, FixtureValues> values(Map<Long, FixtureValues> values) {
+			var result = new HashMap<Long, FixtureValues>();
+			values.forEach((fixtureId, fixtureValues) -> result.put(fixtures.get(fixtureId), fixtureValues));
+			return result;
 		}
-		return spec.withContent(spec.name(), pattern, target);
+
+		Look look(Look look) {
+			var refs = new HashMap<Long, Map<AttributeGroup, Long>>();
+			look.presets().refs().forEach((fixtureId, byGroup) -> {
+				var mapped = new HashMap<AttributeGroup, Long>();
+				byGroup.forEach((group, presetId) -> mapped.put(group, presets.get(presetId)));
+				refs.put(fixtures.get(fixtureId), mapped);
+			});
+			return new Look(values(look.values()), new PresetRefs(refs));
+		}
+
+		NamedLook look(NamedLook look) {
+			return new NamedLook(look.id(), 0, look.spec(), look(look.look()));
+		}
+
+		Composition composition(Composition composition) {
+			var spec = composition.spec();
+			var generator = spec.generator().map(settings -> new GeneratorSettings(settings.effect(),
+					target(settings.target()), settings.perHead()));
+			return new Composition(composition.id(), 0, new CompositionSpec(
+					spec.name(), spec.fadeSeconds(), spec.holdSeconds(), spec.playMode(), spec.intensityMode(),
+					generator), composition.steps());
+		}
+
+		Target target(Target target) {
+			return switch (target) {
+				case Target.Group group -> new Target.Group(groups.getOrDefault(group.groupId(), -1L));
+				case Target.Fixtures list -> new Target.Fixtures(list.fixtureIds().stream().map(fixtures::get).toList());
+			};
+		}
+
+		LegacyShow legacy(LegacyShow show) {
+			var legacyScenes = show.scenes().stream()
+					.map(scene -> new LegacyScene(scene.id(), scene.spec(), look(scene.look())))
+					.toList();
+			var legacyCompositions = show.compositions().stream().map(this::composition).toList();
+			var keys = show.keys().stream()
+					.map(key -> new LegacyKey(key.slot(), key.mode(), key.fade(), key.composition().map(this::composition),
+							key.sceneId()))
+					.toList();
+			return new LegacyShow(legacyScenes, legacyCompositions, keys, show.sceneKeys());
+		}
+
+		LegacyComposition composition(LegacyComposition c) {
+			Pattern pattern = c.pattern();
+			if (pattern instanceof StepSequence sequence) {
+				pattern = new StepSequence(sequence.steps().stream()
+						.map(step -> new StepSequence.Step(step.holdSeconds(), step.fadeSeconds(), values(step.values())))
+						.toList(), sequence.playMode(), sequence.intensityMode());
+			}
+			return new LegacyComposition(c.id(), c.sceneId(), c.sourceId(), c.position(), c.name(), pattern,
+					c.target().map(this::target), c.level(), c.speedFactor(), c.restart(), c.once(), c.perHead());
+		}
 	}
 
 	private static void validateReferences(ProjectExport export) {
@@ -217,41 +274,51 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		}
 		var groupIds = new HashSet<Long>();
 		export.groups().forEach(g -> groupIds.add(g.id()));
-		var sceneIds = new HashSet<Long>();
-		export.scenes().forEach(scene -> sceneIds.add(scene.id()));
-		var libraryIds = new HashSet<Long>();
-		export.compositions().stream().filter(Composition::inLibrary).forEach(c -> libraryIds.add(c.id()));
+		var presetIds = new HashSet<Long>();
+		for (var preset : export.presets()) {
+			if (!presetIds.add(preset.id())) {
+				errors.add("Preset id " + preset.id() + " is used twice");
+			}
+			preset.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
+					errors.add("Preset '" + preset.spec().name() + "' refers to unknown fixture " + id));
+		}
+		var compositionIds = new HashSet<Long>();
+		export.compositions().forEach(c -> {
+			if (!compositionIds.add(c.id())) {
+				errors.add("Composition id " + c.id() + " is used twice");
+			}
+		});
+		var lookIds = new HashSet<Long>();
+		for (var look : export.looks()) {
+			var name = "Look '" + look.spec().name() + "'";
+			if (!lookIds.add(look.id())) {
+				errors.add("Look id " + look.id() + " is used twice");
+			}
+			look.spec().owner().filter(id -> !compositionIds.contains(id))
+					.ifPresent(id -> errors.add(name + " belongs to unknown composition " + id));
+			validateLook(name, look.look(), fixtureIds, presetIds, errors);
+		}
 		for (var composition : export.compositions()) {
 			var name = "Composition '" + composition.spec().name() + "'";
-			composition.sceneId().filter(id -> !sceneIds.contains(id))
-					.ifPresent(id -> errors.add(name + " refers to unknown scene " + id));
-			composition.sourceId().filter(id -> !libraryIds.contains(id))
-					.ifPresent(id -> errors.add(name + " refers to unknown library composition " + id));
-			switch (composition.spec().target()) {
-				case Target.Group group -> {
-					if (!groupIds.contains(group.groupId())) {
-						errors.add(name + " refers to unknown group " + group.groupId());
-					}
-				}
-				case Target.Fixtures list -> list.fixtureIds().stream().filter(id -> !fixtureIds.contains(id))
-						.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
-				case Target.Steps steps -> composition.spec().pattern().ownFixtures().orElse(List.of()).stream()
-						.filter(id -> !fixtureIds.contains(id))
-						.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
-			}
+			composition.lookIds().stream().filter(id -> !lookIds.contains(id)).distinct()
+					.forEach(id -> errors.add(name + " plays unknown look " + id));
+			composition.spec().generator().ifPresent(settings ->
+					validateTarget(name, settings.target(), groupIds, fixtureIds, errors));
 		}
-		var slots = new HashSet<Integer>();
-		for (var key : export.keys()) {
-			if (!slots.add(key.slot())) {
-				errors.add("Extra key " + key.slot() + " is used twice");
+		var sceneIds = new HashSet<Long>();
+		var sceneNumbers = new HashSet<SceneNumber>();
+		for (var scene : export.scenes()) {
+			sceneIds.add(scene.id());
+			if (!sceneNumbers.add(scene.spec().number())) {
+				errors.add("Scene number " + scene.spec().number() + " is used twice");
 			}
-			key.composition().flatMap(Composition::sourceId).filter(id -> !libraryIds.contains(id)).ifPresent(id ->
-					errors.add("Extra key " + key.slot() + " refers to unknown library composition " + id));
-			key.sceneId().filter(id -> !sceneIds.contains(id)).ifPresent(id ->
-					errors.add("Extra key " + key.slot() + " refers to unknown scene " + id));
+			scene.compositions().stream().filter(use -> !compositionIds.contains(use.compositionId())).forEach(use ->
+					errors.add("Scene " + scene.spec().number() + " plays unknown composition " + use.compositionId()));
+			scene.keys().stream().filter(key -> !compositionIds.contains(key.compositionId())).forEach(key ->
+					errors.add("Key " + key.slot() + " of scene " + scene.spec().number()
+							+ " plays unknown composition " + key.compositionId()));
 		}
-		export.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
-				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));
+		validateLegacy(export.legacy(), fixtureIds, groupIds, presetIds, sceneIds, sceneNumbers, errors);
 		var faderSlots = new HashSet<Integer>();
 		for (var fader : export.faders()) {
 			if (!faderSlots.add(fader.slot())) {
@@ -265,32 +332,66 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			button.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
 					errors.add("Party button '" + button.name() + "' refers to unknown fixture " + id));
 		}
-		var presetIds = new HashSet<Long>();
-		for (var preset : export.presets()) {
-			if (!presetIds.add(preset.id())) {
-				errors.add("Preset id " + preset.id() + " is used twice");
-			}
-			preset.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
-					errors.add("Preset '" + preset.spec().name() + "' refers to unknown fixture " + id));
+		if (!errors.isEmpty()) {
+			throw new DomainValidationException(List.copyOf(errors));
 		}
-		var sceneNumbers = new HashSet<SceneNumber>();
-		for (var scene : export.scenes()) {
+	}
+
+	/** Scenes of an old file count as scenes of the export (faders refer to them). */
+	private static void validateLegacy(LegacyShow legacy, Set<Long> fixtureIds, Set<Long> groupIds,
+			Set<Long> presetIds, Set<Long> sceneIds, Set<SceneNumber> sceneNumbers, List<String> errors) {
+		for (var scene : legacy.scenes()) {
+			sceneIds.add(scene.id());
 			if (!sceneNumbers.add(scene.spec().number())) {
 				errors.add("Scene number " + scene.spec().number() + " is used twice");
 			}
-			scene.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
-					errors.add("Scene " + scene.spec().number() + " refers to unknown fixture " + id));
-			scene.presets().refs().forEach((fixtureId, groups) -> {
-				if (!scene.values().containsKey(fixtureId)) {
-					errors.add("Scene " + scene.spec().number() + " refers to a preset for fixture " + fixtureId
-							+ " without values");
-				}
-				groups.values().stream().filter(id -> !presetIds.contains(id)).forEach(id ->
-						errors.add("Scene " + scene.spec().number() + " refers to unknown preset " + id));
-			});
+			validateLook("Scene " + scene.spec().number(), scene.look(), fixtureIds, presetIds, errors);
 		}
-		if (!errors.isEmpty()) {
-			throw new DomainValidationException(List.copyOf(errors));
+		var libraryIds = new HashSet<Long>();
+		legacy.compositions().stream().filter(c -> c.sceneId().isEmpty()).forEach(c -> libraryIds.add(c.id()));
+		var all = new ArrayList<>(legacy.compositions());
+		legacy.keys().forEach(key -> key.composition().ifPresent(all::add));
+		for (var composition : all) {
+			var name = "Composition '" + composition.name() + "'";
+			composition.sceneId().filter(id -> !sceneIds.contains(id))
+					.ifPresent(id -> errors.add(name + " refers to unknown scene " + id));
+			composition.sourceId().filter(id -> !libraryIds.contains(id))
+					.ifPresent(id -> errors.add(name + " refers to unknown library composition " + id));
+			composition.target().ifPresent(target -> validateTarget(name, target, groupIds, fixtureIds, errors));
+			composition.pattern().ownFixtures().orElse(List.of()).stream().filter(id -> !fixtureIds.contains(id))
+					.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
+		}
+		var slots = new HashSet<Integer>();
+		for (var key : legacy.keys()) {
+			if (!slots.add(key.slot())) {
+				errors.add("Extra key " + key.slot() + " is used twice");
+			}
+			key.sceneId().filter(id -> !sceneIds.contains(id)).ifPresent(id ->
+					errors.add("Extra key " + key.slot() + " refers to unknown scene " + id));
+		}
+		legacy.sceneKeys().keySet().stream().filter(id -> !sceneIds.contains(id))
+				.forEach(id -> errors.add("Extra keys refer to unknown scene " + id));
+	}
+
+	private static void validateLook(String name, Look look, Set<Long> fixtureIds, Set<Long> presetIds,
+			List<String> errors) {
+		look.values().keySet().stream().filter(id -> !fixtureIds.contains(id)).forEach(id ->
+				errors.add(name + " refers to unknown fixture " + id));
+		look.presets().refs().forEach((fixtureId, byGroup) -> byGroup.values().stream()
+				.filter(id -> !presetIds.contains(id))
+				.forEach(id -> errors.add(name + " refers to unknown preset " + id)));
+	}
+
+	private static void validateTarget(String name, Target target, Set<Long> groupIds, Set<Long> fixtureIds,
+			List<String> errors) {
+		switch (target) {
+			case Target.Group group -> {
+				if (!groupIds.contains(group.groupId())) {
+					errors.add(name + " refers to unknown group " + group.groupId());
+				}
+			}
+			case Target.Fixtures list -> list.fixtureIds().stream().filter(id -> !fixtureIds.contains(id))
+					.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
 		}
 	}
 

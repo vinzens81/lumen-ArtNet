@@ -1,7 +1,6 @@
 package de.vinzens.lumen.domain.composition;
 
 import de.vinzens.lumen.domain.DomainValidationException;
-import de.vinzens.lumen.domain.composition.ExtraKeys.SceneLook;
 import de.vinzens.lumen.domain.output.FixtureValues;
 
 import java.time.Duration;
@@ -18,6 +17,14 @@ import java.util.Objects;
  * long as a fader keeps its scene. Not thread-safe – callers synchronize.
  */
 public final class Faders {
+
+	/** A scene as one look: its compositions, as they run from the moment the fader goes up. */
+	public record SceneLook(long sceneId, List<ActiveComposition> compositions) {
+
+		public SceneLook {
+			compositions = List.copyOf(compositions);
+		}
+	}
 
 	/** A fader ready to play. */
 	public record PlayableFader(int slot, String name, SceneLook look) {
@@ -83,7 +90,7 @@ public final class Faders {
 				continue;
 			}
 			var seconds = Math.max(0, Duration.between(startedAt.get(slot), now).toNanos() / 1e9);
-			var scene = fader.look().values();
+			var scene = Map.<Long, FixtureValues>of();
 			for (var composition : fader.look().compositions()) {
 				scene = CompositionMixer.apply(scene, composition, seconds, attributes);
 			}

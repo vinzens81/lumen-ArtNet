@@ -1,7 +1,7 @@
 package de.vinzens.lumen.domain.composition;
 
-import de.vinzens.lumen.domain.composition.ExtraKeys.SceneLook;
 import de.vinzens.lumen.domain.composition.Faders.PlayableFader;
+import de.vinzens.lumen.domain.composition.Faders.SceneLook;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -10,6 +10,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -59,6 +60,10 @@ class FadersTest {
 	}
 
 	private static PlayableFader fader(int slot, long sceneId, Map<Long, FixtureValues> values) {
-		return new PlayableFader(slot, "Fader " + slot, new SceneLook(sceneId, values, List.of()));
+		// a scene with fixed values: one composition with one step
+		var look = new StepSequence(List.of(new StepSequence.Step(1, 0, values)), StepSequence.PlayMode.LOOP);
+		var composition = new ActiveComposition(sceneId, Optional.of(sceneId), look, List.copyOf(values.keySet()), 1,
+				1, false);
+		return new PlayableFader(slot, "Fader " + slot, new SceneLook(sceneId, List.of(composition)));
 	}
 }

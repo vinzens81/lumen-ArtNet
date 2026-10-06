@@ -4,10 +4,12 @@ import de.vinzens.lumen.adapter.sqlite.SqliteBackups;
 import de.vinzens.lumen.adapter.sqlite.SqliteDatabase;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.backup.BackupService;
+import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.composition.CompositionService;
-import de.vinzens.lumen.application.composition.ExtraKeyService;
 import de.vinzens.lumen.application.events.StateEvents;
+import de.vinzens.lumen.application.legacy.LegacyMigrationService;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.look.LookService;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.project.PatchService;
@@ -58,17 +60,51 @@ class PersistenceConfiguration {
 	}
 
 	@Bean
-	ProjectTransferService projectTransferService(SqliteRepositories repositories, Clock clock,
-			OutputEngine outputEngine) {
+	ProjectTransferService projectTransferService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			Clock clock, OutputEngine outputEngine) {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
-				repositories.groups(), repositories.scenes(), repositories.stagePlans(), repositories.compositions(),
-				repositories.partyButtons(), repositories.presets(), repositories.faders(), clock, outputEngine);
+				repositories.groups(), repositories.looks(), repositories.compositions(), repositories.scenes(),
+				repositories.stagePlans(), repositories.partyButtons(), repositories.presets(), repositories.faders(),
+				library, clock, outputEngine);
+	}
+
+	/**
+	 * Converts shows from before looks (iteration S) once, before anything plays them. A backup of the database is
+	 * made first; the old data also stays in the database.
+	 */
+	@Bean
+	LegacyMigrationService legacyMigration(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			SqliteBackups backups, Clock clock) {
+		var migration = new LegacyMigrationService(repositories.legacyShows(), repositories.projects(),
+				repositories.fixtures(), repositories.groups(), repositories.looks(), repositories.compositions(),
+				repositories.scenes(), library, clock);
+		if (!repositories.legacyShows().pendingProjects().isEmpty()) {
+			var backup = backups.create("before-looks");
+			log.info("Converting shows into looks, compositions and scenes; backup: {}", backup.name());
+			migration.convertPending();
+		}
+		return migration;
+	}
+
+	/** Created after old shows are converted, so nothing plays them half converted. */
+	@Bean
+	CompositionResolver compositionResolver(SqliteRepositories repositories, LegacyMigrationService legacyMigration) {
+		return new CompositionResolver(repositories.compositions(), repositories.looks(), repositories.scenes());
 	}
 
 	@Bean
-	CompositionService compositionService(SqliteRepositories repositories, StateEvents stateEvents) {
-		return new CompositionService(repositories.projects(), repositories.scenes(), repositories.fixtures(),
-				repositories.groups(), repositories.compositions(), stateEvents);
+	LookService lookService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents,
+			Clock clock) {
+		return new LookService(repositories.projects(), repositories.looks(), repositories.compositions(),
+				outputEngine, stateEvents, clock);
+	}
+
+	@Bean
+	CompositionService compositionService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			OutputEngine outputEngine, StateEvents stateEvents) {
+		return new CompositionService(repositories.projects(), repositories.compositions(), repositories.looks(),
+				repositories.scenes(), repositories.fixtures(), repositories.groups(), library, outputEngine,
+				stateEvents);
 	}
 
 	@Bean
@@ -106,10 +142,10 @@ class PersistenceConfiguration {
 	}
 
 	@Bean
-	SceneService sceneService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents,
-			Clock clock) {
-		return new SceneService(repositories.projects(), repositories.scenes(), outputEngine,
-				repositories.compositions(), stateEvents, clock);
+	SceneService sceneService(SqliteRepositories repositories, LookService lookService,
+			CompositionResolver compositionResolver, OutputEngine outputEngine, StateEvents stateEvents) {
+		return new SceneService(repositories.projects(), repositories.scenes(), repositories.compositions(),
+				repositories.looks(), lookService, compositionResolver, outputEngine, stateEvents);
 	}
 
 	@Bean
@@ -119,13 +155,7 @@ class PersistenceConfiguration {
 
 	@Bean
 	PresetService presetService(SqliteRepositories repositories, OutputEngine outputEngine, StateEvents stateEvents) {
-		return new PresetService(repositories.projects(), repositories.presets(), repositories.scenes(), outputEngine,
-				stateEvents);
-	}
-
-	@Bean
-	ExtraKeyService extraKeyService(SqliteRepositories repositories, StateEvents stateEvents) {
-		return new ExtraKeyService(repositories.projects(), repositories.scenes(), repositories.compositions(),
+		return new PresetService(repositories.projects(), repositories.presets(), repositories.looks(), outputEngine,
 				stateEvents);
 	}
 

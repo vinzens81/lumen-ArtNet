@@ -8,7 +8,7 @@ import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.preset.port.in.ManagePresetsUseCase;
 import de.vinzens.lumen.application.preset.port.out.PresetRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
-import de.vinzens.lumen.application.scene.port.out.SceneRepository;
+import de.vinzens.lumen.application.look.port.out.LookRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -26,15 +26,15 @@ public class PresetService implements ManagePresetsUseCase {
 
 	private final ProjectRepository projects;
 	private final PresetRepository presets;
-	private final SceneRepository scenes;
+	private final LookRepository looks;
 	private final ControlProgrammerUseCase programmer;
 	private final StateEvents events;
 
-	public PresetService(ProjectRepository projects, PresetRepository presets, SceneRepository scenes,
+	public PresetService(ProjectRepository projects, PresetRepository presets, LookRepository looks,
 			ControlProgrammerUseCase programmer, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.presets = Objects.requireNonNull(presets, "presets");
-		this.scenes = Objects.requireNonNull(scenes, "scenes");
+		this.looks = Objects.requireNonNull(looks, "looks");
 		this.programmer = Objects.requireNonNull(programmer, "programmer");
 		this.events = Objects.requireNonNull(events, "events");
 	}
@@ -91,23 +91,23 @@ public class PresetService implements ManagePresetsUseCase {
 		presets.delete(presetId);
 		programmer.presetDeleted(presetId);
 		events.publish(StateTopic.PRESETS);
-		events.publish(StateTopic.SCENES);
+		events.publish(StateTopic.LOOKS);
 	}
 
-	/** Every scene that refers to the preset and the programmer take its new values. */
+	/** Every look that refers to the preset and the programmer take its new values. */
 	private void propagate(long projectId, Preset preset) {
-		for (var scene : scenes.findByProject(projectId)) {
-			var look = scene.look();
+		for (var named : looks.findByProject(projectId)) {
+			var look = named.look();
 			if (look.uses(preset.id())) {
 				var updated = look.withPreset(preset);
 				if (!updated.equals(look)) {
-					scenes.replaceLook(scene.id(), updated);
+					looks.replaceLook(named.id(), updated);
 				}
 			}
 		}
 		programmer.presetChanged(preset);
 		events.publish(StateTopic.PRESETS);
-		events.publish(StateTopic.SCENES);
+		events.publish(StateTopic.LOOKS);
 	}
 
 	/** Programmer values of the given fixtures for the preset's group; an error if there are none. */

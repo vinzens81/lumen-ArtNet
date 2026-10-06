@@ -26,6 +26,12 @@ public final class Generator {
 	private Generator() {
 	}
 
+	/** As many samples as wanted, but no step shorter than the engine allows (very fast effects get fewer). */
+	static int samples(int wanted, double seconds) {
+		var fitting = (int) Math.floor(seconds / CompositionSpec.MIN_STEP_SECONDS);
+		return Math.max(2, Math.min(wanted, fitting));
+	}
+
 	/**
 	 * @param fixtureIds the target in order
 	 * @param perHead    every head of a multi-pixel fixture is an element of its own
@@ -82,7 +88,7 @@ public final class Generator {
 					IntensityMode.ABSOLUTE);
 		}
 		// spread fixtures are at different colors at the same time: sample the cycle evenly
-		var samples = colors * SAMPLES_PER_COLOR;
+		var samples = samples(colors * SAMPLES_PER_COLOR, period * colors);
 		var interval = period * colors / samples;
 		for (int i = 0; i < samples; i++) {
 			steps.add(new GeneratedSteps.Step(withIntensity(target.sample(cycle, i * interval), cycle.intensity(),
@@ -92,9 +98,10 @@ public final class Generator {
 	}
 
 	private static GeneratedSteps rainbow(Rainbow rainbow, Sampler target) {
-		var interval = rainbow.cycleSeconds() / RAINBOW_STEPS;
+		var count = samples(RAINBOW_STEPS, rainbow.cycleSeconds());
+		var interval = rainbow.cycleSeconds() / count;
 		var steps = new ArrayList<GeneratedSteps.Step>();
-		for (int i = 0; i < RAINBOW_STEPS; i++) {
+		for (int i = 0; i < count; i++) {
 			steps.add(new GeneratedSteps.Step(withIntensity(target.sample(rainbow, i * interval), rainbow.intensity(),
 					target)));
 		}
@@ -114,9 +121,10 @@ public final class Generator {
 			steps.add(new GeneratedSteps.Step(target.sample(wave, 0.5 * period)));
 			return new GeneratedSteps(steps, period / 2, 0, StepSequence.PlayMode.LOOP, IntensityMode.ABSOLUTE);
 		}
-		var interval = period / WAVE_STEPS;
+		var count = samples(WAVE_STEPS, period);
+		var interval = period / count;
 		var hard = wave.shape() == Wave.Shape.SQUARE;
-		for (int i = 0; i < WAVE_STEPS; i++) {
+		for (int i = 0; i < count; i++) {
 			var values = target.sample(wave, (i + (hard ? 0.5 : 0)) * interval);
 			// a sawtooth drops back to its low at once
 			var jump = wave.shape() == Wave.Shape.SAWTOOTH && wave.spread() == 0 && i == 0;
@@ -130,7 +138,7 @@ public final class Generator {
 
 	private static GeneratedSteps flicker(Flicker flicker, Sampler target) {
 		// one random point per step, as the flicker itself has one per time unit
-		var interval = 1 / (flicker.character().rateHz() * flicker.speed());
+		var interval = Math.max(CompositionSpec.MIN_STEP_SECONDS, 1 / (flicker.character().rateHz() * flicker.speed()));
 		var hard = flicker.character() == Flicker.Character.BROKEN_TUBE;
 		var steps = new ArrayList<GeneratedSteps.Step>();
 		for (int i = 0; i < FLICKER_STEPS; i++) {

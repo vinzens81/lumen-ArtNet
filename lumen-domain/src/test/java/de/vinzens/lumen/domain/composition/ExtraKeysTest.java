@@ -12,7 +12,6 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
@@ -31,7 +30,6 @@ class ExtraKeysTest {
 		keys.configure(List.of(
 				key(1, KeyMode.TOGGLE, Duration.ofSeconds(2), 11),
 				key(2, KeyMode.FLASH, Duration.ZERO, 12)), now);
-		keys.setAvailable(Set.of(1, 2), now);
 	}
 
 	@Test
@@ -64,15 +62,34 @@ class ExtraKeysTest {
 	}
 
 	@Test
-	void unavailableKeysCannotBePressedAndFadeOutWhenTheSceneChanges() {
+	void aKeyFadesOutWhenTheNextSceneDoesNotHaveItsComposition() {
 		keys.press(1, now);
 		advance(2000);
-		keys.setAvailable(Set.of(2), now); // GO to a scene without key 1
+		keys.configure(List.of(key(2, KeyMode.FLASH, Duration.ZERO, 12)), now); // GO to a scene without key 1
 		advance(1000);
-		assertThat(dimmer()).isCloseTo(0.5, within(1e-9));
-		assertThat(keys.press(1, now)).isFalse();
+		assertThat(dimmer()).as("fades out with its own fade time").isCloseTo(0.5, within(1e-9));
+		assertThat(keys.press(1, now)).as("no key 1 in this scene").isFalse();
 		advance(1000);
 		assertThat(dimmer()).isZero();
+		assertThat(keys.tick(now)).isTrue();
+	}
+
+	@Test
+	void aKeyStaysOnWhenTheNextSceneHasItsCompositionOnAnyKey() {
+		keys.press(1, now);
+		advance(2000);
+		keys.configure(List.of(key(5, KeyMode.TOGGLE, Duration.ofSeconds(4), 11)), now);
+		advance(3000);
+
+		assertThat(dimmer()).isEqualTo(1.0);
+		assertThat(keys.activeSlots()).containsExactly(5);
+		assertThat(keys.status(now)).singleElement().satisfies(status -> {
+			assertThat(status.slot()).isEqualTo(5);
+			assertThat(status.on()).isTrue();
+		});
+		keys.press(5, now);
+		advance(2000);
+		assertThat(dimmer()).as("now with the fade time of the new key").isCloseTo(0.5, within(1e-9));
 	}
 
 	@Test
@@ -90,7 +107,6 @@ class ExtraKeysTest {
 		var flicker = new ActiveComposition(13, Optional.empty(), new Flicker(Flicker.Character.CANDLE, 1, 1, 5),
 				List.of(1L), 1, 1, false);
 		keys.configure(List.of(new PlayableKey(3, KeyMode.TOGGLE, Duration.ZERO, "Candle", flicker)), now);
-		keys.setAvailable(Set.of(3), now);
 		keys.press(3, now);
 		advance(700);
 
@@ -102,38 +118,15 @@ class ExtraKeysTest {
 	}
 
 	@Test
-	void sceneKeyLaysTheWholeSceneOverThePlayback() {
-		var red = Attribute.of(ChannelFunction.RED);
-		var chase = new ActiveComposition(20, Optional.empty(), new Chase(1, 1, Chase.Direction.FORWARD, 0, 0, 1),
-				List.of(4L, 5L), 1, 1, false);
-		var scene = new ExtraKeys.SceneLook(7, Map.of(
-				1L, new FixtureValues(Map.of(DIMMER, 0.8, red, 1.0)),
-				2L, new FixtureValues(Map.of(DIMMER, 1.0))), List.of(chase));
-		keys.configure(List.of(new PlayableKey(4, KeyMode.TOGGLE, Duration.ofSeconds(2), "Storm look", scene)), now);
-		keys.setAvailable(Set.of(4), now);
-		keys.press(4, now);
-		advance(1000); // 50 %
-
-		var playback = Map.of(1L, new FixtureValues(Map.of(DIMMER, 0.5, red, 0.0)),
-				3L, new FixtureValues(Map.of(DIMMER, 0.3)));
-		var look = keys.apply(playback, now, FixtureAttributes.ALL);
-
-		assertThat(look.get(1L).get(DIMMER)).as("HTP: playback 50 % beats 80 % × 0.5").contains(0.5);
-		assertThat(look.get(1L).get(red)).as("color faded in half way").contains(0.5);
-		assertThat(look.get(2L).get(DIMMER)).contains(0.5);
-		assertThat(look.get(3L).get(DIMMER)).as("not in the key scene: unchanged").contains(0.3);
-		assertThat(look.get(5L).get(DIMMER)).as("the scene's chase runs too (step 1)").contains(0.5);
-		assertThat(keys.status(now).getFirst().kind()).as("plays a scene").isEmpty();
-	}
-
-	@Test
 	void reconfiguringKeepsRunningKeysWithTheSameComposition() {
 		keys.press(1, now);
 		advance(2000);
 		keys.configure(List.of(key(1, KeyMode.TOGGLE, Duration.ofSeconds(2), 11)), now);
 		assertThat(dimmer()).isEqualTo(1.0);
 		keys.configure(List.of(key(1, KeyMode.TOGGLE, Duration.ofSeconds(2), 99)), now);
-		assertThat(dimmer()).as("another composition on the key").isZero();
+		advance(2000);
+		assertThat(dimmer()).as("another composition on the key: the old one faded out").isZero();
+		assertThat(keys.status(now)).singleElement().extracting(ExtraKeys.KeyStatus::on).isEqualTo(false);
 	}
 
 	private PlayableKey key(int slot, KeyMode mode, Duration fade, long compositionId) {

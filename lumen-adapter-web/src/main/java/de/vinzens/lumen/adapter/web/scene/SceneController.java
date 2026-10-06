@@ -1,16 +1,14 @@
 package de.vinzens.lumen.adapter.web.scene;
 
-import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
-import de.vinzens.lumen.adapter.web.output.ValuesJson;
-import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCase;
+import de.vinzens.lumen.adapter.web.look.LookController.RecordRequest;
+import de.vinzens.lumen.application.look.port.in.ManageLooksUseCase.RecordOptions;
 import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase;
-import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase.RecordOptions;
-import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.DomainValidationException;
-import de.vinzens.lumen.domain.library.AttributeGroup;
+import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
-import de.vinzens.lumen.domain.scene.SceneRevision;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -24,13 +22,9 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Duration;
-import java.time.Instant;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 @RestController
 @RequestMapping("/api/projects/{projectId}/scenes")
@@ -38,28 +32,22 @@ class SceneController {
 
 	private final ManageScenesUseCase scenes;
 
-	private final ManageCompositionsUseCase compositions;
-
-	SceneController(ManageScenesUseCase scenes, ManageCompositionsUseCase compositions) {
+	SceneController(ManageScenesUseCase scenes) {
 		this.scenes = scenes;
-		this.compositions = compositions;
 	}
 
 	@GetMapping
 	List<SceneResponse> scenes(@PathVariable long projectId) {
-		var copies = compositions.sceneCompositions(projectId);
-		return scenes.scenes(projectId).stream()
-				.map(scene -> SceneResponse.from(scene, copies.getOrDefault(scene.id(), List.of())))
-				.toList();
+		return scenes.scenes(projectId).stream().map(SceneResponse::from).toList();
 	}
 
-	private SceneResponse response(Scene scene) {
-		return SceneResponse.from(scene, compositions.sceneCompositions(scene.projectId(), scene.id()));
+	private static SceneResponse response(Scene scene) {
+		return SceneResponse.from(scene);
 	}
 
 	/**
 	 * Creates a scene. Without {@code number} the next whole number is used; with {@code record: true} the
-	 * scene takes the current programmer values.
+	 * programmer becomes the scene's first composition (one step with a look of its own).
 	 */
 	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
@@ -67,7 +55,7 @@ class SceneController {
 		return response(scenes.create(projectId,
 				Optional.ofNullable(request.number()).filter(n -> !n.isBlank()).map(SceneNumber::parse),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly()), timing(request), script(request),
+				Boolean.TRUE.equals(request.outsideCueList()), timing(request), script(request),
 				Boolean.TRUE.equals(request.record())));
 	}
 
@@ -78,10 +66,10 @@ class SceneController {
 		}
 		return response(scenes.update(projectId, sceneId, SceneNumber.parse(request.number()),
 				request.name(), Optional.ofNullable(request.cueNote()), autoFollow(request),
-				Boolean.TRUE.equals(request.keyOnly()), timing(request), script(request)));
+				Boolean.TRUE.equals(request.outsideCueList()), timing(request), script(request)));
 	}
 
-	/** Copies the scene with its look, compositions and extra keys; without {@code number} it goes to the end. */
+	/** Copies the scene with its compositions and keys; without {@code number} it goes to the end. */
 	@PostMapping("/{sceneId}/duplicate")
 	@ResponseStatus(HttpStatus.CREATED)
 	SceneResponse duplicate(@PathVariable long projectId, @PathVariable long sceneId,
@@ -92,8 +80,9 @@ class SceneController {
 	}
 
 	/**
-	 * Takes the current programmer values into the scene: without a body they replace the whole look, with
-	 * {@code merge: true} only what the programmer sets is taken (optionally only some fixtures or attribute groups).
+	 * The quick way for a simple scene: takes the programmer into the look of its first composition (one step), or
+	 * records a first composition if the scene has none. Without a body the programmer replaces the whole look,
+	 * with {@code merge: true} only what it sets is taken.
 	 */
 	@PostMapping("/{sceneId}/record")
 	SceneResponse record(@PathVariable long projectId, @PathVariable long sceneId,
@@ -102,19 +91,22 @@ class SceneController {
 				request == null ? RecordOptions.REPLACE : request.toOptions()));
 	}
 
-	/** Earlier looks of the scene, newest first. */
-	@GetMapping("/{sceneId}/revisions")
-	List<RevisionResponse> revisions(@PathVariable long projectId, @PathVariable long sceneId) {
-		return scenes.revisions(projectId, sceneId).stream().map(RevisionResponse::from).toList();
+	/** The compositions of the scene in their order (later ones win on the same attribute). */
+	@PutMapping("/{sceneId}/compositions")
+	SceneResponse setCompositions(@PathVariable long projectId, @PathVariable long sceneId,
+			@RequestBody List<SceneCompositionDto> compositions) {
+		return response(scenes.setCompositions(projectId, sceneId,
+				compositions.stream().map(SceneCompositionDto::toUse).toList()));
 	}
 
-	/** Puts an earlier look back; the current look becomes a revision itself. */
-	@PostMapping("/{sceneId}/revisions/{revisionId}/restore")
-	SceneResponse restore(@PathVariable long projectId, @PathVariable long sceneId, @PathVariable long revisionId) {
-		return response(scenes.restore(projectId, sceneId, revisionId));
+	/** The extra keys of the scene, each playing a composition. */
+	@PutMapping("/{sceneId}/keys")
+	SceneResponse setKeys(@PathVariable long projectId, @PathVariable long sceneId,
+			@RequestBody List<SceneKeyDto> keys) {
+		return response(scenes.setKeys(projectId, sceneId, keys.stream().map(SceneKeyDto::toKey).toList()));
 	}
 
-	/** Loads the scene into the programmer to preview and edit it. */
+	/** Loads the scene into the programmer as it shows right after GO. */
 	@PostMapping("/{sceneId}/load")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void load(@PathVariable long projectId, @PathVariable long sceneId) {
@@ -142,7 +134,7 @@ class SceneController {
 	/**
 	 * @param number       cue number as text, e.g. "2.5"
 	 * @param autoFollowMs stay time before the next scene starts automatically, {@code null} = wait for GO
-	 * @param keyOnly      only played by extra keys, GO skips the scene
+	 * @param outsideCueList GO skips the scene; it is played by a fader (e.g. house lights)
 	 * @param fadeInMs     fade-in of the GO into this scene, {@code null} = the project's
 	 * @param fadeOutMs    fade-out of the look before at the GO into this scene, {@code null} = the project's
 	 * @param delayMs      the fade-in starts this long after GO, {@code null} = 0
@@ -150,41 +142,8 @@ class SceneController {
 	 * @param script       text spoken on stage during the scene, {@code **…**} marks stage directions;
 	 *                     {@code null} = no text
 	 */
-	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean keyOnly,
+	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
 			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script, Boolean record) {
-	}
-
-	/**
-	 * @param merge      take only what the programmer sets, keep the rest of the scene
-	 * @param fixtureIds when merging: only these fixtures, {@code null} = all in the programmer
-	 * @param groups     when merging: only these attribute groups ("intensity", "color", "position", "beam",
-	 *                   "other"), {@code null} or empty = all
-	 */
-	record RecordRequest(Boolean merge, List<Long> fixtureIds, List<String> groups) {
-
-		RecordOptions toOptions() {
-			var attributeGroups = new HashSet<AttributeGroup>();
-			if (groups != null) {
-				groups.forEach(group -> attributeGroups.add(AttributeGroup.parse(group)));
-			}
-			return new RecordOptions(Boolean.TRUE.equals(merge),
-					Optional.ofNullable(fixtureIds).map(Set::copyOf), attributeGroups);
-		}
-	}
-
-	/**
-	 * @param reason what replaced this look, e.g. "Update from programmer"
-	 * @param values  the look, programmer-style values per fixture id
-	 * @param presets presets the values came from
-	 */
-	record RevisionResponse(long id, Instant createdAt, String reason, int fixtureCount,
-			Map<Long, Map<String, Double>> values, Map<Long, Map<String, Long>> presets) {
-
-		static RevisionResponse from(SceneRevision revision) {
-			var look = revision.look();
-			return new RevisionResponse(revision.id(), revision.createdAt(), revision.reason(), look.values().size(),
-					ValuesJson.toJson(look.values()), PresetRefsJson.toJson(look.presets()));
-		}
 	}
 
 	/** @param number cue number of the copy, {@code null} = after the last scene */
@@ -192,34 +151,61 @@ class SceneController {
 	}
 
 	/**
-	 * @param keyOnly      only played by extra keys, not part of the cue list
-	 * @param fadeInMs     own fade-in time, {@code null} = the project's
-	 * @param fadeOutMs    own fade-out time, {@code null} = the project's
-	 * @param fadeCurve    own fade curve, {@code null} = the project's
-	 * @param script       text spoken on stage during the scene, empty if none
-	 * @param values       programmer-style values per fixture id
-	 * @param presets      presets the values come from: fixture id → attribute group → preset id
-	 * @param compositions compositions running in the scene, in their order
+	 * @param restart start from the beginning at GO, even if the composition already runs in the scene before
 	 */
-	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs, boolean keyOnly,
-			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script, int fixtureCount,
-			Map<Long, Map<String, Double>> values, Map<Long, Map<String, Long>> presets,
-			List<CompositionSummary> compositions) {
+	record SceneCompositionDto(Long compositionId, Double level, Double speedFactor, Boolean restart) {
 
-		static SceneResponse from(Scene scene, List<Composition> compositions) {
-			var spec = scene.spec();
-			var timing = spec.timing();
-			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
-					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.keyOnly(),
-					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					TimingJson.fadeCurve(timing), spec.script(), scene.values().size(),
-					ValuesJson.toJson(scene.values()), PresetRefsJson.toJson(scene.look().presets()),
-					compositions.stream()
-							.map(c -> new CompositionSummary(c.id(), c.spec().name(), c.spec().pattern().kind().id()))
-							.toList());
+		SceneComposition toUse() {
+			if (compositionId == null) {
+				throw new DomainValidationException(List.of("compositionId is missing"));
+			}
+			return new SceneComposition(compositionId, Objects.requireNonNullElse(level, 1.0),
+					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart));
+		}
+
+		static SceneCompositionDto from(SceneComposition use) {
+			return new SceneCompositionDto(use.compositionId(), use.level(), use.speedFactor(), use.restart());
 		}
 	}
 
-	record CompositionSummary(long id, String name, String kind) {
+	/** @param mode toggle or flash */
+	record SceneKeyDto(Integer slot, Long compositionId, String mode, Long fadeMs) {
+
+		SceneKey toKey() {
+			if (slot == null || compositionId == null) {
+				throw new DomainValidationException(List.of("slot and compositionId of a key are required"));
+			}
+			var keyMode = mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode);
+			return new SceneKey(slot, compositionId, keyMode, Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)));
+		}
+
+		static SceneKeyDto from(SceneKey key) {
+			return new SceneKeyDto(key.slot(), key.compositionId(), key.mode().id(), key.fade().toMillis());
+		}
+	}
+
+	/**
+	 * @param outsideCueList GO skips the scene; it is played by a fader
+	 * @param fadeInMs       own fade-in time, {@code null} = the project's
+	 * @param fadeOutMs      own fade-out time, {@code null} = the project's
+	 * @param fadeCurve      own fade curve, {@code null} = the project's
+	 * @param script         text spoken on stage during the scene, empty if none
+	 * @param compositions   compositions running in the scene, in their order
+	 * @param keys           extra keys usable while the scene is on stage
+	 */
+	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs,
+			boolean outsideCueList, Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
+			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys) {
+
+		static SceneResponse from(Scene scene) {
+			var spec = scene.spec();
+			var timing = spec.timing();
+			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
+					spec.autoFollow().map(Duration::toMillis).orElse(null), spec.outsideCueList(),
+					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
+					TimingJson.fadeCurve(timing), spec.script(),
+					scene.compositions().stream().map(SceneCompositionDto::from).toList(),
+					scene.keys().stream().map(SceneKeyDto::from).toList());
+		}
 	}
 }

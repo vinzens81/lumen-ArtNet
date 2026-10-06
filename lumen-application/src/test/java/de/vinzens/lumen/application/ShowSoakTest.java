@@ -1,23 +1,20 @@
 package de.vinzens.lumen.application;
 
-import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Color;
 import de.vinzens.lumen.domain.composition.ColorCycle;
-import de.vinzens.lumen.domain.composition.Composition;
-import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.composition.Flicker;
-import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.OutputEngine;
+import de.vinzens.lumen.application.playback.InMemoryFaders;
 import de.vinzens.lumen.application.playback.PlaybackService;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.project.port.out.UniverseRepository;
-import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelDefinition;
 import de.vinzens.lumen.domain.library.ChannelFunction;
@@ -38,7 +35,7 @@ import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
-import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import org.junit.jupiter.api.Test;
@@ -84,18 +81,19 @@ class ShowSoakTest {
 			Duration.ofSeconds(5)), true, Instant.EPOCH, Instant.EPOCH);
 	private final List<Universe> universes = List.of(universe(1), universe(2));
 	private final List<PatchedFixture> fixtures = new ArrayList<>();
-	private final List<Scene> scenes = new ArrayList<>();
+	private final TestShow show = new TestShow();
 	private long framesSent;
 
 	@Test
 	void threeHourShowRunsWithoutGrowingMemory() {
 		patch();
 		recordScenes();
+		var scenes = show.scenes.findByProject(1);
 		var events = new StateEvents();
 		var engine = new OutputEngine(projects(), universes(), fixtures(), groups(), library(),
 				(universe, frame) -> framesSent++, events, clock);
-		var playback = new PlaybackService(projects(), scenes(), new CompositionResolver(new FixedCompositions(compositions()), groups()),
-				states(), new de.vinzens.lumen.application.playback.InMemoryFaders(), Runnable::run, clock, events);
+		var playback = new PlaybackService(projects(), show.scenes, show.resolver(), states(), new InMemoryFaders(),
+				Runnable::run, clock, events);
 		engine.addLayerSource(playback);
 		engine.patchChanged();
 		engine.setMode(OperatingMode.SHOW);
@@ -133,7 +131,7 @@ class ShowSoakTest {
 		var status = playback.status();
 		if (second % 20 == 0 && status.autoFollowIn().isEmpty()) {
 			if (status.nextSceneId().isEmpty()) {
-				playback.setNext(scenes.getFirst().id()); // start the show again
+				playback.setNext(show.scenes.findByProject(1).getFirst().id()); // start the show again
 			}
 			playback.go();
 		}
@@ -162,35 +160,17 @@ class ShowSoakTest {
 		}
 	}
 
-	/** Every scene runs compositions; scenes 1–6 share a flicker of the same origin that continues across GOs. */
-	private Map<Long, List<Composition>> compositions() {
+	/**
+	 * Every scene: its fixed values, a chase on the dimmers and a color cycle on the PARs. Scenes 1–6 share a flicker
+	 * that continues across GOs.
+	 */
+	private void recordScenes() {
 		var dimmers = fixtures.stream().filter(f -> f.spec().fixtureTypeId().equals("dimmer")).map(PatchedFixture::id)
 				.toList();
 		var pars = fixtures.stream().filter(f -> f.spec().fixtureTypeId().equals("par")).map(PatchedFixture::id)
 				.toList();
-		var result = new HashMap<Long, List<Composition>>();
-		long id = 1000;
-		for (var scene : scenes) {
-			var list = new ArrayList<Composition>();
-			list.add(composition(id++, scene.id(), Optional.empty(), CompositionSpec.of("Chase",
-					new Chase(0.3, 2, Chase.Direction.PING_PONG, 0.5, 0, 1), new Target.Fixtures(dimmers))));
-			list.add(composition(id++, scene.id(), Optional.empty(), CompositionSpec.of("Colors",
-					new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0, 1), new Color(0, 1, 0)), 2, 1, 0.5, 1),
-					new Target.Fixtures(pars))));
-			if (scene.id() <= 106) {
-				list.add(composition(id++, scene.id(), Optional.of(1L), CompositionSpec.of("Candle",
-						new Flicker(Flicker.Character.FIRE, 0.4, 1, 9), new Target.Fixtures(pars))));
-			}
-			result.put(scene.id(), list);
-		}
-		return result;
-	}
-
-	private static Composition composition(long id, long sceneId, Optional<Long> source, CompositionSpec spec) {
-		return new Composition(id, 1, Optional.of(sceneId), source, 0, spec);
-	}
-
-	private void recordScenes() {
+		var attributes = FixtureAttributes.ALL;
+		var candle = show.generated(1, "Candle", new Flicker(Flicker.Character.FIRE, 0.4, 1, 9), pars, attributes);
 		for (int s = 1; s <= 12; s++) {
 			var values = new HashMap<Long, FixtureValues>();
 			for (var fixture : fixtures) {
@@ -205,9 +185,19 @@ class ShowSoakTest {
 								Attribute.of(ChannelFunction.BLUE), (s % 5) / 4.0))
 						: new FixtureValues(Map.of(Attribute.of(ChannelFunction.DIMMER), level)));
 			}
+			var uses = new ArrayList<SceneComposition>();
+			uses.add(SceneComposition.of(show.fixed(1, "Scene " + s, values).id()));
+			uses.add(SceneComposition.of(show.generated(1, "Chase " + s,
+					new Chase(0.3, 2, Chase.Direction.PING_PONG, 0.5, 0, 1), dimmers, attributes).id()));
+			uses.add(SceneComposition.of(show.generated(1, "Colors " + s,
+					new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0, 1), new Color(0, 1, 0)), 2, 1, 0.5, 1),
+					pars, attributes).id()));
+			if (s <= 6) {
+				uses.add(SceneComposition.of(candle.id()));
+			}
 			var autoFollow = s % 3 == 0 ? Optional.of(Duration.ofSeconds(12)) : Optional.<Duration>empty();
-			scenes.add(new Scene(100 + s, 1, new SceneSpec(SceneNumber.of(s), "Scene " + s, Optional.empty(),
-					autoFollow), values));
+			show.scenes.create(1, new SceneSpec(SceneNumber.of(s), "Scene " + s, Optional.empty(), autoFollow), uses,
+					List.of());
 		}
 	}
 
@@ -263,10 +253,6 @@ class ShowSoakTest {
 
 	private GroupRepository groups() {
 		return new ReadOnly.Groups(List.<Group>of());
-	}
-
-	private SceneRepository scenes() {
-		return new ReadOnly.Scenes(scenes);
 	}
 
 	private PlaybackStateRepository states() {
@@ -380,45 +366,6 @@ class ShowSoakTest {
 
 			public void delete(long id) {
 				throw new UnsupportedOperationException();
-			}
-		}
-
-		record Scenes(List<Scene> all) implements SceneRepository {
-			public List<Scene> findByProject(long projectId) {
-				return all;
-			}
-
-			public Optional<Scene> findById(long id) {
-				return all.stream().filter(s -> s.id() == id).findFirst();
-			}
-
-			public Scene create(long projectId, SceneSpec spec, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
-			}
-
-			public Scene updateSpec(long id, SceneSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			public Scene replaceLook(long id, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
-			}
-
-			public void delete(long id) {
-				throw new UnsupportedOperationException();
-			}
-
-			public de.vinzens.lumen.domain.scene.SceneRevision saveRevision(long sceneId, java.time.Instant createdAt,
-					String reason, de.vinzens.lumen.domain.scene.Look look, int keep) {
-				throw new UnsupportedOperationException();
-			}
-
-			public java.util.List<de.vinzens.lumen.domain.scene.SceneRevision> findRevisions(long sceneId) {
-				return java.util.List.of();
-			}
-
-			public java.util.Optional<de.vinzens.lumen.domain.scene.SceneRevision> findRevision(long id) {
-				return java.util.Optional.empty();
 			}
 		}
 	}

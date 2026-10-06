@@ -6,6 +6,9 @@ import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCas
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
+import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
+import de.vinzens.lumen.application.look.port.out.LookRepository;
+import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
@@ -13,45 +16,61 @@ import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.CompositionStep;
+import de.vinzens.lumen.domain.composition.FixtureAttributes;
+import de.vinzens.lumen.domain.composition.Generator;
+import de.vinzens.lumen.domain.composition.GeneratorSettings;
+import de.vinzens.lumen.domain.composition.PlayMode;
+import de.vinzens.lumen.domain.composition.StepSequence;
 import de.vinzens.lumen.domain.composition.Target;
+import de.vinzens.lumen.domain.look.Look;
+import de.vinzens.lumen.domain.look.LookSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
+import de.vinzens.lumen.domain.project.Project;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.stream.Collectors;
 
 public class CompositionService implements ManageCompositionsUseCase {
 
 	private final ProjectRepository projects;
+	private final CompositionRepository compositions;
+	private final LookRepository looks;
 	private final SceneRepository scenes;
 	private final FixtureRepository fixtures;
 	private final GroupRepository groups;
-	private final CompositionRepository compositions;
+	private final QueryFixtureLibraryUseCase library;
+	private final ControlProgrammerUseCase programmer;
 	private final StateEvents events;
 
-	public CompositionService(ProjectRepository projects, SceneRepository scenes, FixtureRepository fixtures,
-			GroupRepository groups, CompositionRepository compositions, StateEvents events) {
+	public CompositionService(ProjectRepository projects, CompositionRepository compositions, LookRepository looks,
+			SceneRepository scenes, FixtureRepository fixtures, GroupRepository groups,
+			QueryFixtureLibraryUseCase library, ControlProgrammerUseCase programmer, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
+		this.compositions = Objects.requireNonNull(compositions, "compositions");
+		this.looks = Objects.requireNonNull(looks, "looks");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
 		this.groups = Objects.requireNonNull(groups, "groups");
-		this.compositions = Objects.requireNonNull(compositions, "compositions");
+		this.library = Objects.requireNonNull(library, "library");
+		this.programmer = Objects.requireNonNull(programmer, "programmer");
 		this.events = Objects.requireNonNull(events, "events");
 	}
 
 	@Override
-	public List<Composition> library(long projectId) {
+	public List<Composition> compositions(long projectId) {
 		requireProject(projectId);
-		return compositions.findLibrary(projectId);
+		return compositions.findByProject(projectId);
 	}
 
 	@Override
 	public Composition composition(long projectId, long compositionId) {
+		requireProject(projectId);
 		return compositions.findById(compositionId)
 				.filter(c -> c.projectId() == projectId)
 				.orElseThrow(() -> new NotFoundException("Composition " + compositionId + " does not exist in project "
@@ -59,138 +78,172 @@ public class CompositionService implements ManageCompositionsUseCase {
 	}
 
 	@Override
-	public Composition createInLibrary(long projectId, CompositionSpec spec) {
+	public Composition create(long projectId, CompositionSpec spec, List<CompositionStep> steps) {
 		requireProject(projectId);
-		requireReferences(projectId, spec);
-		return changed(compositions.create(projectId, Optional.empty(), Optional.empty(), spec));
+		Composition.validateSteps(spec, steps);
+		requirePlayable(projectId, Optional.empty(), steps);
+		return published(compositions.create(projectId, spec, steps));
 	}
 
 	@Override
-	public Composition update(long projectId, long compositionId, CompositionSpec spec) {
-		composition(projectId, compositionId);
-		requireReferences(projectId, spec);
-		return changed(compositions.update(compositionId, spec));
+	public Composition update(long projectId, long compositionId, CompositionSpec spec, List<CompositionStep> steps) {
+		var composition = composition(projectId, compositionId);
+		Composition.validateSteps(spec, steps);
+		requirePlayable(projectId, Optional.of(compositionId), steps);
+		var updated = compositions.update(compositionId, spec, steps);
+		dropUnusedOwnLooks(composition, updated);
+		return published(updated);
+	}
+
+	@Override
+	public Composition duplicate(long projectId, long compositionId) {
+		var original = composition(projectId, compositionId);
+		var spec = original.spec().withName(original.spec().name() + " (copy)");
+		var copy = compositions.create(projectId, spec, List.of());
+		// own looks are copied, shared looks stay shared
+		var copiedLooks = new HashMap<Long, Long>();
+		for (var look : looks.findByProject(projectId)) {
+			if (look.spec().owner().equals(Optional.of(compositionId))) {
+				copiedLooks.put(look.id(), looks.create(projectId,
+						new LookSpec(look.spec().name(), Optional.of(copy.id())), look.look()).id());
+			}
+		}
+		var steps = original.steps().stream()
+				.map(step -> new CompositionStep(copiedLooks.getOrDefault(step.lookId(), step.lookId()),
+						step.fadeSeconds(), step.holdSeconds()))
+				.toList();
+		events.publish(StateTopic.LOOKS);
+		return published(compositions.update(copy.id(), spec, steps));
 	}
 
 	@Override
 	public void delete(long projectId, long compositionId) {
-		var existing = composition(projectId, compositionId);
+		composition(projectId, compositionId);
+		var users = scenes.findByProject(projectId).stream()
+				.filter(scene -> scene.contains(compositionId)
+						|| scene.keys().stream().anyMatch(key -> key.compositionId() == compositionId))
+				.map(scene -> scene.spec().number().toString())
+				.collect(Collectors.joining(", "));
+		if (!users.isEmpty()) {
+			throw new ConflictException("The composition is used in scene " + users + " – remove it from there first");
+		}
 		compositions.delete(compositionId);
-		changed(existing);
-	}
-
-	@Override
-	public Map<Long, List<Composition>> sceneCompositions(long projectId) {
-		requireProject(projectId);
-		return compositions.findByScenes(projectId);
-	}
-
-	@Override
-	public List<Composition> sceneCompositions(long projectId, long sceneId) {
-		requireScene(projectId, sceneId);
-		return compositions.findByScene(sceneId);
-	}
-
-	@Override
-	public Composition insertIntoScene(long projectId, long sceneId, long libraryCompositionId) {
-		requireScene(projectId, sceneId);
-		var source = requireLibrary(projectId, libraryCompositionId);
-		return changed(compositions.create(projectId, Optional.of(sceneId), Optional.of(source.id()), source.spec()));
-	}
-
-	@Override
-	public List<Composition> reorderScene(long projectId, long sceneId, List<Long> compositionIds) {
-		requireScene(projectId, sceneId);
-		var existing = compositions.findByScene(sceneId).stream().map(Composition::id).collect(Collectors.toSet());
-		if (!existing.equals(new HashSet<>(compositionIds)) || existing.size() != compositionIds.size()) {
-			throw new DomainValidationException(List.of("The order must contain every composition of the scene once"));
-		}
-		compositions.reorder(sceneId, compositionIds);
-		events.publish(StateTopic.SCENES);
+		events.publish(StateTopic.LOOKS);
 		events.publish(StateTopic.COMPOSITIONS);
-		return compositions.findByScene(sceneId);
 	}
 
 	@Override
-	public Composition reloadFromLibrary(long projectId, long copyId) {
-		var copy = requireCopy(projectId, copyId);
-		var source = copy.sourceId().flatMap(compositions::findById)
-				.orElseThrow(() -> new ConflictException("The library composition of this copy no longer exists"));
-		var spec = source.spec();
-		return changed(compositions.update(copyId, copy.spec().withContent(spec.name(), spec.pattern(),
-				spec.target())));
+	public Composition recordStep(long projectId, long compositionId) {
+		requireActive(projectId);
+		var composition = composition(projectId, compositionId);
+		var look = looks.create(projectId, ownLookSpec(composition, composition.steps().size() + 1),
+				programmer.programmerLook());
+		var steps = new ArrayList<>(composition.steps());
+		steps.add(CompositionStep.of(look.id()));
+		events.publish(StateTopic.LOOKS);
+		return published(compositions.update(compositionId, composition.spec(), steps));
 	}
 
 	@Override
-	public Composition saveToLibrary(long projectId, long copyId) {
-		var copy = requireCopy(projectId, copyId);
-		var spec = copy.spec();
-		var source = copy.sourceId().flatMap(compositions::findById);
-		if (source.isPresent()) {
-			return changed(compositions.update(source.get().id(), source.get().spec().withContent(spec.name(),
-					spec.pattern(), spec.target())));
+	public Composition generate(long projectId, long compositionId, GeneratorSettings settings) {
+		var composition = composition(projectId, compositionId);
+		var target = targetFixtures(projectId, settings.target());
+		if (target.isEmpty()) {
+			throw new DomainValidationException(List.of("the target has no fixtures"));
 		}
-		return changed(compositions.create(projectId, Optional.empty(), Optional.empty(),
-				CompositionSpec.of(spec.name(), spec.pattern(), spec.target())));
+		var generated = Generator.generate(settings.effect(), target, settings.perHead(), attributes(projectId));
+		var steps = new ArrayList<CompositionStep>();
+		for (var step : generated.steps()) {
+			var look = looks.create(projectId, ownLookSpec(composition, steps.size() + 1), Look.of(step.values()));
+			steps.add(new CompositionStep(look.id(), step.fadeSeconds(), step.holdSeconds()));
+		}
+		var old = composition.spec();
+		var playMode = generated.playMode() == StepSequence.PlayMode.PING_PONG ? PlayMode.PING_PONG
+				: old.playMode() == PlayMode.ONCE ? PlayMode.ONCE : PlayMode.LOOP;
+		var spec = new CompositionSpec(old.name(), generated.fadeSeconds(), generated.holdSeconds(), playMode,
+				generated.intensityMode(), Optional.of(settings));
+		var updated = compositions.update(compositionId, spec, steps);
+		dropUnusedOwnLooks(composition, updated);
+		events.publish(StateTopic.LOOKS);
+		return published(updated);
 	}
 
-	// --- checks ----------------------------------------------------------------------------------------------
-
-	/** Groups and fixtures of target and steps must belong to the project. */
-	private void requireReferences(long projectId, CompositionSpec spec) {
-		var projectFixtures = fixtures.findByProject(projectId).stream().map(PatchedFixture::id)
-				.collect(Collectors.toSet());
-		var errors = new ArrayList<String>();
-		switch (spec.target()) {
-			case Target.Group group -> {
-				if (groups.findById(group.groupId()).filter(g -> g.projectId() == projectId).isEmpty()) {
-					errors.add("Group " + group.groupId() + " does not exist in this project");
-				}
+	/** Own looks that no step plays any more are deleted. */
+	private void dropUnusedOwnLooks(Composition before, Composition after) {
+		var used = new HashSet<>(after.lookIds());
+		var dropped = false;
+		for (var lookId : new HashSet<>(before.lookIds())) {
+			if (used.contains(lookId)) {
+				continue;
 			}
-			case Target.Fixtures list -> unknown(list.fixtureIds(), projectFixtures)
-					.forEach(id -> errors.add("Fixture " + id + " does not exist in this project"));
-			case Target.Steps steps -> spec.pattern().ownFixtures().ifPresent(ids -> unknown(ids, projectFixtures)
-					.forEach(id -> errors.add("A step refers to fixture " + id + ", which is not in this project")));
+			var look = looks.findById(lookId);
+			if (look.isPresent() && look.get().spec().owner().equals(Optional.of(before.id()))) {
+				looks.delete(lookId);
+				dropped = true;
+			}
 		}
-		if (!errors.isEmpty()) {
-			throw new DomainValidationException(errors);
+		if (dropped) {
+			events.publish(StateTopic.LOOKS);
 		}
 	}
 
-	private static List<Long> unknown(List<Long> ids, Set<Long> known) {
-		return ids.stream().filter(id -> !known.contains(id)).toList();
-	}
-
-	private void requireProject(long projectId) {
-		projects.findById(projectId).orElseThrow(() -> new NotFoundException("Project " + projectId + " does not exist"));
-	}
-
-	private void requireScene(long projectId, long sceneId) {
-		scenes.findById(sceneId).filter(s -> s.projectId() == projectId)
-				.orElseThrow(() -> new NotFoundException("Scene " + sceneId + " does not exist in project " + projectId));
-	}
-
-	private Composition requireLibrary(long projectId, long compositionId) {
-		var composition = composition(projectId, compositionId);
-		if (!composition.inLibrary()) {
-			throw new DomainValidationException(List.of("Composition " + compositionId + " is not in the library"));
+	/** Steps may play shared looks of the project and the composition's own looks. */
+	private void requirePlayable(long projectId, Optional<Long> compositionId, List<CompositionStep> steps) {
+		var problems = new ArrayList<String>();
+		for (int i = 0; i < steps.size(); i++) {
+			var lookId = steps.get(i).lookId();
+			var look = looks.findById(lookId).filter(l -> l.projectId() == projectId);
+			if (look.isEmpty()) {
+				problems.add("step " + (i + 1) + ": look " + lookId + " does not exist in this project");
+			} else if (look.get().spec().owner().isPresent() && !look.get().spec().owner().equals(compositionId)) {
+				problems.add("step " + (i + 1) + ": \"" + look.get().spec().name()
+						+ "\" belongs to another composition – make it shared first");
+			}
 		}
-		return composition;
+		if (!problems.isEmpty()) {
+			throw new DomainValidationException(problems);
+		}
 	}
 
-	private Composition requireCopy(long projectId, long compositionId) {
-		var composition = composition(projectId, compositionId);
-		if (composition.inLibrary()) {
-			throw new DomainValidationException(List.of("Composition " + compositionId + " is not in a scene"));
-		}
-		return composition;
+	private static LookSpec ownLookSpec(Composition composition, int stepNumber) {
+		return new LookSpec(composition.spec().name() + " – Step " + stepNumber, Optional.of(composition.id()));
 	}
 
-	/** Copies in scenes change what the playback plays; library changes only the editor. */
-	private Composition changed(Composition composition) {
-		if (!composition.inLibrary()) {
-			events.publish(StateTopic.SCENES);
+	private List<Long> targetFixtures(long projectId, Target target) {
+		var patched = fixtures.findByProject(projectId).stream().map(PatchedFixture::id).collect(Collectors.toSet());
+		return switch (target) {
+			case Target.Group group -> groups.findById(group.groupId())
+					.filter(g -> g.projectId() == projectId)
+					.orElseThrow(() -> new DomainValidationException(List.of("group " + group.groupId()
+							+ " does not exist in this project")))
+					.spec().fixtureIds();
+			case Target.Fixtures list -> {
+				var unknown = list.fixtureIds().stream().filter(id -> !patched.contains(id)).toList();
+				if (!unknown.isEmpty()) {
+					throw new DomainValidationException(List.of("fixtures " + unknown + " do not exist in this project"));
+				}
+				yield list.fixtureIds();
+			}
+		};
+	}
+
+	private FixtureAttributes attributes(long projectId) {
+		return PatchAttributes.of(fixtures.findByProject(projectId), library);
+	}
+
+	private Project requireProject(long projectId) {
+		return projects.findById(projectId)
+				.orElseThrow(() -> new NotFoundException("Project " + projectId + " does not exist"));
+	}
+
+	private void requireActive(long projectId) {
+		if (!requireProject(projectId).active()) {
+			throw new ConflictException("The programmer belongs to the active project – activate project "
+					+ projectId + " first");
 		}
+	}
+
+	private Composition published(Composition composition) {
 		events.publish(StateTopic.COMPOSITIONS);
 		return composition;
 	}

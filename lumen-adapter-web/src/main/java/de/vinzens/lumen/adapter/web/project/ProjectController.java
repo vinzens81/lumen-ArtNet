@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
@@ -37,7 +38,7 @@ class ProjectController {
 		this.json = json;
 	}
 
-	/** The project with patch, groups and scenes as a file to download. */
+	/** The project with patch, groups, looks, compositions and scenes as a file to download. */
 	@GetMapping("/{id}/export")
 	ResponseEntity<ProjectFile> export(@PathVariable long id) {
 		var file = ProjectFile.from(transfer.export(id), Instant.now(), json);
@@ -48,11 +49,11 @@ class ProjectController {
 				.body(file);
 	}
 
-	/** Creates a new project from an exported file. */
+	/** Creates a new project from an exported file (any supported version). */
 	@PostMapping("/import")
 	@ResponseStatus(HttpStatus.CREATED)
-	ProjectResponse importProject(@RequestBody ProjectFile file) {
-		return ProjectResponse.from(transfer.importProject(file.toExport(json)));
+	ProjectResponse importProject(@RequestBody JsonNode file) {
+		return ProjectResponse.from(transfer.importProject(ProjectFile.read(file, json)));
 	}
 
 	@GetMapping

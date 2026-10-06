@@ -1,36 +1,35 @@
 package de.vinzens.lumen.adapter.web.composition;
 
-import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.domain.DomainValidationException;
 import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Color;
 import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.CompositionStep;
 import de.vinzens.lumen.domain.composition.Flicker;
+import de.vinzens.lumen.domain.composition.GeneratorSettings;
+import de.vinzens.lumen.domain.composition.IntensityMode;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.PatternKind;
+import de.vinzens.lumen.domain.composition.PlayMode;
 import de.vinzens.lumen.domain.composition.Rainbow;
 import de.vinzens.lumen.domain.composition.StepSequence;
-import de.vinzens.lumen.domain.composition.StepSequence.Step;
 import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.composition.Wave;
-import de.vinzens.lumen.domain.output.FixtureValues;
 import tools.jackson.core.JacksonException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
+import java.util.Optional;
 
 /**
- * JSON form of compositions. Parameters are typed per kind; times are milliseconds, colors {@code #rrggbb},
- * enum values lower case.
+ * JSON form of compositions: steps playing looks, and the effects steps are generated from. Effect parameters are
+ * typed per kind; times are milliseconds, colors {@code #rrggbb}, enum values lower case.
  */
 public final class CompositionDtos {
 
@@ -38,70 +37,113 @@ public final class CompositionDtos {
 	}
 
 	/**
+	 * Properties and steps of a composition. Missing times and modes take the defaults (1 s fade, 2 s hold, loop,
+	 * absolute intensity).
+	 *
+	 * @param playMode      loop, ping_pong or once
+	 * @param intensityMode absolute or relative
+	 */
+	public record CompositionRequest(String name, Long fadeMs, Long holdMs, String playMode, String intensityMode,
+			List<StepDto> steps) {
+
+		/** @param generator kept from the stored composition: it only changes by generating again */
+		public CompositionSpec toSpec(Optional<GeneratorSettings> generator) {
+			return new CompositionSpec(name, seconds(fadeMs, 1000), seconds(holdMs, 2000),
+					playMode == null ? PlayMode.LOOP : PlayMode.fromId(playMode),
+					enumValue(IntensityMode.class, intensityMode, "intensityMode", IntensityMode.ABSOLUTE), generator);
+		}
+
+		public List<CompositionStep> toSteps() {
+			return (steps == null ? List.<StepDto>of() : steps).stream().map(StepDto::toStep).toList();
+		}
+	}
+
+	/**
+	 * @param fadeMs fade into the step, {@code null} = the composition's default
+	 * @param holdMs hold of the step, {@code null} = the composition's default
+	 */
+	public record StepDto(Long lookId, Long fadeMs, Long holdMs) {
+
+		CompositionStep toStep() {
+			if (lookId == null) {
+				throw new DomainValidationException(List.of("lookId of a step is missing"));
+			}
+			return new CompositionStep(lookId, Optional.ofNullable(fadeMs).map(ms -> ms / 1000.0),
+					Optional.ofNullable(holdMs).map(ms -> ms / 1000.0));
+		}
+
+		static StepDto from(CompositionStep step) {
+			return new StepDto(step.lookId(), step.fadeSeconds().map(CompositionDtos::millis).orElse(null),
+					step.holdSeconds().map(CompositionDtos::millis).orElse(null));
+		}
+	}
+
+	/**
+	 * An effect the steps are generated from.
+	 *
+	 * @param kind    chase, color_cycle, rainbow, wave or flicker
 	 * @param params  parameters of the kind, see the {@code *Params} records
-	 * @param target  {@code {"groupId": 3}} or {@code {"fixtureIds": [1, 2]}}; none for {@code steps}
-	 * @param steps   only for {@code steps}
+	 * @param target  {@code {"groupId": 3}} or {@code {"fixtureIds": [1, 2]}}
 	 * @param perHead every head of a multi-pixel fixture is an element of its own
 	 */
-	public record CompositionRequest(String name, String kind, JsonNode params, TargetDto target, List<StepDto> steps,
-			Double level, Double speedFactor, Boolean restart, Boolean once, Boolean perHead) {
+	public record GeneratorDto(String kind, JsonNode params, TargetDto target, Boolean perHead) {
 
-		public CompositionSpec toSpec(JsonMapper json) {
-			var patternKind = PatternKind.fromId(kind);
-			var pattern = pattern(patternKind, json);
-			Target resolvedTarget = patternKind == PatternKind.STEPS ? new Target.Steps() : toTarget();
-			return new CompositionSpec(name, pattern, resolvedTarget, Objects.requireNonNullElse(level, 1.0),
-					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart), Boolean.TRUE.equals(once),
-					Boolean.TRUE.equals(perHead));
-		}
-
-		private Target toTarget() {
-			if (target == null || (target.groupId() == null) == (target.fixtureIds() == null)) {
+		public GeneratorSettings toSettings(JsonMapper json) {
+			if (target == null) {
 				throw new DomainValidationException(List.of("target needs either groupId or fixtureIds"));
 			}
-			return target.groupId() != null ? new Target.Group(target.groupId())
-					: new Target.Fixtures(target.fixtureIds());
+			return new GeneratorSettings(effect(kind, params, json), target.toTarget(), Boolean.TRUE.equals(perHead));
 		}
 
-		private Pattern pattern(PatternKind patternKind, JsonMapper json) {
-			return switch (patternKind) {
-				case CHASE -> read(json, ChaseParams.class).toPattern();
-				case COLOR_CYCLE -> read(json, ColorCycleParams.class).toPattern();
-				case RAINBOW -> read(json, RainbowParams.class).toPattern();
-				case WAVE -> read(json, WaveParams.class).toPattern();
-				case FLICKER -> read(json, FlickerParams.class).toPattern();
-				case STEPS -> new StepSequence(
-						(steps == null ? List.<StepDto>of() : steps).stream().map(StepDto::toStep).toList(),
-						enumValue(StepSequence.PlayMode.class, read(json, StepsParams.class).playMode(), "playMode",
-								StepSequence.PlayMode.LOOP));
+		/** The settings as JSON again, with every parameter filled in. */
+		static GeneratorResponse from(GeneratorSettings settings) {
+			Object params = switch (settings.effect()) {
+				case Chase chase -> ChaseParams.from(chase);
+				case ColorCycle cycle -> ColorCycleParams.from(cycle);
+				case Rainbow rainbow -> RainbowParams.from(rainbow);
+				case Wave wave -> WaveParams.from(wave);
+				case Flicker flicker -> FlickerParams.from(flicker);
+				case StepSequence steps -> throw new IllegalStateException("a step sequence is not a generator");
 			};
+			var target = switch (settings.target()) {
+				case Target.Group group -> new TargetDto(group.groupId(), null);
+				case Target.Fixtures fixtures -> new TargetDto(null, fixtures.fixtureIds());
+			};
+			return new GeneratorResponse(settings.effect().kind().id(), params, target, settings.perHead());
 		}
+	}
 
-		private <T> T read(JsonMapper json, Class<T> type) {
-			try {
-				var node = params == null || params.isNull() ? json.createObjectNode() : params;
-				return json.readerFor(type).with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(node);
-			} catch (JacksonException e) {
-				throw new DomainValidationException(List.of("Invalid params for " + kind + ": " + e.getOriginalMessage()));
-			}
-		}
+	public record GeneratorResponse(String kind, Object params, TargetDto target, boolean perHead) {
 	}
 
 	public record TargetDto(Long groupId, List<Long> fixtureIds) {
+
+		public Target toTarget() {
+			if ((groupId == null) == (fixtureIds == null)) {
+				throw new DomainValidationException(List.of("target needs either groupId or fixtureIds"));
+			}
+			return groupId != null ? new Target.Group(groupId) : new Target.Fixtures(fixtureIds);
+		}
 	}
 
-	/** @param values normalized values (0–1) per fixture id and attribute */
-	public record StepDto(Long holdMs, Long fadeMs, Map<Long, Map<String, Double>> values) {
+	/** An effect from its kind (chase, color_cycle, rainbow, wave, flicker) and parameters. */
+	public static Pattern effect(String kind, JsonNode params, JsonMapper json) {
+		return switch (PatternKind.fromId(kind)) {
+			case CHASE -> read(json, kind, params, ChaseParams.class).toPattern();
+			case COLOR_CYCLE -> read(json, kind, params, ColorCycleParams.class).toPattern();
+			case RAINBOW -> read(json, kind, params, RainbowParams.class).toPattern();
+			case WAVE -> read(json, kind, params, WaveParams.class).toPattern();
+			case FLICKER -> read(json, kind, params, FlickerParams.class).toPattern();
+			case STEPS -> throw new DomainValidationException(List.of("steps are not an effect"));
+		};
+	}
 
-		Step toStep() {
-			var perFixture = new HashMap<Long, FixtureValues>();
-			(values == null ? Map.<Long, Map<String, Double>>of() : values)
-					.forEach((fixtureId, attributes) -> perFixture.put(fixtureId, ValuesJson.fromJson(attributes)));
-			return new Step(seconds(holdMs, 1000), seconds(fadeMs, 0), perFixture);
-		}
-
-		static StepDto from(Step step) {
-			return new StepDto(millis(step.holdSeconds()), millis(step.fadeSeconds()), ValuesJson.toJson(step.values()));
+	private static <T> T read(JsonMapper json, String kind, JsonNode params, Class<T> type) {
+		try {
+			var node = params == null || params.isNull() ? json.createObjectNode() : params;
+			return json.readerFor(type).with(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES).readValue(node);
+		} catch (JacksonException e) {
+			throw new DomainValidationException(List.of("Invalid params for " + kind + ": " + e.getOriginalMessage()));
 		}
 	}
 
@@ -111,7 +153,7 @@ public final class CompositionDtos {
 	public record ChaseParams(Long stepMs, Integer width, String direction, Double softness, Double min, Double max) {
 
 		Chase toPattern() {
-			return new Chase(seconds(stepMs, 500), Objects.requireNonNullElse(width, 1),
+			return new Chase(seconds(stepMs, 500), width == null ? 1 : width,
 					enumValue(Chase.Direction.class, direction, "direction", Chase.Direction.FORWARD),
 					or(softness, 0), or(min, 0), or(max, 1));
 		}
@@ -169,7 +211,7 @@ public final class CompositionDtos {
 
 		Flicker toPattern() {
 			return new Flicker(enumValue(Flicker.Character.class, character, "character", Flicker.Character.CANDLE),
-					or(strength, 0.5), or(speed, 1), Objects.requireNonNullElse(seed, 1L));
+					or(strength, 0.5), or(speed, 1), seed == null ? 1L : seed);
 		}
 
 		static FlickerParams from(Flicker flicker) {
@@ -177,46 +219,21 @@ public final class CompositionDtos {
 		}
 	}
 
-	/** @param playMode loop or ping_pong */
-	public record StepsParams(String playMode) {
-	}
-
 	// --- response ----------------------------------------------------------------------------------------------
 
 	/**
-	 * @param sceneId  the scene of a copy, null in the library
-	 * @param sourceId library origin of a copy
-	 * @param position order within the scene
-	 * @param once     runs through once and stays at the end
-	 * @param perHead  every head of a multi-pixel fixture is an element of its own
+	 * @param generator what the steps were generated from, {@code null} if they were recorded or picked
+	 * @param steps     in order, each playing a look
 	 */
-	public record CompositionResponse(long id, Long sceneId, Long sourceId, int position, String name, String kind,
-			Object params, TargetDto target, List<StepDto> steps, double level, double speedFactor, boolean restart,
-			boolean once, boolean perHead) {
+	public record CompositionResponse(long id, String name, long fadeMs, long holdMs, String playMode,
+			String intensityMode, GeneratorResponse generator, List<StepDto> steps) {
 
 		public static CompositionResponse from(Composition composition) {
 			var spec = composition.spec();
-			var pattern = spec.pattern();
-			Object params = switch (pattern) {
-				case Chase chase -> ChaseParams.from(chase);
-				case ColorCycle cycle -> ColorCycleParams.from(cycle);
-				case Rainbow rainbow -> RainbowParams.from(rainbow);
-				case Wave wave -> WaveParams.from(wave);
-				case Flicker flicker -> FlickerParams.from(flicker);
-				case StepSequence steps -> new StepsParams(lower(steps.playMode()));
-			};
-			var target = switch (spec.target()) {
-				case Target.Group group -> new TargetDto(group.groupId(), null);
-				case Target.Fixtures fixtures -> new TargetDto(null, fixtures.fixtureIds());
-				case Target.Steps steps -> null;
-			};
-			var steps = pattern instanceof StepSequence sequence
-					? sequence.steps().stream().map(StepDto::from).toList()
-					: null;
-			return new CompositionResponse(composition.id(), composition.sceneId().orElse(null),
-					composition.sourceId().orElse(null), composition.position(), spec.name(), pattern.kind().id(),
-					params, target, steps, spec.level(), spec.speedFactor(), spec.restart(), spec.once(),
-					spec.perHead());
+			return new CompositionResponse(composition.id(), spec.name(), millis(spec.fadeSeconds()),
+					millis(spec.holdSeconds()), spec.playMode().id(), lower(spec.intensityMode()),
+					spec.generator().map(GeneratorDto::from).orElse(null),
+					composition.steps().stream().map(StepDto::from).toList());
 		}
 	}
 

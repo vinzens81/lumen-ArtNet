@@ -5,115 +5,87 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 
 /**
- * The extra keys while the show runs: which are on, their fades, and what they play laid over the playback – a
- * composition with the same rules as in a scene, or a whole scene as one look. Keys run on the real clock: pausing the playback does not stop them.
- * A key can only be switched on while it is available in the current scene; when it stops being available it fades
- * out. Not thread-safe – callers synchronize.
+ * The extra keys while the show runs: the keys of the scene on stage, which are on, their fades, and their
+ * compositions laid over the playback with the same rules as in a scene. Keys run on the real clock: pausing the
+ * playback does not stop them.
+ *
+ * <p>When the scene changes, a key that is on stays on if its composition is on a key of the new scene too (also
+ * under another number); otherwise it fades out with its fade time. Not thread-safe – callers synchronize.
  */
 public final class ExtraKeys {
 
-	/** A key ready to play. */
-	public record PlayableKey(int slot, KeyMode mode, Duration fade, String name, Look look) {
+	/** A key of the current scene, ready to play. */
+	public record PlayableKey(int slot, KeyMode mode, Duration fade, String name, ActiveComposition composition) {
 
 		public PlayableKey {
 			Objects.requireNonNull(mode, "mode");
 			Objects.requireNonNull(fade, "fade");
-			Objects.requireNonNull(look, "look");
+			Objects.requireNonNull(name, "name");
+			Objects.requireNonNull(composition, "composition");
 		}
 
-		public PlayableKey(int slot, KeyMode mode, Duration fade, String name, ActiveComposition composition) {
-			this(slot, mode, fade, name, new CompositionLook(composition));
-		}
-	}
-
-	/** What a key lays over the playback. */
-	public sealed interface Look {
-
-		/** Identifies the content: a key keeps running when it is reconfigured with the same content. */
-		String identity();
-	}
-
-	/** A composition, laid over the playback with its own rules (a flicker flickers around the scene). */
-	public record CompositionLook(ActiveComposition composition) implements Look {
-
-		public String identity() {
-			return "composition:" + composition.id();
-		}
-	}
-
-	/** A whole scene: its values with its compositions, laid over the playback as one look. */
-	public record SceneLook(long sceneId, Map<Long, FixtureValues> values, List<ActiveComposition> compositions)
-			implements Look {
-
-		public SceneLook {
-			values = Map.copyOf(values);
-			compositions = List.copyOf(compositions);
-		}
-
-		public String identity() {
-			return "scene:" + sceneId;
+		long compositionId() {
+			return composition.id();
 		}
 	}
 
 	/**
-	 * @param kind      kind of the composition, empty if the key plays a scene
-	 * @param on        target state (fading in or on)
-	 * @param level     current fade level 0–1
-	 * @param available can be switched on in the current scene
+	 * @param on    target state (fading in or on)
+	 * @param level current fade level 0–1
 	 */
-	public record KeyStatus(int slot, String name, Optional<PatternKind> kind, KeyMode mode, boolean on,
-			double level, boolean available) {
+	public record KeyStatus(int slot, String name, KeyMode mode, boolean on, double level) {
 	}
 
+	/** Keys of the current scene by slot. */
 	private Map<Integer, PlayableKey> keys = Map.of();
-	private Set<Integer> available = Set.of();
-	private final Map<Integer, State> states = new HashMap<>();
+	/** Keys that are on or fading, by composition id; each remembers the key it plays (also after it left). */
+	private final Map<Long, State> states = new HashMap<>();
 
-	/** Replaces the key setup; keys that keep their composition keep running. */
+	/**
+	 * Takes the keys of the scene now on stage. Keys whose composition is on a key of this scene keep running (with
+	 * the new key's settings); all others fade out.
+	 */
 	public void configure(List<PlayableKey> newKeys, Instant now) {
 		var bySlot = new HashMap<Integer, PlayableKey>();
 		newKeys.forEach(key -> bySlot.put(key.slot(), key));
-		for (var slot : List.copyOf(states.keySet())) {
-			var key = bySlot.get(slot);
-			var old = keys.get(slot);
-			if (key == null || old == null || !key.look().identity().equals(old.look().identity())) {
-				states.remove(slot);
-			}
-		}
 		keys = Map.copyOf(bySlot);
-		setAvailable(available, now);
-	}
-
-	/** Keys that can be used in the current scene; others fade out. */
-	public void setAvailable(Set<Integer> slots, Instant now) {
-		available = Set.copyOf(slots);
-		for (var slot : List.copyOf(states.keySet())) {
-			if (!available.contains(slot) || !keys.containsKey(slot)) {
-				switchOff(slot, now);
+		var byComposition = new HashMap<Long, PlayableKey>();
+		newKeys.forEach(key -> byComposition.put(key.compositionId(), key));
+		for (var entry : List.copyOf(states.entrySet())) {
+			var key = byComposition.get(entry.getKey());
+			var state = entry.getValue();
+			if (key != null) {
+				// the level at this moment stays, only the fade time of the new key applies from now on
+				states.put(entry.getKey(), state.withKey(key, now));
+			} else if (state.on()) {
+				states.put(entry.getKey(), state.switchedOff(now));
 			}
 		}
 	}
 
-	/** Toggle: switches on or off. Flash: switches on until {@link #release}. Unavailable keys do nothing. */
+	/** Toggle: switches on or off. Flash: switches on until {@link #release}. Slots without a key do nothing. */
 	public boolean press(int slot, Instant now) {
 		var key = keys.get(slot);
-		if (key == null || !available.contains(slot)) {
+		if (key == null) {
 			return false;
 		}
-		var state = states.get(slot);
+		var state = states.get(key.compositionId());
 		if (key.mode() == KeyMode.TOGGLE && state != null && state.on()) {
-			switchOff(slot, now);
+			states.put(key.compositionId(), state.switchedOff(now));
 		} else {
-			switchOn(slot, now);
+			// a key switched on again while fading out keeps its phase
+			var from = state != null ? state.level(now) : 0;
+			var startedAt = state != null ? state.startedAt() : now;
+			states.put(key.compositionId(), new State(key, true, from, now, startedAt, false));
 		}
 		return true;
 	}
@@ -121,16 +93,24 @@ public final class ExtraKeys {
 	/** Releasing a flash key switches it off; toggles ignore it. */
 	public boolean release(int slot, Instant now) {
 		var key = keys.get(slot);
-		if (key == null || key.mode() != KeyMode.FLASH || !states.containsKey(slot)) {
+		if (key == null || key.mode() != KeyMode.FLASH) {
 			return false;
 		}
-		switchOff(slot, now);
+		var state = states.get(key.compositionId());
+		if (state == null || !state.on()) {
+			return false;
+		}
+		states.put(key.compositionId(), state.switchedOff(now));
 		return true;
 	}
 
 	/** Fades every key out, e.g. at the end of the show. */
 	public void allOff(Instant now) {
-		List.copyOf(states.keySet()).forEach(slot -> switchOff(slot, now));
+		for (var entry : List.copyOf(states.entrySet())) {
+			if (entry.getValue().on()) {
+				states.put(entry.getKey(), entry.getValue().switchedOff(now));
+			}
+		}
 	}
 
 	/**
@@ -140,15 +120,13 @@ public final class ExtraKeys {
 	 */
 	public boolean tick(Instant now) {
 		var changed = false;
-		for (var slot : List.copyOf(states.keySet())) {
-			var state = states.get(slot);
-			if (!state.on() && level(slot, now) <= 0) {
-				states.remove(slot);
+		for (var entry : List.copyOf(states.entrySet())) {
+			var state = entry.getValue();
+			if (!state.on() && state.level(now) <= 0) {
+				states.remove(entry.getKey());
 				changed = true;
-			} else if (state.fading(now, fadeOf(slot))) {
-				continue;
-			} else if (!state.reported()) {
-				states.put(slot, state.markReported());
+			} else if (!state.fading(now) && !state.reported()) {
+				states.put(entry.getKey(), state.markReported());
 				changed = true;
 			}
 		}
@@ -158,91 +136,65 @@ public final class ExtraKeys {
 	/** Lays the active keys over the look (in slot order: a higher key wins on the same attribute). */
 	public Map<Long, FixtureValues> apply(Map<Long, FixtureValues> look, Instant now, FixtureAttributes attributes) {
 		var result = look;
-		for (var slot : List.copyOf(states.keySet()).stream().sorted().toList()) {
-			var key = keys.get(slot);
-			var level = level(slot, now);
-			if (key == null || level <= 0) {
+		var active = states.values().stream().sorted(Comparator.comparingInt(s -> s.key().slot())).toList();
+		for (var state : active) {
+			var level = state.level(now);
+			if (level <= 0) {
 				continue;
 			}
-			var seconds = Math.max(0, Duration.between(states.get(slot).startedAt(), now).toNanos() / 1e9);
-			result = switch (key.look()) {
-				case CompositionLook played -> CompositionMixer.apply(result,
-						CompositionMixer.contribution(played.composition(), seconds, attributes),
-						played.composition().pattern(), played.composition().level() * level, attributes);
-				case SceneLook played -> {
-					var scene = played.values();
-					for (var composition : played.compositions()) {
-						scene = CompositionMixer.apply(scene, composition, seconds, attributes);
-					}
-					yield CompositionMixer.overlay(result, scene, level);
-				}
-			};
+			var composition = state.key().composition();
+			var seconds = Math.max(0, Duration.between(state.startedAt(), now).toNanos() / 1e9);
+			result = CompositionMixer.apply(result, CompositionMixer.contribution(composition, seconds, attributes),
+					composition.pattern(), composition.level() * level, attributes);
 		}
 		return result;
 	}
 
+	/** The keys of the current scene, in slot order. */
 	public List<KeyStatus> status(Instant now) {
 		var result = new ArrayList<KeyStatus>();
-		for (var key : keys.values().stream().sorted((a, b) -> Integer.compare(a.slot(), b.slot())).toList()) {
-			var state = states.get(key.slot());
-			var kind = key.look() instanceof CompositionLook look
-					? Optional.of(look.composition().pattern().kind())
-					: Optional.<PatternKind>empty();
-			result.add(new KeyStatus(key.slot(), key.name(), kind, key.mode(),
-					state != null && state.on(), level(key.slot(), now), available.contains(key.slot())));
+		for (var key : keys.values().stream().sorted(Comparator.comparingInt(PlayableKey::slot)).toList()) {
+			var state = states.get(key.compositionId());
+			result.add(new KeyStatus(key.slot(), key.name(), key.mode(), state != null && state.on(),
+					state == null ? 0 : state.level(now)));
 		}
 		return result;
 	}
 
-	/** Current fade level of a key, 0 if it is off. */
+	/** Current fade level of the key on a slot of the current scene, 0 if it is off. */
 	public double level(int slot, Instant now) {
-		var state = states.get(slot);
-		return state == null ? 0 : state.level(now, fadeOf(slot));
+		var key = keys.get(slot);
+		var state = key == null ? null : states.get(key.compositionId());
+		return state == null ? 0 : state.level(now);
 	}
 
+	/** Slots of the current scene whose key is on. */
 	public Set<Integer> activeSlots() {
 		var result = new HashSet<Integer>();
-		states.forEach((slot, state) -> {
-			if (state.on()) {
-				result.add(slot);
+		keys.values().forEach(key -> {
+			var state = states.get(key.compositionId());
+			if (state != null && state.on()) {
+				result.add(key.slot());
 			}
 		});
 		return result;
 	}
 
-	private void switchOn(int slot, Instant now) {
-		var state = states.get(slot);
-		// a key switched on again while fading out keeps its phase
-		var startedAt = state != null ? state.startedAt() : now;
-		var from = state != null ? state.level(now, fadeOf(slot)) : 0;
-		states.put(slot, new State(true, from, now, startedAt, false));
-	}
-
-	private void switchOff(int slot, Instant now) {
-		var state = states.get(slot);
-		if (state == null || !state.on()) {
-			return;
-		}
-		states.put(slot, new State(false, state.level(now, fadeOf(slot)), now, state.startedAt(), false));
-	}
-
-	private Duration fadeOf(int slot) {
-		var key = keys.get(slot);
-		return key == null ? Duration.ZERO : key.fade();
-	}
-
 	/**
+	 * @param key       the key it plays (the last one, if the scene with the key has left the stage)
 	 * @param on        fading towards 1 (true) or 0 (false)
 	 * @param fromLevel level when the direction last changed
 	 * @param changedAt when the direction last changed
 	 * @param startedAt when the composition started (phase)
 	 * @param reported  the end of the fade was already reported
 	 */
-	private record State(boolean on, double fromLevel, Instant changedAt, Instant startedAt, boolean reported) {
+	private record State(PlayableKey key, boolean on, double fromLevel, Instant changedAt, Instant startedAt,
+			boolean reported) {
 
-		/** A full fade takes {@code fade}; starting part-way takes proportionally less. */
-		double level(Instant now, Duration fade) {
+		/** A full fade takes the key's fade time; starting part-way takes proportionally less. */
+		double level(Instant now) {
 			var target = on ? 1.0 : 0.0;
+			var fade = key.fade();
 			if (fade.isZero()) {
 				return target;
 			}
@@ -251,13 +203,21 @@ public final class ExtraKeys {
 			return Math.min(1, Math.max(0, level));
 		}
 
-		boolean fading(Instant now, Duration fade) {
-			var level = level(now, fade);
+		boolean fading(Instant now) {
+			var level = level(now);
 			return on ? level < 1 : level > 0;
 		}
 
+		State switchedOff(Instant now) {
+			return new State(key, false, level(now), now, startedAt, false);
+		}
+
+		State withKey(PlayableKey newKey, Instant now) {
+			return new State(newKey, on, level(now), now, startedAt, reported);
+		}
+
 		State markReported() {
-			return new State(on, fromLevel, changedAt, startedAt, true);
+			return new State(key, on, fromLevel, changedAt, startedAt, true);
 		}
 	}
 }

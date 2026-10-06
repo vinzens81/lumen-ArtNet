@@ -3,7 +3,7 @@ package de.vinzens.lumen.application.output.port.in;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.preset.Preset;
-import de.vinzens.lumen.domain.scene.Look;
+import de.vinzens.lumen.domain.look.Look;
 
 import java.util.Collection;
 import java.util.HashMap;

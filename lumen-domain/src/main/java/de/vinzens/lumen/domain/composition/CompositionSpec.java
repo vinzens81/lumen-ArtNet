@@ -3,49 +3,47 @@ package de.vinzens.lumen.domain.composition;
 import de.vinzens.lumen.domain.Validation;
 
 import java.util.Objects;
+import java.util.Optional;
 
 /**
- * Editable properties of a composition, in the library as well as a copy in a scene.
+ * Editable properties of a composition.
  *
- * @param level       how strongly the composition shows (0–1)
- * @param speedFactor multiplies the tempo (2 = twice as fast)
- * @param restart     in a scene: start from the beginning at GO instead of continuing a running composition of the
- *                    same origin
- * @param once        run through once and stay at the end (e.g. a sunrise) instead of repeating
- * @param perHead     every head of a multi-pixel fixture is an element of its own (a chase runs along a LED bar)
+ * @param fadeSeconds   default fade into a step
+ * @param holdSeconds   default hold of a step
+ * @param intensityMode absolute: sets the intensity (HTP with others); relative: scales what lies below in the scene
+ * @param generator     the effect the steps were generated from, if any
  */
-public record CompositionSpec(String name, Pattern pattern, Target target, double level, double speedFactor,
-		boolean restart, boolean once, boolean perHead) {
+public record CompositionSpec(String name, double fadeSeconds, double holdSeconds, PlayMode playMode,
+		IntensityMode intensityMode, Optional<GeneratorSettings> generator) {
+
+	public static final double MAX_SECONDS = 3600;
+	/** Fade plus hold of a step: shorter steps would run faster than the output. */
+	public static final double MIN_STEP_SECONDS = 0.02;
 
 	public CompositionSpec {
-		Objects.requireNonNull(pattern, "pattern");
-		Objects.requireNonNull(target, "target");
-		var steps = pattern instanceof StepSequence;
+		Objects.requireNonNull(playMode, "playMode");
+		Objects.requireNonNull(intensityMode, "intensityMode");
+		Objects.requireNonNull(generator, "generator");
 		new Validation()
 				.requireText(name, "name")
-				.require(level >= 0 && level <= 1, "level must be between 0 and 1")
-				.require(speedFactor >= 0.05 && speedFactor <= 20, "speedFactor must be between 0.05 and 20")
-				.require(!steps || target instanceof Target.Steps,
-						"a step sequence runs on the fixtures in its steps, it has no other target")
-				.require(steps || !(target instanceof Target.Steps), "a " + pattern.kind().id()
-						+ " composition needs a group or a list of fixtures as target")
+				.require(validTime(fadeSeconds) && validTime(holdSeconds),
+						"fade and hold must be between 0 and " + (int) MAX_SECONDS + " s")
+				.require(fadeSeconds + holdSeconds >= MIN_STEP_SECONDS,
+						"fade and hold must together be at least " + MIN_STEP_SECONDS + " s")
 				.throwIfInvalid();
 		name = name.strip();
 	}
 
-	/** A composition on whole fixtures. */
-	public CompositionSpec(String name, Pattern pattern, Target target, double level, double speedFactor,
-			boolean restart, boolean once) {
-		this(name, pattern, target, level, speedFactor, restart, once, false);
+	/** A new composition: 1 s fade, 2 s hold, looping, absolute intensity. */
+	public static CompositionSpec of(String name) {
+		return new CompositionSpec(name, 1, 2, PlayMode.LOOP, IntensityMode.ABSOLUTE, Optional.empty());
 	}
 
-	/** A new, repeating composition with level 100 % and normal speed. */
-	public static CompositionSpec of(String name, Pattern pattern, Target target) {
-		return new CompositionSpec(name, pattern, target, 1, 1, false, false);
+	public CompositionSpec withName(String newName) {
+		return new CompositionSpec(newName, fadeSeconds, holdSeconds, playMode, intensityMode, generator);
 	}
 
-	/** The same composition with other pattern and target (e.g. taken from the library), keeping the rest. */
-	public CompositionSpec withContent(String newName, Pattern newPattern, Target newTarget) {
-		return new CompositionSpec(newName, newPattern, newTarget, level, speedFactor, restart, once, perHead);
+	static boolean validTime(double seconds) {
+		return seconds >= 0 && seconds <= MAX_SECONDS;
 	}
 }

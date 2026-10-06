@@ -2,8 +2,8 @@ package de.vinzens.lumen.adapter.web.composition;
 
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionRequest;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
+import de.vinzens.lumen.adapter.web.composition.CompositionDtos.GeneratorDto;
 import de.vinzens.lumen.application.composition.port.in.ManageCompositionsUseCase;
-import de.vinzens.lumen.domain.DomainValidationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -17,13 +17,13 @@ import org.springframework.web.bind.annotation.RestController;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.util.List;
+import java.util.Optional;
 
 /**
- * Composition library of a project and the copies in scenes. A copy is changed with the same
- * {@code PUT /compositions/{id}} as a library composition.
+ * Compositions of a project: steps that play looks. Scenes refer to them; a change applies to every scene.
  */
 @RestController
-@RequestMapping("/api/projects/{projectId}")
+@RequestMapping("/api/projects/{projectId}/compositions")
 class CompositionController {
 
 	private final ManageCompositionsUseCase compositions;
@@ -34,74 +34,54 @@ class CompositionController {
 		this.json = json;
 	}
 
-
-
-	@GetMapping("/compositions")
-	List<CompositionResponse> library(@PathVariable long projectId) {
-		return compositions.library(projectId).stream().map(CompositionResponse::from).toList();
+	@GetMapping
+	List<CompositionResponse> compositions(@PathVariable long projectId) {
+		return compositions.compositions(projectId).stream().map(CompositionResponse::from).toList();
 	}
 
-	@PostMapping("/compositions")
+	@PostMapping
 	@ResponseStatus(HttpStatus.CREATED)
 	CompositionResponse create(@PathVariable long projectId, @RequestBody CompositionRequest request) {
-		return CompositionResponse.from(compositions.createInLibrary(projectId, request.toSpec(json)));
+		return CompositionResponse.from(compositions.create(projectId, request.toSpec(Optional.empty()),
+				request.toSteps()));
 	}
 
-	@GetMapping("/compositions/{compositionId}")
+	@GetMapping("/{compositionId}")
 	CompositionResponse composition(@PathVariable long projectId, @PathVariable long compositionId) {
 		return CompositionResponse.from(compositions.composition(projectId, compositionId));
 	}
 
-	@PutMapping("/compositions/{compositionId}")
+	/** Replaces properties and steps; the generator settings stay (they change by generating again). */
+	@PutMapping("/{compositionId}")
 	CompositionResponse update(@PathVariable long projectId, @PathVariable long compositionId,
 			@RequestBody CompositionRequest request) {
-		return CompositionResponse.from(compositions.update(projectId, compositionId, request.toSpec(json)));
+		var generator = compositions.composition(projectId, compositionId).spec().generator();
+		return CompositionResponse.from(compositions.update(projectId, compositionId, request.toSpec(generator),
+				request.toSteps()));
 	}
 
-	@DeleteMapping("/compositions/{compositionId}")
+	@PostMapping("/{compositionId}/duplicate")
+	@ResponseStatus(HttpStatus.CREATED)
+	CompositionResponse duplicate(@PathVariable long projectId, @PathVariable long compositionId) {
+		return CompositionResponse.from(compositions.duplicate(projectId, compositionId));
+	}
+
+	/** Records the programmer as a new step at the end, with a look of its own. */
+	@PostMapping("/{compositionId}/record-step")
+	CompositionResponse recordStep(@PathVariable long projectId, @PathVariable long compositionId) {
+		return CompositionResponse.from(compositions.recordStep(projectId, compositionId));
+	}
+
+	/** Replaces the steps with steps generated from an effect (chase, color cycle, rainbow, wave, flicker). */
+	@PostMapping("/{compositionId}/generate")
+	CompositionResponse generate(@PathVariable long projectId, @PathVariable long compositionId,
+			@RequestBody GeneratorDto request) {
+		return CompositionResponse.from(compositions.generate(projectId, compositionId, request.toSettings(json)));
+	}
+
+	@DeleteMapping("/{compositionId}")
 	@ResponseStatus(HttpStatus.NO_CONTENT)
 	void delete(@PathVariable long projectId, @PathVariable long compositionId) {
 		compositions.delete(projectId, compositionId);
-	}
-
-	/** Takes pattern and target of the library origin again (level, speed and restart stay). */
-	@PostMapping("/compositions/{compositionId}/reload-from-library")
-	CompositionResponse reloadFromLibrary(@PathVariable long projectId, @PathVariable long compositionId) {
-		return CompositionResponse.from(compositions.reloadFromLibrary(projectId, compositionId));
-	}
-
-	/** Writes pattern and target of a copy back to the library. */
-	@PostMapping("/compositions/{compositionId}/save-to-library")
-	CompositionResponse saveToLibrary(@PathVariable long projectId, @PathVariable long compositionId) {
-		return CompositionResponse.from(compositions.saveToLibrary(projectId, compositionId));
-	}
-
-	@GetMapping("/scenes/{sceneId}/compositions")
-	List<CompositionResponse> sceneCompositions(@PathVariable long projectId, @PathVariable long sceneId) {
-		return compositions.sceneCompositions(projectId, sceneId).stream().map(CompositionResponse::from).toList();
-	}
-
-	/** Inserts a copy of a library composition at the end of the scene. */
-	@PostMapping("/scenes/{sceneId}/compositions")
-	@ResponseStatus(HttpStatus.CREATED)
-	CompositionResponse insert(@PathVariable long projectId, @PathVariable long sceneId,
-			@RequestBody InsertRequest request) {
-		if (request.libraryId() == null) {
-			throw new DomainValidationException(List.of("libraryId is missing"));
-		}
-		return CompositionResponse.from(compositions.insertIntoScene(projectId, sceneId, request.libraryId()));
-	}
-
-	@PutMapping("/scenes/{sceneId}/compositions/order")
-	List<CompositionResponse> reorder(@PathVariable long projectId, @PathVariable long sceneId,
-			@RequestBody OrderRequest request) {
-		return compositions.reorderScene(projectId, sceneId, request.ids() == null ? List.of() : request.ids())
-				.stream().map(CompositionResponse::from).toList();
-	}
-
-	record InsertRequest(Long libraryId) {
-	}
-
-	record OrderRequest(List<Long> ids) {
 	}
 }

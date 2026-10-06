@@ -26,6 +26,7 @@ class PresetApiTest {
 	private long right;
 	private String presets;
 	private String scenes;
+	private String looks;
 
 	@BeforeEach
 	void createActiveProject() throws Exception {
@@ -36,11 +37,12 @@ class PresetApiTest {
 		right = id(post("/api/projects/" + project + "/fixtures", par("Right", universe, 9)));
 		presets = "/api/projects/" + project + "/presets";
 		scenes = "/api/projects/" + project + "/scenes";
+		looks = "/api/projects/" + project + "/looks";
 		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
 	}
 
 	@Test
-	void scenesChangeWithTheirPreset() throws Exception {
+	void looksChangeWithTheirPreset() throws Exception {
 		patch("/api/programmer/fixtures/" + left, "{\"dimmer\": 1, \"red\": 1, \"green\": 0.5}");
 		patch("/api/programmer/fixtures/" + right, "{\"dimmer\": 1, \"red\": 1}");
 		var warm = id(post(presets, """
@@ -53,16 +55,17 @@ class PresetApiTest {
 		assertThat(mvc.get().uri("/api/programmer/presets")).bodyJson()
 				.extractingPath("$['%d'].color".formatted(left)).isEqualTo((int) warm);
 
+		// the recorded scene keeps its values in a look
 		var scene = id(post(scenes, "{\"name\": \"Evening\", \"record\": true}"));
-		assertThat(mvc.get().uri(scenes)).bodyJson()
+		assertThat(mvc.get().uri(looks)).bodyJson()
 				.extractingPath("$[0].presets['%d'].color".formatted(right)).isEqualTo((int) warm);
 
-		// change the preset for the left fixture: the scene follows
+		// change the preset for the left fixture: the look follows
 		patch("/api/programmer/fixtures/" + left, "{\"red\": 0.2, \"green\": 0.1}");
 		assertThat(mvc.get().uri("/api/programmer/presets")).bodyJson()
 				.doesNotHavePath("$['%d']".formatted(left));
 		assertThat(post(presets + "/" + warm + "/record", "{\"fixtureIds\": [%d]}".formatted(left))).hasStatusOk();
-		var updated = assertThat(mvc.get().uri(scenes)).bodyJson();
+		var updated = assertThat(mvc.get().uri(looks)).bodyJson();
 		updated.extractingPath("$[0].values['%d'].red".formatted(left)).isEqualTo(0.2);
 		updated.extractingPath("$[0].values['%d'].dimmer".formatted(left)).isEqualTo(1.0);
 		updated.extractingPath("$[0].values['%d'].red".formatted(right)).isEqualTo(1.0);
@@ -75,7 +78,7 @@ class PresetApiTest {
 
 		// deleting keeps the values but drops the references
 		assertThat(mvc.delete().uri(presets + "/" + warm)).hasStatus(204);
-		var after = assertThat(mvc.get().uri(scenes + "")).bodyJson();
+		var after = assertThat(mvc.get().uri(looks)).bodyJson();
 		after.extractingPath("$[0].presets").asMap().isEmpty();
 		after.extractingPath("$[0].values['%d'].red".formatted(left)).isEqualTo(0.2);
 		assertThat(scene).isPositive();
@@ -108,7 +111,7 @@ class PresetApiTest {
 		assertThat(copiedPreset).isNotEqualTo((int) night);
 		var newLeft = JsonPath.<List<Integer>>read(body("/api/projects/" + copy + "/fixtures"),
 				"$[?(@.name == 'Left')].id").getFirst();
-		assertThat(JsonPath.<Integer>read(body("/api/projects/" + copy + "/scenes"),
+		assertThat(JsonPath.<Integer>read(body("/api/projects/" + copy + "/looks"),
 				"$[0].presets['%d'].color".formatted(newLeft))).isEqualTo(copiedPreset);
 	}
 

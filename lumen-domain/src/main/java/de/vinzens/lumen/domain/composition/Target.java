@@ -6,11 +6,11 @@ import java.util.HashSet;
 import java.util.List;
 
 /**
- * Which fixtures a composition runs on, in which order.
+ * Which fixtures a generator runs an effect on, in which order.
  */
 public sealed interface Target {
 
-	/** Members of a group, in group order; follows later changes of the group. */
+	/** Members of a group, in group order at the time the steps are generated. */
 	record Group(long groupId) implements Target {
 	}
 
@@ -23,9 +23,5 @@ public sealed interface Target {
 					.require(new HashSet<>(fixtureIds).size() == fixtureIds.size(), "a fixture is in the target twice")
 					.throwIfInvalid();
 		}
-	}
-
-	/** The fixtures recorded in the steps of a step sequence. */
-	record Steps() implements Target {
 	}
 }

@@ -16,13 +16,13 @@ public interface ManagePresetsUseCase {
 
 	/**
 	 * Records a preset from the programmer values of the given fixtures (only the attributes of the group). The
-	 * programmer then refers to the new preset, so a scene recorded next uses it.
+	 * programmer then refers to the new preset, so a look recorded next uses it.
 	 */
 	Preset create(long projectId, String name, AttributeGroup group, Collection<Long> fixtureIds);
 
 	/**
 	 * Takes the programmer values of the given fixtures into the preset; its other fixtures keep their values. All
-	 * scenes that refer to the preset change with it.
+	 * looks that refer to the preset change with it.
 	 */
 	Preset record(long projectId, long presetId, Collection<Long> fixtureIds);
 
@@ -31,6 +31,6 @@ public interface ManagePresetsUseCase {
 	/** Sets the preset's values on the given fixtures in the programmer; fixtures it has no values for are skipped. */
 	void apply(long projectId, long presetId, Collection<Long> fixtureIds);
 
-	/** Deletes the preset; scenes keep the values they have but no longer change with it. */
+	/** Deletes the preset; looks keep the values they have but no longer change with it. */
 	void delete(long projectId, long presetId);
 }

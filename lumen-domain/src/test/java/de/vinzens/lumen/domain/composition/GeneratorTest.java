@@ -162,6 +162,17 @@ class GeneratorTest {
 	}
 
 	@Test
+	void veryFastEffectsGetFewerStepsInsteadOfTooShortOnes() {
+		var rainbow = Generator.generate(new Rainbow(0.1, 1, 0, 1), FOUR, false, FixtureAttributes.ALL);
+		assertThat(rainbow.steps()).hasSize(5);
+		assertThat(rainbow.fadeSeconds()).isGreaterThanOrEqualTo(CompositionSpec.MIN_STEP_SECONDS);
+
+		var flicker = Generator.generate(new Flicker(Flicker.Character.FIRE, 1, 10, 1), FOUR, false,
+				FixtureAttributes.ALL);
+		assertThat(flicker.fadeSeconds()).isEqualTo(CompositionSpec.MIN_STEP_SECONDS);
+	}
+
+	@Test
 	void stepOverridesWinOverTheDefaults() {
 		var generated = new GeneratedSteps(List.of(
 				new GeneratedSteps.Step(java.util.Map.of(1L, FixtureValues.EMPTY)),

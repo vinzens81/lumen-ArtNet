@@ -1,4 +1,4 @@
-package de.vinzens.lumen.domain.scene;
+package de.vinzens.lumen.domain.look;
 
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.AttributeGroup;
@@ -19,7 +19,7 @@ import static de.vinzens.lumen.domain.library.AttributeGroup.POSITION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-class SceneMergeTest {
+class LookMergeTest {
 
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 	private static final Attribute RED = Attribute.of(ChannelFunction.RED);

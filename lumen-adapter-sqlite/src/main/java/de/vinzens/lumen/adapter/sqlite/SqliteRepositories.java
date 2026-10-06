@@ -24,6 +24,8 @@ public final class SqliteRepositories {
 	private final SqlitePresetRepository presets;
 	private final SqliteFaderRepository faders;
 	private final SqliteExpectedNodeRepository expectedNodes;
+	private final SqliteLookRepository looks;
+	private final SqliteLegacyShowStore legacyShows;
 
 	private final DataSource dataSource;
 
@@ -44,6 +46,8 @@ public final class SqliteRepositories {
 		this.presets = new SqlitePresetRepository(jdbc, transactions);
 		this.faders = new SqliteFaderRepository(jdbc);
 		this.expectedNodes = new SqliteExpectedNodeRepository(jdbc);
+		this.looks = new SqliteLookRepository(jdbc, transactions);
+		this.legacyShows = new SqliteLegacyShowStore(jdbc, scenes);
 	}
 
 	public DataSource dataSource() {
@@ -84,6 +88,14 @@ public final class SqliteRepositories {
 
 	public SqliteCompositionRepository compositions() {
 		return compositions;
+	}
+
+	public SqliteLookRepository looks() {
+		return looks;
+	}
+
+	public SqliteLegacyShowStore legacyShows() {
+		return legacyShows;
 	}
 
 	public SqliteExpectedNodeRepository expectedNodes() {

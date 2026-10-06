@@ -1,5 +1,6 @@
 package de.vinzens.lumen.domain.playback;
 
+import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -23,6 +25,8 @@ class PlaybackTest {
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 	private static final FadeBehaviors B = FadeBehaviors.DEFAULTS;
 
+	/** The fixed values of each scene, as its one composition. */
+	private final Map<Long, List<ActiveComposition>> looks = new HashMap<>();
 	private final Scene dawn = scene(1, "1", 1L, Optional.empty());
 	private final Scene storm = scene(2, "2", 2L, Optional.of(Duration.ofSeconds(5)));
 	private final Scene night = scene(3, "3", 3L, Optional.empty());
@@ -33,7 +37,7 @@ class PlaybackTest {
 	@BeforeEach
 	void setUp() {
 		now = Instant.parse("2026-10-02T20:00:00Z");
-		playback = new Playback(List.of(dawn, storm, night), Duration.ofSeconds(2), Duration.ofSeconds(4));
+		playback = new Playback(List.of(dawn, storm, night), looks, Duration.ofSeconds(2), Duration.ofSeconds(4));
 	}
 
 	@Test
@@ -146,7 +150,7 @@ class PlaybackTest {
 	@Test
 	void autoFollowOnTheLastSceneIsIgnored() {
 		var last = scene(9, "9", 1L, Optional.of(Duration.ofSeconds(1)));
-		playback = new Playback(List.of(last), Duration.ZERO, Duration.ZERO);
+		playback = new Playback(List.of(last), looks, Duration.ZERO, Duration.ZERO);
 		go();
 		assertThat(playback.tick(now, B)).as("zero fade ends at once").isTrue();
 		advance(5000);
@@ -161,7 +165,7 @@ class PlaybackTest {
 		go();
 		var inserted = scene(4, "1.5", 1L, Optional.empty());
 
-		playback.reload(List.of(dawn, inserted, storm, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+		playback.reload(List.of(dawn, inserted, storm, night), looks, Duration.ofSeconds(2), Duration.ofSeconds(4),
 				now);
 
 		assertThat(playback.currentScene()).contains(storm);
@@ -178,7 +182,7 @@ class PlaybackTest {
 		playback.tick(now, B);
 		var encore = scene(4, "4", 1L, Optional.empty());
 
-		playback.reload(List.of(dawn, storm, night, encore), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+		playback.reload(List.of(dawn, storm, night, encore), looks, Duration.ofSeconds(2), Duration.ofSeconds(4),
 				now);
 
 		assertThat(playback.currentScene()).isEmpty();
@@ -195,7 +199,7 @@ class PlaybackTest {
 		advance(1000);
 		var encore = scene(4, "4", 4L, Optional.empty());
 
-		playback.reload(List.of(dawn, storm, night, encore), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4),
+		playback.reload(List.of(dawn, storm, night, encore), looks, Duration.ofSeconds(2), Duration.ofSeconds(4),
 				now);
 
 		assertThat(playback.currentScene()).isEmpty();
@@ -208,7 +212,7 @@ class PlaybackTest {
 		advance(5000);
 		playback.tick(now, B);
 
-		playback.reload(List.of(storm, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
+		playback.reload(List.of(storm, night), looks, Duration.ofSeconds(2), Duration.ofSeconds(4), now);
 
 		assertThat(dimmer(1)).as("no jump").isEqualTo(1.0);
 		assertThat(playback.nextScene()).contains(storm);
@@ -229,7 +233,7 @@ class PlaybackTest {
 		go();
 		var replacement = scene(4, "2", 4L, Optional.empty());
 
-		playback.reload(List.of(dawn, replacement, night), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
+		playback.reload(List.of(dawn, replacement, night), looks, Duration.ofSeconds(2), Duration.ofSeconds(4), now);
 
 		assertThat(playback.currentScene()).contains(storm);
 		assertThat(playback.nextScene()).contains(replacement);
@@ -262,8 +266,10 @@ class PlaybackTest {
 		return playback.output(now, B).getOrDefault(fixtureId, FixtureValues.EMPTY).get(DIMMER).orElse(0.0);
 	}
 
-	private static Scene scene(long id, String number, long fixtureId, Optional<Duration> autoFollow) {
+	/** A scene that lights one fixture. */
+	private Scene scene(long id, String number, long fixtureId, Optional<Duration> autoFollow) {
+		looks.put(id, List.of(StaticLooks.of(1000 + id, Map.of(fixtureId, new FixtureValues(Map.of(DIMMER, 1.0))))));
 		return new Scene(id, 1, new SceneSpec(SceneNumber.parse(number), "Scene " + number, Optional.empty(),
-				autoFollow), Map.of(fixtureId, new FixtureValues(Map.of(DIMMER, 1.0))));
+				autoFollow));
 	}
 }

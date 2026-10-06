@@ -1,8 +1,9 @@
 package de.vinzens.lumen.application.project.port.in;
 
+import de.vinzens.lumen.application.legacy.LegacyShow;
 import de.vinzens.lumen.domain.composition.Composition;
-import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Fader;
+import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.party.PartyButton;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Group;
@@ -14,14 +15,12 @@ import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.scene.Scene;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 
 /**
- * Exports a project with patch, groups and scenes, e.g. as a backup or to take a show to another computer,
- * and imports it again as a new project.
+ * Exports a project with patch, groups, looks, compositions and scenes, e.g. as a backup or to take a show to another
+ * computer, and imports it again as a new project.
  */
 public interface TransferProjectUseCase {
 
@@ -31,25 +30,27 @@ public interface TransferProjectUseCase {
 	Project importProject(ProjectExport export);
 
 	/**
-	 * Everything that belongs to a project. Fixtures refer to universes, groups and scene values to fixtures,
-	 * compositions to scenes, groups, fixtures and their library origin by the ids in this export. Extra keys hold
-	 * their own composition; {@code sceneKeys} lists the keys usable per scene id. Party buttons refer to fixtures,
-	 * in their order.
+	 * Everything that belongs to a project, connected by the ids in this export: fixtures refer to universes, groups
+	 * and looks to fixtures, looks to presets and their composition, compositions to looks (and generator targets to
+	 * groups and fixtures), scenes to compositions, faders to scenes. Party buttons refer to fixtures.
+	 *
+	 * @param legacy scenes, compositions and keys of a file from before iteration S; then {@code looks},
+	 *               {@code compositions} and {@code scenes} are empty and the import converts the old show
 	 */
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
-			List<Group> groups, List<Scene> scenes, Optional<StagePlan> stagePlan, List<Composition> compositions,
-			List<ExtraKey> keys, Map<Long, Set<Integer>> sceneKeys, List<PartyButton> partyButtons,
-			List<Preset> presets, List<Fader> faders) {
+			List<Group> groups, List<NamedLook> looks, List<Composition> compositions, List<Scene> scenes,
+			Optional<StagePlan> stagePlan, List<PartyButton> partyButtons, List<Preset> presets, List<Fader> faders,
+			LegacyShow legacy) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
+			Objects.requireNonNull(legacy, "legacy");
 			universes = List.copyOf(universes);
 			fixtures = List.copyOf(fixtures);
 			groups = List.copyOf(groups);
-			scenes = List.copyOf(scenes);
+			looks = List.copyOf(looks);
 			compositions = List.copyOf(compositions);
-			keys = List.copyOf(keys);
-			sceneKeys = Map.copyOf(sceneKeys);
+			scenes = List.copyOf(scenes);
 			partyButtons = List.copyOf(partyButtons);
 			presets = List.copyOf(presets);
 			faders = List.copyOf(faders);

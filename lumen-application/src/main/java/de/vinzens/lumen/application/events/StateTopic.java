@@ -10,6 +10,8 @@ public enum StateTopic {
 	PATCH,
 	/** Scenes of the active project changed. */
 	SCENES,
+	/** Looks of the active project changed. */
+	LOOKS,
 	/** Programmer values changed. */
 	PROGRAMMER,
 	/** Art-Net nodes appeared, changed or went offline. */
@@ -26,7 +28,7 @@ public enum StateTopic {
 	ACCESS,
 	/** The fixture library was reloaded. */
 	LIBRARY,
-	/** Compositions in the library or in scenes changed. */
+	/** Compositions of the active project changed. */
 	COMPOSITIONS,
 	/** The stage preview of the composition editor started or stopped. */
 	STAGE_PREVIEW,

@@ -31,7 +31,7 @@ import de.vinzens.lumen.domain.output.RenderFixture;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.Universe;
-import de.vinzens.lumen.domain.scene.Look;
+import de.vinzens.lumen.domain.look.Look;
 
 import java.time.Clock;
 import java.util.ArrayList;

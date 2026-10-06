@@ -111,11 +111,6 @@ class OutputConfiguration {
 	}
 
 	@Bean
-	CompositionResolver compositionResolver(SqliteRepositories repositories) {
-		return new CompositionResolver(repositories.compositions(), repositories.groups(), repositories.scenes());
-	}
-
-	@Bean
 	PlaybackService playbackService(SqliteRepositories repositories, CompositionResolver compositionResolver,
 			ExecutorService playbackStateWriter, Clock clock, StateEvents stateEvents, OutputEngine outputEngine) {
 		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), compositionResolver,

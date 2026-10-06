@@ -1,14 +1,17 @@
 package de.vinzens.lumen.domain.composition;
 
+import de.vinzens.lumen.domain.look.Look;
+
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
 /**
  * A composition ready to play: its target resolved to an ordered list of fixtures.
  *
- * @param id       the copy in the scene, to keep its phase when the scene is edited during the show
- * @param sourceId origin in the library; copies of the same origin continue seamlessly from scene to scene
+ * @param id       the composition, to keep its phase when the scene is edited during the show
+ * @param sourceId what decides whether it continues seamlessly from scene to scene: the same composition
  * @param once     stands still at the end of its first run
  * @param perHead  every head of a multi-pixel fixture is an element of its own
  */
@@ -21,12 +24,23 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 		fixtureIds = List.copyOf(fixtureIds);
 	}
 
-	/** Resolves a composition whose target is the given ordered fixtures (ignored for step sequences). */
-	public static ActiveComposition of(Composition composition, List<Long> targetFixtures) {
-		var spec = composition.spec();
-		var fixtures = spec.pattern().ownFixtures().orElse(targetFixtures);
-		return new ActiveComposition(composition.id(), composition.sourceId(), spec.pattern(), fixtures, spec.level(),
-				spec.speedFactor(), spec.restart(), spec.once(), spec.perHead());
+	/**
+	 * A composition ready to play with the given settings of its use (in a scene, on a key, on its own). It continues
+	 * from scene to scene as long as it is the same composition.
+	 *
+	 * @param looks the looks of the project by id
+	 */
+	public static ActiveComposition of(Composition composition, Map<Long, Look> looks, double level, double speedFactor,
+			boolean restart) {
+		var sequence = composition.sequence(looks);
+		return new ActiveComposition(composition.id(), Optional.of(composition.id()), sequence,
+				sequence.ownFixtures().orElse(List.of()), level, speedFactor, restart,
+				composition.spec().playMode() == PlayMode.ONCE, false);
+	}
+
+	/** A composition on its own at full level and speed (previews, keys). */
+	public static ActiveComposition of(Composition composition, Map<Long, Look> looks) {
+		return of(composition, looks, 1, 1, false);
 	}
 
 	/** A composition on whole fixtures. */

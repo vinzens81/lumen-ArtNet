@@ -173,7 +173,7 @@ class PlaybackCompositionTest {
 
 	private static Scene scene(long id) {
 		return new Scene(id, 1, new SceneSpec(SceneNumber.of((int) id), "Scene " + id, Optional.empty(),
-				Optional.empty()), Map.of());
+				Optional.empty()));
 	}
 
 	private static ActiveComposition chase(long id, long source, boolean restart) {

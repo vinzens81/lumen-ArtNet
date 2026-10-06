@@ -4,23 +4,23 @@ import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Color;
 import de.vinzens.lumen.domain.composition.ColorCycle;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
-import de.vinzens.lumen.domain.composition.ExtraKey;
+import de.vinzens.lumen.domain.composition.CompositionStep;
 import de.vinzens.lumen.domain.composition.Flicker;
-import de.vinzens.lumen.domain.composition.KeyMode;
-import de.vinzens.lumen.domain.composition.StepSequence;
-import de.vinzens.lumen.domain.composition.StepSequence.Step;
+import de.vinzens.lumen.domain.composition.GeneratorSettings;
+import de.vinzens.lumen.domain.composition.IntensityMode;
+import de.vinzens.lumen.domain.composition.Pattern;
+import de.vinzens.lumen.domain.composition.PlayMode;
+import de.vinzens.lumen.domain.composition.Rainbow;
 import de.vinzens.lumen.domain.composition.Target;
-import de.vinzens.lumen.domain.library.Attribute;
-import de.vinzens.lumen.domain.library.ChannelFunction;
-import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.composition.Wave;
+import de.vinzens.lumen.domain.look.Look;
+import de.vinzens.lumen.domain.look.LookSpec;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.project.UniverseSpec;
-import de.vinzens.lumen.domain.scene.SceneNumber;
-import de.vinzens.lumen.domain.scene.SceneSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -29,16 +29,11 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class SqliteCompositionRepositoryTest {
-
-	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
-	private static final Attribute RED = Attribute.of(ChannelFunction.RED);
 
 	@TempDir
 	Path dir;
@@ -46,10 +41,11 @@ class SqliteCompositionRepositoryTest {
 	private Path dbFile;
 	private SqliteRepositories repos;
 	private long project;
-	private long scene;
 	private long a;
 	private long b;
 	private long group;
+	private long warm;
+	private long cold;
 
 	@BeforeEach
 	void setUp() {
@@ -62,127 +58,74 @@ class SqliteCompositionRepositoryTest {
 		a = repos.fixtures().create(project, fixture("A", universe, 1)).id();
 		b = repos.fixtures().create(project, fixture("B", universe, 2)).id();
 		group = repos.groups().create(project, new GroupSpec("Ramp", Optional.empty(), 0, List.of(a, b))).id();
-		scene = repos.scenes().create(project, new SceneSpec(SceneNumber.of(1), "Fair", Optional.empty(),
-				Optional.empty()), Map.of()).id();
+		warm = repos.looks().create(project, LookSpec.shared("Warm"), Look.EMPTY).id();
+		cold = repos.looks().create(project, LookSpec.shared("Cold"), Look.EMPTY).id();
 	}
 
 	@Test
-	void everyPatternSurvivesReopening() {
-		var chase = CompositionSpec.of("Ramp chase", new Chase(0.4, 2, Chase.Direction.PING_PONG, 0.3, 0.1, 0.9),
-				new Target.Group(group));
-		var cycle = new CompositionSpec("Booths", new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0.5, 1)),
-				2, 1, 0.5, 0.8), new Target.Fixtures(List.of(b, a)), 0.7, 1.5, true, true);
-		var steps = CompositionSpec.of("Steps", new StepSequence(List.of(
-				new Step(1, 0.5, Map.of(a, new FixtureValues(Map.of(DIMMER, 1.0, RED, 0.25)))),
-				new Step(2, 0, Map.of(b, new FixtureValues(Map.of(DIMMER, 0.5))))), StepSequence.PlayMode.PING_PONG),
-				new Target.Steps());
+	void stepsWithDefaultAndOwnTimesSurviveReopening() {
+		var spec = new CompositionSpec("Dusk", 1.5, 2, PlayMode.PING_PONG, IntensityMode.RELATIVE, Optional.empty());
+		var steps = List.of(CompositionStep.of(warm), new CompositionStep(cold, Optional.of(0.0), Optional.of(4.25)),
+				CompositionStep.of(warm));
 
-		var savedChase = repos.compositions().create(project, Optional.empty(), Optional.empty(), chase);
-		var savedCycle = repos.compositions().create(project, Optional.of(scene), Optional.of(savedChase.id()), cycle);
-		var savedSteps = repos.compositions().create(project, Optional.empty(), Optional.empty(), steps);
+		var created = repos.compositions().create(project, spec, steps);
 
-		var reopened = new SqliteRepositories(SqliteDatabase.open(dbFile)).compositions();
-		assertThat(reopened.findById(savedChase.id()).orElseThrow().spec()).isEqualTo(chase);
-		var copy = reopened.findById(savedCycle.id()).orElseThrow();
-		assertThat(copy.spec()).isEqualTo(cycle);
-		assertThat(copy.sceneId()).contains(scene);
-		assertThat(copy.sourceId()).contains(savedChase.id());
-		assertThat(reopened.findById(savedSteps.id()).orElseThrow().spec()).isEqualTo(steps);
-		assertThat(reopened.findLibrary(project)).extracting(c -> c.spec().name()).containsExactly("Ramp chase", "Steps");
-		assertThat(reopened.findByScenes(project)).containsOnlyKeys(scene);
+		var loaded = new SqliteRepositories(SqliteDatabase.open(dbFile)).compositions().findById(created.id())
+				.orElseThrow();
+		assertThat(loaded.spec()).isEqualTo(spec);
+		assertThat(loaded.steps()).isEqualTo(steps);
+		assertThat(repos.compositions().findByProject(project)).singleElement().isEqualTo(loaded);
 	}
 
 	@Test
-	void copiesKeepTheirOrderAndFollowDeletions() {
-		var library = repos.compositions().create(project, Optional.empty(), Optional.empty(), flicker("Candle"));
-		var first = repos.compositions().create(project, Optional.of(scene), Optional.of(library.id()),
-				CompositionSpec.of("Candle", flicker("x").pattern(), new Target.Fixtures(List.of(a, b))));
-		var second = repos.compositions().create(project, Optional.of(scene), Optional.empty(),
-				CompositionSpec.of("Ramp", flicker("x").pattern(), new Target.Group(group)));
-		assertThat(repos.compositions().findByScene(scene)).extracting(c -> c.id()).containsExactly(first.id(), second.id());
+	void everyGeneratorSurvivesReopening() {
+		List<Pattern> effects = List.of(
+				new Chase(0.4, 2, Chase.Direction.PING_PONG, 0.3, 0.1, 0.9),
+				new ColorCycle(List.of(new Color(1, 0, 0), new Color(0, 0.5, 1)), 2, 1, 0.5, 0.8),
+				new Rainbow(10, 0.9, 1, 1),
+				new Wave(Wave.Shape.SINE, 3, 0, 1, 0.25),
+				new Flicker(Flicker.Character.FIRE, 0.6, 1.5, 42));
+		for (var effect : effects) {
+			var target = effect instanceof Chase ? new Target.Fixtures(List.of(b, a)) : new Target.Group(group);
+			var settings = new GeneratorSettings(effect, target, effect instanceof Rainbow);
+			var spec = new CompositionSpec(effect.kind().id(), 1, 1, PlayMode.LOOP, IntensityMode.ABSOLUTE,
+					Optional.of(settings));
+			repos.compositions().create(project, spec, List.of(CompositionStep.of(warm)));
+		}
 
-		repos.compositions().reorder(scene, List.of(second.id(), first.id()));
-		assertThat(repos.compositions().findByScene(scene)).extracting(c -> c.id()).containsExactly(second.id(), first.id());
+		var reopened = new SqliteRepositories(SqliteDatabase.open(dbFile));
+		assertThat(reopened.compositions().findByProject(project))
+				.extracting(c -> c.spec().generator().orElseThrow().effect())
+				.containsExactlyInAnyOrderElementsOf(effects);
+		assertThat(reopened.compositions().findByProject(project))
+				.filteredOn(c -> c.spec().name().equals("chase")).singleElement()
+				.satisfies(c -> assertThat(c.spec().generator().orElseThrow().target())
+						.isEqualTo(new Target.Fixtures(List.of(b, a))));
+	}
 
-		repos.compositions().delete(library.id());
-		repos.fixtures().delete(a);
+	@Test
+	void updateReplacesStepsAndGenerator() {
+		var settings = new GeneratorSettings(new Rainbow(10, 1, 0, 1), new Target.Group(group), false);
+		var created = repos.compositions().create(project, new CompositionSpec("R", 1, 1, PlayMode.LOOP,
+				IntensityMode.ABSOLUTE, Optional.of(settings)), List.of(CompositionStep.of(warm), CompositionStep.of(cold)));
+
+		var updated = repos.compositions().update(created.id(), CompositionSpec.of("Plain"),
+				List.of(CompositionStep.of(cold)));
+
+		assertThat(updated.spec().generator()).isEmpty();
+		assertThat(updated.steps()).containsExactly(CompositionStep.of(cold));
+	}
+
+	@Test
+	void aDeletedGroupLeavesTheGeneratorWithoutFixtures() {
+		var settings = new GeneratorSettings(new Rainbow(10, 1, 0, 1), new Target.Group(group), false);
+		var created = repos.compositions().create(project, new CompositionSpec("R", 1, 1, PlayMode.LOOP,
+				IntensityMode.ABSOLUTE, Optional.of(settings)), List.of());
+
 		repos.groups().delete(group);
-		var copies = repos.compositions().findByScene(scene);
-		assertThat(copies.get(1).sourceId()).as("library origin deleted").isEmpty();
-		assertThat(copies.get(1).spec().target()).isEqualTo(new Target.Fixtures(List.of(b)));
-		assertThat(copies.get(0).spec().target()).as("group deleted: empty").isEqualTo(new Target.Fixtures(List.of()));
 
-		repos.scenes().delete(scene);
-		assertThat(repos.compositions().findByScenes(project)).isEmpty();
-	}
-
-	@Test
-	void extraKeysAndTheirScenes() {
-		var library = repos.compositions().create(project, Optional.empty(), Optional.empty(), flicker("Storm"));
-		var spec = CompositionSpec.of("Storm", flicker("x").pattern(), new Target.Group(group));
-
-		var key = repos.compositions().saveKey(project, 3, Optional.of(library.id()), KeyMode.FLASH,
-				Duration.ofMillis(250), spec);
-		assertThat(key.slot()).isEqualTo(3);
-		assertThat(key.mode()).isEqualTo(KeyMode.FLASH);
-		assertThat(key.fade()).isEqualTo(Duration.ofMillis(250));
-		assertThat(key.composition().orElseThrow().sourceId()).contains(library.id());
-		assertThat(key.composition().orElseThrow().spec()).isEqualTo(spec);
-		assertThat(repos.compositions().findLibrary(project)).as("keys are not in the library").hasSize(1);
-		assertThat(repos.compositions().findByScenes(project)).isEmpty();
-
-		repos.compositions().saveKey(project, 3, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, spec);
-		assertThat(repos.compositions().findKeys(project)).as("replaced").singleElement()
-				.satisfies(k -> assertThat(k.composition().orElseThrow().sourceId()).isEmpty());
-		assertThat(repos.compositions().updateKeySettings(project, 3, KeyMode.FLASH, Duration.ofSeconds(1)).fade())
-				.isEqualTo(Duration.ofSeconds(1));
-
-		repos.compositions().saveSceneKeys(scene, Set.of(3, 5));
-		assertThat(repos.compositions().findSceneKeys(project)).containsEntry(scene, Set.of(3, 5));
-		repos.compositions().deleteKey(project, 3);
-		assertThat(repos.compositions().findKeys(project)).isEmpty();
-		repos.scenes().delete(scene);
-		assertThat(repos.compositions().findSceneKeys(project)).isEmpty();
-	}
-
-	@Test
-	void keysCanPlayAWholeScene() {
-		var storm = repos.scenes().create(project, new SceneSpec(SceneNumber.of(90), "Storm look", Optional.empty(),
-				Optional.empty(), true), Map.of()).id();
-		assertThat(repos.scenes().findById(storm).orElseThrow().spec().keyOnly()).isTrue();
-
-		repos.compositions().saveKey(project, 2, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, flicker("Candle"));
-		var key = repos.compositions().saveSceneKey(project, 1, storm, KeyMode.FLASH, Duration.ofMillis(100));
-		assertThat(key.sceneId()).contains(storm);
-		assertThat(key.composition()).isEmpty();
-		assertThat(repos.compositions().findKeys(project)).extracting(ExtraKey::slot).containsExactly(1, 2);
-
-		repos.compositions().saveKey(project, 1, Optional.empty(), KeyMode.TOGGLE, Duration.ZERO, flicker("Candle"));
-		assertThat(repos.compositions().findKeys(project)).as("a composition replaces the scene").hasSize(2)
-				.allSatisfy(k -> assertThat(k.sceneId()).isEmpty());
-		repos.compositions().saveSceneKey(project, 2, storm, KeyMode.TOGGLE, Duration.ZERO);
-		assertThat(repos.compositions().updateKeySettings(project, 2, KeyMode.FLASH, Duration.ofSeconds(2)))
-				.satisfies(k -> {
-					assertThat(k.mode()).isEqualTo(KeyMode.FLASH);
-					assertThat(k.sceneId()).contains(storm);
-				});
-
-		repos.scenes().delete(storm);
-		assertThat(repos.compositions().findKeys(project)).as("the scene's key is empty again")
-				.extracting(ExtraKey::slot).containsExactly(1);
-	}
-
-	@Test
-	void updateReplacesTargetAndSteps() {
-		var created = repos.compositions().create(project, Optional.empty(), Optional.empty(),
-				CompositionSpec.of("Booths", flicker("x").pattern(), new Target.Fixtures(List.of(a, b))));
-		var changed = CompositionSpec.of("Booths", flicker("x").pattern(), new Target.Fixtures(List.of(b)));
-
-		assertThat(repos.compositions().update(created.id(), changed).spec()).isEqualTo(changed);
-	}
-
-	private static CompositionSpec flicker(String name) {
-		return CompositionSpec.of(name, new Flicker(Flicker.Character.CANDLE, 0.4, 1, 3), new Target.Fixtures(List.of()));
+		assertThat(repos.compositions().findById(created.id()).orElseThrow().spec().generator().orElseThrow().target())
+				.isEqualTo(new Target.Fixtures(List.of()));
 	}
 
 	private static FixtureSpec fixture(String name, long universe, int address) {

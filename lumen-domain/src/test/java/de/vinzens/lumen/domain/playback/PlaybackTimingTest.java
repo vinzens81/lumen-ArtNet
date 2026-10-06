@@ -1,5 +1,6 @@
 package de.vinzens.lumen.domain.playback;
 
+import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -28,6 +30,8 @@ class PlaybackTimingTest {
 
 	private Instant now = Instant.parse("2026-10-05T20:00:00Z");
 	private Playback playback;
+	/** The fixed values of each scene, as its one composition. */
+	private final Map<Long, List<ActiveComposition>> looks = new HashMap<>();
 
 	@Test
 	void flashSceneSwitchesAtOnceAndTheNextSceneFadesWithItsOwnTimes() {
@@ -116,8 +120,8 @@ class PlaybackTimingTest {
 		advance(1000);
 
 		var edited = new Scene(1, 1, new SceneSpec(dawn.spec().number(), "Scene 1", Optional.empty(),
-				Optional.empty(), false, timing(0, 0, 0)), dawn.values());
-		playback.reload(List.of(edited), Map.of(), Duration.ofSeconds(2), Duration.ofSeconds(4), now);
+				Optional.empty(), false, timing(0, 0, 0)));
+		playback.reload(List.of(edited), looks, Duration.ofSeconds(2), Duration.ofSeconds(4), now);
 
 		assertThat(dimmer(1)).isCloseTo(0.5, within(1e-9));
 	}
@@ -141,7 +145,7 @@ class PlaybackTimingTest {
 	}
 
 	private void play(Scene... scenes) {
-		playback = new Playback(List.of(scenes), Duration.ofSeconds(2), Duration.ofSeconds(4));
+		playback = new Playback(List.of(scenes), looks, Duration.ofSeconds(2), Duration.ofSeconds(4));
 	}
 
 	private void go() {
@@ -162,8 +166,9 @@ class PlaybackTimingTest {
 	}
 
 	/** Scene n lights fixture n. */
-	private static Scene scene(long id, SceneTiming timing, Optional<Duration> autoFollow) {
+	private Scene scene(long id, SceneTiming timing, Optional<Duration> autoFollow) {
+		looks.put(id, List.of(StaticLooks.of(1000 + id, Map.of(id, new FixtureValues(Map.of(DIMMER, 1.0))))));
 		return new Scene(id, 1, new SceneSpec(SceneNumber.of((int) id), "Scene " + id, Optional.empty(), autoFollow,
-				false, timing), Map.of(id, new FixtureValues(Map.of(DIMMER, 1.0))));
+				false, timing));
 	}
 }

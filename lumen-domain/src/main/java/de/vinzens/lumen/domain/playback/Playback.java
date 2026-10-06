@@ -32,9 +32,9 @@ import java.util.Set;
  * <p>Each transition uses the fade times of the scene it goes to ({@link de.vinzens.lumen.domain.scene.SceneTiming}),
  * falling back to the project's times; the fade to black at the end always uses the project's.
  *
- * <p>Scenes may contain compositions (chases, color cycles, …). They run on the virtual clock from the GO of
- * their scene, keep running while their scene fades out, and a copy of the same origin in the next scene continues
- * with the same phase: it is not faded out and in, only its level and values glide over the fade-in time.
+ * <p>A scene is a set of compositions. They run on the virtual clock from the GO of their scene and keep running
+ * while their scene fades out. A composition that is in the next scene too continues with the same phase: it is not
+ * faded out and in, only its level and values glide over the fade-in time.
  */
 public final class Playback {
 
@@ -450,8 +450,9 @@ public final class Playback {
 				.map(stayStart::plus);
 	}
 
+	/** Scenes have no static values of their own: everything comes from their compositions. */
 	private Map<Long, FixtureValues> valuesAt(int index) {
-		return isScene(index) ? scenes.get(index).values() : Map.of();
+		return Map.of();
 	}
 
 	private boolean isScene(int index) {

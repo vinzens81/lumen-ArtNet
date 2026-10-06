@@ -34,7 +34,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -71,9 +70,10 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	private Optional<Long> savedSceneId = Optional.empty();
 	/** Scene the show can be resumed at after a restart, until the operator resumes, dismisses or plays on. */
 	private Optional<Long> resumeSceneId = Optional.empty();
-	/** Extra keys: laid over the playback output, usable only in the scenes they are enabled for. */
+	/** Extra keys of the scene on stage, laid over the playback output. */
 	private ExtraKeys keys = new ExtraKeys();
-	private Map<Long, Set<Integer>> sceneKeys = Map.of();
+	/** The keys of every scene, by scene id. */
+	private Map<Long, List<PlayableKey>> sceneKeys = Map.of();
 	/** Faders, e.g. the house lights: laid over playback and keys at the level they are pushed to. */
 	private Faders faders = new Faders();
 	/** Highlighted sentence of a scene's script; only counts while that scene is on stage. */
@@ -97,7 +97,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		this.events = Objects.requireNonNull(events, "events");
 		events.subscribe(topic -> {
 			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS || topic == StateTopic.COMPOSITIONS
-					|| topic == StateTopic.FADERS) {
+					|| topic == StateTopic.LOOKS || topic == StateTopic.FADERS) {
 				reload();
 			}
 		});
@@ -115,11 +115,12 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	}
 
 	private Loaded load(Project project) {
-		// scenes only for extra keys are not part of the cue list
-		var cueList = scenes.findByProject(project.id()).stream().filter(scene -> !scene.spec().keyOnly()).toList();
+		// scenes for faders are not part of the cue list
+		var cueList = scenes.findByProject(project.id()).stream()
+				.filter(scene -> !scene.spec().outsideCueList())
+				.toList();
 		return new Loaded(project, cueList, compositions.scenes(project.id()), compositions.keys(project.id()),
-				compositions.sceneKeys(project.id()), compositions.faders(faderSetup.findByProject(project.id())),
-				states.currentScene(project.id()));
+				compositions.faders(faderSetup.findByProject(project.id())), states.currentScene(project.id()));
 	}
 
 	private synchronized void apply(long sequence, Optional<Loaded> loaded) {
@@ -151,11 +152,9 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 			}
 			playback.useFadeCurve(project.spec().fadeCurve());
 			resumeSceneId = resumeSceneId.filter(id -> data.cueList().stream().anyMatch(scene -> scene.id() == id));
-			var now = clock.instant();
-			keys.configure(data.keys(), now);
 			faders.configure(data.faders());
 			sceneKeys = data.sceneKeys();
-			updateKeyAvailability(now);
+			updateKeys(clock.instant());
 		}
 		events.publish(StateTopic.PLAYBACK);
 	}
@@ -179,7 +178,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				scriptLine = ScriptLine.NONE; // auto-follow went on to the next scene
 			}
 			saveState(now);
-			updateKeyAvailability(now);
+			updateKeys(now);
 			events.publish(StateTopic.PLAYBACK);
 		}
 		if (keys.tick(now)) {
@@ -240,10 +239,13 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		return faders.set(slot, level, now) ? changed(now) : status(now);
 	}
 
-	/** Keys are usable in the scenes they are enabled for; before the first scene and at the end none. */
-	private void updateKeyAvailability(Instant now) {
+	/**
+	 * The keys of the scene on stage; before the first scene and at the end there are none. A key that is on stays
+	 * on if its composition is on a key of the new scene too.
+	 */
+	private void updateKeys(Instant now) {
 		var scene = playback.currentScene();
-		keys.setAvailable(scene.map(s -> sceneKeys.getOrDefault(s.id(), Set.of())).orElse(Set.of()), now);
+		keys.configure(scene.map(s -> sceneKeys.getOrDefault(s.id(), List.of())).orElse(List.of()), now);
 	}
 
 	@Override
@@ -295,7 +297,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		resumeSceneId = Optional.empty();
 		scriptLine = ScriptLine.NONE;
 		saveState(now);
-		updateKeyAvailability(now);
+		updateKeys(now);
 		return changed(now);
 	}
 
@@ -351,7 +353,6 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 
 	/** What a reload reads from the database for the active project. */
 	private record Loaded(Project project, List<Scene> cueList, Map<Long, List<ActiveComposition>> running,
-			List<PlayableKey> keys, Map<Long, Set<Integer>> sceneKeys, List<PlayableFader> faders,
-			Optional<Long> savedSceneId) {
+			Map<Long, List<PlayableKey>> sceneKeys, List<PlayableFader> faders, Optional<Long> savedSceneId) {
 	}
 }

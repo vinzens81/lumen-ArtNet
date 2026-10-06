@@ -21,7 +21,7 @@ public final class PlaybackDtos {
 	 * @param position     -1 before the first scene, sceneCount at the end of the show
 	 * @param autoFollowInMs time until the next scene starts automatically, null without auto-follow
 	 * @param resumeSceneId  scene that was on stage before a restart and can be resumed, otherwise null
-	 * @param keys           assigned extra keys
+	 * @param keys           extra keys of the scene on stage
 	 * @param scriptLine     highlighted sentence of the script of the current scene (stage directions not counted)
 	 * @param faders         assigned faders with their level
 	 */
@@ -46,13 +46,12 @@ public final class PlaybackDtos {
 	 * @param level     current fade level 0–1
 	 * @param available can be used in the scene on stage
 	 */
-	public record KeyResponse(int slot, String name, String kind, String mode, boolean on, double level,
-			boolean available) {
+	/** A key of the scene on stage; {@code name} is the name of its composition. */
+	public record KeyResponse(int slot, String name, String mode, boolean on, double level) {
 
 		static KeyResponse from(KeyStatus key) {
-			return new KeyResponse(key.slot(), key.name(), key.kind().map(kind -> kind.id()).orElse("scene"),
-					key.mode().id(), key.on(),
-					Math.round(key.level() * 1000) / 1000.0, key.available());
+			return new KeyResponse(key.slot(), key.name(), key.mode().id(), key.on(),
+					Math.round(key.level() * 1000) / 1000.0);
 		}
 	}
 

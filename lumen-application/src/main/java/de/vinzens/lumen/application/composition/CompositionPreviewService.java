@@ -75,7 +75,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	private void changed(StateTopic topic) {
 		switch (topic) {
-			case COMPOSITIONS, PATCH, SCENES -> {
+			case COMPOSITIONS, LOOKS, PATCH, SCENES -> {
 				resolved.clear();
 				refreshStage();
 			}
@@ -118,8 +118,8 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		var scene = scenes.findById(sceneId).filter(s -> s.projectId() == projectId)
 				.orElseThrow(() -> new NotFoundException("Scene " + sceneId + " does not exist in project "
 						+ projectId));
-		onStage = new SceneOnStage(projectId, sceneId, scene.values(),
-				resolver.scenes(projectId).getOrDefault(sceneId, List.of()), clock.instant());
+		onStage = new SceneOnStage(projectId, sceneId, resolver.scenes(projectId).getOrDefault(sceneId, List.of()),
+				clock.instant());
 		events.publish(StateTopic.STAGE_PREVIEW);
 	}
 
@@ -131,9 +131,9 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		var target = scenes.findById(sceneId).filter(s -> s.projectId() == projectId)
 				.orElseThrow(() -> new NotFoundException("Scene " + sceneId + " does not exist in project "
 						+ projectId));
-		if (target.spec().keyOnly()) {
+		if (target.spec().outsideCueList()) {
 			throw new ConflictException("Scene " + target.spec().number()
-					+ " is only played by extra keys – it has no fade from a previous scene");
+					+ " is not in the cue list – it has no fade from a previous scene");
 		}
 		var previous = previousInCueList(projectId, target);
 		var cueList = previous.map(p -> List.of(p, target)).orElse(List.of(target));
@@ -152,7 +152,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	/** The scene GO comes from in the show: the one before in the cue list, empty for the first (dark stage). */
 	private Optional<Scene> previousInCueList(long projectId, Scene target) {
 		return scenes.findByProject(projectId).stream()
-				.filter(scene -> !scene.spec().keyOnly())
+				.filter(scene -> !scene.spec().outsideCueList())
 				.filter(scene -> scene.spec().number().compareTo(target.spec().number()) < 0)
 				.reduce((first, second) -> second);
 	}
@@ -167,7 +167,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 							current.startedAt()),
 					this::stopOnStage);
 			case SceneOnStage current -> scenes.findById(current.sceneId()).ifPresentOrElse(
-					scene -> onStage = new SceneOnStage(current.projectId(), current.sceneId(), scene.values(),
+					scene -> onStage = new SceneOnStage(current.projectId(), current.sceneId(),
 							resolver.scenes(current.projectId()).getOrDefault(current.sceneId(), List.of()),
 							current.startedAt()),
 					this::stopOnStage);
@@ -243,7 +243,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 			case CompositionOnStage composition -> look(composition.composition(), seconds, attributes);
 			case SceneOnStage scene -> {
 				// like the playback shows the scene once its fade-in is done
-				var look = scene.base();
+				Map<Long, FixtureValues> look = Map.of();
 				for (var composition : scene.compositions()) {
 					look = CompositionMixer.apply(look, composition, seconds, attributes);
 				}
@@ -282,8 +282,8 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 			implements StagePreview {
 	}
 
-	private record SceneOnStage(long projectId, long sceneId, Map<Long, FixtureValues> base,
-			List<ActiveComposition> compositions, Instant startedAt) implements StagePreview {
+	private record SceneOnStage(long projectId, long sceneId, List<ActiveComposition> compositions,
+			Instant startedAt) implements StagePreview {
 	}
 
 	/**

@@ -21,7 +21,7 @@ public interface PreviewCompositionUseCase {
 	/** Plays the composition on stage above the playback (setup mode only). */
 	void showOnStage(long projectId, long compositionId);
 
-	/** Plays a whole scene – its values and its compositions – on stage above the playback (setup mode only). */
+	/** Plays a whole scene – its compositions – on stage above the playback (setup mode only). */
 	void showSceneOnStage(long projectId, long sceneId);
 
 	/**

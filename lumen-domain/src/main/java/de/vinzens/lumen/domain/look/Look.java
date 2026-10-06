@@ -1,4 +1,4 @@
-package de.vinzens.lumen.domain.scene;
+package de.vinzens.lumen.domain.look;
 
 import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
@@ -13,7 +13,7 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Values per fixture id together with the presets they come from: what a scene or the programmer holds.
+ * Values per fixture id together with the presets they come from: what a look or the programmer holds.
  */
 public record Look(Map<Long, FixtureValues> values, PresetRefs presets) {
 

@@ -10,6 +10,8 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
@@ -45,8 +47,8 @@ class SceneApiTest {
 
 		var list = assertThat(mvc.get().uri(scenes)).hasStatusOk().bodyJson();
 		list.extractingPath("$[*].number").asArray().containsExactly("1", "1.5", "2");
-		list.extractingPath("$[0].values['%d'].red".formatted(par)).isEqualTo(1.0);
-		list.extractingPath("$[1].fixtureCount").isEqualTo(0);
+		assertThat(value(lookOf(dawn), par, "red")).as("recorded into a look").isEqualTo(1.0);
+		list.extractingPath("$[1].compositions").asArray().as("not recorded: dark").isEmpty();
 		list.extractingPath("$[2].autoFollowMs").isEqualTo(8000);
 
 		assertThat(post(scenes + "/" + dawn + "/load", "")).hasStatus(204);
@@ -60,8 +62,9 @@ class SceneApiTest {
 		var scene = id(post(scenes, "{\"name\": \"Look\", \"record\": true}"));
 
 		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 0.25}");
-		assertThat(post(scenes + "/" + scene + "/record", "")).hasStatusOk().bodyJson()
-				.extractingPath("$.values['%d'].dimmer".formatted(par)).isEqualTo(0.25);
+		assertThat(post(scenes + "/" + scene + "/record", "")).hasStatusOk();
+
+		assertThat(value(lookOf(scene), par, "dimmer")).isEqualTo(0.25);
 	}
 
 	@Test
@@ -69,10 +72,14 @@ class SceneApiTest {
 		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 1, \"red\": 1}");
 		var dawn = id(post(scenes, "{\"name\": \"Dawn\", \"record\": true, \"fadeInMs\": 500, \"script\": \"Hello.\"}"));
 		post(scenes, "{\"name\": \"Night\"}");
-		var flicker = id(post("/api/projects/" + project + "/compositions", """
-				{"name": "Candle", "kind": "flicker", "target": {"fixtureIds": [%d]}}""".formatted(par)));
-		assertThat(post(scenes + "/" + dawn + "/compositions", "{\"libraryId\": %d}".formatted(flicker)))
-				.hasStatus(201);
+		var compositions = "/api/projects/" + project + "/compositions";
+		var flicker = id(post(compositions, "{\"name\": \"Candle\"}"));
+		assertThat(post(compositions + "/" + flicker + "/generate", """
+				{"kind": "flicker", "target": {"fixtureIds": [%d]}}""".formatted(par))).hasStatusOk();
+		var recorded = compositionOf(dawn);
+		assertThat(put(scenes + "/" + dawn + "/compositions", """
+				[{"compositionId": %d}, {"compositionId": %d, "level": 0.5}]""".formatted(recorded, flicker)))
+				.hasStatusOk();
 
 		var copy = assertThat(post(scenes + "/" + dawn + "/duplicate", "{\"number\": \"1.5\"}")).hasStatus(201)
 				.bodyJson();
@@ -80,8 +87,9 @@ class SceneApiTest {
 		copy.extractingPath("$.name").isEqualTo("Dawn (copy)");
 		copy.extractingPath("$.fadeInMs").isEqualTo(500);
 		copy.extractingPath("$.script").isEqualTo("Hello.");
-		copy.extractingPath("$.values['%d'].red".formatted(par)).isEqualTo(1.0);
-		copy.extractingPath("$.compositions[0].name").isEqualTo("Candle");
+		copy.extractingPath("$.compositions[0].compositionId").as("the same, shared").isEqualTo((int) recorded);
+		copy.extractingPath("$.compositions[1].compositionId").isEqualTo((int) flicker);
+		copy.extractingPath("$.compositions[1].level").isEqualTo(0.5);
 
 		assertThat(post(scenes + "/" + dawn + "/duplicate", "")).hasStatus(201).bodyJson()
 				.extractingPath("$.number").isEqualTo("3");
@@ -101,12 +109,13 @@ class SceneApiTest {
 		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
 		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 0.2, \"blue\": 1}");
 		patch("/api/programmer/fixtures/" + spot, "{\"dimmer\": 0.9}");
-		var merged = assertThat(post(scenes + "/" + scene + "/record", """
-				{"merge": true, "fixtureIds": [%d], "groups": ["color"]}""".formatted(par))).hasStatusOk().bodyJson();
-		merged.extractingPath("$.values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
-		merged.extractingPath("$.values['%d'].red".formatted(par)).isEqualTo(1.0);
-		merged.extractingPath("$.values['%d'].blue".formatted(par)).isEqualTo(1.0);
-		merged.extractingPath("$.values['%d'].dimmer".formatted(spot)).isEqualTo(0.5);
+		assertThat(post(scenes + "/" + scene + "/record", """
+				{"merge": true, "fixtureIds": [%d], "groups": ["color"]}""".formatted(par))).hasStatusOk();
+		var look = lookOf(scene);
+		assertThat(value(look, par, "dimmer")).isEqualTo(1.0);
+		assertThat(value(look, par, "red")).isEqualTo(1.0);
+		assertThat(value(look, par, "blue")).isEqualTo(1.0);
+		assertThat(value(look, spot, "dimmer")).isEqualTo(0.5);
 
 		assertThat(post(scenes + "/" + scene + "/record", "{\"groups\": [\"color\"]}")).hasStatus(400);
 		assertThat(post(scenes + "/" + scene + "/record", "{\"merge\": true, \"groups\": [\"smell\"]}"))
@@ -120,21 +129,22 @@ class SceneApiTest {
 		patch("/api/programmer/fixtures/" + par, "{\"dimmer\": 0.25}");
 		post(scenes + "/" + scene + "/record", "");
 		post(scenes + "/" + scene + "/record", ""); // unchanged: no new revision
+		var looks = "/api/projects/" + project + "/looks/" + lookOf(scene);
 
-		var revisions = assertThat(mvc.get().uri(scenes + "/" + scene + "/revisions")).hasStatusOk().bodyJson();
+		var revisions = assertThat(mvc.get().uri(looks + "/revisions")).hasStatusOk().bodyJson();
 		revisions.extractingPath("$.length()").isEqualTo(1);
 		revisions.extractingPath("$[0].reason").isEqualTo("Update from programmer");
 		revisions.extractingPath("$[0].values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
-		var revision = JsonPath.<Integer>read(body(scenes + "/" + scene + "/revisions"), "$[0].id");
+		var revision = JsonPath.<Integer>read(body(looks + "/revisions"), "$[0].id");
 
-		assertThat(post(scenes + "/" + scene + "/revisions/" + revision + "/restore", "")).hasStatusOk().bodyJson()
+		assertThat(post(looks + "/revisions/" + revision + "/restore", "")).hasStatusOk().bodyJson()
 				.extractingPath("$.values['%d'].dimmer".formatted(par)).isEqualTo(1.0);
-		assertThat(mvc.get().uri(scenes + "/" + scene + "/revisions")).bodyJson().satisfies(json -> {
+		assertThat(mvc.get().uri(looks + "/revisions")).bodyJson().satisfies(json -> {
 			assertThat(json).extractingPath("$.length()").isEqualTo(2);
 			assertThat(json).extractingPath("$[0].reason").isEqualTo("Restore");
 			assertThat(json).extractingPath("$[0].values['%d'].dimmer".formatted(par)).isEqualTo(0.25);
 		});
-		assertThat(post(scenes + "/" + scene + "/revisions/999999/restore", "")).hasStatus(404);
+		assertThat(post(looks + "/revisions/999999/restore", "")).hasStatus(404);
 	}
 
 	@Test
@@ -196,6 +206,23 @@ class SceneApiTest {
 
 		assertThat(post("/api/projects/" + other + "/scenes", "{\"name\": \"X\", \"record\": true}")).hasStatus(409);
 		assertThat(post("/api/projects/" + other + "/scenes", "{\"name\": \"X\"}")).hasStatus(201);
+	}
+
+	/** The first composition of a scene: for a recorded scene the one with its values. */
+	private long compositionOf(long sceneId) throws Exception {
+		return JsonPath.<List<Integer>>read(body(scenes), "$[?(@.id == %d)].compositions[0].compositionId"
+				.formatted(sceneId)).getFirst();
+	}
+
+	/** The look a recorded scene keeps its values in. */
+	private long lookOf(long sceneId) throws Exception {
+		return JsonPath.<Integer>read(body("/api/projects/" + project + "/compositions/" + compositionOf(sceneId)),
+				"$.steps[0].lookId");
+	}
+
+	private double value(long lookId, long fixtureId, String attribute) throws Exception {
+		return JsonPath.<Double>read(body("/api/projects/" + project + "/looks/" + lookId),
+				"$.values['%d'].%s".formatted(fixtureId, attribute));
 	}
 
 	private MvcTestResult post(String uri, String json) {

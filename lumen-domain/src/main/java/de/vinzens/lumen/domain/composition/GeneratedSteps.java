@@ -50,6 +50,6 @@ public record GeneratedSteps(List<Step> steps, double fadeSeconds, double holdSe
 		return new StepSequence(steps.stream()
 				.map(step -> new StepSequence.Step(step.holdSeconds().orElse(holdSeconds),
 						step.fadeSeconds().orElse(fadeSeconds), step.values()))
-				.toList(), playMode);
+				.toList(), playMode, intensityMode);
 	}
 }

@@ -1,30 +1,25 @@
 package de.vinzens.lumen.application.composition;
 
 import de.vinzens.lumen.application.ConflictException;
-import de.vinzens.lumen.application.FixedCompositions;
+import de.vinzens.lumen.application.TestShow;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
-import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
-import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.composition.Chase;
 import de.vinzens.lumen.domain.composition.Composition;
-import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.composition.Flicker;
-import de.vinzens.lumen.domain.composition.Pattern;
-import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelDefinition;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.OperatingMode;
-import de.vinzens.lumen.domain.project.Group;
-import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import org.junit.jupiter.api.Test;
@@ -52,35 +47,42 @@ class CompositionPreviewServiceTest {
 	private OperatingMode currentMode = OperatingMode.SETUP;
 	private final StateEvents events = new StateEvents();
 
-	private final Composition chase = composition(1, new Chase(1, 1, Chase.Direction.FORWARD, 0, 0, 1));
-	private final Composition flicker = composition(2, new Flicker(Flicker.Character.CANDLE, 0.5, 1, 1));
-	private final FixedCompositions stored = new FixedCompositions(Map.of(9L, List.of(chase, flicker)));
-	/** scene 9: fixture 3 at 30 %, with the chase and the flicker on fixtures 1 and 2 */
-	private final Scene scene = new Scene(9, 1, new SceneSpec(SceneNumber.of(1), "Fair", Optional.empty(),
-			Optional.empty()), Map.of(3L, new FixtureValues(Map.of(DIMMER, 0.3))));
-	/** scene 5 before it in the cue list: fixture 4 at full */
-	private final Scene before = new Scene(5, 1, new SceneSpec(SceneNumber.parse("0.5"), "Before", Optional.empty(),
-			Optional.empty()), Map.of(4L, new FixtureValues(Map.of(DIMMER, 1.0))));
+	private final TestShow show = new TestShow();
+	/** composition 1: a chase on fixtures 1 and 2 */
+	private final Composition chase = show.generated(1, "Chase", new Chase(1, 1, Chase.Direction.FORWARD, 0, 0, 1),
+			List.of(1L, 2L), FixtureAttributes.ALL);
+	/** composition 2: a flicker on fixtures 1 and 2 */
+	private final Composition flicker = show.generated(1, "Flicker", new Flicker(Flicker.Character.CANDLE, 0.5, 1, 1),
+			List.of(1L, 2L), FixtureAttributes.ALL);
+	/** scene 0.5: fixture 4 at full */
+	private final Scene before = show.scenes.create(1, new SceneSpec(SceneNumber.parse("0.5"), "Before",
+			Optional.empty(), Optional.empty()), List.of(SceneComposition.of(show.fixed(1, "Before",
+			Map.of(4L, new FixtureValues(Map.of(DIMMER, 1.0)))).id())), List.of());
+	/** scene 1 after it: fixture 3 at 30 %, with the chase and the flicker on fixtures 1 and 2 */
+	private final Scene scene = show.scenes.create(1, new SceneSpec(SceneNumber.of(1), "Fair", Optional.empty(),
+			Optional.empty()), List.of(SceneComposition.of(show.fixed(1, "Fair",
+			Map.of(3L, new FixtureValues(Map.of(DIMMER, 0.3)))).id()), SceneComposition.of(chase.id()),
+			SceneComposition.of(flicker.id())), List.of());
 	/** project fade times: in 2 s, out 4 s */
-	private final CompositionPreviewService preview = new CompositionPreviewService(stored, scenes(), projects(),
-			new CompositionResolver(stored, groups()), mode(), clock(), events);
+	private final CompositionPreviewService preview = new CompositionPreviewService(show.compositions, show.scenes,
+			projects(), show.resolver(), mode(), clock(), events);
 
 	@Test
 	void previewRunsOnItsOwnClockWithoutTouchingTheStage() {
 		preview.layer(now, Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE));
 
-		assertThat(preview.previewValues(1).get(1L).get(DIMMER)).contains(1.0);
+		assertThat(preview.previewValues(chase.id()).get(1L).get(DIMMER)).contains(1.0);
 		now = now.plusSeconds(1);
-		assertThat(preview.previewValues(1).get(2L).get(DIMMER)).contains(1.0);
-		assertThat(preview.previewValues(2).get(1L).get(DIMMER).orElseThrow())
+		assertThat(preview.previewValues(chase.id()).get(2L).get(DIMMER)).contains(1.0);
+		assertThat(preview.previewValues(flicker.id()).get(1L).get(DIMMER).orElseThrow())
 				.as("flicker over full intensity").isBetween(0.5, 1.0);
 		assertThat(preview.layer(now, Map.of(1L, DIMMER_MODE)).fixtures()).isEmpty();
 	}
 
 	@Test
 	void stagePreviewIsALayerThatStopsInShowMode() {
-		preview.showOnStage(1, 1);
-		assertThat(preview.compositionOnStage()).contains(1L);
+		preview.showOnStage(1, chase.id());
+		assertThat(preview.compositionOnStage()).contains(chase.id());
 		var layer = preview.layer(now, Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE));
 		assertThat(layer.priority()).isEqualTo(75);
 		assertThat(layer.fixtures().get(1L).get(DIMMER)).contains(1.0);
@@ -88,23 +90,23 @@ class CompositionPreviewServiceTest {
 		currentMode = OperatingMode.SHOW;
 		events.publish(StateTopic.MODE);
 		assertThat(preview.compositionOnStage()).isEmpty();
-		assertThatThrownBy(() -> preview.showOnStage(1, 1)).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> preview.showOnStage(1, chase.id())).isInstanceOf(ConflictException.class);
 	}
 
 	@Test
-	void wholeSceneRunsOnStageWithItsValuesAndCompositions() {
-		preview.showSceneOnStage(1, 9);
-		assertThat(preview.sceneOnStage()).contains(9L);
+	void wholeSceneRunsOnStageWithItsCompositions() {
+		preview.showSceneOnStage(1, scene.id());
+		assertThat(preview.sceneOnStage()).contains(scene.id());
 		assertThat(preview.compositionOnStage()).isEmpty();
 
 		var modes = Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE, 3L, DIMMER_MODE);
 		var look = preview.layer(now, modes).fixtures();
-		assertThat(look.get(3L).get(DIMMER)).as("static value of the scene").contains(0.3);
+		assertThat(look.get(3L).get(DIMMER)).as("fixed values of the scene").contains(0.3);
 		assertThat(look.get(1L).get(DIMMER).orElseThrow()).as("chase on, then the flicker over it").isBetween(0.5, 1.0);
 		now = now.plusSeconds(1);
 		assertThat(preview.layer(now, modes).fixtures().get(2L).get(DIMMER).orElseThrow()).isGreaterThan(0.4);
 
-		preview.showOnStage(1, 1);
+		preview.showOnStage(1, chase.id());
 		assertThat(preview.sceneOnStage()).as("one preview at a time").isEmpty();
 		preview.stopOnStage();
 		assertThat(preview.layer(now, modes).fixtures()).isEmpty();
@@ -115,21 +117,21 @@ class CompositionPreviewServiceTest {
 		var modes = Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE, 3L, DIMMER_MODE, 4L, DIMMER_MODE);
 		preview.layer(now, modes);
 
-		preview.rehearseFade(1, 9);
+		preview.rehearseFade(1, scene.id());
 
-		assertThat(preview.sceneOnStage()).contains(9L);
+		assertThat(preview.sceneOnStage()).contains(scene.id());
 		assertThat(dimmer(modes, 4)).as("starts with the previous scene").isEqualTo(1.0);
 		now = now.plusSeconds(1);
 		assertThat(dimmer(modes, 4)).isCloseTo(0.75, within(1e-9));
 		assertThat(dimmer(modes, 3)).isCloseTo(0.15, within(1e-9));
 		assertThat(preview.fadeOnStage()).get().satisfies(fade -> {
-			assertThat(fade.fromSceneId()).contains(5L);
+			assertThat(fade.fromSceneId()).contains(before.id());
 			assertThat(fade.elapsed()).isEqualTo(Duration.ofSeconds(1));
 		});
 
 		now = now.plusSeconds(3);
 		assertThat(preview.fadeOnStage()).as("ended, the scene stays").isEmpty();
-		assertThat(preview.sceneOnStage()).contains(9L);
+		assertThat(preview.sceneOnStage()).contains(scene.id());
 		assertThat(dimmer(modes, 3)).isEqualTo(0.3);
 		assertThat(dimmer(modes, 4)).isZero();
 	}
@@ -139,7 +141,7 @@ class CompositionPreviewServiceTest {
 		var modes = Map.of(4L, DIMMER_MODE);
 		preview.layer(now, modes);
 
-		preview.rehearseFade(1, 5);
+		preview.rehearseFade(1, before.id());
 		now = now.plusSeconds(1);
 
 		assertThat(dimmer(modes, 4)).isCloseTo(0.5, within(1e-9));
@@ -150,7 +152,7 @@ class CompositionPreviewServiceTest {
 	void rehearsedFadeNeedsSetupMode() {
 		currentMode = OperatingMode.SHOW;
 
-		assertThatThrownBy(() -> preview.rehearseFade(1, 9)).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> preview.rehearseFade(1, scene.id())).isInstanceOf(ConflictException.class);
 	}
 
 	private double dimmer(Map<Long, Mode> modes, long fixtureId) {
@@ -188,52 +190,6 @@ class CompositionPreviewServiceTest {
 		};
 	}
 
-	private SceneRepository scenes() {
-		return new SceneRepository() {
-			public List<Scene> findByProject(long projectId) {
-				return List.of(before, scene);
-			}
-
-			public Optional<Scene> findById(long id) {
-				return findByProject(1).stream().filter(s -> s.id() == id).findFirst();
-			}
-
-			public Scene create(long projectId, SceneSpec spec, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
-			}
-
-			public Scene updateSpec(long id, SceneSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			public Scene replaceLook(long id, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
-			}
-
-			public void delete(long id) {
-				throw new UnsupportedOperationException();
-			}
-
-			public de.vinzens.lumen.domain.scene.SceneRevision saveRevision(long sceneId, java.time.Instant createdAt,
-					String reason, de.vinzens.lumen.domain.scene.Look look, int keep) {
-				throw new UnsupportedOperationException();
-			}
-
-			public java.util.List<de.vinzens.lumen.domain.scene.SceneRevision> findRevisions(long sceneId) {
-				return java.util.List.of();
-			}
-
-			public java.util.Optional<de.vinzens.lumen.domain.scene.SceneRevision> findRevision(long id) {
-				return java.util.Optional.empty();
-			}
-		};
-	}
-
-	private static Composition composition(long id, Pattern pattern) {
-		return new Composition(id, 1, Optional.of(9L), Optional.empty(), 0,
-				CompositionSpec.of("C" + id, pattern, new Target.Fixtures(List.of(1L, 2L))));
-	}
-
 	private ControlModeUseCase mode() {
 		return new ControlModeUseCase() {
 			@Override
@@ -268,27 +224,4 @@ class CompositionPreviewServiceTest {
 		};
 	}
 
-	private static GroupRepository groups() {
-		return new GroupRepository() {
-			public List<Group> findByProject(long projectId) {
-				return List.of();
-			}
-
-			public Optional<Group> findById(long id) {
-				return Optional.empty();
-			}
-
-			public Group create(long projectId, GroupSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			public Group update(long id, GroupSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			public void delete(long id) {
-				throw new UnsupportedOperationException();
-			}
-		};
-	}
 }

@@ -1,19 +1,16 @@
 package de.vinzens.lumen.adapter.sqlite;
 
-import de.vinzens.lumen.domain.library.Attribute;
-import de.vinzens.lumen.domain.library.ChannelFunction;
-import de.vinzens.lumen.domain.output.FixtureValues;
+import de.vinzens.lumen.domain.composition.CompositionSpec;
+import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.project.StagePlan;
 import de.vinzens.lumen.domain.project.UniverseSpec;
-import de.vinzens.lumen.domain.library.AttributeGroup;
-import de.vinzens.lumen.domain.output.PresetRefs;
-import de.vinzens.lumen.domain.preset.PresetSpec;
-import de.vinzens.lumen.domain.scene.Look;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
@@ -25,16 +22,13 @@ import org.springframework.dao.DataAccessException;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Map;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 class SqliteSceneRepositoryTest {
-
-	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
-	private static final Attribute SPEED = Attribute.generic("Program speed");
 
 	@TempDir
 	Path dir;
@@ -60,57 +54,43 @@ class SqliteSceneRepositoryTest {
 	@Test
 	void fiveScenesSurviveReopeningAndAreOrderedByNumber() {
 		for (var number : new String[] {"3", "1", "2.5", "2", "10"}) {
-			repos.scenes().create(project, spec(number, "Scene " + number),
-					Map.of(par, new FixtureValues(Map.of(DIMMER, 0.5, SPEED, 0.25))));
+			create(spec(number, "Scene " + number));
 		}
 
 		var reopened = new SqliteRepositories(SqliteDatabase.open(dbFile));
 
 		var scenes = reopened.scenes().findByProject(project);
 		assertThat(scenes).extracting(s -> s.spec().number().toString()).containsExactly("1", "2", "2.5", "3", "10");
-		assertThat(scenes.getFirst().values().get(par).values()).containsEntry(SPEED, 0.25);
 	}
 
 	@Test
-	void revisionsKeepOnlyTheNewest() {
-		var scene = repos.scenes().create(project, spec("1", "Look"), Map.of());
-		for (var level : new double[] {0.1, 0.2, 0.3}) {
-			repos.scenes().saveRevision(scene.id(), Instant.EPOCH, "Update",
-					Look.of(Map.of(par, new FixtureValues(Map.of(DIMMER, level)))), 2);
-		}
+	void compositionsAndKeysOfASceneKeepTheirOrderAndSettings() {
+		var a = composition("A");
+		var b = composition("B");
+		var uses = List.of(new SceneComposition(b, 0.5, 2, true), SceneComposition.of(a));
+		var keys = List.of(new SceneKey(3, a, KeyMode.FLASH, Duration.ofMillis(500)),
+				new SceneKey(1, b, KeyMode.TOGGLE, Duration.ZERO));
 
-		var revisions = repos.scenes().findRevisions(scene.id());
-		assertThat(revisions).extracting(r -> r.look().values().get(par).get(DIMMER).orElseThrow())
-				.containsExactly(0.3, 0.2);
-		assertThat(repos.scenes().findRevision(revisions.getFirst().id())).get()
-				.satisfies(r -> assertThat(r.reason()).isEqualTo("Update"));
+		var scene = repos.scenes().create(project, spec("1", "Fair"), uses, keys);
 
+		var loaded = new SqliteRepositories(SqliteDatabase.open(dbFile)).scenes().findById(scene.id()).orElseThrow();
+		assertThat(loaded.compositions()).isEqualTo(uses);
+		assertThat(loaded.keys()).extracting(SceneKey::slot).containsExactly(1, 3);
+		assertThat(loaded.keys()).contains(keys.getFirst());
+		assertThat(repos.scenes().replaceCompositions(scene.id(), List.of(SceneComposition.of(a))).compositions())
+				.extracting(SceneComposition::compositionId).containsExactly(a);
+		assertThat(repos.scenes().replaceKeys(scene.id(), List.of()).keys()).isEmpty();
+	}
+
+	@Test
+	void aCompositionPlayedByASceneCannotBeDeleted() {
+		var a = composition("A");
+		var scene = repos.scenes().create(project, spec("1", "Fair"), List.of(SceneComposition.of(a)), List.of());
+
+		assertThatThrownBy(() -> repos.compositions().delete(a)).isInstanceOf(DataAccessException.class);
 		repos.scenes().delete(scene.id());
-		assertThat(repos.scenes().findRevisions(scene.id())).isEmpty();
-	}
-
-	@Test
-	void presetReferencesAreStoredWithScenesAndRevisions() {
-		var red = Attribute.of(ChannelFunction.RED);
-		var warm = repos.presets().create(project, new PresetSpec("Warm", AttributeGroup.COLOR),
-				Map.of(par, new FixtureValues(Map.of(red, 0.9))));
-		var look = new Look(Map.of(par, new FixtureValues(Map.of(DIMMER, 1.0, red, 0.9))),
-				PresetRefs.NONE.with(par, AttributeGroup.COLOR, warm.id()));
-
-		var scene = repos.scenes().create(project, spec("1", "Warm look"), look);
-		repos.scenes().saveRevision(scene.id(), Instant.EPOCH, "Update", look, 5);
-
-		assertThat(repos.scenes().findById(scene.id()).orElseThrow().look()).isEqualTo(look);
-		assertThat(repos.scenes().findByProject(project).getFirst().presets().presetOf(par, AttributeGroup.COLOR))
-				.contains(warm.id());
-		assertThat(repos.scenes().findRevisions(scene.id()).getFirst().look()).isEqualTo(look);
-		assertThat(repos.presets().findByProject(project)).singleElement()
-				.satisfies(p -> assertThat(p.values().get(par).get(red)).contains(0.9));
-
-		repos.presets().delete(warm.id());
-		var after = repos.scenes().findById(scene.id()).orElseThrow();
-		assertThat(after.presets().isEmpty()).isTrue();
-		assertThat(after.values()).as("values stay").isEqualTo(look.values());
+		repos.compositions().delete(a);
+		assertThat(repos.compositions().findById(a)).isEmpty();
 	}
 
 	@Test
@@ -118,7 +98,7 @@ class SqliteSceneRepositoryTest {
 		var spec = new SceneSpec(SceneNumber.parse("4.5"), "Storm", Optional.of("GO on thunder"),
 				Optional.of(Duration.ofSeconds(8)));
 
-		var scene = repos.scenes().create(project, spec, Map.of());
+		var scene = create(spec);
 
 		assertThat(repos.scenes().findById(scene.id())).map(Scene::spec).contains(spec);
 		var updated = repos.scenes().updateSpec(scene.id(), spec("5", "Storm"));
@@ -130,7 +110,7 @@ class SqliteSceneRepositoryTest {
 		var flash = new SceneTiming(Optional.of(Duration.ZERO), Optional.empty(), Duration.ofMillis(1500));
 		var spec = new SceneSpec(SceneNumber.parse("7"), "Flash", Optional.empty(), Optional.empty(), false, flash);
 
-		var scene = repos.scenes().create(project, spec, Map.of());
+		var scene = create(spec);
 
 		assertThat(repos.scenes().findById(scene.id())).map(s -> s.spec().timing()).contains(flash);
 		var updated = repos.scenes().updateSpec(scene.id(), spec("7", "Flash"));
@@ -142,44 +122,23 @@ class SqliteSceneRepositoryTest {
 		var spec = new SceneSpec(SceneNumber.parse("1"), "Prologue", Optional.empty(), Optional.empty(), false,
 				SceneTiming.DEFAULT, "Two households, both alike in dignity.\n\n**Enter Chorus**");
 
-		var scene = repos.scenes().create(project, spec, Map.of());
+		var scene = create(spec);
 
 		assertThat(repos.scenes().findById(scene.id())).map(Scene::spec).contains(spec);
 		assertThat(repos.scenes().updateSpec(scene.id(), spec("1", "Prologue")).spec().script()).isEmpty();
 	}
 
 	@Test
-	void replaceValuesOverwritesEverything() {
-		var scene = repos.scenes().create(project, spec("1", "A"), Map.of(par, new FixtureValues(Map.of(DIMMER, 1.0))));
-
-		var replaced = repos.scenes().replaceValues(scene.id(), Map.of(dimmer, new FixtureValues(Map.of(DIMMER, 0.3))));
-
-		assertThat(replaced.values()).containsOnlyKeys(dimmer);
-	}
-
-	@Test
-	void deletingAFixtureRemovesItFromScenes() {
-		var scene = repos.scenes().create(project, spec("1", "A"), Map.of(
-				par, new FixtureValues(Map.of(DIMMER, 1.0)),
-				dimmer, new FixtureValues(Map.of(DIMMER, 1.0))));
-
-		repos.fixtures().delete(par);
-
-		assertThat(repos.scenes().findById(scene.id())).get()
-				.satisfies(s -> assertThat(s.values()).containsOnlyKeys(dimmer));
-	}
-
-	@Test
 	void numbersAreUniquePerProject() {
-		repos.scenes().create(project, spec("2.50", "A"), Map.of());
+		create(spec("2.50", "A"));
 
-		assertThatThrownBy(() -> repos.scenes().create(project, spec("2.5", "B"), Map.of()))
+		assertThatThrownBy(() -> create(spec("2.5", "B")))
 				.isInstanceOf(DataAccessException.class);
 	}
 
 	@Test
 	void playbackStateSurvivesReopeningAndForgetsDeletedScenes() {
-		var storm = repos.scenes().create(project, spec("4", "Storm"), Map.of()).id();
+		var storm = create(spec("4", "Storm")).id();
 		assertThat(repos.playbackStates().currentScene(project)).isEmpty();
 
 		repos.playbackStates().save(project, Optional.of(storm), Instant.EPOCH);
@@ -215,6 +174,14 @@ class SqliteSceneRepositoryTest {
 		assertThat(repos.settings().get("operating_mode")).contains("SETUP");
 		repos.settings().remove("operating_mode");
 		assertThat(repos.settings().get("operating_mode")).isEmpty();
+	}
+
+	private Scene create(SceneSpec spec) {
+		return repos.scenes().create(project, spec, List.of(), List.of());
+	}
+
+	private long composition(String name) {
+		return repos.compositions().create(project, CompositionSpec.of(name), List.of()).id();
 	}
 
 	private static SceneSpec spec(String number, String name) {

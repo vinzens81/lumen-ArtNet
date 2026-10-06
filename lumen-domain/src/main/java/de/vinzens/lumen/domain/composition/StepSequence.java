@@ -17,7 +17,7 @@ import java.util.TreeSet;
  * A free sequence of looks (steps), like a chaser. Each step first fades in from the previous step, then holds.
  * A fixture that is not in a step is dark in that step; its other attributes keep their last value.
  */
-public record StepSequence(List<Step> steps, PlayMode playMode) implements Pattern {
+public record StepSequence(List<Step> steps, PlayMode playMode, IntensityMode intensityMode) implements Pattern {
 
 	public enum PlayMode {
 		LOOP, PING_PONG
@@ -44,11 +44,22 @@ public record StepSequence(List<Step> steps, PlayMode playMode) implements Patte
 	public StepSequence {
 		steps = List.copyOf(steps);
 		Objects.requireNonNull(playMode, "playMode");
+		Objects.requireNonNull(intensityMode, "intensityMode");
+	}
+
+	/** Steps that set the intensity. */
+	public StepSequence(List<Step> steps, PlayMode playMode) {
+		this(steps, playMode, IntensityMode.ABSOLUTE);
 	}
 
 	@Override
 	public PatternKind kind() {
 		return PatternKind.STEPS;
+	}
+
+	@Override
+	public IntensityMode intensityMode() {
+		return intensityMode;
 	}
 
 	@Override

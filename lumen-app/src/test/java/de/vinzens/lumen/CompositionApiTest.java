@@ -10,6 +10,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.util.HashSet;
 import java.util.List;
@@ -43,6 +44,7 @@ class CompositionApiTest {
 		par2 = id(post(base + "/fixtures", fixture("generic-rgbw-par", "8ch", universe, 20)));
 		ramp = id(post(base + "/groups", "{\"name\": \"Ramp\", \"fixtureIds\": [%d, %d, %d, %d]}"
 				.formatted(dimmers[0], dimmers[1], dimmers[2], dimmers[3])));
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
 	}
 
 	@AfterEach
@@ -51,60 +53,91 @@ class CompositionApiTest {
 	}
 
 	@Test
-	void libraryCompositionsAreTypedAndValidated() throws Exception {
+	void compositionsPlayLooksWithDefaultAndOwnTimes() throws Exception {
+		patch("/api/programmer/fixtures/" + par1, "{\"dimmer\": 1, \"red\": 1}");
+		var warm = id(post(base + "/looks", "{\"name\": \"Warm\", \"record\": true}"));
+		var dark = id(post(base + "/looks", "{\"name\": \"Dark\"}"));
+
 		var created = post(base + "/compositions", """
-				{"name": "Fair chase", "kind": "chase", "params": {"stepMs": 400, "direction": "ping_pong"},
-				 "target": {"groupId": %d}}""".formatted(ramp));
+				{"name": "Pulse", "fadeMs": 500, "playMode": "ping_pong",
+				 "steps": [{"lookId": %d}, {"lookId": %d, "holdMs": 4000}]}""".formatted(warm, dark));
 		assertThat(created).hasStatus(201).bodyJson().satisfies(json -> {
-			assertThat(json).extractingPath("$.params.stepMs").isEqualTo(400);
-			assertThat(json).extractingPath("$.params.width").as("default").isEqualTo(1);
-			assertThat(json).extractingPath("$.params.direction").isEqualTo("ping_pong");
-			assertThat(json).extractingPath("$.target.groupId").isEqualTo((int) ramp);
-			assertThat(json).extractingPath("$.sceneId").isNull();
+			assertThat(json).extractingPath("$.fadeMs").isEqualTo(500);
+			assertThat(json).extractingPath("$.holdMs").as("default").isEqualTo(2000);
+			assertThat(json).extractingPath("$.playMode").isEqualTo("ping_pong");
+			assertThat(json).extractingPath("$.intensityMode").isEqualTo("absolute");
+			assertThat(json).extractingPath("$.generator").isNull();
+			assertThat(json).extractingPath("$.steps[0].holdMs").as("the composition's").isNull();
+			assertThat(json).extractingPath("$.steps[1].holdMs").isEqualTo(4000);
 		});
+		var pulse = id(created);
 
-		assertThat(post(base + "/compositions", """
-				{"name": "X", "kind": "chase", "params": {"stepMs": 400, "speeed": 2}, "target": {"groupId": %d}}"""
-				.formatted(ramp))).as("unknown parameter").hasStatus(400);
-		assertThat(post(base + "/compositions", """
-				{"name": "X", "kind": "laser", "target": {"groupId": %d}}""".formatted(ramp))).hasStatus(400);
-		assertThat(post(base + "/compositions", """
-				{"name": "X", "kind": "rainbow", "target": {"fixtureIds": [999999]}}""")).hasStatus(400)
-				.bodyJson().extractingPath("$.errors[0]").isEqualTo("Fixture 999999 does not exist in this project");
-		assertThat(post(base + "/compositions", """
-				{"name": "X", "kind": "color_cycle", "params": {"colors": ["red"]}, "target": {"groupId": %d}}"""
-				.formatted(ramp))).hasStatus(400);
+		assertThat(post(base + "/compositions", "{\"name\": \"X\", \"playMode\": \"wobble\"}")).hasStatus(400);
+		assertThat(post(base + "/compositions", "{\"name\": \"X\", \"steps\": [{\"lookId\": 999999}]}"))
+				.hasStatus(400);
+		assertThat(post(base + "/compositions", "{\"name\": \"X\", \"fadeMs\": 0, \"holdMs\": 0}")).hasStatus(400);
 
-		var steps = post(base + "/compositions", """
-				{"name": "Steps", "kind": "steps", "params": {"playMode": "ping_pong"},
-				 "steps": [{"holdMs": 500, "fadeMs": 0, "values": {"%d": {"dimmer": 1, "red": 1}}},
-				           {"holdMs": 500, "values": {"%d": {"dimmer": 1, "blue": 1}}}]}""".formatted(par1, par2));
-		assertThat(steps).hasStatus(201).bodyJson().satisfies(json -> {
-			assertThat(json).extractingPath("$.target").isNull();
-			assertThat(json).extractingPath("$.steps[1].fadeMs").as("default").isEqualTo(0);
-			assertThat(json).extractingPath("$.steps[1].values['%d'].blue".formatted(par2)).isEqualTo(1.0);
-		});
-		assertThat(JsonPath.<List<String>>read(body(base + "/compositions"), "$[*].name"))
-				.containsExactly("Fair chase", "Steps");
+		// recording a step gives the composition a look of its own
+		patch("/api/programmer/fixtures/" + par1, "{\"red\": 0, \"blue\": 1}");
+		assertThat(post(base + "/compositions/" + pulse + "/record-step", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.steps.length()").isEqualTo(3);
+		var looks = body(base + "/looks");
+		assertThat(JsonPath.<List<Integer>>read(looks, "$[?(@.name == 'Pulse – Step 3')].owner"))
+				.containsExactly((int) pulse);
+		assertThat(mvc.delete().uri(base + "/looks/" + warm)).as("still played").hasStatus(409);
+		assertThat(post(base + "/compositions/" + pulse + "/duplicate", "")).hasStatus(201).bodyJson()
+				.extractingPath("$.name").isEqualTo("Pulse (copy)");
 	}
 
 	@Test
-	void sceneCompositionsRunInShowMode() throws Exception {
-		var chase = id(post(base + "/compositions", """
-				{"name": "Fair chase", "kind": "chase", "params": {"stepMs": 100}, "target": {"groupId": %d}}"""
-				.formatted(ramp)));
-		var colors = id(post(base + "/compositions", """
-				{"name": "Booths", "kind": "color_cycle",
-				 "params": {"colors": ["#ff0000", "#00ff00"], "holdMs": 1000, "fadeMs": 0},
-				 "target": {"fixtureIds": [%d, %d]}}""".formatted(par1, par2)));
+	void generatorsMakeStepsFromEffects() throws Exception {
+		var chase = id(post(base + "/compositions", "{\"name\": \"Fair chase\"}"));
+		var generate = base + "/compositions/" + chase + "/generate";
+
+		assertThat(post(generate, """
+				{"kind": "chase", "params": {"stepMs": 400, "direction": "ping_pong"}, "target": {"groupId": %d}}"""
+				.formatted(ramp))).hasStatusOk().bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.steps.length()").as("one step per fixture").isEqualTo(4);
+					assertThat(json).extractingPath("$.holdMs").isEqualTo(400);
+					assertThat(json).extractingPath("$.playMode").isEqualTo("ping_pong");
+					assertThat(json).extractingPath("$.generator.kind").isEqualTo("chase");
+					assertThat(json).extractingPath("$.generator.params.width").as("default").isEqualTo(1);
+					assertThat(json).extractingPath("$.generator.target.groupId").isEqualTo((int) ramp);
+				});
+
+		assertThat(post(generate, """
+				{"kind": "chase", "params": {"stepMs": 400, "speeed": 2}, "target": {"groupId": %d}}"""
+				.formatted(ramp))).as("unknown parameter").hasStatus(400);
+		assertThat(post(generate, "{\"kind\": \"laser\", \"target\": {\"groupId\": %d}}".formatted(ramp)))
+				.hasStatus(400);
+		assertThat(post(generate, "{\"kind\": \"rainbow\", \"target\": {\"fixtureIds\": [999999]}}")).hasStatus(400)
+				.bodyJson().extractingPath("$.errors[0]").isEqualTo("fixtures [999999] do not exist in this project");
+		assertThat(post(generate, """
+				{"kind": "color_cycle", "params": {"colors": ["red"]}, "target": {"groupId": %d}}""".formatted(ramp)))
+				.hasStatus(400);
+
+		// editing keeps what the steps were generated from
+		var current = body(base + "/compositions/" + chase);
+		var steps = JsonPath.<List<Object>>read(current, "$.steps");
+		assertThat(put(base + "/compositions/" + chase, """
+				{"name": "Fair chase", "fadeMs": 100, "holdMs": 300, "playMode": "loop", "steps": %s}"""
+				.formatted(JsonMapper.builder().build().writeValueAsString(steps)))).hasStatusOk()
+				.bodyJson().extractingPath("$.generator.kind").isEqualTo("chase");
+	}
+
+	@Test
+	void sharedCompositionsRunSideBySideInShowMode() throws Exception {
+		var chase = generated("Fair chase", """
+				{"kind": "chase", "params": {"stepMs": 100}, "target": {"groupId": %d}}""".formatted(ramp));
+		var booths = generated("Booths", """
+				{"kind": "color_cycle", "params": {"colors": ["#ff0000", "#00ff00"], "holdMs": 1000, "fadeMs": 0},
+				 "target": {"fixtureIds": [%d, %d]}}""".formatted(par1, par2));
 		var scene = id(post(base + "/scenes", "{\"name\": \"Fair\"}"));
-		var copies = base + "/scenes/" + scene + "/compositions";
-		var chaseCopy = id(post(copies, "{\"libraryId\": " + chase + "}"));
-		var colorCopy = id(post(copies, "{\"libraryId\": " + colors + "}"));
-		assertThat(mvc.get().uri(copies)).bodyJson().satisfies(json -> {
-			assertThat(json).extractingPath("$[0].sourceId").isEqualTo((int) chase);
-			assertThat(json).extractingPath("$[1].position").isEqualTo(1);
-		});
+		assertThat(put(base + "/scenes/" + scene + "/compositions", """
+				[{"compositionId": %d}, {"compositionId": %d}]""".formatted(chase, booths))).hasStatusOk()
+				.bodyJson().extractingPath("$.compositions[1].compositionId").isEqualTo((int) booths);
+		assertThat(put(base + "/scenes/" + scene + "/compositions", "[{\"compositionId\": 999999}]"))
+				.hasStatus(400);
 
 		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
 		assertThat(post("/api/playback/go", "")).hasStatusOk();
@@ -126,31 +159,22 @@ class CompositionApiTest {
 		}
 		assertThat(lit).as("the chase moved").hasSizeGreaterThan(1);
 
-		// a copy is edited independently of the library
-		assertThat(put(base + "/compositions/" + colorCopy, """
-				{"name": "Booths", "kind": "color_cycle", "params": {"colors": ["#0000ff", "#0000ff"]},
-				 "target": {"fixtureIds": [%d]}, "level": 0.5}""".formatted(par1))).hasStatusOk();
-		assertThat(JsonPath.<List<String>>read(body(base + "/compositions/" + colors), "$.params.colors"))
-				.containsExactly("#ff0000", "#00ff00");
-		assertThat(post(base + "/compositions/" + colorCopy + "/reload-from-library", "")).hasStatusOk().bodyJson()
-				.satisfies(json -> {
-					assertThat(json).extractingPath("$.params.colors[0]").isEqualTo("#ff0000");
-					assertThat(json).extractingPath("$.level").as("own level stays").isEqualTo(0.5);
-				});
+		// shared: changing the composition changes the scene
+		assertThat(post(base + "/compositions/" + booths + "/generate", """
+				{"kind": "color_cycle", "params": {"colors": ["#0000ff", "#0000ff"]}, "target": {"fixtureIds": [%d]}}"""
+				.formatted(par1))).hasStatusOk();
+		Thread.sleep(150);
+		var dmx = dmx();
+		assertThat(new int[] {dmx[9], dmx[10], dmx[12]}).as("PAR 1: dimmer, red, blue").containsExactly(255, 0, 255);
 
-		assertThat(put(copies + "/order", "{\"ids\": [%d, %d]}".formatted(colorCopy, chaseCopy))).hasStatusOk()
-				.bodyJson().extractingPath("$[0].id").isEqualTo((int) colorCopy);
-		assertThat(put(copies + "/order", "{\"ids\": [%d]}".formatted(colorCopy))).hasStatus(400);
-
-		assertThat(mvc.delete().uri(base + "/compositions/" + chase)).hasStatus(204);
-		assertThat(body(base + "/compositions/" + chaseCopy)).as("copy keeps running").contains("\"sourceId\":null");
+		put("/api/mode", "{\"mode\": \"setup\"}");
+		assertThat(mvc.delete().uri(base + "/compositions/" + chase)).as("used in a scene").hasStatus(409);
 	}
 
 	@Test
 	void stagePreviewRunsAboveThePlaybackUntilStopped() throws Exception {
-		var chase = id(post(base + "/compositions", """
-				{"name": "Fair chase", "kind": "chase", "params": {"stepMs": 60000}, "target": {"groupId": %d}}"""
-				.formatted(ramp)));
+		var chase = generated("Fair chase", """
+				{"kind": "chase", "params": {"stepMs": 60000}, "target": {"groupId": %d}}""".formatted(ramp));
 		assertThat(mvc.get().uri("/api/stage-preview")).bodyJson()
 				.extractingPath("$.compositionId").isNull();
 
@@ -163,9 +187,9 @@ class CompositionApiTest {
 				.extractingPath("$.compositionId").isNull();
 		assertThat(dmx()[0]).isZero();
 
-		// a whole scene: its static value and its compositions
+		// a whole scene with its compositions
 		var scene = id(post(base + "/scenes", "{\"name\": \"Fair\"}"));
-		id(post(base + "/scenes/" + scene + "/compositions", "{\"libraryId\": " + chase + "}"));
+		put(base + "/scenes/" + scene + "/compositions", "[{\"compositionId\": %d}]".formatted(chase));
 		assertThat(post(base + "/scenes/" + scene + "/stage-preview", "")).hasStatusOk().bodyJson()
 				.satisfies(json -> {
 					assertThat(json).extractingPath("$.sceneId").isEqualTo((int) scene);
@@ -193,142 +217,82 @@ class CompositionApiTest {
 	}
 
 	@Test
-	void extraKeysPlayOverTheSceneOnlyWhereTheyAreEnabled() throws Exception {
-		var storm = id(post(base + "/compositions", """
-				{"name": "Storm", "kind": "wave", "params": {"shape": "square", "periodMs": 3600000, "min": 1, "max": 1},
-				 "target": {"groupId": %d}, "once": true}""".formatted(ramp)));
-		var first = id(post(base + "/scenes", "{\"name\": \"Act 1\"}"));
-		var second = id(post(base + "/scenes", "{\"name\": \"Act 2\"}"));
-
-		assertThat(put(base + "/extra-keys/3", "{\"libraryId\": " + storm + ", \"mode\": \"toggle\", \"fadeMs\": 0}"))
-				.hasStatusOk().bodyJson().satisfies(json -> {
-					assertThat(json).extractingPath("$.slot").isEqualTo(3);
-					assertThat(json).extractingPath("$.composition.sourceId").isEqualTo((int) storm);
-					assertThat(json).extractingPath("$.composition.once").isEqualTo(true);
-				});
-		assertThat(put(base + "/extra-keys/9", "{\"libraryId\": " + storm + "}")).hasStatus(400);
-		assertThat(body(base + "/scenes/" + second + "/extra-keys")).as("new key: usable everywhere")
-				.isEqualTo("{\"slots\":[3]}");
-		var third = id(post(base + "/scenes", "{\"name\": \"Act 3\"}"));
-		assertThat(body(base + "/scenes/" + third + "/extra-keys")).as("inherited from Act 2").isEqualTo("{\"slots\":[3]}");
-		assertThat(put(base + "/scenes/" + second + "/extra-keys", "{\"slots\": []}")).hasStatusOk();
-		assertThat(put(base + "/scenes/" + first + "/extra-keys", "{\"slots\": [5]}")).as("empty key").hasStatus(400);
+	void keysBelongToScenesAndStayOnWhileTheNextSceneHasTheirComposition() throws Exception {
+		var storm = generated("Storm", """
+				{"kind": "wave", "params": {"shape": "square", "periodMs": 3600000, "min": 1, "max": 1},
+				 "target": {"groupId": %d}}""".formatted(ramp));
+		var scenes = base + "/scenes";
+		var act1 = id(post(scenes, "{\"number\": \"1\", \"name\": \"Act 1\"}"));
+		var act2 = id(post(scenes, "{\"number\": \"2\", \"name\": \"Act 2\"}"));
+		id(post(scenes, "{\"number\": \"3\", \"name\": \"Act 3\"}"));
+		assertThat(put(scenes + "/" + act1 + "/keys", "[{\"slot\": 3, \"compositionId\": %d}]".formatted(storm)))
+				.hasStatusOk().bodyJson().extractingPath("$.keys[0].mode").isEqualTo("toggle");
+		assertThat(put(scenes + "/" + act2 + "/keys", """
+				[{"slot": 5, "compositionId": %d, "mode": "toggle", "fadeMs": 0}]""".formatted(storm))).hasStatusOk();
+		assertThat(put(scenes + "/" + act2 + "/keys", "[{\"slot\": 9, \"compositionId\": %d}]".formatted(storm)))
+				.hasStatus(400);
+		assertThat(put(scenes + "/" + act2 + "/keys", "[{\"slot\": 1, \"compositionId\": 999999}]")).hasStatus(400);
+		assertThat(post(scenes, "{\"number\": \"2.5\", \"name\": \"Interlude\"}")).hasStatus(201).bodyJson()
+				.extractingPath("$.keys[0].slot").as("taken from Act 2").isEqualTo(5);
 
 		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
 		assertThat(post("/api/playback/go", "")).hasStatusOk();
-		assertThat(post("/api/playback/keys/3/press", "")).hasStatusOk().bodyJson()
-				.extractingPath("$.keys[0].on").isEqualTo(true);
+		assertThat(post("/api/playback/keys/3/press", "")).hasStatusOk().bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$.keys[0].on").isEqualTo(true);
+			assertThat(json).extractingPath("$.keys[0].name").isEqualTo("Storm");
+		});
 		Thread.sleep(100);
 		assertThat(dmx()[0]).as("storm over Act 1").isEqualTo(255);
 
 		Thread.sleep(250); // double-GO guard
 		assertThat(post("/api/playback/go", "")).hasStatusOk().bodyJson().satisfies(json -> {
-			assertThat(json).extractingPath("$.keys[0].available").isEqualTo(false);
-			assertThat(json).extractingPath("$.keys[0].on").isEqualTo(false);
+			assertThat(json).extractingPath("$.keys[0].slot").isEqualTo(5);
+			assertThat(json).extractingPath("$.keys[0].on").as("the same composition: stays on").isEqualTo(true);
 		});
+		Thread.sleep(250);
+		post("/api/playback/go", ""); // Interlude: still key 5
+		Thread.sleep(250);
+		assertThat(post("/api/playback/go", "")).hasStatusOk().bodyJson()
+				.extractingPath("$.keys").asArray().as("Act 3 has no keys").isEmpty();
 		Thread.sleep(100);
-		assertThat(dmx()[0]).as("Act 2 has no storm key").isZero();
-		put("/api/mode", "{\"mode\": \"setup\"}");
-
-		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
-		var copy = "/api/projects/" + id(post("/api/projects/import", file));
-		var keys = body(copy + "/extra-keys");
-		assertThat(JsonPath.<Integer>read(keys, "$[0].slot")).isEqualTo(3);
-		assertThat(JsonPath.<Boolean>read(keys, "$[0].composition.once")).isTrue();
-		var copiedScenes = JsonPath.<List<Integer>>read(body(copy + "/scenes"), "$[*].id");
-		assertThat(body(copy + "/scenes/" + copiedScenes.get(0) + "/extra-keys")).isEqualTo("{\"slots\":[3]}");
-		assertThat(body(copy + "/scenes/" + copiedScenes.get(1) + "/extra-keys")).isEqualTo("{\"slots\":[]}");
-
-		assertThat(mvc.delete().uri(base + "/extra-keys/3")).hasStatus(204);
-		assertThat(body(base + "/scenes/" + first + "/extra-keys")).isEqualTo("{\"slots\":[]}");
+		assertThat(dmx()[0]).as("the storm went out").isZero();
 	}
 
 	@Test
-	void keysCanPlayWholeScenesThatGoSkips() throws Exception {
-		var scenes = base + "/scenes";
-		id(post(scenes, "{\"number\": \"1\", \"name\": \"Act 1\"}"));
-		// key-only scene: first dimmer of the ramp at full, the PARs red
-		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
-		var rampFirst = JsonPath.<List<Integer>>read(body(base + "/groups"), "$[0].fixtureIds").getFirst();
-		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + rampFirst).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"dimmer\": 1}")).hasStatusOk();
-		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + par1).contentType(MediaType.APPLICATION_JSON)
-				.content("{\"dimmer\": 1, \"red\": 1}")).hasStatusOk();
-		var look = id(post(scenes, "{\"number\": \"90\", \"name\": \"Storm look\", \"keyOnly\": true, \"record\": true}"));
-		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
-
-		assertThat(put(base + "/extra-keys/4", "{\"sceneId\": " + look + ", \"mode\": \"flash\"}")).hasStatusOk()
-				.bodyJson().satisfies(json -> {
-					assertThat(json).extractingPath("$.sceneId").isEqualTo((int) look);
-					assertThat(json).extractingPath("$.composition").isNull();
-				});
-		assertThat(put(base + "/extra-keys/4", "{\"sceneId\": " + look + ", \"libraryId\": 1}")).hasStatus(400);
-		assertThat(body(scenes + "/" + look + "/extra-keys")).as("key-only scenes get no keys").isEqualTo("{\"slots\":[]}");
-
-		assertThat(put("/api/mode", "{\"mode\": \"show\"}")).hasStatusOk();
-		assertThat(mvc.get().uri("/api/playback")).bodyJson().extractingPath("$.sceneCount").as("GO skips it")
-				.isEqualTo(1);
-		assertThat(post("/api/playback/go", "")).hasStatusOk();
-		assertThat(post("/api/playback/keys/4/press", "")).hasStatusOk().bodyJson()
-				.extractingPath("$.keys[0].kind").isEqualTo("scene");
-		Thread.sleep(100);
-		var dmx = dmx();
-		assertThat(dmx[0]).as("storm look over Act 1").isEqualTo(255);
-		assertThat(new int[] {dmx[9], dmx[10]}).as("PAR 1 dimmer and red").containsExactly(255, 255);
-		assertThat(post("/api/playback/keys/4/release", "")).hasStatusOk();
-		Thread.sleep(100);
-		assertThat(dmx()[0]).as("flash released").isZero();
-		put("/api/mode", "{\"mode\": \"setup\"}");
+	void looksCompositionsAndScenesTravelWithTheProjectExport() throws Exception {
+		var chase = generated("Fair chase", "{\"kind\": \"chase\", \"target\": {\"groupId\": %d}}".formatted(ramp));
+		patch("/api/programmer/fixtures/" + par2, "{\"dimmer\": 1}");
+		var scene = id(post(base + "/scenes", "{\"number\": \"2.5\", \"name\": \"Fair\", \"record\": true}"));
+		var recorded = JsonPath.<Integer>read(body(base + "/scenes"), "$[0].compositions[0].compositionId");
+		put(base + "/scenes/" + scene + "/compositions", """
+				[{"compositionId": %d}, {"compositionId": %d, "level": 0.5}]""".formatted(recorded, chase));
+		put(base + "/scenes/" + scene + "/keys", "[{\"slot\": 2, \"compositionId\": %d, \"mode\": \"flash\"}]"
+				.formatted(chase));
 
 		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
-		var copy = "/api/projects/" + id(post("/api/projects/import", file));
-		var copiedKey = body(copy + "/extra-keys");
-		var copiedLook = JsonPath.<List<Integer>>read(body(copy + "/scenes"), "$[?(@.keyOnly == true)].id").getFirst();
-		assertThat(JsonPath.<Integer>read(copiedKey, "$[0].sceneId")).isEqualTo(copiedLook);
-	}
-
-	@Test
-	void keyOnlyScenesArePickedDirectlyInAScene() throws Exception {
-		var scenes = base + "/scenes";
-		var act1 = id(post(scenes, "{\"number\": \"1\", \"name\": \"Act 1\"}"));
-		var act2 = id(post(scenes, "{\"number\": \"2\", \"name\": \"Act 2\"}"));
-		var police = id(post(scenes, "{\"number\": \"90\", \"name\": \"Police\", \"keyOnly\": true}"));
-
-		assertThat(post(scenes + "/" + act2 + "/extra-keys/scenes/" + police, "")).hasStatusOk()
-				.bodyJson().extractingPath("$.slots").asArray().containsExactly(1);
-		var keys = body(base + "/extra-keys");
-		assertThat(JsonPath.<Integer>read(keys, "$[0].sceneId")).isEqualTo((int) police);
-		assertThat(body(scenes + "/" + act1 + "/extra-keys")).as("only where it was picked").isEqualTo("{\"slots\":[]}");
-
-		assertThat(post(scenes + "/" + act1 + "/extra-keys/scenes/" + police, "")).hasStatusOk()
-				.bodyJson().extractingPath("$.slots").asArray().as("same key, no second one").containsExactly(1);
-		assertThat(JsonPath.<List<Object>>read(body(base + "/extra-keys"), "$")).hasSize(1);
-		assertThat(post(scenes + "/" + police + "/extra-keys/scenes/" + police, "")).hasStatus(400);
-	}
-
-	@Test
-	void compositionsTravelWithTheProjectExport() throws Exception {
-		var chase = id(post(base + "/compositions", """
-				{"name": "Fair chase", "kind": "chase", "target": {"groupId": %d}}""".formatted(ramp)));
-		id(post(base + "/compositions", """
-				{"name": "Steps", "kind": "steps", "steps": [{"holdMs": 500, "values": {"%d": {"dimmer": 1}}}]}"""
-				.formatted(par2)));
-		var scene = id(post(base + "/scenes", "{\"number\": \"2.5\", \"name\": \"Fair\"}"));
-		id(post(base + "/scenes/" + scene + "/compositions", "{\"libraryId\": " + chase + "}"));
-
-		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
+		assertThat(JsonPath.<Integer>read(file, "$.version")).isEqualTo(2);
 		var copy = "/api/projects/" + id(post("/api/projects/import", file));
 
-		var library = body(copy + "/compositions");
-		assertThat(JsonPath.<List<String>>read(library, "$[*].name")).containsExactly("Fair chase", "Steps");
+		var compositions = body(copy + "/compositions");
+		assertThat(JsonPath.<List<String>>read(compositions, "$[*].name")).containsExactly("Fair", "Fair chase");
+		var newChase = JsonPath.<Integer>read(compositions, "$[1].id");
 		var newGroup = JsonPath.<Integer>read(body(copy + "/groups"), "$[0].id");
-		var newChase = JsonPath.<Integer>read(library, "$[0].id");
-		assertThat(JsonPath.<Integer>read(library, "$[0].target.groupId")).isEqualTo(newGroup);
+		assertThat(JsonPath.<Integer>read(compositions, "$[1].generator.target.groupId")).isEqualTo(newGroup);
+		var newScene = body(copy + "/scenes");
+		assertThat(JsonPath.<Integer>read(newScene, "$[0].compositions[1].compositionId")).isEqualTo(newChase);
+		assertThat(JsonPath.<Double>read(newScene, "$[0].compositions[1].level")).isEqualTo(0.5);
+		assertThat(JsonPath.<Integer>read(newScene, "$[0].keys[0].compositionId")).isEqualTo(newChase);
 		var newPar2 = JsonPath.<List<Integer>>read(body(copy + "/fixtures"), "$[?(@.address == 20)].id").getFirst();
-		assertThat(JsonPath.<Double>read(library, "$[1].steps[0].values['%d'].dimmer".formatted(newPar2))).isEqualTo(1.0);
-		var newScene = JsonPath.<Integer>read(body(copy + "/scenes"), "$[0].id");
-		var copies = body(copy + "/scenes/" + newScene + "/compositions");
-		assertThat(JsonPath.<Integer>read(copies, "$[0].sourceId")).isEqualTo(newChase);
+		var stepLook = JsonPath.<Integer>read(compositions, "$[0].steps[0].lookId");
+		assertThat(JsonPath.<Double>read(body(copy + "/looks/" + stepLook), "$.values['%d'].dimmer".formatted(newPar2)))
+				.isEqualTo(1.0);
+	}
+
+	/** A composition with steps generated from an effect. */
+	private long generated(String name, String generator) throws Exception {
+		var id = id(post(base + "/compositions", "{\"name\": \"%s\"}".formatted(name)));
+		assertThat(post(base + "/compositions/" + id + "/generate", generator)).hasStatusOk();
+		return id;
 	}
 
 	private int[] dmx() throws Exception {
@@ -354,6 +318,10 @@ class CompositionApiTest {
 
 	private MvcTestResult put(String uri, String json) {
 		return mvc.put().uri(uri).contentType(MediaType.APPLICATION_JSON).content(json).exchange();
+	}
+
+	private void patch(String uri, String json) {
+		assertThat(mvc.patch().uri(uri).contentType(MediaType.APPLICATION_JSON).content(json).exchange()).hasStatusOk();
 	}
 
 	private static long id(MvcTestResult result) throws Exception {

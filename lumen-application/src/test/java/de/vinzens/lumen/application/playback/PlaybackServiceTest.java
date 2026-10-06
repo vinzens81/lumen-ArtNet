@@ -1,32 +1,26 @@
 package de.vinzens.lumen.application.playback;
 
 import de.vinzens.lumen.application.ConflictException;
-import de.vinzens.lumen.application.FixedCompositions;
+import de.vinzens.lumen.application.TestShow;
 import de.vinzens.lumen.application.composition.CompositionResolver;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.playback.port.out.PlaybackStateRepository;
-import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.DomainValidationException;
-import de.vinzens.lumen.domain.composition.Composition;
-import de.vinzens.lumen.domain.composition.CompositionSpec;
-import de.vinzens.lumen.domain.composition.ExtraKey;
 import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.composition.KeyMode;
-import de.vinzens.lumen.domain.composition.Target;
-import de.vinzens.lumen.domain.composition.Wave;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.ChannelDefinition;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
-import de.vinzens.lumen.domain.project.Group;
-import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.SceneComposition;
+import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import org.junit.jupiter.api.BeforeEach;
@@ -42,7 +36,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -53,23 +46,29 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class PlaybackServiceTest {
 
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
+	private static final Mode DIMMER_MODE = new Mode("1ch", List.of(new ChannelDefinition(ChannelFunction.DIMMER,
+			Optional.empty(), 8, 0, false, List.of(), Optional.empty())));
+	/** fixtures 1–9 are dimmers: the output only sets attributes a fixture has */
+	private static final Map<Long, Mode> DIMMERS = Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE, 3L, DIMMER_MODE,
+			4L, DIMMER_MODE, 5L, DIMMER_MODE, 9L, DIMMER_MODE);
 
 	private final TestClock clock = new TestClock();
-	private final List<Scene> scenes = new ArrayList<>();
+	private final TestShow show = new TestShow();
 	private final Map<Long, Optional<Long>> saved = new HashMap<>();
 	private final List<Optional<Long>> writes = new ArrayList<>();
 	private final StateEvents events = new StateEvents();
 	private final InMemoryFaders faders = new InMemoryFaders();
-	private FixedCompositions compositions = FixedCompositions.NONE;
 	/** Runs inside every scene query, e.g. to make the database slow. */
 	private Runnable onSceneQuery = () -> {
 	};
 
 	@BeforeEach
 	void setUp() {
+		// scene n lights fixture n
 		for (int i = 1; i <= 5; i++) {
-			scenes.add(new Scene(i, 1, new SceneSpec(SceneNumber.parse(String.valueOf(i)), "Scene " + i,
-					Optional.empty(), Optional.empty()), Map.of((long) i, new FixtureValues(Map.of(DIMMER, 1.0)))));
+			var lit = show.fixed(1, "Scene " + i, Map.of((long) i, new FixtureValues(Map.of(DIMMER, 1.0))));
+			show.scenes.create(1, new SceneSpec(SceneNumber.parse(String.valueOf(i)), "Scene " + i,
+					Optional.empty(), Optional.empty()), List.of(SceneComposition.of(lit.id())), List.of());
 		}
 	}
 
@@ -105,7 +104,7 @@ class PlaybackServiceTest {
 		assertThat(status.currentSceneId()).contains(4L);
 		assertThat(status.fade()).as("no fade").isEmpty();
 		assertThat(status.resumeSceneId()).isEmpty();
-		assertThat(after.layer(clock.instant(), Map.of()).fixtures().get(4L).get(DIMMER)).contains(1.0);
+		assertThat(after.layer(clock.instant(), DIMMERS).fixtures().get(4L).get(DIMMER)).contains(1.0);
 		assertThat(after.status().nextSceneId()).contains(5L);
 	}
 
@@ -132,7 +131,7 @@ class PlaybackServiceTest {
 	@Test
 	void noOfferWhenTheSavedSceneWasDeleted() {
 		saved.put(1L, Optional.of(3L));
-		scenes.remove(2);
+		show.scenes.delete(3);
 
 		assertThat(service().status().resumeSceneId()).isEmpty();
 	}
@@ -140,14 +139,12 @@ class PlaybackServiceTest {
 	@Test
 	void fadersLayTheirSceneOverTheCueListAndKeepTheirLevel() {
 		faders.save(1, new Fader(1, Optional.of("House lights"), 5));
-		var service = new PlaybackService(projects(), sceneRepository(),
-				new CompositionResolver(compositions, groups(), sceneRepository()), states(), faders, Runnable::run,
-				clock, events);
+		var service = service();
 
 		assertThat(service.status().faders()).singleElement()
 				.satisfies(f -> assertThat(f.name()).isEqualTo("House lights"));
 		service.setFader(1, 0.4);
-		assertThat(service.layer(clock.instant(), Map.of()).fixtures().get(5L).get(DIMMER)).contains(0.4);
+		assertThat(service.layer(clock.instant(), DIMMERS).fixtures().get(5L).get(DIMMER)).contains(0.4);
 
 		events.publish(StateTopic.FADERS); // reload: the level stays
 		assertThat(service.status().faders().getFirst().level()).isEqualTo(0.4);
@@ -155,12 +152,11 @@ class PlaybackServiceTest {
 	}
 
 	@Test
-	void extraKeysWorkOnlyInTheirScenesAndGoOffAfterwards() {
-		// key 1: full intensity on fixture 9, usable in scenes 1 and 2
-		var storm = new Composition(50, 1, Optional.empty(), Optional.empty(), 0, CompositionSpec.of("Storm",
-				new Wave(Wave.Shape.SQUARE, 3600, 1, 1, 0), new Target.Fixtures(List.of(9L))));
-		compositions = new FixedCompositions(Map.of(),
-				List.of(new ExtraKey(1, KeyMode.TOGGLE, Duration.ZERO, storm)), Map.of(1L, Set.of(1), 2L, Set.of(1)));
+	void extraKeysBelongToTheirScenesAndGoOffAfterwards() {
+		// key 1: full intensity on fixture 9 in scene 1, key 4 with the same composition in scene 2
+		var storm = show.fixed(1, "Storm", Map.of(9L, new FixtureValues(Map.of(DIMMER, 1.0))));
+		show.scenes.replaceKeys(1, List.of(new SceneKey(1, storm.id(), KeyMode.TOGGLE, Duration.ZERO)));
+		show.scenes.replaceKeys(2, List.of(new SceneKey(4, storm.id(), KeyMode.TOGGLE, Duration.ZERO)));
 		var service = service();
 
 		service.pressKey(1);
@@ -170,22 +166,23 @@ class PlaybackServiceTest {
 		var status = service.pressKey(1);
 		assertThat(status.keys()).singleElement().satisfies(key -> {
 			assertThat(key.on()).isTrue();
-			assertThat(key.available()).isTrue();
 			assertThat(key.name()).isEqualTo("Storm");
 		});
 		assertThat(keyDimmer(service)).isEqualTo(1.0);
 
-		go(service); // scene 2: still usable
+		go(service); // scene 2: the same composition is on key 4 – stays on
 		assertThat(keyDimmer(service)).isEqualTo(1.0);
-		go(service); // scene 3: not enabled – off
+		assertThat(service.status().keys()).singleElement().satisfies(key -> {
+			assertThat(key.slot()).isEqualTo(4);
+			assertThat(key.on()).isTrue();
+		});
+		go(service); // scene 3: no keys – off
 		assertThat(keyDimmer(service)).isZero();
-		assertThat(service.status().keys().getFirst().available()).isFalse();
+		assertThat(service.status().keys()).isEmpty();
 	}
 
 	private double keyDimmer(PlaybackService service) {
-		var dimmer = new Mode("1ch", List.of(new ChannelDefinition(ChannelFunction.DIMMER, Optional.empty(), 8, 0, false,
-				List.of(), Optional.empty())));
-		return service.layer(clock.instant(), Map.of(9L, dimmer)).fixtures().getOrDefault(9L, FixtureValues.EMPTY)
+		return service.layer(clock.instant(), DIMMERS).fixtures().getOrDefault(9L, FixtureValues.EMPTY)
 				.get(DIMMER).orElse(0.0);
 	}
 
@@ -209,8 +206,8 @@ class PlaybackServiceTest {
 
 	@Test
 	void autoFollowStartsTheNextSceneAtItsFirstSentence() {
-		scenes.set(0, new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "Scene 1", Optional.empty(),
-				Optional.of(Duration.ofSeconds(2))), Map.of()));
+		show.scenes.updateSpec(1, new SceneSpec(SceneNumber.of(1), "Scene 1", Optional.empty(),
+				Optional.of(Duration.ofSeconds(2))));
 		var service = service();
 		go(service);
 		service.setScriptLine(1, 4);
@@ -248,8 +245,10 @@ class PlaybackServiceTest {
 	}
 
 	private PlaybackService service() {
-		return new PlaybackService(projects(), sceneRepository(), new CompositionResolver(compositions, groups()),
-				states(), faders, Runnable::run, clock, events);
+		var scenes = sceneRepository();
+		return new PlaybackService(projects(), scenes,
+				new CompositionResolver(show.compositions, show.looks, scenes), states(), faders, Runnable::run, clock,
+				events);
 	}
 
 	private PlaybackStateRepository states() {
@@ -270,35 +269,6 @@ class PlaybackServiceTest {
 	private void go(PlaybackService service) {
 		service.go();
 		clock.advance(Duration.ofSeconds(1)); // beyond the double-GO guard
-	}
-
-	private static GroupRepository groups() {
-		return new GroupRepository() {
-			@Override
-			public List<Group> findByProject(long projectId) {
-				return List.of();
-			}
-
-			@Override
-			public Optional<Group> findById(long id) {
-				return Optional.empty();
-			}
-
-			@Override
-			public Group create(long projectId, GroupSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			@Override
-			public Group update(long id, GroupSpec spec) {
-				throw new UnsupportedOperationException();
-			}
-
-			@Override
-			public void delete(long id) {
-				throw new UnsupportedOperationException();
-			}
-		};
 	}
 
 	private ProjectRepository projects() {
@@ -337,50 +307,44 @@ class PlaybackServiceTest {
 		};
 	}
 
+	/** The scenes of the show; every query of the cue list runs {@link #onSceneQuery} first. */
 	private SceneRepository sceneRepository() {
 		return new SceneRepository() {
 			@Override
 			public List<Scene> findByProject(long projectId) {
 				onSceneQuery.run();
-				return List.copyOf(scenes);
+				return show.scenes.findByProject(projectId);
 			}
 
 			@Override
 			public Optional<Scene> findById(long id) {
-				return scenes.stream().filter(s -> s.id() == id).findFirst();
+				return show.scenes.findById(id);
 			}
 
 			@Override
-			public Scene create(long projectId, SceneSpec spec, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
+			public Scene create(long projectId, SceneSpec spec, List<SceneComposition> compositions,
+					List<SceneKey> keys) {
+				return show.scenes.create(projectId, spec, compositions, keys);
 			}
 
 			@Override
 			public Scene updateSpec(long id, SceneSpec spec) {
-				throw new UnsupportedOperationException();
+				return show.scenes.updateSpec(id, spec);
 			}
 
 			@Override
-			public Scene replaceLook(long id, de.vinzens.lumen.domain.scene.Look look) {
-				throw new UnsupportedOperationException();
+			public Scene replaceCompositions(long id, List<SceneComposition> compositions) {
+				return show.scenes.replaceCompositions(id, compositions);
+			}
+
+			@Override
+			public Scene replaceKeys(long id, List<SceneKey> keys) {
+				return show.scenes.replaceKeys(id, keys);
 			}
 
 			@Override
 			public void delete(long id) {
-				throw new UnsupportedOperationException();
-			}
-
-			public de.vinzens.lumen.domain.scene.SceneRevision saveRevision(long sceneId, java.time.Instant createdAt,
-					String reason, de.vinzens.lumen.domain.scene.Look look, int keep) {
-				throw new UnsupportedOperationException();
-			}
-
-			public java.util.List<de.vinzens.lumen.domain.scene.SceneRevision> findRevisions(long sceneId) {
-				return java.util.List.of();
-			}
-
-			public java.util.Optional<de.vinzens.lumen.domain.scene.SceneRevision> findRevision(long id) {
-				return java.util.Optional.empty();
+				show.scenes.delete(id);
 			}
 		};
 	}

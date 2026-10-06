@@ -78,7 +78,13 @@ class ProjectTransferApiTest {
 
 		var copiedScenes = body("/api/projects/" + copy + "/scenes");
 		assertThat(JsonPath.<List<String>>read(copiedScenes, "$[*].number")).containsExactly("1", "2.5");
-		assertThat(JsonPath.<Double>read(copiedScenes, "$[0].values['%d'].dimmer".formatted(newBack))).isEqualTo(0.5);
+		var copiedLooks = body("/api/projects/" + copy + "/looks");
+		assertThat(JsonPath.<List<Double>>read(copiedLooks, "$[?(@.name == 'Dawn')].values['%d'].dimmer"
+				.formatted(newBack))).as("the recorded look of the scene").containsExactly(0.5);
+		var copiedCompositions = body("/api/projects/" + copy + "/compositions");
+		var dawnComposition = JsonPath.<List<Integer>>read(copiedCompositions, "$[?(@.name == 'Dawn')].id").getFirst();
+		assertThat(JsonPath.<Integer>read(copiedScenes, "$[0].compositions[0].compositionId"))
+				.isEqualTo(dawnComposition);
 		assertThat(JsonPath.<String>read(copiedScenes, "$[1].cueNote")).isEqualTo("Thunder");
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].autoFollowMs")).isEqualTo(4000);
 		assertThat(JsonPath.<Integer>read(copiedScenes, "$[1].fadeInMs")).isZero();
@@ -108,6 +114,41 @@ class ProjectTransferApiTest {
 				.isEqualTo("Fixture 'A' refers to unknown universe 99");
 
 		assertThat(JsonPath.<List<Object>>read(body("/api/projects"), "$")).hasSize(before);
+	}
+
+	@Test
+	void filesFromBeforeLooksAreConverted() throws Exception {
+		var imported = post("/api/projects/import", """
+				{"format": "lumen-project", "version": 1, "project": {"name": "Old show"},
+				 "universes": [{"id": 1, "number": 1}],
+				 "fixtures": [{"id": 5, "name": "A", "fixtureTypeId": "generic-dimmer", "mode": "1ch",
+				               "universeId": 1, "address": 1},
+				              {"id": 6, "name": "B", "fixtureTypeId": "generic-dimmer", "mode": "1ch",
+				               "universeId": 1, "address": 2}],
+				 "groups": [{"id": 3, "name": "Row", "fixtureIds": [5, 6]}],
+				 "scenes": [{"number": "1", "name": "Dawn", "values": {"5": {"dimmer": 0.7}}, "extraKeys": [1]},
+				            {"number": "2", "name": "Fair", "values": {}}],
+				 "compositions": [
+				   {"id": 10, "name": "Chase", "kind": "chase", "params": {"stepMs": 500}, "target": {"groupId": 3}},
+				   {"id": 11, "sceneNumber": "2", "sourceId": 10, "name": "Chase", "kind": "chase",
+				    "params": {"stepMs": 500}, "target": {"groupId": 3}, "level": 0.5}],
+				 "extraKeys": [{"slot": 1, "mode": "flash", "composition":
+				   {"id": 12, "name": "Flash", "kind": "steps", "params": {"playMode": "loop"},
+				    "steps": [{"holdMs": 100, "fadeMs": 0, "values": {"6": {"dimmer": 1}}}]}}]}
+				""");
+		var project = id(imported);
+
+		var scenes = body("/api/projects/" + project + "/scenes");
+		var compositions = body("/api/projects/" + project + "/compositions");
+		assertThat(JsonPath.<List<String>>read(compositions, "$[*].name"))
+				.containsExactlyInAnyOrder("1 Dawn", "Chase", "Flash");
+		var chase = JsonPath.<List<Integer>>read(compositions, "$[?(@.name == 'Chase')].id").getFirst();
+		assertThat(JsonPath.<Integer>read(scenes, "$[1].compositions[0].compositionId")).isEqualTo(chase);
+		assertThat(JsonPath.<Double>read(scenes, "$[1].compositions[0].level")).isEqualTo(0.5);
+		assertThat(JsonPath.<List<Object>>read(compositions, "$[?(@.name == 'Chase')].steps[*]")).hasSize(2);
+		assertThat(JsonPath.<String>read(scenes, "$[0].keys[0].mode")).isEqualTo("flash");
+		assertThat(JsonPath.<List<Double>>read(body("/api/projects/" + project + "/looks"),
+				"$[?(@.name == '1 Dawn')].values.*.dimmer")).containsExactly(0.7);
 	}
 
 	@Test
