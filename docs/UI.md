@@ -69,6 +69,8 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   Jedes Fixture hat eine **Form**: Spot (rund mit Lichtfleck), Bar (LED-Bar, ein Segment pro Kopf) oder Strip
   (LED-Band als dünne Pixel-Linie). „Auto“ zeichnet Geräte der Kategorie `bar` und Multi-Pixel-Geräte als Bar, alle
   anderen als Spot. Für das ausgewählte Fixture lassen sich links Form, Drehung und Länge einstellen; `R` dreht um 15°.
+  Rechts über der Bühne erscheint dazu das Steuer-Panel des Programmers als Overlay (dieselbe Komponente wie im Reiter
+  Programmer, einspaltig); ✕ blendet es aus, „🎛 Controls“ wieder ein, ein anderes Fixture öffnet es erneut.
 - **Looks:** feste Werte aus dem Programmer („⏺ Record look“), mit Farbvorschau, „Load into programmer“, „Update from
   programmer“ (ersetzen oder mergen), Verlauf mit „↶ Undo“/„Restore“, Duplizieren und Löschen (nicht, solange eine
   Composition den Look spielt). Links stehen die gemeinsamen Looks; „Show the looks of compositions“ zeigt dazu die
@@ -77,7 +79,7 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   Intensität (setzt / skaliert das Licht darunter), Schrittliste (Look wählen, eigene Zeiten mit der Standardzeit als
   Platzhalter, Load/Update des Looks, wiederholen, umsortieren), „⏺ Record step“, gemeinsame Looks hinzufügen und
   „✦ Generate from an effect…“ (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern). Dazu Live-Vorschau, „Show on stage“
-  und „In scenes …“. Die Schritte stehen in **Zeilen**: Schritte einer Zeile laufen parallel und stehen nebeneinander,
+  und „In scenes …“. Läuft eine Composition per „Show on stage“, trägt sie in der Liste links „ON STAGE“. Die Schritte stehen in **Zeilen**: Schritte einer Zeile laufen parallel und stehen nebeneinander,
   Fade/Hold gelten für die ganze Zeile. „Start“ pro Schritt: „Begin“ (erste Zeile), „with …“ (parallel zu einer Zeile)
   oder „after …“ (neue Zeile danach); „⏺ ∥“ nimmt den Programmer als parallelen Schritt in eine Zeile auf.
   Siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md#parallele-schritte).

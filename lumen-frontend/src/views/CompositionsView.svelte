@@ -6,6 +6,7 @@
   import { compositionIcon, effectLabel, isFast, scenesUsing } from '../lib/compositions';
   import { focus } from '../lib/focus.svelte';
   import { live } from '../lib/live.svelte';
+  import { stagePreview } from '../lib/stagePreview.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Composition, Fixture, Group, Look, Scene } from '../lib/types';
@@ -134,7 +135,8 @@
     <div class="layout">
       <nav class="glass list" aria-label="Compositions">
         {#each compositions as composition (composition.id)}
-          <button type="button" class="item" class:active={composition.id === selectedId}
+          {@const onStage = stagePreview.status.compositionId === composition.id}
+          <button type="button" class="item" class:active={composition.id === selectedId} class:on-stage={onStage}
             onclick={() => (selectedId = composition.id)}>
             <span class="icon" aria-hidden="true">{compositionIcon(composition)}</span>
             <span class="text">
@@ -142,6 +144,11 @@
               <span class="dim small">{subtitle(composition)}</span>
             </span>
             {#if isFast(composition)}<span class="fast" title="Fast flashing">⚡</span>{/if}
+            {#if onStage}
+              <span class="on-stage-tag" title="This composition is playing on stage (Show on stage)">
+                <span class="pulse" aria-hidden="true"></span>ON STAGE
+              </span>
+            {/if}
           </button>
         {/each}
       </nav>
@@ -243,6 +250,39 @@
   .item.active {
     border-color: var(--accent);
     background: var(--accent-soft);
+  }
+
+  /* playing on stage as a preview: glowing edge, independent of the selection */
+  .item.on-stage {
+    box-shadow: inset 3px 0 0 var(--accent), -4px 0 14px -6px var(--accent-glow);
+  }
+
+  .on-stage-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 2px 6px;
+    border-radius: 6px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    white-space: nowrap;
+  }
+
+  .on-stage-tag .pulse {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: var(--accent-ink);
+    animation: on-stage-pulse 1.2s ease-in-out infinite;
+  }
+
+  @keyframes on-stage-pulse {
+    50% {
+      opacity: 0.25;
+    }
   }
 
   .icon {

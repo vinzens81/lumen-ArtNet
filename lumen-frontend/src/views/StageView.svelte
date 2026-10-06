@@ -1,7 +1,9 @@
 <script lang="ts">
   import { api } from '../lib/api';
   import { headPreviewsOf, modesOf, previewOf, rgbToCss } from '../lib/color';
+  import ProgrammerPanel from '../components/ProgrammerPanel.svelte';
   import { live } from '../lib/live.svelte';
+  import { programmerEntries } from '../lib/programmer';
   import {
     beamOffset, clampLength, DEFAULT_ASPECT, DEFAULT_SHAPE, drawnShape, freeSpots, rotate, SHAPE_KINDS, toStage,
     type DrawnShape,
@@ -40,6 +42,14 @@
   const unplaced = $derived(fixtures.filter((f) => f.position === null));
   const masterLevel = $derived(live.master.blackout ? 0 : live.master.level);
   const selected = $derived(placed.find((f) => f.id === selectedId) ?? null);
+  /** the programmer controls of the selected fixture, as in the Programmer tab */
+  const entries = $derived(programmerEntries(fixtures, (id) => app.fixtureType(id)));
+  let controlsOpen = $state(true);
+  // selecting another fixture opens the controls again
+  $effect(() => {
+    void selectedId;
+    controlsOpen = true;
+  });
 
   $effect(() => {
     void live.patchRevision;
@@ -167,7 +177,7 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
-    if ((event.target as HTMLElement).closest('input, textarea, select')) return;
+    if ((event.target as HTMLElement).closest('input, textarea, select, .programmer-overlay')) return;
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId !== null) {
       event.preventDefault();
       removeSelected();
@@ -352,6 +362,17 @@
             {/if}
           {/each}
         </div>
+        {#if selected}
+          {#if controlsOpen}
+            <div class="programmer-overlay glass" aria-label="Programmer for {selected.name}">
+              <ProgrammerPanel {projectId} {entries} selection={[selected.id]} compact
+                onclose={() => (controlsOpen = false)} />
+            </div>
+          {:else}
+            <button class="btn small overlay-open" type="button" onclick={() => (controlsOpen = true)}
+              title="Show the programmer controls of {selected.name}">🎛 Controls</button>
+          {/if}
+        {/if}
       </div>
     </div>
   {/if}
@@ -464,7 +485,29 @@
     box-shadow: 0 0 calc(12px * var(--intensity)) var(--glow);
   }
 
+  /* the programmer controls of the selected fixture, over the corner of the stage */
+  .programmer-overlay {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+    width: min(360px, calc(100% - 24px));
+    max-height: calc(100% - 24px);
+    overflow-y: auto;
+    padding: 14px;
+    background: var(--panel-solid);
+    box-shadow: var(--shadow);
+  }
+
+  .overlay-open {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 5;
+  }
+
   .stage-wrap {
+    position: relative;
     padding: 12px;
   }
 
