@@ -4,6 +4,7 @@
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import SceneCompositions from '../components/SceneCompositions.svelte';
   import SceneKeys from '../components/SceneKeys.svelte';
+  import ScriptText from '../components/ScriptText.svelte';
   import UpdateFromProgrammerModal from '../components/UpdateFromProgrammerModal.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf } from '../lib/color';
@@ -30,6 +31,7 @@
   let recordOpen = $state(false);
   let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
+  let scriptPreviewOpen = $state(false);
   let revisions = $state<LookRevision[]>([]);
   let compositions = $state<Composition[]>([]);
   let looks = $state<Look[]>([]);
@@ -491,6 +493,10 @@
                   –
                 {/if}
                 In show mode ↑/↓ step through the sentences; <span class="mono">**text**</span> is skipped.
+                <button class="btn small preview-script" type="button" onclick={() => (scriptPreviewOpen = true)}
+                  disabled={!form.script.trim()} title="Shows the script as the show displays it – with unsaved changes">
+                  👁 Preview
+                </button>
               </p>
             <label class="check">
               <input type="checkbox" bind:checked={form.autoFollow} />
@@ -617,6 +623,13 @@
   note={baseLook && baseLook.owner === null ? 'It is a shared look – it changes everywhere it is played.' : undefined}
   onconfirm={overwrite} />
 
+<Modal bind:open={scriptPreviewOpen} title="Script {form.number} {form.name}" wide>
+  <div class="script-preview">
+    <ScriptText script={parseScript(form.script)} />
+  </div>
+  <p class="hint dim">As in show mode – {scriptStats.lines} {scriptStats.lines === 1 ? 'sentence' : 'sentences'} to step through.</p>
+</Modal>
+
 <Modal bind:open={deleteOpen} title="Delete scene">
   <p>Delete scene <strong>{selected?.number} “{selected?.name}”</strong>?</p>
   {#snippet actions()}
@@ -648,6 +661,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .preview-script {
+    margin-left: 6px;
+  }
+
+  /* the size of the script in show mode */
+  .script-preview {
+    padding: 4px 6px 12px;
+    font-size: 20px;
   }
 
   .warning-text {

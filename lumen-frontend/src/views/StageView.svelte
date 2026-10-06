@@ -1,6 +1,7 @@
 <script lang="ts">
   import { api } from '../lib/api';
   import { headPreviewsOf, modesOf, previewOf, rgbToCss } from '../lib/color';
+  import ClearAllButton from '../components/ClearAllButton.svelte';
   import ProgrammerPanel from '../components/ProgrammerPanel.svelte';
   import { live } from '../lib/live.svelte';
   import { programmerEntries } from '../lib/programmer';
@@ -236,6 +237,7 @@
       <p class="dim">Drag fixtures to where they hang. They glow like the light on stage right now. Point at one to see its name.</p>
     </div>
     <div class="actions">
+      <ClearAllButton />
       <button class="btn ghost" type="button" onclick={() => fileInput?.click()} disabled={projectId === null}>
         {hasPlan ? 'Replace floor plan…' : 'Floor plan…'}
       </button>

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ClearAllButton from '../components/ClearAllButton.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import Modal from '../components/Modal.svelte';
   import ProgrammerPanel from '../components/ProgrammerPanel.svelte';
@@ -157,8 +158,7 @@
     <div class="center">
     <div class="toolbar">
       <span class="dim">{Object.keys(live.programmer).length} fixtures with programmer values</span>
-      <button class="btn small ghost" type="button" onclick={() => live.clear(Object.keys(live.programmer).map(Number))}
-        disabled={Object.keys(live.programmer).length === 0}>Clear programmer</button>
+      <ClearAllButton />
       <button class="btn small record" type="button" onclick={() => (recordOpen = true)}
         disabled={Object.keys(live.programmer).length === 0}>⏺ Record scene</button>
     </div>
