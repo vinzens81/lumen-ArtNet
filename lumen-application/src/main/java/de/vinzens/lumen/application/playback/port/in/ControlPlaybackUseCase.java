@@ -23,6 +23,12 @@ public interface ControlPlaybackUseCase {
 	/** Completes the running fade at once. */
 	PlaybackStatus finish();
 
+	/**
+	 * Stops the show at once: scene, keys and faders to 0 without a fade, back before the first scene. The next GO
+	 * starts the show from the beginning; there is nothing to resume.
+	 */
+	PlaybackStatus stop();
+
 	/** Puts the scene that was on stage before the restart back on stage at once (see {@code resumeSceneId}). */
 	PlaybackStatus resume();
 

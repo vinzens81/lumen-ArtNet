@@ -190,6 +190,12 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 `Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen ·
 `1`–`8` Extra-Tasten (Flash: solange gedrückt)
 
+### Show abbrechen
+„■ Stop“ neben Back, Pause und „Finish fade“ bricht die Show ab: Szene, Tasten und Fader gehen sofort ohne Überblendung
+auf 0, die Show steht wieder vor Szene 1 (das nächste GO beginnt von vorn, es gibt nichts fortzusetzen). Gegen
+versehentliches Auslösen fragt der erste Klick „Really stop?“, erst ein zweiter Klick innerhalb von 3 s stoppt.
+Anders als Blackout bleibt dabei nicht die Position erhalten. `POST /api/playback/stop`.
+
 ### Bühne im Betrieb
 Der Reiter **Stage** neben Scenes, Script und DMX zeigt die Bühnenansicht nur lesend: Die Fixtures leuchten wie die
 echte Ausgabe, verschieben, Formen ändern und Tastenkürzel der Bühnenansicht gibt es hier nicht.

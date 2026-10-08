@@ -58,6 +58,18 @@ class FadersTest {
 		assertThat(faders.set(1, 0, NOW)).as("already down").isFalse();
 	}
 
+	@Test
+	void allDownSetsEveryFaderToZero() {
+		faders.configure(List.of(fader(1, 10, Map.of(5L, new FixtureValues(Map.of(DIMMER, 1.0))))));
+		faders.set(1, 0.7, NOW);
+
+		assertThat(faders.allDown()).isTrue();
+
+		assertThat(faders.status()).extracting(Faders.FaderStatus::level).containsExactly(0.0);
+		assertThat(faders.apply(Map.of(), NOW, FixtureAttributes.ALL)).isEmpty();
+		assertThat(faders.allDown()).as("nothing up any more").isFalse();
+	}
+
 	private static PlayableFader fader(int slot, long compositionId, Map<Long, FixtureValues> values) {
 		// fixed values: one composition with one step
 		var look = new StepSequence(List.of(new StepSequence.Step(1, 0, values)), StepSequence.PlayMode.LOOP);

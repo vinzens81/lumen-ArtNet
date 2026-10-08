@@ -249,6 +249,8 @@ export const api = {
     back: () => post<PlaybackStatus>('/api/playback/back'),
     pause: () => post<PlaybackStatus>('/api/playback/pause'),
     finish: () => post<PlaybackStatus>('/api/playback/finish'),
+    /** Stops the show at once: everything to 0, back before the first scene. */
+    stop: () => post<PlaybackStatus>('/api/playback/stop'),
     setNext: (sceneId: number) => put<PlaybackStatus>('/api/playback/next', { sceneId }),
     setScriptLine: (sceneId: number, line: number, section: number) =>
       put<PlaybackStatus>('/api/playback/script', { sceneId, line, section }),

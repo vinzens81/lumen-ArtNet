@@ -261,6 +261,15 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 	}
 
 	@Override
+	public synchronized PlaybackStatus stop() {
+		var now = clock.instant();
+		requirePlayback().stop(now);
+		keys = new ExtraKeys(); // off at once, without their fade-out
+		faders.allDown();
+		return played(now);
+	}
+
+	@Override
 	public synchronized PlaybackStatus finish() {
 		var now = clock.instant();
 		requirePlayback().finish(now);

@@ -73,6 +73,14 @@ public final class Faders {
 		return true;
 	}
 
+	/** Every fader to 0 at once, e.g. when the show is stopped. @return whether one was up */
+	public boolean allDown() {
+		var wasUp = !levels.isEmpty();
+		levels.clear();
+		startedAt.clear();
+		return wasUp;
+	}
+
 	/** Lays the faders that are up over the look, in slot order. */
 	public Map<Long, FixtureValues> apply(Map<Long, FixtureValues> look, Instant now, FixtureAttributes attributes) {
 		var result = look;

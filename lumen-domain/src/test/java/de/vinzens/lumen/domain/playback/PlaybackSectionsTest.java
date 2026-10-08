@@ -83,6 +83,26 @@ class PlaybackSectionsTest {
 		assertThat(playback.runningCompositions()).containsExactly(SPOT);
 	}
 
+	@Test
+	void stopMakesEverythingDarkAtOnceAndStartsAgainFromTheFirstScene() {
+		var one = new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "One", Optional.empty(), Optional.empty()));
+		var two = new Scene(2, 1, new SceneSpec(SceneNumber.of(2), "Two", Optional.empty(), Optional.empty()));
+		var playback = new Playback(List.of(one, two), Map.of(1L, List.of(WARM), 2L, List.of(SPOT)),
+				Duration.ofSeconds(2), Duration.ofSeconds(2));
+		playback.go(START, B);
+		playback.go(START.plusSeconds(5), B);
+		playback.togglePause(START.plusSeconds(6));
+
+		playback.stop(START.plusSeconds(6));
+
+		assertThat(playback.position()).isEqualTo(Playback.READY);
+		assertThat(playback.isPaused()).isFalse();
+		assertThat(playback.fade(START.plusSeconds(6))).isEmpty();
+		assertThat(playback.output(START.plusSeconds(6), B)).as("dark at once").isEmpty();
+		playback.go(START.plusSeconds(7), B);
+		assertThat(playback.currentScene()).map(Scene::id).contains(1L);
+	}
+
 	private static ActiveComposition fixed(long id, long fixtureId, double dimmer) {
 		var look = new StepSequence(List.of(new StepSequence.Step(1, 0,
 				Map.of(fixtureId, new FixtureValues(Map.of(DIMMER, dimmer))))), StepSequence.PlayMode.LOOP);

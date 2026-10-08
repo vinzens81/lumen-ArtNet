@@ -52,6 +52,12 @@ class PlaybackController {
 		return PlaybackResponse.from(playback.togglePause());
 	}
 
+	/** Stops the show at once: everything to 0, back before the first scene. */
+	@PostMapping("/api/playback/stop")
+	PlaybackResponse stop() {
+		return PlaybackResponse.from(playback.stop());
+	}
+
 	@PostMapping("/api/playback/finish")
 	PlaybackResponse finish() {
 		return PlaybackResponse.from(playback.finish());

@@ -154,6 +154,24 @@
     };
   });
 
+  /** something is lit by the show: a scene, a key or a fader */
+  const stoppable = $derived(status !== null && status.available && (status.position >= 0
+    || status.keys.some((k) => k.level > 0) || status.faders.some((f) => f.level > 0)));
+  /** the first click on Stop only asks; a second one within a few seconds stops */
+  let stopArmed = $state(false);
+  let stopTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function stop() {
+    if (!stopArmed) {
+      stopArmed = true;
+      stopTimer = setTimeout(() => (stopArmed = false), 3000);
+      return;
+    }
+    if (stopTimer) clearTimeout(stopTimer);
+    stopArmed = false;
+    apply(api.playback.stop());
+  }
+
   function go() {
     const t = performance.now();
     if (t - lastGo < GO_GUARD_MS || !canGo) return;
@@ -450,6 +468,10 @@
         {status?.paused ? '▶ Resume' : '⏸ Pause'} <kbd>P</kbd>
       </button>
       <button type="button" class="btn secondary" onclick={() => live.playbackCommand('finish')} disabled={!status?.fade}>⏭ Finish fade <kbd>↵</kbd></button>
+      <button type="button" class="btn secondary stop" class:armed={stopArmed} onclick={stop} disabled={!stoppable}
+        title="Stop the show at once: scene, keys and faders to 0, the next GO starts from the beginning">
+        {stopArmed ? 'Really stop?' : '■ Stop'}
+      </button>
     </div>
     <div class="key-bar"><KeyBar keys={status?.keys ?? []} /></div>
     <div class="fader-bar"><FaderBar faders={status?.faders ?? []} /></div>
@@ -983,8 +1005,18 @@
 
   .controls {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+  }
+
+  .controls .stop:not(:disabled) {
+    border-color: var(--danger);
+    color: var(--danger);
+  }
+
+  .controls .stop.armed {
+    background: var(--danger);
+    color: #fff;
   }
 
   .controls .btn {

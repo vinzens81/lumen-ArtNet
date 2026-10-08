@@ -208,6 +208,23 @@ public final class Playback {
 		dropDeletedScene();
 	}
 
+	/**
+	 * Stops the show at once: everything dark without a fade, back before the first scene, so the next GO starts the
+	 * show again. A pause ends too.
+	 */
+	public void stop(Instant now) {
+		if (pausedAt != null) {
+			togglePause(now);
+		}
+		position = READY;
+		section = 0;
+		transition = null;
+		pendingNext = null;
+		running = List.of();
+		stayStart = virtualNow(now);
+		dropDeletedScene();
+	}
+
 	/** Chooses the scene that the next GO starts. */
 	public void setNext(long sceneId) {
 		var index = indexOf(sceneId);

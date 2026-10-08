@@ -57,6 +57,36 @@ class FaderApiTest {
 	}
 
 	@Test
+	void stopTakesTheShowAndTheFadersToZeroAtOnce() throws Exception {
+		var project = id(post("/api/projects", "{\"name\": \"Stop\"}"));
+		assertThat(post("/api/projects/" + project + "/activate", "")).hasStatusOk();
+		var universe = id(post("/api/projects/" + project + "/universes", "{\"number\": 1}"));
+		var dimmer = id(post("/api/projects/" + project + "/fixtures", """
+				{"name": "Dimmer", "fixtureTypeId": "generic-dimmer", "mode": "1ch", "universeId": %d, "address": 1}
+				""".formatted(universe)));
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
+		assertThat(mvc.patch().uri("/api/programmer/fixtures/" + dimmer).contentType(MediaType.APPLICATION_JSON)
+				.content("{\"dimmer\": 1}")).hasStatusOk();
+		post("/api/projects/" + project + "/scenes", "{\"name\": \"Full\", \"record\": true}");
+		var composition = JsonPath.<List<Integer>>read(body("/api/projects/" + project + "/compositions"), "$[*].id")
+				.getFirst();
+		assertThat(mvc.delete().uri("/api/programmer")).hasStatus(204);
+		put("/api/projects/" + project + "/faders/1", "{\"compositionId\": %d}".formatted(composition));
+		put("/api/mode", "{\"mode\": \"show\"}");
+		post("/api/playback/go", "");
+		put("/api/playback/faders/1", "{\"level\": 1}");
+
+		assertThat(post("/api/playback/stop", "")).hasStatusOk().bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$.position").isEqualTo(-1);
+			assertThat(json).extractingPath("$.faders[0].level").isEqualTo(0.0);
+		});
+		Thread.sleep(150);
+		var dmx = JsonPath.<List<Integer>>read(body("/api/output/universes/1/dmx"), "$.values");
+		assertThat(dmx.getFirst()).isZero();
+		put("/api/mode", "{\"mode\": \"setup\"}");
+	}
+
+	@Test
 	void aFaderOfAVersion2FilePlaysTheFirstCompositionOfItsSceneOutsideTheCueList() throws Exception {
 		var file = """
 				{"format": "lumen-project", "version": 2, "project": {"name": "Old faders"},
