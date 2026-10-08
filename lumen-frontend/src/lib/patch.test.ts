@@ -16,6 +16,7 @@ function fixture(id: number, address: number, channelCount: number | null): Fixt
     position: null,
     sortOrder: 0,
     stageShape: { kind: 'auto', rotation: 0, length: 0.15 },
+    limits: null,
   };
 }
 

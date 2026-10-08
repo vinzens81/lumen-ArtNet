@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
-  canMove, insertAfter, isFixedPosition, positionedFixtures, lineNear, movePosition, newMove, noCorrection, onceSeconds, outside, pathOf,
+  canMove, insertAfter, isFixedPosition, limitsOf, positionedFixtures, lineNear, movePosition, newMove, noCorrection, onceSeconds, outside, pathOf,
   placedFigure, pointAt, reorder, shareAt, snap, startPoint, templatePoints,
 } from './moves';
-import type { FigurePoint, Mode, MoveFixture } from './types';
+import type { FigurePoint, Fixture, Mode, MoveFixture } from './types';
 
 const SQUARE: FigurePoint[] = [{ x: 64, y: 64 }, { x: 192, y: 64 }, { x: 192, y: 192 }, { x: 64, y: 192 }];
 
@@ -125,5 +125,7 @@ describe('moves', () => {
     expect(outside({ x: 10, y: 50 }, limits)).toBe(true);
     expect(outside({ x: 100, y: 50 }, limits)).toBe(false);
     expect(outside({ x: 300, y: 300 }, null)).toBe(false);
+    const fixtures = [{ id: 1, limits }, { id: 2, limits: null }] as unknown as Fixture[];
+    expect([...limitsOf(fixtures).keys()]).toEqual([1]);
   });
 });

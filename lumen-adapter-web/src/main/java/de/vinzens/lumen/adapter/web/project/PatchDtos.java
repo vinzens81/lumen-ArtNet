@@ -9,6 +9,7 @@ import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.PatchIssue;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.PositionLimits;
 import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
@@ -109,8 +110,9 @@ final class PatchDtos {
 	}
 
 	/** @param stageShape missing = drawn automatically ({@code auto}) */
+	/** @param limits allowed range of pan and tilt in the show, {@code null} = no limit */
 	record FixtureRequest(String name, String shortName, String fixtureTypeId, String mode, Long universeId,
-			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape) {
+			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape, LimitsDto limits) {
 
 		FixtureSpec toSpec() {
 			return new FixtureSpec(name, Optional.ofNullable(shortName), fixtureTypeId, mode,
@@ -118,7 +120,20 @@ final class PatchDtos {
 					Objects.requireNonNullElse(address, 0),
 					Optional.ofNullable(position).map(p -> new Position(p.x(), p.y())),
 					Objects.requireNonNullElse(sortOrder, 0),
-					StageShapeDto.toShape(stageShape));
+					StageShapeDto.toShape(stageShape),
+					Optional.ofNullable(limits).map(LimitsDto::toLimits));
+		}
+	}
+
+	/** The allowed range of pan and tilt in DMX values (0–255, inclusive); the programmer is not limited. */
+	record LimitsDto(int panMin, int panMax, int tiltMin, int tiltMax) {
+
+		PositionLimits toLimits() {
+			return new PositionLimits(panMin, panMax, tiltMin, tiltMax);
+		}
+
+		static LimitsDto from(PositionLimits limits) {
+			return new LimitsDto(limits.panMin(), limits.panMax(), limits.tiltMin(), limits.tiltMax());
 		}
 	}
 
@@ -128,7 +143,7 @@ final class PatchDtos {
 	 */
 	record FixtureResponse(long id, String name, String shortName, String fixtureTypeId, String mode,
 			long universeId, int address, Integer channelCount, Integer lastAddress, PositionDto position,
-			int sortOrder, StageShapeDto stageShape) {
+			int sortOrder, StageShapeDto stageShape, LimitsDto limits) {
 
 		static FixtureResponse from(PatchedFixture fixture, Optional<Integer> channelCount) {
 			var spec = fixture.spec();
@@ -136,7 +151,7 @@ final class PatchDtos {
 					spec.modeName(), spec.universeId(), spec.address(), channelCount.orElse(null),
 					channelCount.map(count -> spec.address() + count - 1).orElse(null),
 					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder(),
-					StageShapeDto.from(spec.stageShape()));
+					StageShapeDto.from(spec.stageShape()), spec.limits().map(LimitsDto::from).orElse(null));
 		}
 	}
 

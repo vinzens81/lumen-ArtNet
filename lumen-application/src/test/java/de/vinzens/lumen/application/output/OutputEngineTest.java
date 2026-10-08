@@ -25,6 +25,8 @@ import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.project.ArtNetAddress;
 import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
+import de.vinzens.lumen.domain.project.PositionLimits;
+import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
@@ -104,6 +106,22 @@ class OutputEngineTest {
 		assertThat(sent.getFirst().frame().get(5)).isEqualTo(255);
 		assertThat(sent.getFirst().frame().get(6)).isEqualTo(128);
 		assertThat(sent.get(1).frame()).isEqualTo(DmxFrame.BLACK);
+	}
+
+	@Test
+	void limitsHoldPanAndTiltOfTheShowButNotOfTheProgrammer() {
+		fixtures.set(1, new PatchedFixture(101, 1, new FixtureSpec("Head", Optional.empty(), "head", "2ch", 10, 20,
+				Optional.empty(), 0, StageShape.DEFAULT, Optional.of(new PositionLimits(51, 204, 0, 255)))));
+		engine.patchChanged();
+		engine.addLayerSource((now, modes) -> new LayerOutput(50,
+				Map.of(101L, new FixtureValues(Map.of(PAN, 1.0, DIMMER, 1.0)))));
+
+		engine.tick();
+		assertThat(engine.outputValues().get(101L).get(PAN)).as("the show stops at the limit").contains(0.8);
+
+		engine.setValues(101, new FixtureValues(Map.of(PAN, 0.1)));
+		engine.tick();
+		assertThat(engine.outputValues().get(101L).get(PAN)).as("the programmer reaches every point").contains(0.1);
 	}
 
 	@Test

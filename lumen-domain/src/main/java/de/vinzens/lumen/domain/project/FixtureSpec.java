@@ -13,6 +13,7 @@ import java.util.Optional;
  * @param universeId    universe within the project
  * @param address       DMX start address (1–512)
  * @param stageShape    how the fixture is drawn in the stage view
+ * @param limits        allowed range of pan and tilt in the show, empty = no limit
  */
 public record FixtureSpec(
 		String name,
@@ -23,7 +24,8 @@ public record FixtureSpec(
 		int address,
 		Optional<Position> position,
 		int sortOrder,
-		StageShape stageShape) {
+		StageShape stageShape,
+		Optional<PositionLimits> limits) {
 
 	public static final int MAX_ADDRESS = 512;
 
@@ -31,6 +33,7 @@ public record FixtureSpec(
 		Objects.requireNonNull(shortName, "shortName");
 		Objects.requireNonNull(position, "position");
 		Objects.requireNonNull(stageShape, "stageShape");
+		Objects.requireNonNull(limits, "limits");
 		new Validation()
 				.requireText(name, "name")
 				.requireText(fixtureTypeId, "fixtureTypeId")
@@ -42,6 +45,13 @@ public record FixtureSpec(
 		shortName = shortName.map(String::strip).filter(s -> !s.isEmpty());
 	}
 
+	/** Without limits. */
+	public FixtureSpec(String name, Optional<String> shortName, String fixtureTypeId, String modeName, long universeId,
+			int address, Optional<Position> position, int sortOrder, StageShape stageShape) {
+		this(name, shortName, fixtureTypeId, modeName, universeId, address, position, sortOrder, stageShape,
+				Optional.empty());
+	}
+
 	/** Without a stage shape: drawn as {@link StageShape#DEFAULT}. */
 	public FixtureSpec(String name, Optional<String> shortName, String fixtureTypeId, String modeName, long universeId,
 			int address, Optional<Position> position, int sortOrder) {
@@ -50,16 +60,16 @@ public record FixtureSpec(
 
 	public FixtureSpec withPosition(Optional<Position> newPosition) {
 		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, universeId, address, newPosition, sortOrder,
-				stageShape);
+				stageShape, limits);
 	}
 
 	public FixtureSpec withStageShape(StageShape newShape) {
 		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, universeId, address, position, sortOrder,
-				newShape);
+				newShape, limits);
 	}
 
 	public FixtureSpec withUniverseId(long newUniverseId) {
 		return new FixtureSpec(name, shortName, fixtureTypeId, modeName, newUniverseId, address, position, sortOrder,
-				stageShape);
+				stageShape, limits);
 	}
 }

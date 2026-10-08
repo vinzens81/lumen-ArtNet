@@ -1,6 +1,6 @@
 # Moves – Figuren für Pan/Tilt-Geräte
 
-> **Status:** Konzept, noch nicht umgesetzt. Beschlossen am 2026-10-08, die Umsetzung folgt später.
+> **Status:** umgesetzt am 2026-10-08 (Stufen 1–5), siehe [Umsetzung](#umsetzung-2026-10-08). Beschlossen am 2026-10-08.
 
 ## Worum es geht
 
@@ -307,6 +307,27 @@ Vorgeschlagene Reihenfolge, jeweils mit Commit:
    Pan/Tilt; Projektdateien Version 4
 4. Move in dark pro Szene (Crossfade mit Dunkelphase, Zeiten im Szenen-Editor und in der Show-Anzeige)
 5. Grenzen pro Gerät im Patch und in der Wiedergabe (nicht im Programmer), Rahmen im XY-Pad
+
+## Umsetzung (2026-10-08)
+
+Wie oben beschrieben, mit diesen Details:
+
+- **Domain:** `domain.move` (`Figure`, `FigurePath`, `MoveSpec`, `MoveFixture`, …); `MovePattern` liegt im Package
+  `composition`, weil das sealed Interface `Pattern` nur Typen im selben Package erlaubt. Moves spielen als
+  `ActiveComposition.ofMove` mit Ids ab `ActiveComposition.MOVE_IDS` (2⁴⁰ + Move-Id).
+- **Position halten:** `Playback` merkt sich beim GO Pan/Tilt aller Geräte und legt die neuen Moves darüber. Ein
+  ausblendender Move bleibt beim GO stehen; der Kopf gleitet mit dem Fade-In von dort zum neuen Move (dunkle Köpfe
+  springen). So fährt ein Kopf ohne Move in der neuen Szene nicht weiter oder zurück.
+- **Move in dark:** Alle Köpfe, die im Dunkeln fahren, dimmen gemeinsam ein (nach Dim out + Travel, sobald einer von
+  ihnen beim GO leuchtete); ein dunkler Kopf wartet dann ggf. etwas länger. Die Fortschrittsanzeige bekommt den
+  späteren Beginn des Fade-Ins als `delay`.
+- **Grenzen:** in DMX-Werten am Fixture (`limits` in der Patch-API), angewendet in `OutputEngine` auf alles unter dem
+  Programmer (Playback, Party, Vorschau „Show on stage“).
+- **Bestehende Daten:** Migration V25 löscht Pan/Tilt aus Looks und Positions-Presets; der Import älterer
+  Projektdateien lässt sie mit einer Warnung im Log weg.
+- **Programmer:** „Record position“ als eigener Knopf; „Record scene“ legt auf Wunsch die Position der Köpfe als Move
+  in die neue Szene (Look + Position).
+- Der Figureneditor wird mit der Maus bedient; genaue Werte und das Umsortieren gehen über die Punktliste.
 
 ## Später
 

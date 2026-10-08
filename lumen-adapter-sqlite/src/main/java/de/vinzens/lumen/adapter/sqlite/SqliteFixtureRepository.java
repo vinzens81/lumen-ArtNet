@@ -4,6 +4,7 @@ import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
+import de.vinzens.lumen.domain.project.PositionLimits;
 import de.vinzens.lumen.domain.project.StageShape;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -11,6 +12,7 @@ import org.springframework.jdbc.support.GeneratedKeyHolder;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.function.ToIntFunction;
 
 import static de.vinzens.lumen.adapter.sqlite.GeneratedKeys.generatedId;
 
@@ -24,6 +26,10 @@ public class SqliteFixtureRepository implements FixtureRepository {
 		var hasX = !rs.wasNull();
 		var y = rs.getDouble("pos_y");
 		var hasY = !rs.wasNull();
+		var panMin = rs.getInt("pan_min");
+		var limited = !rs.wasNull();
+		var limits = limited ? Optional.of(new PositionLimits(panMin, rs.getInt("pan_max"), rs.getInt("tilt_min"),
+				rs.getInt("tilt_max"))) : Optional.<PositionLimits>empty();
 		return new PatchedFixture(
 				rs.getLong("id"),
 				rs.getLong("project_id"),
@@ -39,7 +45,8 @@ public class SqliteFixtureRepository implements FixtureRepository {
 						new StageShape(
 								StageShape.Kind.fromId(rs.getString("stage_shape")).orElse(StageShape.Kind.AUTO),
 								rs.getInt("stage_rotation"),
-								rs.getDouble("stage_length"))));
+								rs.getDouble("stage_length")),
+						limits));
 	};
 
 	private final JdbcClient jdbc;
@@ -64,11 +71,14 @@ public class SqliteFixtureRepository implements FixtureRepository {
 		var keys = new GeneratedKeyHolder();
 		jdbc.sql("""
 				INSERT INTO fixture (project_id, name, short_name, fixture_type_id, mode_name, universe_id, address,
-				    pos_x, pos_y, sort_order, stage_shape, stage_rotation, stage_length)
-				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+				    pos_x, pos_y, sort_order, stage_shape, stage_rotation, stage_length, pan_min, pan_max, tilt_min,
+				    tilt_max)
+				VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 				.params(projectId, spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(), spec.modeName(),
 						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder(),
-						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length())
+						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length(),
+						limit(spec, PositionLimits::panMin), limit(spec, PositionLimits::panMax),
+						limit(spec, PositionLimits::tiltMin), limit(spec, PositionLimits::tiltMax))
 				.update(keys);
 		return findById(generatedId(keys)).orElseThrow();
 	}
@@ -78,13 +88,19 @@ public class SqliteFixtureRepository implements FixtureRepository {
 		jdbc.sql("""
 				UPDATE fixture SET name = ?, short_name = ?, fixture_type_id = ?, mode_name = ?, universe_id = ?,
 				    address = ?, pos_x = ?, pos_y = ?, sort_order = ?, stage_shape = ?, stage_rotation = ?,
-				    stage_length = ?
+				    stage_length = ?, pan_min = ?, pan_max = ?, tilt_min = ?, tilt_max = ?
 				WHERE id = ?""")
 				.params(spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(), spec.modeName(),
 						spec.universeId(), spec.address(), x(spec), y(spec), spec.sortOrder(),
-						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length(), id)
+						spec.stageShape().kind().id(), spec.stageShape().rotation(), spec.stageShape().length(),
+						limit(spec, PositionLimits::panMin), limit(spec, PositionLimits::panMax),
+						limit(spec, PositionLimits::tiltMin), limit(spec, PositionLimits::tiltMax), id)
 				.update();
 		return findById(id).orElseThrow();
+	}
+
+	private static Integer limit(FixtureSpec spec, ToIntFunction<PositionLimits> value) {
+		return spec.limits().map(value::applyAsInt).orElse(null);
 	}
 
 	@Override

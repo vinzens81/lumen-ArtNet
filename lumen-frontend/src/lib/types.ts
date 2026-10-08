@@ -171,6 +171,16 @@ export interface Fixture {
   position: Position | null;
   sortOrder: number;
   stageShape: StageShape;
+  /** allowed range of pan and tilt in the show (not the programmer), null = no limit */
+  limits: PositionLimits | null;
+}
+
+/** Allowed range of pan and tilt of a fixture in DMX values (0–255, inclusive). */
+export interface PositionLimits {
+  panMin: number;
+  panMax: number;
+  tiltMin: number;
+  tiltMax: number;
 }
 
 export interface FixtureRequest {
@@ -184,6 +194,8 @@ export interface FixtureRequest {
   sortOrder: number;
   /** missing = drawn automatically */
   stageShape?: StageShape;
+  /** missing or null = no limit */
+  limits?: PositionLimits | null;
 }
 
 export interface PatchIssue {

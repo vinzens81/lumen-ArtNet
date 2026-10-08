@@ -447,7 +447,7 @@ Grob in Teilschritten:
 **DoD (Schritt 1–3):** Auf einer Party lassen sich per Tablet Farben im Takt wechseln, und Effekte sind über
 Executor-Fader dosierbar.
 
-## ⬜ Iteration 12+ – Moves: Figuren für Pan/Tilt-Geräte 🌀
+## ✅ Iteration 12 – Moves: Figuren für Pan/Tilt-Geräte 🌀
 Konzept beschlossen am 2026-10-08: [MOVEMENT.md](MOVEMENT.md). Koordinaten in DMX-Werten, absolut, Versatz in Schritten.
 Position nur noch über Moves (auch stehende Köpfe: Figur mit einem Punkt); Looks und Presets ohne Pan/Tilt.
 1. Figuren: gezeichnete Punktfolgen ohne Geräte, Figureneditor mit Vorlagen
@@ -456,7 +456,13 @@ Position nur noch über Moves (auch stehende Köpfe: Figur mit einem Punkt); Loo
 4. Move in dark pro Szene: ausdimmen, im Dunkeln fahren, eindimmen
 5. Pan/Tilt-Grenzen pro Gerät im Patch, gelten für die Wiedergabe (nicht für den Programmer)
 
-Bis dahin: nur statische Pan/Tilt-Positionen (XY-Pad).
+Umgesetzt am 2026-10-08 (alle fünf Schritte): neuer Setup-Reiter **Moves** mit Figuren- und Move-Editor (Vorschau im
+Browser, „Show on stage“), Moves in Szenen, Lichtmarkern, Tasten und Party, „Record position“, Move in dark, Grenzen
+im Patch mit Rahmen im XY-Pad. Details und Abweichungen in [MOVEMENT.md](MOVEMENT.md#umsetzung-2026-10-08).
+
+**DoD:** Ein Moving Head fährt in einer Szene eine Acht, die nächste Szene färbt nur um und der Kopf bleibt stehen;
+mit „Move in dark“ fährt er unsichtbar an seine neue Position. Geprüft mit Domain-, Repository- und API-Tests und per
+REST am laufenden Server (Art-Net aus); die UI ist mit svelte-check und Vitest geprüft, im Browser nur angesehen.
 
 ---
 

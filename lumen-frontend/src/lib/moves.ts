@@ -1,4 +1,8 @@
-import type { AttributeValues, Figure, FigurePoint, Mode, Move, MoveFixture, MoveRequest } from './types';
+import type {
+  AttributeValues, Figure, FigurePoint, Fixture, Mode, Move, MoveFixture, MoveRequest, PositionLimits,
+} from './types';
+
+export type { PositionLimits };
 
 /**
  * Geometry of figures and moves, in DMX values (x = pan, y = tilt, 0–255). The same rules as the server
@@ -267,12 +271,9 @@ export function outside(point: FigurePoint, limits: PositionLimits | null): bool
   return point.x < limits.panMin || point.x > limits.panMax || point.y < limits.tiltMin || point.y > limits.tiltMax;
 }
 
-/** Allowed range of pan and tilt of a fixture, in DMX values. */
-export interface PositionLimits {
-  panMin: number;
-  panMax: number;
-  tiltMin: number;
-  tiltMax: number;
+/** The limits of the fixtures that have them, by fixture id. */
+export function limitsOf(fixtures: Fixture[]): Map<number, PositionLimits> {
+  return new Map(fixtures.flatMap((f) => (f.limits ? [[f.id, f.limits] as const] : [])));
 }
 
 function range(n: number): number[] {

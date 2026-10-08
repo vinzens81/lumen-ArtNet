@@ -1,10 +1,20 @@
 <script lang="ts">
+  import type { PositionLimits } from '../lib/types';
+
   let {
     x,
     y,
     onchange,
     label = 'Position',
-  }: { x: number; y: number; onchange: (x: number, y: number) => void; label?: string } = $props();
+    limits = null,
+  }: {
+    x: number;
+    y: number;
+    onchange: (x: number, y: number) => void;
+    label?: string;
+    /** the allowed range in the show, drawn as a frame; the pad itself is not limited */
+    limits?: PositionLimits | null;
+  } = $props();
 
   let pad: HTMLDivElement | undefined = $state();
   let dragging = false;
@@ -48,6 +58,11 @@
     onpointercancel={() => (dragging = false)}
     {onkeydown}
   >
+    {#if limits}
+      <span class="limits" title="Allowed in the show" style="left: {(limits.panMin / 255) * 100}%;
+        right: {(1 - limits.panMax / 255) * 100}%; top: {(1 - limits.tiltMax / 255) * 100}%;
+        bottom: {(limits.tiltMin / 255) * 100}%"></span>
+    {/if}
     <span class="line h" style="top: {(1 - y) * 100}%"></span>
     <span class="line v" style="left: {x * 100}%"></span>
     <span class="dot" style="left: {x * 100}%; top: {(1 - y) * 100}%"></span>
@@ -79,6 +94,12 @@
   .pad:focus-visible {
     outline: 2px solid var(--accent);
     outline-offset: 3px;
+  }
+
+  .limits {
+    position: absolute;
+    border: 1px dashed var(--warning);
+    pointer-events: none;
   }
 
   .line {

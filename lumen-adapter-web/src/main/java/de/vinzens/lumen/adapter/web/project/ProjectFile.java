@@ -14,6 +14,7 @@ import de.vinzens.lumen.adapter.web.move.MoveDtos.PointDto;
 import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
+import de.vinzens.lumen.adapter.web.project.PatchDtos.LimitsDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.StageShapeDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseRequest;
@@ -387,23 +388,27 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	/** @param stageShape missing in files before stage shapes = {@code auto} */
+	/**
+	 * @param stageShape missing in files before stage shapes = {@code auto}
+	 * @param limits     allowed range of pan and tilt, {@code null} = no limit
+	 */
 	record FixtureEntry(Long id, String name, String shortName, String fixtureTypeId, String mode, Long universeId,
-			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape) {
+			Integer address, PositionDto position, Integer sortOrder, StageShapeDto stageShape, LimitsDto limits) {
 
 		static FixtureEntry from(PatchedFixture fixture) {
 			var spec = fixture.spec();
 			return new FixtureEntry(fixture.id(), spec.name(), spec.shortName().orElse(null), spec.fixtureTypeId(),
 					spec.modeName(), spec.universeId(), spec.address(),
 					spec.position().map(p -> new PositionDto(p.x(), p.y())).orElse(null), spec.sortOrder(),
-					StageShapeDto.from(spec.stageShape()));
+					StageShapeDto.from(spec.stageShape()), spec.limits().map(LimitsDto::from).orElse(null));
 		}
 
 		PatchedFixture toFixture() {
 			return new PatchedFixture(require(id, "fixture id"), 0, new FixtureSpec(name, Optional.ofNullable(shortName),
 					fixtureTypeId, mode, Objects.requireNonNullElse(universeId, 0L), Objects.requireNonNullElse(address, 0),
 					Optional.ofNullable(position).map(p -> new Position(p.x(), p.y())),
-					Objects.requireNonNullElse(sortOrder, 0), StageShapeDto.toShape(stageShape)));
+					Objects.requireNonNullElse(sortOrder, 0), StageShapeDto.toShape(stageShape),
+					Optional.ofNullable(limits).map(LimitsDto::toLimits)));
 		}
 	}
 

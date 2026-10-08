@@ -246,7 +246,8 @@
 {#if available.has('pan') && available.has('tilt')}
   <section>
     <h3>Position</h3>
-    <XYPad x={reference('pan').value} y={reference('tilt').value} onchange={(x, y) => set({ pan: x, tilt: y })} />
+    <XYPad x={reference('pan').value} y={reference('tilt').value} onchange={(x, y) => set({ pan: x, tilt: y })}
+      limits={selected.find((e) => e.fixture.limits)?.fixture.limits ?? null} />
   </section>
 {/if}
 

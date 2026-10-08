@@ -30,6 +30,7 @@ import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.output.Programmer;
 import de.vinzens.lumen.domain.output.RenderFixture;
 import de.vinzens.lumen.domain.preset.Preset;
+import de.vinzens.lumen.domain.project.PositionLimits;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.look.Look;
@@ -115,7 +116,7 @@ public class OutputEngine
 				.flatMap(fixture -> library.fixtureType(fixture.spec().fixtureTypeId())
 						.flatMap(type -> type.mode(fixture.spec().modeName()))
 						.map(mode -> new RenderFixture(fixture.id(), fixture.spec().universeId(), fixture.spec().address(),
-								mode))
+								mode, fixture.spec().limits()))
 						.stream())
 				.toList();
 		return new ActivePatch(project.id(), projectUniverses, renderFixtures);
@@ -147,8 +148,10 @@ public class OutputEngine
 				layers.add(source.layer(now, modes));
 			}
 		}
-		layers.add(programmer.get().asLayer(PROGRAMMER_PRIORITY));
-		var values = LayerMerger.merge(layers);
+		// the limits of pan and tilt hold for the show; the programmer can reach every point (setting up)
+		var show = PositionLimits.apply(LayerMerger.merge(layers), current.limits());
+		var values = LayerMerger.merge(List.of(new LayerOutput(0, show),
+				programmer.get().asLayer(PROGRAMMER_PRIORITY)));
 		var universeIds = current.universes().stream().map(Universe::id).toList();
 		var frames = DmxRenderer.render(universeIds, current.fixtures(), values, master.get().effectiveLevel());
 		return new Rendered(current, values, frames);
@@ -419,13 +422,15 @@ public class OutputEngine
 	}
 
 	private record ActivePatch(Long projectId, List<Universe> universes, List<RenderFixture> fixtures,
-			Map<Long, RenderFixture> fixturesById) {
+			Map<Long, RenderFixture> fixturesById, Map<Long, PositionLimits> limits) {
 
 		static final ActivePatch NONE = new ActivePatch(null, List.of(), List.of());
 
 		ActivePatch(Long projectId, List<Universe> universes, List<RenderFixture> fixtures) {
 			this(projectId, List.copyOf(universes), List.copyOf(fixtures), fixtures.stream()
-					.collect(Collectors.toUnmodifiableMap(RenderFixture::fixtureId, Function.identity())));
+					.collect(Collectors.toUnmodifiableMap(RenderFixture::fixtureId, Function.identity())),
+					fixtures.stream().filter(f -> f.limits().isPresent())
+							.collect(Collectors.toUnmodifiableMap(RenderFixture::fixtureId, f -> f.limits().get())));
 		}
 
 		Optional<RenderFixture> fixture(long fixtureId) {

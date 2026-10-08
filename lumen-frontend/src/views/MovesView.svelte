@@ -6,7 +6,7 @@
   import { modesOf } from '../lib/color';
   import { focus } from '../lib/focus.svelte';
   import { live } from '../lib/live.svelte';
-  import { canMove, newMove, templatePoints } from '../lib/moves';
+  import { canMove, limitsOf, newMove, templatePoints } from '../lib/moves';
   import { programmerSelection } from '../lib/selection.svelte';
   import { stagePreview } from '../lib/stagePreview.svelte';
   import { app } from '../lib/state.svelte';
@@ -226,7 +226,8 @@
       <article class="glass panel">
         {#if selectedMove && projectId !== null}
           {#key selectedMove.id}
-            <MoveEditor {projectId} move={selectedMove} {figures} {fixtures} {modes} {scenes} onSaved={savedMove}
+            <MoveEditor {projectId} move={selectedMove} {figures} {fixtures} {modes} {scenes}
+              limits={limitsOf(fixtures)} onSaved={savedMove}
               onEditFigure={(id) => (selection = { kind: 'figure', id })} />
           {/key}
         {:else if selectedFigure && projectId !== null}

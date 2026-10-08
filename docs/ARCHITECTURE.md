@@ -160,7 +160,10 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Szene mit dem Programmer überschreiben (ohne Body) oder Teile übernehmen (`{merge: true, fixtureIds, groups}`) · Szene in den Programmer laden |
 | `POST …/scenes/{sceneId}/duplicate` `{number}` | Szene samt Bild, Zeiten, Text, Kompositionen und Extra-Tasten kopieren |
 | `GET …/scenes/{sceneId}/revisions` · `POST …/revisions/{rid}/restore` | frühere Bilder der Szene (neueste zuerst, 20 je Szene) · eines zurückholen |
-| `GET /api/projects/{id}/presets` · `POST` `{name, group, fixtureIds}` · `PUT /{pid}` `{name}` · `DELETE /{pid}` | Presets (Farbe, Position, Beam) aus dem Programmer aufnehmen, umbenennen, löschen |
+| `CRUD /api/projects/{id}/figures` · `POST …/figures/{fid}/duplicate` | Figuren für Moves: Punkte in DMX-Werten (`x` = Pan, `y` = Tilt), `closed`; Löschen nur ohne Moves (409), siehe [MOVEMENT.md](MOVEMENT.md) |
+| `CRUD /api/projects/{id}/moves` · `POST …/moves/{mid}/duplicate` · `POST …/moves/{mid}/stage-preview` | Moves: Figur + Geräte (mit eigener Verschiebung, Spiegeln, Rückwärts), Größe in %, Verschiebung in DMX-Werten, `rotation`, `durationMs`, `repeat`, `stepOffset`, `onceStart`; Löschen nur, wenn nichts ihn spielt (409) |
+| `POST /api/projects/{id}/moves/record-position` `{moveId\|null, name, fixtureIds}` | „Record position“: Programmer-Positionen als Move mit einem Punkt (Mitte + Abweichung je Gerät) |
+| `GET /api/projects/{id}/presets` · `POST` `{name, group, fixtureIds}` · `PUT /{pid}` `{name}` · `DELETE /{pid}` | Presets (Farbe, Beam) aus dem Programmer aufnehmen, umbenennen, löschen |
 | `POST …/presets/{pid}/record` · `/apply` `{fixtureIds}` | Preset aus dem Programmer aktualisieren (alle Szenen ziehen mit) · im Programmer anwenden |
 | `GET /api/projects/{id}/faders` · `PUT /{slot}` `{name, sceneId}` · `DELETE /{slot}` | Fader 1–8 (z.B. Saallicht) mit einer Szene belegen |
 

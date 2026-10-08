@@ -6,6 +6,7 @@
   import { fixtureHue, footprint, locateValues, nextFreeAddress, plannedFixtures } from '../lib/patch';
   import { navigate } from '../lib/router.svelte';
   import { live } from '../lib/live.svelte';
+  import { canMove } from '../lib/moves';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Fixture, FixtureType, PatchIssue, Universe } from '../lib/types';
@@ -25,7 +26,8 @@
 
   /** true while several fixtures are being created one after another */
   let adding = $state(false);
-  let form = $state({ typeId: '', mode: '', name: '', shortName: '', universeId: 0, address: 1, count: 1 });
+  let form = $state({ typeId: '', mode: '', name: '', shortName: '', universeId: 0, address: 1, count: 1,
+    limited: false, panMin: 0, panMax: 255, tiltMin: 0, tiltMax: 255 });
   let addressTouched = $state(false);
 
   const project = $derived(app.active);
@@ -101,6 +103,7 @@
       universeId: targetUniverse,
       address: 1,
       count: 1,
+      limited: false, panMin: 0, panMax: 255, tiltMin: 0, tiltMax: 255,
     };
     addressTouched = false;
     selectedId = null;
@@ -174,6 +177,11 @@
       universeId: fixture.universeId,
       address: fixture.address,
       count: 1,
+      limited: fixture.limits !== null,
+      panMin: fixture.limits?.panMin ?? 0,
+      panMax: fixture.limits?.panMax ?? 255,
+      tiltMin: fixture.limits?.tiltMin ?? 0,
+      tiltMax: fixture.limits?.tiltMax ?? 255,
     };
     confirmDelete = false;
     panel = 'edit';
@@ -200,6 +208,8 @@
         position: selected.position,
         sortOrder: selected.sortOrder,
         stageShape: selected.stageShape,
+        limits: form.limited ? { panMin: form.panMin, panMax: form.panMax, tiltMin: form.tiltMin,
+          tiltMax: form.tiltMax } : null,
       });
       notify(`Saved "${form.name}"`);
       universeId = form.universeId;
@@ -401,6 +411,30 @@
             </span>
           </p>
 
+          {#if panel === 'edit' && canMove(formMode)}
+            <fieldset class="limits">
+              <legend>
+                <label class="check"><input type="checkbox" bind:checked={form.limited} /> Limit pan and tilt</label>
+              </legend>
+              <div class="row">
+                <label class="field">Pan min<input type="number" min="0" max="255" bind:value={form.panMin}
+                  disabled={!form.limited} /></label>
+                <label class="field">Pan max<input type="number" min="0" max="255" bind:value={form.panMax}
+                  disabled={!form.limited} /></label>
+              </div>
+              <div class="row">
+                <label class="field">Tilt min<input type="number" min="0" max="255" bind:value={form.tiltMin}
+                  disabled={!form.limited} /></label>
+                <label class="field">Tilt max<input type="number" min="0" max="255" bind:value={form.tiltMax}
+                  disabled={!form.limited} /></label>
+              </div>
+              <p class="hint dim">
+                DMX values. Scenes, party and keys stay within them – e.g. never into the audience. The programmer can
+                reach every point while setting up.
+              </p>
+            </fieldset>
+          {/if}
+
           <div class="form-actions">
             {#if panel === 'add'}
               <button class="btn primary" type="submit" disabled={!formMode || adding}>Patch {form.count > 1 ? `${form.count} fixtures` : 'fixture'}</button>
@@ -430,6 +464,21 @@
 <OflImportModal bind:open={oflOpen} />
 
 <style>
+  .limits {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin: 0;
+    padding: 8px 12px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .limits .hint {
+    margin: 0;
+    font-size: 12px;
+  }
+
   .patch {
     display: grid;
     grid-template-columns: 270px minmax(0, 1fr) 330px;

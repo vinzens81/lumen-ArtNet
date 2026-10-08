@@ -3,9 +3,22 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.81 – 1.0.91 · 2026-10-08
+## 1.0.81 – 1.0.94 · 2026-10-08
 
 ### Added
+- Moves for moving heads (new Setup tab "Moves"): draw figures in the pan/tilt grid (templates: circle, eight, lines,
+  triangle, rectangle, random), lay them onto heads with size, shift, rotation, tempo, loop / once / ping-pong and an
+  offset between the heads; each head can be shifted, mirrored and reversed. Preview in the browser and "Show on
+  stage". A figure with one point is a fixed position.
+- Scenes, light markers, keys and party fields play moves next to looks and compositions. A head without a move in
+  the next scene stays where it is.
+- Programmer: "Record position" turns where the selected heads point into a move; "Record scene" can put the position
+  into the new scene as well.
+- Move in dark per scene: heads that point somewhere else dim out, move while dark and dim in at their new place.
+  Dim-out and travel times per project and scene.
+- Pan/tilt limits per fixture in the patch: the show never leaves them, the programmer can still reach every point.
+  The XY pad and the move editor show them as a frame.
+- Project files version 4 with figures and moves.
 - Fixture profile: DELIBANG LED moving head wash 7 × 10 W RGBW (9 / 14 channels).
 - View-only stage for phones (`#/view`, "👁 View" in the top bar): the stage glowing live with the scene on
   stage, nothing to control.
@@ -17,6 +30,8 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - Version and changelog in Settings ("What's new").
 
 ### Changed
+- Looks and presets no longer hold pan and tilt – positions come only from moves. Older project files lose them on
+  import (with a warning in the log); position presets are gone.
 - Scene editor: with light markers, the settings of each part (start and every marker) are framed.
 - Show mode: a light marker changes the light within the scene box. The box lists the parts of the scene, a small bar
   under the marker shows the fade; the stack on the right and the big bar only move for scene changes.
