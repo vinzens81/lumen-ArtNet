@@ -1,11 +1,17 @@
 <script lang="ts">
+  import changelog from '../../../CHANGELOG.md?raw';
+  import Modal from '../components/Modal.svelte';
   import { access } from '../lib/access.svelte';
+  import { codeSpans, parseChangelog } from '../lib/changelog';
   import { api } from '../lib/api';
   import { backupReason, fileSize } from '../lib/format';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Backups } from '../lib/types';
 
   let backups = $state<Backups | null>(null);
+  let changelogOpen = $state(false);
+  const version = __LUMEN_VERSION__;
+  const releases = parseChangelog(changelog);
   let creating = $state(false);
 
   async function loadBackups() {
@@ -190,9 +196,80 @@
       {/if}
     {/if}
   </article>
+
+  <article class="glass panel">
+    <header class="panel-head">
+      <div>
+        <h2>About Lumen</h2>
+        <p class="dim">Version <span class="mono">{version}</span>{releases[0] ? ` · ${releases[0].date}` : ''}</p>
+      </div>
+      <button class="btn" type="button" onclick={() => (changelogOpen = true)}>What's new</button>
+    </header>
+  </article>
 </section>
 
+<Modal bind:open={changelogOpen} title="What's new in Lumen" wide>
+  <div class="changelog">
+    {#each releases as release (release.versions)}
+      <section class="release">
+        <h3>{release.versions} <span class="dim small">{release.date}</span></h3>
+        {#each release.sections as section (section.heading)}
+          <h4 class="kind {section.heading.toLowerCase()}">{section.heading}</h4>
+          <ul>
+            {#each section.items as item, i (i)}
+              <li>{#each codeSpans(item) as part, j (j)}{#if part.code}<code>{part.text}</code>{:else}{part.text}{/if}{/each}</li>
+            {/each}
+          </ul>
+        {/each}
+      </section>
+    {/each}
+  </div>
+</Modal>
+
 <style>
+  .changelog {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+  }
+
+  .release h3 {
+    margin: 0 0 4px;
+    font-size: 15px;
+  }
+
+  .kind {
+    margin: 10px 0 4px;
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .kind.added {
+    color: var(--ok);
+  }
+
+  .kind.fixed {
+    color: var(--warning);
+  }
+
+  .kind.removed {
+    color: var(--danger);
+  }
+
+  .release ul {
+    margin: 0;
+    padding-left: 20px;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  .release code {
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
