@@ -1,0 +1,90 @@
+# DELIBANG LED moving head wash, 7 × 10 W RGBW 4-in-1 (model 02018, sold on Amazon as B0B13TPXZ6): DMX 9 / 14 channels.
+# Channel layout from the DMX tables on the product page; the same no-name design as generic-moving-wash-rgbw.
+#
+# The shutter channel combines off (0–7), master dimmer (8–134), strobe (135–239) and open (240–255).
+# It is deliberately NOT a dimmer: a dimmer fade would run through the strobe range. The channel stays
+# "open" (255) and Lumen dims through red/green/blue/white (virtual dimmer), which works smoothly for LEDs.
+# Strobe and the fixture's own master dimmer can still be set on the shutter channel in the programmer.
+#
+# Pan 540° from the specification; the listing gives tilt both as 180° (specification) and 270° (description) –
+# 180° taken from the specification, check it on the fixture.
+id: delibang-moving-head-wash-7x10w-rgbw
+manufacturer: DELIBANG
+model: LED Moving Head Wash 7 × 10 W RGBW (02018)
+category: moving-head
+
+physical:
+  pan-range: 540
+  tilt-range: 180
+
+modes:
+  - name: 9ch
+    channels:
+      - function: pan
+        default: 128
+      - function: tilt
+        default: 128
+      - function: shutter
+        default: 255
+        ranges:
+          - { from: 0,   to: 7,   label: Off }
+          - { from: 8,   to: 134, label: Master dimmer }
+          - { from: 135, to: 239, label: Strobe slow → fast }
+          - { from: 240, to: 255, label: Open }
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: speed
+        name: XY speed
+        default: 0
+      # the 9-channel table only says "0–255: reset"; presumably 150–200 as in 14ch mode – keep at 0
+      - function: reset
+        default: 0
+
+  - name: 14ch
+    channels:
+      - function: pan
+        resolution: 16
+        default: 32768
+      - function: tilt
+        resolution: 16
+        default: 32768
+      - function: speed
+        name: XY speed
+        default: 0
+      - function: shutter
+        default: 255
+        ranges:
+          - { from: 0,   to: 7,   label: Off }
+          - { from: 8,   to: 134, label: Master dimmer }
+          - { from: 135, to: 239, label: Strobe slow → fast }
+          - { from: 240, to: 255, label: Open }
+      - function: red
+      - function: green
+      - function: blue
+      - function: white
+      - function: macro
+        name: Color macro
+        default: 0
+        ranges:
+          - { from: 0,   to: 7,   label: Mix from red/green/blue/white }
+          - { from: 8,   to: 231, label: Macro color }
+          - { from: 232, to: 255, label: Color jumping }
+      - function: generic
+        name: Color jumping speed
+        default: 0
+      - function: program
+        default: 0
+        ranges:
+          - { from: 0,   to: 7,   label: Manual (channels 1–12) }
+          - { from: 8,   to: 63,  label: Auto fast }
+          - { from: 64,  to: 127, label: Auto slow }
+          - { from: 128, to: 191, label: Sound 1 }
+          - { from: 192, to: 255, label: Sound 2 }
+      - function: reset
+        default: 0
+        ranges:
+          - { from: 0,   to: 149, label: No function }
+          - { from: 150, to: 200, label: Reset }
+          - { from: 201, to: 255, label: No function }

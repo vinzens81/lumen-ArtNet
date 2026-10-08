@@ -3,9 +3,10 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.81 – 1.0.88 · 2026-10-08
+## 1.0.81 – 1.0.91 · 2026-10-08
 
 ### Added
+- Fixture profile: DELIBANG LED moving head wash 7 × 10 W RGBW (9 / 14 channels).
 - View-only stage for phones (`#/view`, "👁 View" in the top bar): the stage glowing live with the scene on
   stage, nothing to control.
 - Show mode: "Stop" ends the show at once – scene, keys and faders to 0 without a fade, the next GO starts from the
