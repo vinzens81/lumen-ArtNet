@@ -25,7 +25,9 @@ export function showStack(
   if (!status) return empty;
   const byId = new Map(scenes.map((s) => [s.id, s]));
   const current = status.currentSceneId != null ? byId.get(status.currentSceneId) ?? null : null;
-  const outgoing = status.fade?.fromSceneId != null ? byId.get(status.fade.fromSceneId) ?? null : null;
+  // a light marker changes the light within the scene: nothing moves in the stack
+  const outgoing = status.fade && !status.fade.withinScene && status.fade.fromSceneId != null
+    ? byId.get(status.fade.fromSceneId) ?? null : null;
   const currentIndex = current ? scenes.indexOf(current) : status.position;
   const previous = outgoing ?? (currentIndex > 0 ? scenes[currentIndex - 1] ?? null : null);
 

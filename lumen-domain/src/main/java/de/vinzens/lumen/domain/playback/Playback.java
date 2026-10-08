@@ -338,7 +338,7 @@ public final class Playback {
 		}
 		var times = transition.times();
 		return Optional.of(new FadeStatus(transition.fromSceneId(), virtualNow(now).minus(transition.start()),
-				times.fadeIn(), times.fadeOut(), times.delay()));
+				times.fadeIn(), times.fadeOut(), times.delay(), transition.withinScene()));
 	}
 
 	/** Time left until auto-follow fires, if the current scene has one. */
@@ -362,9 +362,10 @@ public final class Playback {
 	 * @param elapsed     time since GO (paused time excluded)
 	 * @param fadeIn      fade-in time of this transition, starting after the delay
 	 * @param fadeOut     fade-out time of this transition, starting at GO
+	 * @param withinScene the light changes between parts of the scene on stage (a light marker), not to another scene
 	 */
 	public record FadeStatus(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut,
-			Duration delay) {
+			Duration delay, boolean withinScene) {
 	}
 
 	// --- internals -------------------------------------------------------------------------------------------
@@ -397,8 +398,9 @@ public final class Playback {
 
 		var fromSceneId = currentScene().map(Scene::id);
 		var times = timesInto(target);
+		var withinScene = target == position && isScene(target);
 		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v,
-				times);
+				times, withinScene);
 		running = List.copyOf(next);
 		position = target;
 		section = targetSection;
@@ -558,14 +560,16 @@ public final class Playback {
 	 */
 	private record Transition(Map<Long, FixtureValues> from, List<Running> fromRunning,
 			Map<Long, Running> continuing, Set<Long> darkAtGo, Optional<Long> fromSceneId, int target,
-			Duration start, Times times) {
+			Duration start, Times times, boolean withinScene) {
 
 		Transition withTarget(int newTarget) {
-			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start, times);
+			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start, times,
+					withinScene);
 		}
 
 		Transition withContinuing(Map<Long, Running> newContinuing) {
-			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start, times);
+			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start, times,
+					withinScene);
 		}
 	}
 }

@@ -50,6 +50,8 @@ class PlaybackSectionsTest {
 				Duration.ofSeconds(2));
 		playback.useSections(Map.of(1L, List.of(List.of(WARM, SPOT), List.of())));
 		playback.go(START, B);
+		assertThat(playback.fade(START)).as("a GO into another scene")
+				.hasValueSatisfying(fade -> assertThat(fade.withinScene()).isFalse());
 		playback.finish(START);
 
 		assertThat(playback.goToSection(1, START, B)).isTrue();
@@ -57,6 +59,7 @@ class PlaybackSectionsTest {
 		assertThat(halfway.get(5L).get(DIMMER)).as("in both parts: no movement").contains(1.0);
 		assertThat(halfway.get(6L).get(DIMMER).orElseThrow()).as("fading in").isCloseTo(0.5, within(0.01));
 		assertThat(playback.section()).isEqualTo(1);
+		assertThat(playback.fade(START)).hasValueSatisfying(fade -> assertThat(fade.withinScene()).isTrue());
 
 		playback.goToSection(2, START.plusSeconds(3), B);
 		assertThat(playback.output(START.plusSeconds(6), B).values())

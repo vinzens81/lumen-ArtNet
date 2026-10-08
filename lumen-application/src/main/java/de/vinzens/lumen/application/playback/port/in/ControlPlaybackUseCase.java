@@ -87,7 +87,9 @@ public interface ControlPlaybackUseCase {
 	 * @param fromSceneId scene fading out, empty for the dark start or a mixed look
 	 * @param elapsed     time since GO, paused time excluded
 	 * @param delay       the fade-in starts this long after GO
+	 * @param withinScene to another part of the scene on stage (a light marker), not to another scene
 	 */
-	record Fade(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay) {
+	record Fade(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay,
+			boolean withinScene) {
 	}
 }

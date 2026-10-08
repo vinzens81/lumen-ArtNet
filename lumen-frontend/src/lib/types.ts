@@ -357,7 +357,11 @@ export interface PlaybackStatus {
   nextSceneId: number | null;
   nextIsEnd: boolean;
   /** the running transition; its fade-in starts delayMs after GO, the fade-out at GO */
-  fade: { fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number; delayMs: number } | null;
+  fade: {
+    fromSceneId: number | null; elapsedMs: number; fadeInMs: number; fadeOutMs: number; delayMs: number;
+    /** to another part of the scene on stage (a light marker), not to another scene */
+    withinScene: boolean;
+  } | null;
   paused: boolean;
   autoFollowInMs: number | null;
   /** scene that was on stage before a server restart and can be resumed */

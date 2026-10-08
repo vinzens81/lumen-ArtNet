@@ -34,7 +34,8 @@ public final class PlaybackDtos {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
 					status.currentSceneId().orElse(null), status.nextSceneId().orElse(null), status.nextIsEnd(),
 					status.fade().map(f -> new FadeResponse(f.fromSceneId().orElse(null), f.elapsed().toMillis(),
-							f.fadeIn().toMillis(), f.fadeOut().toMillis(), f.delay().toMillis())).orElse(null),
+							f.fadeIn().toMillis(), f.fadeOut().toMillis(), f.delay().toMillis(), f.withinScene()))
+							.orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
 					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList(),
 					status.scriptLine(), status.section(), status.faders().stream().map(FaderResponse::from).toList());
@@ -64,7 +65,11 @@ public final class PlaybackDtos {
 		}
 	}
 
-	/** @param delayMs the fade-in starts this long after GO */
-	public record FadeResponse(Long fromSceneId, long elapsedMs, long fadeInMs, long fadeOutMs, long delayMs) {
+	/**
+	 * @param delayMs     the fade-in starts this long after GO
+	 * @param withinScene to another part of the scene on stage (a light marker), not to another scene
+	 */
+	public record FadeResponse(Long fromSceneId, long elapsedMs, long fadeInMs, long fadeOutMs, long delayMs,
+			boolean withinScene) {
 	}
 }

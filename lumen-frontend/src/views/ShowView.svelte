@@ -69,8 +69,6 @@
   /** what ↑/↓ step through: the whole speech of a speaker */
   const scriptPassages = $derived(passages(script));
   const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
-  /** the light marker whose part is on stage, null at the start of the scene */
-  const marker = $derived((status?.section ?? 0) > 0 ? script.markers[(status?.section ?? 0) - 1] ?? null : null);
 
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
@@ -350,8 +348,25 @@
           <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
           {#if current}
             <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
-            {#if marker}
-              <div class="now-marker" title={marker.info}>💡 {marker.name}{#if marker.info}{' '}<span class="dim">– {marker.info}</span>{/if}</div>
+            {#if script.markers.length > 0}
+              {@const active = status?.section ?? 0}
+              {@const fadingPart = status?.fade?.withinScene && fadeInProgress < 1}
+              <!-- the parts of the scene: light markers fade within it, the stack stays for scene changes -->
+              <ol class="parts" aria-label="Light markers of the scene">
+                {#each [{ name: 'Start', info: '' }, ...script.markers] as part, i (i)}
+                  <li class:active={i === active} class:passed={i < active}>
+                    <span class="part-name">{i === 0 ? '▸' : '💡'} {part.name}</span>
+                    {#if part.info}<span class="part-info">{part.info}</span>{/if}
+                    {#if i === active && fadingPart && status?.fade}
+                      <div class="part-bar"><span style="width: {fadeInProgress * 100}%"></span></div>
+                      <span class="part-left mono">
+                        {delayLeft > 0 ? `starts in ${seconds(delayLeft)}`
+                          : `${seconds(Math.max(0, status.fade.delayMs + status.fade.fadeInMs - elapsed))} left`}
+                      </span>
+                    {/if}
+                  </li>
+                {/each}
+              </ol>
             {/if}
           {:else if atEnd}
             <div class="big dim">End of show</div>
@@ -359,7 +374,7 @@
             <div class="big dim">Ready – stage is dark</div>
           {/if}
           <!-- always rendered, so the panel keeps its height when a fade ends -->
-          {#if status?.fade && fadeInProgress < 1}
+          {#if status?.fade && !status.fade.withinScene && fadeInProgress < 1}
             <div class="bar"><span style="width: {fadeInProgress * 100}%"></span></div>
             {#if delayLeft > 0}
               <div class="dim small mono">Fade in starts in {seconds(delayLeft)}</div>
@@ -715,10 +730,68 @@
     color: var(--ok);
   }
 
-  .now-marker {
+  /* the parts of the scene after its light markers */
+  .parts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .parts li {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: baseline;
+    column-gap: 10px;
+    padding: 3px 8px;
+    border-left: 2px solid transparent;
+    border-radius: 4px;
+    font-size: 13px;
+    color: var(--text-dim);
+  }
+
+  .parts li.passed {
+    opacity: 0.45;
+  }
+
+  .parts li.active {
+    border-left-color: var(--warning);
+    background: var(--warning-soft);
     color: var(--warning);
-    font-size: 14px;
     font-weight: 600;
+  }
+
+  .part-info {
+    overflow: hidden;
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text-dim);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .part-bar {
+    grid-column: 1 / -1;
+    height: 4px;
+    margin-top: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .part-bar span {
+    display: block;
+    height: 100%;
+    background: var(--warning);
+  }
+
+  .part-left {
+    grid-column: 1 / -1;
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--text-dim);
   }
 
   .resume-panel {

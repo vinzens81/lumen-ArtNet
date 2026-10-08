@@ -19,12 +19,17 @@ describe('showStack', () => {
   });
 
   it('shows the scene fading out as the one before and the end after the last scene', () => {
-    const fade = { fromSceneId: 2, elapsedMs: 0, fadeInMs: 1000, fadeOutMs: 1000, delayMs: 0 };
+    const fade = { fromSceneId: 2, elapsedMs: 0, fadeInMs: 1000, fadeOutMs: 1000, delayMs: 0, withinScene: false };
     const stack = showStack(scenes, status(3, 4, 5, { fade }));
     expect(stack.previous?.id).toBe(2);
     expect(stack.afterNext).toEqual({ kind: 'end' });
     expect(stack.more).toBe(0);
     expect(showStack(scenes, status(4, 5, null, { nextIsEnd: true })).next).toEqual({ kind: 'end' });
+  });
+
+  it('keeps the stack while a light marker fades within the scene', () => {
+    const fade = { fromSceneId: 3, elapsedMs: 0, fadeInMs: 1000, fadeOutMs: 1000, delayMs: 0, withinScene: true };
+    expect(showStack(scenes, status(2, 3, 4, { fade })).previous?.id).toBe(2);
   });
 
   it('has nothing before the first scene and before the start', () => {

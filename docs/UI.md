@@ -173,7 +173,10 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
   Antippen merkt eine Szene als *nächste* vor (Sprung), ausgelöst wird sie erst mit GO.
 - **Fortschritt als Stapel** rechts: die Szene davor (klein, eingerückt; während des Fades „Fading out“ mit Balken),
   **Jetzt** groß, **Next** etwas kleiner, „Then“ (die übernächste) noch kleiner und „+ n more scenes“; eine Linie mit
-  Punkten verbindet sie.
+  Punkten verbindet sie. Hat die Szene Licht-Marker, listet die „Now“-Box ihre Abschnitte (Start und jeder Marker
+  mit Infotext), der laufende ist hervorgehoben. Ein Marker-Wechsel blendet nur innerhalb der Szene: ein kleiner
+  Balken unter dem Marker zeigt den Fortschritt, der Stapel und der große Balken bleiben dem Szenenwechsel vorbehalten
+  (`fade.withinScene` im Playback-Status).
 - **Regiehinweis** der nächsten Szene groß sichtbar (das Stichwort für GO).
 - **GO-Button** riesig, auf Touch reagiert er sofort (pointerdown). Doppel-GO-Schutz über eine kurze Sperrzeit
   (konfigurierbar, z.B. 300 ms).
