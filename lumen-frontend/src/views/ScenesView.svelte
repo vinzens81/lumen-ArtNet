@@ -49,15 +49,20 @@
     delaySeconds: null as number | null,
     // empty = the project's curve
     fadeCurve: '' as FadeCurve | '',
+    moveInDark: false,
+    dimOutSeconds: null as number | null,
+    travelSeconds: null as number | null,
     script: '',
   });
-  let fades = $state({ fadeIn: 3, fadeOut: 3, fadeCurve: 'linear' as FadeCurve });
+  let fades = $state({ fadeIn: 3, fadeOut: 3, fadeCurve: 'linear' as FadeCurve, dimOut: 0.5, travel: 1.5 });
 
   const project = $derived(app.active);
   // effects depend on the id only: reloading the project list yields new objects for the same project
   const projectId = $derived(app.active?.id ?? null);
   const fadeInMs = $derived(app.active?.fadeInMs ?? null);
   const fadeOutMs = $derived(app.active?.fadeOutMs ?? null);
+  const dimOutMs = $derived(app.active?.dimOutMs ?? null);
+  const travelMs = $derived(app.active?.travelMs ?? null);
   const fadeCurve = $derived(app.active?.fadeCurve ?? null);
   const selected = $derived(scenes.find((s) => s.id === selectedId) ?? null);
   /** light markers of the script being edited, each name once: every one gets light of its own */
@@ -142,8 +147,9 @@
 
   $effect(() => {
     // only when the stored fade times change, so unsaved edits survive unrelated project reloads
-    if (fadeInMs !== null && fadeOutMs !== null && fadeCurve !== null) {
-      fades = { fadeIn: fadeInMs / 1000, fadeOut: fadeOutMs / 1000, fadeCurve };
+    if (fadeInMs !== null && fadeOutMs !== null && fadeCurve !== null && dimOutMs !== null && travelMs !== null) {
+      fades = { fadeIn: fadeInMs / 1000, fadeOut: fadeOutMs / 1000, fadeCurve, dimOut: dimOutMs / 1000,
+        travel: travelMs / 1000 };
     }
   });
 
@@ -175,6 +181,9 @@
       fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
       fadeCurve: scene.fadeCurve ?? '',
+      moveInDark: scene.moveInDark,
+      dimOutSeconds: scene.dimOutMs !== null ? scene.dimOutMs / 1000 : null,
+      travelSeconds: scene.travelMs !== null ? scene.travelMs / 1000 : null,
       script: scene.script,
     };
   }
@@ -195,6 +204,9 @@
         fadeOutMs: secondsToMs(form.fadeOutSeconds),
         delayMs: secondsToMs(form.delaySeconds),
         fadeCurve: form.fadeCurve || null,
+        moveInDark: form.moveInDark,
+        dimOutMs: secondsToMs(form.dimOutSeconds),
+        travelMs: secondsToMs(form.travelSeconds),
         script: form.script,
       });
       notify(`Saved scene ${scene.number}`);
@@ -363,6 +375,8 @@
         fadeInMs: Math.round(fades.fadeIn * 1000),
         fadeOutMs: Math.round(fades.fadeOut * 1000),
         fadeCurve: fades.fadeCurve,
+        dimOutMs: Math.round(fades.dimOut * 1000),
+        travelMs: Math.round(fades.travel * 1000),
       });
       await app.reloadProjects();
       notify('Fade times saved');
@@ -437,9 +451,14 @@
             {#each FADE_CURVES as curve (curve.id)}<option value={curve.id} title={curve.hint}>{curve.label}</option>{/each}
           </select>
         </label>
+        <label title="Move in dark: time to dim out the heads that move">Dim out
+          <input type="number" min="0" max="60" step="0.1" bind:value={fades.dimOut} /> s</label>
+        <label title="Move in dark: time the heads get to move while dark">Travel
+          <input type="number" min="0" max="60" step="0.1" bind:value={fades.travel} /> s</label>
         <button class="btn small" type="submit"
           disabled={fades.fadeIn * 1000 === project.fadeInMs && fades.fadeOut * 1000 === project.fadeOutMs
-            && fades.fadeCurve === project.fadeCurve}>Save</button>
+            && fades.fadeCurve === project.fadeCurve && fades.dimOut * 1000 === project.dimOutMs
+            && fades.travel * 1000 === project.travelMs}>Save</button>
       </form>
       <div class="actions">
         <button class="btn" type="button" onclick={() => navigate('/print/cues')} disabled={scenes.length === 0}
@@ -537,6 +556,20 @@
               <p class="hint dim">
                 Empty = the project's time. “Out” fades the scene before, “Delay” holds back the fade-in – e.g. In 0 and
                 Out 0 for a flash.
+              </p>
+              <fieldset class="timing">
+                <legend>Moving heads</legend>
+                <label class="check"><input type="checkbox" bind:checked={form.moveInDark} /> Move in dark</label>
+                <label>Dim out <input class="seconds" type="number" min="0" max="60" step="0.1"
+                  bind:value={form.dimOutSeconds} placeholder={String(project.dimOutMs / 1000)}
+                  disabled={!form.moveInDark} /> s</label>
+                <label>Travel <input class="seconds" type="number" min="0" max="60" step="0.1"
+                  bind:value={form.travelSeconds} placeholder={String(project.travelMs / 1000)}
+                  disabled={!form.moveInDark} /> s</label>
+              </fieldset>
+              <p class="hint dim">
+                Heads that point somewhere else in this scene dim out, move while dark and dim in with the fade-in,
+                instead of sweeping across the stage while lit. Heads staying where they are fade as usual.
               </p>
           </form>
 

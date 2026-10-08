@@ -4,9 +4,13 @@ import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.CompositionMixer;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.composition.MovePattern;
+import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.library.AttributeGroup;
+import de.vinzens.lumen.domain.library.ChannelFunction;
+import de.vinzens.lumen.domain.library.FadeBehavior;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.FadeCurve;
+import de.vinzens.lumen.domain.scene.MoveInDark;
 import de.vinzens.lumen.domain.scene.Scene;
 
 import java.time.Duration;
@@ -44,10 +48,17 @@ import java.util.Set;
  *
  * <p>Pan and tilt come from moves. A fixture that no move of the new scene points keeps the position it had at GO,
  * so changing only the color does not send the heads back to the middle.
+ *
+ * <p>With "move in dark" ({@link MoveInDark}) heads that point somewhere else in the new scene (or part) dim out,
+ * jump to their new position while dark – color, gobo and the like with them – and dim in with the fade-in, at the
+ * earliest after the delay. A head dark at GO skips the dim-out. Moves of the new scene start when the heads dim in.
  */
 public final class Playback {
 
 	public static final int READY = -1;
+	/** A head moves in the dark if its new position differs by more than this in pan or tilt. */
+	static final int MOVED_DMX = 2;
+	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 
 	private List<Scene> scenes;
 	private Map<Long, List<ActiveComposition>> compositions;
@@ -58,6 +69,8 @@ public final class Playback {
 	private Duration fadeIn;
 	private Duration fadeOut;
 	private FadeCurve fadeCurve = FadeCurve.LINEAR;
+	private Duration dimOut = MoveInDark.DEFAULT_DIM_OUT;
+	private Duration travel = MoveInDark.DEFAULT_TRAVEL;
 	private FixtureAttributes attributes = FixtureAttributes.ALL;
 	/** Compositions of the scene at the current position, with their start time. */
 	private List<Running> running = List.of();
@@ -102,6 +115,12 @@ public final class Playback {
 	/** The project's fade curve, for transitions into scenes without their own and the fade to black at the end. */
 	public void useFadeCurve(FadeCurve curve) {
 		this.fadeCurve = Objects.requireNonNull(curve, "curve");
+	}
+
+	/** The project's times for moving in the dark, for scenes without their own. */
+	public void useMoveInDark(Duration projectDimOut, Duration projectTravel) {
+		this.dimOut = Objects.requireNonNull(projectDimOut, "projectDimOut");
+		this.travel = Objects.requireNonNull(projectTravel, "projectTravel");
 	}
 
 	/**
@@ -274,7 +293,7 @@ public final class Playback {
 	public boolean tick(Instant now, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		var changed = false;
-		if (transition != null && v.minus(transition.start()).compareTo(transition.times().longest()) >= 0) {
+		if (transition != null && v.minus(transition.start()).compareTo(transition.end()) >= 0) {
 			transition = null;
 			changed = true;
 		}
@@ -316,7 +335,53 @@ public final class Playback {
 					+ (current.composition().level() - previous.composition().level()) * progress;
 			mixed = CompositionMixer.apply(mixed, blended, current.composition().pattern(), level, attributes);
 		}
+		if (!transition.dark().fixtures().isEmpty()) {
+			var result = new HashMap<>(mixed);
+			var full = look(held, running, v);
+			for (var fixtureId : transition.dark().fixtures()) {
+				result.put(fixtureId, inDark(fixtureId, from.getOrDefault(fixtureId, FixtureValues.EMPTY),
+						full.getOrDefault(fixtureId, FixtureValues.EMPTY), elapsed, transition, behaviors));
+			}
+			mixed = result;
+		}
 		return mixed;
+	}
+
+	/**
+	 * A head moving in the dark: dims out with its old values, is dark at its new position from the end of the dim-out
+	 * (old values the new look does not set stay), dims in with the fade-in.
+	 */
+	private static FixtureValues inDark(long fixtureId, FixtureValues old, FixtureValues target, Duration elapsed,
+			Transition transition, FadeBehaviors behaviors) {
+		var dark = transition.dark();
+		var curve = transition.times().curve();
+		var dimOutEnd = transition.darkAtGo().contains(fixtureId) ? Duration.ZERO : dark.dimOut();
+		if (elapsed.compareTo(dimOutEnd) < 0) {
+			return scaledIntensity(fixtureId, old, curve.level(1 - Crossfade.progress(elapsed, dimOutEnd)), behaviors);
+		}
+		var level = curve.level(Crossfade.progress(elapsed.minus(dark.fadeInStart()), transition.times().fadeIn()));
+		return scaledIntensity(fixtureId, newValues(fixtureId, old, target, behaviors), level,
+				behaviors);
+	}
+
+	/** The new values over the old ones; intensity only from the new values (dark where they set none). */
+	private static FixtureValues newValues(long fixtureId, FixtureValues old, FixtureValues target,
+			FadeBehaviors behaviors) {
+		var result = new HashMap<>(old.values());
+		result.replaceAll((attribute, value) ->
+				behaviors.of(fixtureId, attribute) == FadeBehavior.INTENSITY ? 0.0 : value);
+		result.putAll(target.values());
+		return new FixtureValues(result);
+	}
+
+	/** The values with every intensity attribute (dimmer included) times the level. */
+	private static FixtureValues scaledIntensity(long fixtureId, FixtureValues values, double level,
+			FadeBehaviors behaviors) {
+		var result = new HashMap<>(values.values());
+		result.putIfAbsent(DIMMER, 0.0);
+		result.replaceAll((attribute, value) ->
+				behaviors.of(fixtureId, attribute) == FadeBehavior.INTENSITY ? value * level : value);
+		return new FixtureValues(result);
 	}
 
 	/** Names of the compositions running in the current scene, for display. */
@@ -363,8 +428,9 @@ public final class Playback {
 			return Optional.empty();
 		}
 		var times = transition.times();
+		// with heads moving in the dark, the fade-in starts when they dim in
 		return Optional.of(new FadeStatus(transition.fromSceneId(), virtualNow(now).minus(transition.start()),
-				times.fadeIn(), times.fadeOut(), times.delay(), transition.withinScene()));
+				times.fadeIn(), times.fadeOut(), transition.inStart(), transition.withinScene()));
 	}
 
 	/** Time left until auto-follow fires, if the current scene has one. */
@@ -431,14 +497,62 @@ public final class Playback {
 		var withinScene = target == position && isScene(target);
 		// the delay of a scene is for the GO into it, a light marker changes the light at once
 		var times = withinScene ? timesInto(target).withoutDelay() : timesInto(target);
+		var dark = DarkMove.NONE;
+		if (times.moveInDark()) {
+			dark = darkMove(next, continuing, darkAtGo, times, v);
+			if (!dark.fixtures().isEmpty()) {
+				// moves that take a head into the dark start when the heads dim in
+				var start = v.plus(dark.fadeInStart());
+				var moving = dark.fixtures();
+				next.replaceAll(r -> continuing.containsKey(r.composition().id())
+						|| !(r.composition().pattern() instanceof MovePattern)
+						|| r.composition().fixtureIds().stream().noneMatch(moving::contains)
+						? r : new Running(r.composition(), start));
+			}
+		}
 		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v,
-				times, withinScene);
+				times, withinScene, dark);
 		running = List.copyOf(next);
 		position = target;
 		section = targetSection;
 		pendingNext = null;
-		stayStart = v.plus(times.delay()).plus(times.fadeIn());
+		stayStart = v.plus(transition.inEnd());
 		dropDeletedScene();
+	}
+
+	/**
+	 * The heads that point somewhere else in the new light (more than {@value #MOVED_DMX} DMX values in pan or tilt
+	 * from where they point at GO) and when they dim in: after the dim-out (if any of them is lit) and the travel
+	 * time, at the earliest after the delay.
+	 */
+	private DarkMove darkMove(List<Running> next, Map<Long, Running> continuing, Set<Long> darkAtGo, Times times,
+			Duration v) {
+		var incoming = next.stream().filter(r -> !continuing.containsKey(r.composition().id()))
+				.map(r -> new Running(r.composition(), v)).toList();
+		var target = positions(look(held, incoming, v));
+		var moving = new HashSet<Long>();
+		target.forEach((fixtureId, position) -> {
+			if (moved(held.getOrDefault(fixtureId, FixtureValues.EMPTY), position)) {
+				moving.add(fixtureId);
+			}
+		});
+		if (moving.isEmpty()) {
+			return DarkMove.NONE;
+		}
+		var anyLit = moving.stream().anyMatch(id -> !darkAtGo.contains(id));
+		var travelEnd = (anyLit ? times.dimOut() : Duration.ZERO).plus(times.travel());
+		var fadeInStart = travelEnd.compareTo(times.delay()) > 0 ? travelEnd : times.delay();
+		return new DarkMove(Set.copyOf(moving), times.dimOut(), fadeInStart);
+	}
+
+	private static boolean moved(FixtureValues from, FixtureValues to) {
+		for (var attribute : to.values().keySet()) {
+			var before = from.get(attribute);
+			if (before.isEmpty() || Math.abs(before.get() - to.get(attribute).orElseThrow()) > MOVED_DMX / 255.0) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Removes a scene deleted while on stage once the playback has left it. */
@@ -566,11 +680,12 @@ public final class Playback {
 	/** Fade times of the transition to a position: the scene's own, otherwise the project's. */
 	private Times timesInto(int target) {
 		if (!isScene(target)) {
-			return new Times(fadeIn, fadeOut, Duration.ZERO, fadeCurve);
+			return new Times(fadeIn, fadeOut, Duration.ZERO, fadeCurve, false, dimOut, travel);
 		}
 		var timing = scenes.get(target).spec().timing();
+		var dark = timing.moveInDark();
 		return new Times(timing.fadeInOr(fadeIn), timing.fadeOutOr(fadeOut), timing.delay(),
-				timing.curveOr(fadeCurve));
+				timing.curveOr(fadeCurve), dark.enabled(), dark.dimOutOr(dimOut), dark.travelOr(travel));
 	}
 
 	/** Time since an arbitrary origin that does not advance while paused. */
@@ -580,16 +695,28 @@ public final class Playback {
 	}
 
 	/** Fade times and curve of one transition, fixed at GO. */
-	private record Times(Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve) {
+	private record Times(Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve, boolean moveInDark,
+			Duration dimOut, Duration travel) {
 
 		Times withoutDelay() {
-			return new Times(fadeIn, fadeOut, Duration.ZERO, curve);
+			return new Times(fadeIn, fadeOut, Duration.ZERO, curve, moveInDark, dimOut, travel);
 		}
 
 		Duration longest() {
 			var in = delay.plus(fadeIn);
 			return in.compareTo(fadeOut) >= 0 ? in : fadeOut;
 		}
+	}
+
+	/**
+	 * Heads moving in the dark during a transition.
+	 *
+	 * @param dimOut      time the lit ones take to dim out
+	 * @param fadeInStart time after GO when they dim in at their new position
+	 */
+	private record DarkMove(Set<Long> fixtures, Duration dimOut, Duration fadeInStart) {
+
+		static final DarkMove NONE = new DarkMove(Set.of(), Duration.ZERO, Duration.ZERO);
 	}
 
 	/** A composition playing since {@code startedAt} (virtual time). */
@@ -604,16 +731,32 @@ public final class Playback {
 	 */
 	private record Transition(Map<Long, FixtureValues> from, List<Running> fromRunning,
 			Map<Long, Running> continuing, Set<Long> darkAtGo, Optional<Long> fromSceneId, int target,
-			Duration start, Times times, boolean withinScene) {
+			Duration start, Times times, boolean withinScene, DarkMove dark) {
 
 		Transition withTarget(int newTarget) {
 			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start, times,
-					withinScene);
+					withinScene, dark);
 		}
 
 		Transition withContinuing(Map<Long, Running> newContinuing) {
 			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start, times,
-					withinScene);
+					withinScene, dark);
+		}
+
+		/** When the fade-in starts: the delay, or later when heads move in the dark first. */
+		Duration inStart() {
+			return dark.fadeInStart().compareTo(times.delay()) > 0 ? dark.fadeInStart() : times.delay();
+		}
+
+		/** When everything has faded in. */
+		Duration inEnd() {
+			return inStart().plus(times.fadeIn());
+		}
+
+		/** When the transition is over. */
+		Duration end() {
+			var longest = times.longest();
+			return inEnd().compareTo(longest) > 0 ? inEnd() : longest;
 		}
 	}
 }

@@ -96,7 +96,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		export.scenes().forEach(scene -> sceneNumbers.put(scene.id(), scene.spec().number().toString()));
 		return new ProjectFile(FORMAT, VERSION, now,
 				new ProjectRequest(spec.name(), spec.venue().orElse(null), spec.fadeIn().toMillis(),
-						spec.fadeOut().toMillis(), spec.fadeCurve().id()),
+						spec.fadeOut().toMillis(), spec.fadeCurve().id(), spec.dimOut().toMillis(),
+						spec.travel().toMillis()),
 				export.universes().stream().map(UniverseEntry::from).toList(),
 				export.fixtures().stream().map(FixtureEntry::from).toList(),
 				export.groups().stream().map(GroupEntry::from).toList(),
@@ -434,7 +435,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
-			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script,
+			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, Boolean moveInDark, Long dimOutMs,
+			Long travelMs, String script,
 			List<SceneCompositionEntry> compositions, List<SceneKeyEntry> keys, List<SceneLookEntry> looks,
 			List<SceneMoveEntry> moves, List<SectionEntry> sections) {
 
@@ -444,7 +446,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			return new SceneEntry(spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null), null,
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					TimingJson.fadeCurve(timing), spec.script(),
+					TimingJson.fadeCurve(timing), timing.moveInDark().enabled() ? Boolean.TRUE : null,
+					TimingJson.dimOutMs(timing), TimingJson.travelMs(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionEntry::from).toList(),
 					scene.keys().stream().map(SceneKeyEntry::from).toList(),
 					scene.looks().stream().map(SceneLookEntry::from).toList(),
@@ -453,8 +456,11 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 
 		Scene toScene(long id) {
-			return new Scene(id, 0, sceneSpec(number, name, cueNote, autoFollowMs, fadeInMs, fadeOutMs, delayMs,
-					fadeCurve, script),
+			var spec = sceneSpec(number, name, cueNote, autoFollowMs, fadeInMs, fadeOutMs, delayMs, fadeCurve, script);
+			spec = new SceneSpec(spec.number(), spec.name(), spec.cueNote(), spec.autoFollow(),
+					TimingJson.fromJson(fadeInMs, fadeOutMs, delayMs, fadeCurve, moveInDark, dimOutMs, travelMs),
+					spec.script());
+			return new Scene(id, 0, spec,
 					list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
 					list(keys).stream().map(SceneKeyEntry::toKey).toList(),
 					list(looks).stream().map(SceneLookEntry::toUse).toList(),

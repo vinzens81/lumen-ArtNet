@@ -64,6 +64,10 @@ export interface Project {
   fadeOutMs: number;
   /** shape of all fades, unless a scene has its own */
   fadeCurve: FadeCurve;
+  /** move in dark: dim-out of the heads that move, unless a scene has its own */
+  dimOutMs: number;
+  /** move in dark: time the heads get to move while dark */
+  travelMs: number;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -75,6 +79,10 @@ export interface ProjectRequest {
   fadeInMs: number;
   fadeOutMs: number;
   fadeCurve: FadeCurve;
+  /** null = 500 ms */
+  dimOutMs: number | null;
+  /** null = 1500 ms */
+  travelMs: number | null;
 }
 
 /** Shape of a fade: linear in DMX values, gentle start and end, or square law (softer in the dark). */
@@ -265,6 +273,12 @@ export interface Scene {
   delayMs: number;
   /** own fade curve, null = the project's */
   fadeCurve: FadeCurve | null;
+  /** heads that point somewhere else dim out, move while dark and dim in */
+  moveInDark: boolean;
+  /** dim-out of those heads, null = the project's */
+  dimOutMs: number | null;
+  /** time they get to move while dark, null = the project's */
+  travelMs: number | null;
   /** text spoken on stage during the scene, empty if none; `**…**` marks stage directions */
   script: string;
   /** in order: on the same attribute a later one wins (intensity: the highest) */
@@ -287,6 +301,9 @@ export interface SceneRequest {
   fadeOutMs?: number | null;
   delayMs?: number | null;
   fadeCurve?: FadeCurve | null;
+  moveInDark?: boolean;
+  dimOutMs?: number | null;
+  travelMs?: number | null;
   script?: string;
   /** the quick way: the programmer becomes the scene's first composition */
   record?: boolean;

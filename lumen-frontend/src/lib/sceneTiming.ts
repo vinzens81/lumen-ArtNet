@@ -46,6 +46,9 @@ export function sceneRequestOf(scene: Scene): SceneRequest {
     fadeOutMs: scene.fadeOutMs,
     delayMs: scene.delayMs,
     fadeCurve: scene.fadeCurve,
+    moveInDark: scene.moveInDark,
+    dimOutMs: scene.dimOutMs,
+    travelMs: scene.travelMs,
     script: scene.script,
   };
 }

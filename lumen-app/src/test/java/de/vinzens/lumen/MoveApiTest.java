@@ -144,6 +144,28 @@ class MoveApiTest {
 		assertThat(JsonPath.<Integer>read(body(copy + "/party-matrix"), "$.cells[0].moveId")).isEqualTo(newMove);
 	}
 
+	@Test
+	void moveInDarkIsSetPerSceneWithTheProjectsTimes() throws Exception {
+		assertThat(mvc.get().uri(base)).bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$.dimOutMs").isEqualTo(500);
+			assertThat(json).extractingPath("$.travelMs").isEqualTo(1500);
+		});
+		assertThat(put(base, """
+				{"name": "Moves", "fadeInMs": 3000, "fadeOutMs": 3000, "dimOutMs": 300, "travelMs": 2000}"""))
+				.hasStatusOk().bodyJson().extractingPath("$.travelMs").isEqualTo(2000);
+		var scene = id(post(base + "/scenes", "{\"name\": \"Dark\", \"moveInDark\": true, \"travelMs\": 1000}"));
+		assertThat(mvc.get().uri(base + "/scenes")).bodyJson().satisfies(json -> {
+			assertThat(json).extractingPath("$[0].id").isEqualTo((int) scene);
+			assertThat(json).extractingPath("$[0].moveInDark").isEqualTo(true);
+			assertThat(json).extractingPath("$[0].travelMs").isEqualTo(1000);
+			assertThat(json).extractingPath("$[0].dimOutMs").isNull();
+		});
+		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
+		var copy = "/api/projects/" + id(post("/api/projects/import", file));
+		assertThat(mvc.get().uri(copy + "/scenes")).bodyJson().extractingPath("$[0].moveInDark").isEqualTo(true);
+		assertThat(mvc.get().uri(copy)).bodyJson().extractingPath("$.dimOutMs").isEqualTo(300);
+	}
+
 	private static String move(String name, long figure, long... fixtures) {
 		var entries = new StringBuilder();
 		for (int i = 0; i < fixtures.length; i++) {

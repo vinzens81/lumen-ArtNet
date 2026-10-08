@@ -3,6 +3,7 @@ package de.vinzens.lumen.adapter.sqlite;
 import de.vinzens.lumen.application.scene.port.out.SceneRepository;
 import de.vinzens.lumen.domain.composition.KeyMode;
 import de.vinzens.lumen.domain.scene.FadeCurve;
+import de.vinzens.lumen.domain.scene.MoveInDark;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
@@ -67,12 +68,13 @@ public class SqliteSceneRepository implements SceneRepository {
 			var generated = new GeneratedKeyHolder();
 			jdbc.sql("""
 					INSERT INTO scene (project_id, number, name, cue_note, auto_follow_ms, fade_in_ms, fade_out_ms,
-					                   delay_ms, fade_curve, script)
-					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+					                   delay_ms, fade_curve, script, move_in_dark, dim_out_ms, travel_ms)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(projectId, spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 							millis(spec.autoFollow()), millis(spec.timing().fadeIn()),
 							millis(spec.timing().fadeOut()), spec.timing().delay().toMillis(), curve(spec),
-							spec.script())
+							spec.script(), spec.timing().moveInDark().enabled() ? 1 : 0,
+							millis(spec.timing().moveInDark().dimOut()), millis(spec.timing().moveInDark().travel()))
 					.update(generated);
 			var sceneId = generatedId(generated);
 			insertCompositions(sceneId, "", compositions);
@@ -86,11 +88,14 @@ public class SqliteSceneRepository implements SceneRepository {
 	public Scene updateSpec(long id, SceneSpec spec) {
 		jdbc.sql("""
 				UPDATE scene SET number = ?, name = ?, cue_note = ?, auto_follow_ms = ?, fade_in_ms = ?,
-				                 fade_out_ms = ?, delay_ms = ?, fade_curve = ?, script = ?
+				                 fade_out_ms = ?, delay_ms = ?, fade_curve = ?, script = ?, move_in_dark = ?,
+				                 dim_out_ms = ?, travel_ms = ?
 				WHERE id = ?""")
 				.params(spec.number().toString(), spec.name(), spec.cueNote().orElse(null), millis(spec.autoFollow()),
 						millis(spec.timing().fadeIn()), millis(spec.timing().fadeOut()),
-						spec.timing().delay().toMillis(), curve(spec), spec.script(), id)
+						spec.timing().delay().toMillis(), curve(spec), spec.script(),
+						spec.timing().moveInDark().enabled() ? 1 : 0, millis(spec.timing().moveInDark().dimOut()),
+						millis(spec.timing().moveInDark().travel()), id)
 				.update();
 		return findById(id).orElseThrow();
 	}
@@ -213,7 +218,9 @@ public class SqliteSceneRepository implements SceneRepository {
 		var id = rs.getLong("id");
 		var timing = new SceneTiming(optionalMillis(rs, "fade_in_ms"), optionalMillis(rs, "fade_out_ms"),
 				Duration.ofMillis(rs.getLong("delay_ms")),
-				Optional.ofNullable(rs.getString("fade_curve")).map(FadeCurve::parse));
+				Optional.ofNullable(rs.getString("fade_curve")).map(FadeCurve::parse),
+				new MoveInDark(rs.getInt("move_in_dark") == 1, optionalMillis(rs, "dim_out_ms"),
+						optionalMillis(rs, "travel_ms")));
 		var spec = new SceneSpec(SceneNumber.parse(rs.getString("number")), rs.getString("name"),
 				Optional.ofNullable(rs.getString("cue_note")), optionalMillis(rs, "auto_follow_ms"),
 				timing, rs.getString("script"));

@@ -147,7 +147,8 @@ class SceneController {
 	}
 
 	private static SceneTiming timing(SceneRequest request) {
-		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs(), request.fadeCurve());
+		return TimingJson.fromJson(request.fadeInMs(), request.fadeOutMs(), request.delayMs(), request.fadeCurve(),
+				request.moveInDark(), request.dimOutMs(), request.travelMs());
 	}
 
 	/**
@@ -159,8 +160,13 @@ class SceneController {
 	 * @param fadeCurve    "linear", "s-curve" or "square", {@code null} = the project's
 	 * @param script       text spoken on stage during the scene, {@code **…**} marks stage directions;
 	 *                     {@code null} = no text
+	 * @param moveInDark   heads that point somewhere else dim out, move while dark and dim in; {@code null} = off
+	 * @param dimOutMs     dim-out of those heads, {@code null} = the project's
+	 * @param travelMs     time they get to move while dark, {@code null} = the project's
 	 */
-	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script, Boolean record) {
+	record SceneRequest(String number, String name, String cueNote, Long autoFollowMs, Long fadeInMs, Long fadeOutMs,
+			Long delayMs, String fadeCurve, String script, Boolean record, Boolean moveInDark, Long dimOutMs,
+			Long travelMs) {
 	}
 
 	/** @param number cue number of the copy, {@code null} = after the last scene */
@@ -265,7 +271,8 @@ class SceneController {
 	 * @param sections       the light of the parts after the light markers of the script, by marker name
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs,
-			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
+			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, boolean moveInDark, Long dimOutMs,
+			Long travelMs, String script,
 			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys, List<SceneLookDto> looks,
 			List<SceneMoveDto> moves, List<SectionDto> sections) {
 
@@ -275,7 +282,8 @@ class SceneController {
 			return new SceneResponse(scene.id(), spec.number().toString(), spec.name(), spec.cueNote().orElse(null),
 					spec.autoFollow().map(Duration::toMillis).orElse(null),
 					TimingJson.fadeInMs(timing), TimingJson.fadeOutMs(timing), timing.delay().toMillis(),
-					TimingJson.fadeCurve(timing), spec.script(),
+					TimingJson.fadeCurve(timing), timing.moveInDark().enabled(), TimingJson.dimOutMs(timing),
+					TimingJson.travelMs(timing), spec.script(),
 					scene.compositions().stream().map(SceneCompositionDto::from).toList(),
 					scene.keys().stream().map(SceneKeyDto::from).toList(),
 					scene.looks().stream().map(SceneLookDto::from).toList(),

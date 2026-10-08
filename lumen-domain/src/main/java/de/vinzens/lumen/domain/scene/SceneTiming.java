@@ -14,9 +14,10 @@ import java.util.Optional;
  * @param fadeOut overrides the project's fade-out time for the look on stage at GO, empty = the project's
  * @param delay   the fade-in starts this long after GO, while the fade-out starts at once
  * @param curve   overrides the project's fade curve, empty = the project's
+ * @param moveInDark heads that point somewhere else move while dark
  */
 public record SceneTiming(Optional<Duration> fadeIn, Optional<Duration> fadeOut, Duration delay,
-		Optional<FadeCurve> curve) {
+		Optional<FadeCurve> curve, MoveInDark moveInDark) {
 
 	public static final Duration MAX = Duration.ofMinutes(10);
 	public static final SceneTiming DEFAULT = new SceneTiming(Optional.empty(), Optional.empty(), Duration.ZERO);
@@ -26,6 +27,7 @@ public record SceneTiming(Optional<Duration> fadeIn, Optional<Duration> fadeOut,
 		Objects.requireNonNull(fadeOut, "fadeOut");
 		Objects.requireNonNull(delay, "delay");
 		Objects.requireNonNull(curve, "curve");
+		Objects.requireNonNull(moveInDark, "moveInDark");
 		new Validation()
 				.require(fadeIn.map(SceneTiming::inRange).orElse(true), outOfRange("fadeIn"))
 				.require(fadeOut.map(SceneTiming::inRange).orElse(true), outOfRange("fadeOut"))
@@ -36,6 +38,16 @@ public record SceneTiming(Optional<Duration> fadeIn, Optional<Duration> fadeOut,
 	/** Times with the project's fade curve. */
 	public SceneTiming(Optional<Duration> fadeIn, Optional<Duration> fadeOut, Duration delay) {
 		this(fadeIn, fadeOut, delay, Optional.empty());
+	}
+
+	/** Times without moving in the dark. */
+	public SceneTiming(Optional<Duration> fadeIn, Optional<Duration> fadeOut, Duration delay,
+			Optional<FadeCurve> curve) {
+		this(fadeIn, fadeOut, delay, curve, MoveInDark.OFF);
+	}
+
+	public SceneTiming withMoveInDark(MoveInDark newMoveInDark) {
+		return new SceneTiming(fadeIn, fadeOut, delay, curve, newMoveInDark);
 	}
 
 	/** Whether the scene uses the project's times and curve without a delay. */

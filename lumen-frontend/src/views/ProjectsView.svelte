@@ -38,6 +38,9 @@
       fadeInMs: Math.round(form.fadeIn * 1000),
       fadeOutMs: Math.round(form.fadeOut * 1000),
       fadeCurve: form.fadeCurve,
+      // the times for moving in the dark are set in the Scenes tab
+      dimOutMs: editing?.dimOutMs ?? null,
+      travelMs: editing?.travelMs ?? null,
     };
     try {
       if (editing) {

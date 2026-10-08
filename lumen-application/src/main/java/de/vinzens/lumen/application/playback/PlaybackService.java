@@ -150,6 +150,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback.reload(data.cueList(), data.running(), fadeIn, fadeOut, clock.instant());
 			}
 			playback.useFadeCurve(project.spec().fadeCurve());
+			playback.useMoveInDark(project.spec().dimOut(), project.spec().travel());
 			resumeSceneId = resumeSceneId.filter(id -> data.cueList().stream().anyMatch(scene -> scene.id() == id));
 			faders.configure(data.faders());
 			sceneKeys = data.sceneKeys();

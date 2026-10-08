@@ -527,6 +527,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		for (int i = 1; names.contains(name.toLowerCase(Locale.ROOT)); i++) {
 			name = spec.name() + (i == 1 ? " (imported)" : " (imported " + i + ")");
 		}
-		return new ProjectSpec(name, spec.venue(), spec.fadeIn(), spec.fadeOut(), spec.fadeCurve());
+		return new ProjectSpec(name, spec.venue(), spec.fadeIn(), spec.fadeOut(), spec.fadeCurve(), spec.dimOut(),
+				spec.travel());
 	}
 }
