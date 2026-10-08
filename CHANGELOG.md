@@ -3,9 +3,10 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.81 – 1.0.83 · 2026-10-08
+## 1.0.81 – 1.0.84 · 2026-10-08
 
 ### Added
+- Show mode: a "Stage" tab next to Scenes, Script and DMX shows the stage view read-only, glowing like the output.
 - Formatted script editor in the scene editor: speakers in their show colors, stage directions and light markers
   marked. A toolbar sets the speaker of a line, turns a selection into a stage direction and inserts a light marker.
 - Version and changelog in Settings ("What's new").

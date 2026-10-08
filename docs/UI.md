@@ -190,6 +190,10 @@ Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
 `Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen ·
 `1`–`8` Extra-Tasten (Flash: solange gedrückt)
 
+### Bühne im Betrieb
+Der Reiter **Stage** neben Scenes, Script und DMX zeigt die Bühnenansicht nur lesend: Die Fixtures leuchten wie die
+echte Ausgabe, verschieben, Formen ändern und Tastenkürzel der Bühnenansicht gibt es hier nicht.
+
 ### DMX im Betrieb
 Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt nur die belegten
 Kanäle, nach Fixture gruppiert und alle Universen untereinander, live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich

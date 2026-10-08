@@ -4,6 +4,7 @@
   import KeyBar from '../components/KeyBar.svelte';
   import ScriptText from '../components/ScriptText.svelte';
   import DmxMonitorView from './DmxMonitorView.svelte';
+  import StageView from './StageView.svelte';
   import Swatches from '../components/Swatches.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
@@ -28,14 +29,17 @@
   let listElement: HTMLElement | undefined = $state();
 
   const TAB_KEY = 'lumen.showTab';
-  type Tab = 'cues' | 'script' | 'dmx';
-  /** left side of the show view: the cue list, the script or the live DMX values; GO and the keys stay on the right */
+  type Tab = 'cues' | 'script' | 'stage' | 'dmx';
+  /**
+   * left side of the show view: the cue list, the script, the stage (only looking) or the live DMX values; GO and the
+   * keys stay on the right
+   */
   let tab = $state<Tab>(readTab());
 
   function readTab(): Tab {
     try {
       const stored = localStorage.getItem(TAB_KEY);
-      return stored === 'dmx' || stored === 'script' ? stored : 'cues';
+      return stored === 'dmx' || stored === 'script' || stored === 'stage' ? stored : 'cues';
     } catch {
       return 'cues';
     }
@@ -256,6 +260,8 @@
           onclick={() => showTab('cues')}>Scenes</button>
         <button type="button" role="tab" aria-selected={tab === 'script'} class:active={tab === 'script'}
           onclick={() => showTab('script')}>Script</button>
+        <button type="button" role="tab" aria-selected={tab === 'stage'} class:active={tab === 'stage'}
+          onclick={() => showTab('stage')}>Stage</button>
         <button type="button" role="tab" aria-selected={tab === 'dmx'} class:active={tab === 'dmx'}
           onclick={() => showTab('dmx')}>DMX</button>
       </div>
@@ -270,6 +276,8 @@
     <div class="list-body" bind:this={listElement}>
     {#if tab === 'dmx'}
       <div class="dmx"><DmxMonitorView embedded /></div>
+    {:else if tab === 'stage'}
+      <div class="stage-tab"><StageView embedded /></div>
     {:else if tab === 'script'}
       {@render scriptView()}
     {:else}
@@ -501,7 +509,8 @@
     box-shadow: inset 0 -2px 0 var(--accent);
   }
 
-  .dmx {
+  .dmx,
+  .stage-tab {
     padding: 0 6px 6px;
   }
 

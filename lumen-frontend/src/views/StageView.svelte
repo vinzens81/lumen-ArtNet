@@ -26,6 +26,12 @@
     segments: Glow[];
   }
 
+  /**
+   * embedded in the show view: only looking – no tray, no dragging, no shapes, no programmer, no floor plan
+   * buttons, and no keyboard shortcuts that would change the stage
+   */
+  let { embedded = false }: { embedded?: boolean } = $props();
+
   let fixtures = $state<Fixture[]>([]);
   let planVersion = $state(0);
   let hasPlan = $state(false);
@@ -141,7 +147,7 @@
   }
 
   function startDrag(event: PointerEvent, fixture: Fixture) {
-    if (event.button !== 0) return;
+    if (embedded || event.button !== 0) return;
     event.preventDefault();
     selectedId = fixture.id;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
@@ -178,6 +184,7 @@
   }
 
   function onkeydown(event: KeyboardEvent) {
+    if (embedded) return;
     if ((event.target as HTMLElement).closest('input, textarea, select, .programmer-overlay')) return;
     if ((event.key === 'Delete' || event.key === 'Backspace') && selectedId !== null) {
       event.preventDefault();
@@ -230,7 +237,8 @@
 
 <svelte:window {onkeydown} />
 
-<section class="view">
+<section class="view" class:embedded>
+  {#if !embedded}
   <header class="head">
     <div>
       <h1>Stage</h1>
@@ -248,11 +256,13 @@
         onchange={uploadPlan} aria-label="Floor plan image" />
     </div>
   </header>
+  {/if}
 
   {#if !app.active}
     <div class="glass empty">Activate a project to arrange its fixtures.</div>
   {:else}
     <div class="layout">
+      {#if !embedded}
       <aside class="glass tray">
         <header class="tray-head">
           <h3>Not on stage</h3>
@@ -314,9 +324,10 @@
           </section>
         {/if}
       </aside>
+      {/if}
 
       <div class="stage-wrap glass">
-        <div class="stage" class:plan={hasPlan} style="aspect-ratio: {aspect}; width: min(100%, calc((100vh - 310px) * {aspect}))" bind:this={stageElement}
+        <div class="stage" class:plan={hasPlan} style="aspect-ratio: {aspect}; width: min(100%, calc((100vh - {embedded ? 280 : 310}px) * {aspect}))" bind:this={stageElement}
           role="presentation" onpointerdown={(e) => { if (e.target === stageElement) selectedId = null; }}>
           {#if projectId !== null}
             <img class="plan-image" class:hidden={!hasPlan} src={api.stage.planUrl(projectId, planVersion)} alt=""
@@ -364,7 +375,7 @@
             {/if}
           {/each}
         </div>
-        {#if selected}
+        {#if selected && !embedded}
           {#if controlsOpen}
             <div class="programmer-overlay glass" aria-label="Programmer for {selected.name}">
               <ProgrammerPanel {projectId} {entries} selection={[selected.id]} compact
@@ -424,6 +435,26 @@
     grid-template-columns: 240px minmax(0, 1fr);
     gap: 12px;
     align-items: start;
+  }
+
+  /* in the show view: just the stage, nothing to grab */
+  .view.embedded {
+    padding: 0;
+  }
+
+  .view.embedded .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .view.embedded .stage-wrap {
+    padding: 0;
+    border: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .view.embedded :is(.fixture, .line) {
+    cursor: default;
   }
 
   .tray {
