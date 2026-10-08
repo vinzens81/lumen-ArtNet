@@ -16,6 +16,7 @@
     scene,
     marker = null,
     info = '',
+    framed = false,
     scenes,
     compositions,
     looks,
@@ -35,6 +36,8 @@
     marker?: string | null;
     /** the text in brackets of the marker */
     info?: string;
+    /** a frame around the settings, so the parts of a scene with light markers stand apart */
+    framed?: boolean;
   } = $props();
 
   let uses = $state<SceneComposition[]>([]);
@@ -129,9 +132,9 @@
   }
 </script>
 
-<section class="compositions" class:part={marker !== null}>
+<section class="compositions" class:part={marker !== null} class:framed>
   {#if marker === null}
-    <h3>Compositions</h3>
+    <h3>Compositions{framed ? ' · Start' : ''}</h3>
     <p class="hint dim">
       Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
       scene too keeps running.
@@ -256,6 +259,20 @@
   /* a part after a light marker */
   .compositions.part h3 {
     color: var(--warning);
+  }
+
+  /* everything that belongs to one part, from its heading to the pickers */
+  .compositions.framed {
+    margin-top: 6px;
+    padding: 12px 14px 14px;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .compositions.framed.part {
+    border-color: color-mix(in srgb, var(--warning) 40%, transparent);
+    border-left: 3px solid var(--warning);
   }
 
   .list {

@@ -3,7 +3,7 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.81 – 1.0.85 · 2026-10-08
+## 1.0.81 – 1.0.86 · 2026-10-08
 
 ### Added
 - Show mode: "Stop" ends the show at once – scene, keys and faders to 0 without a fade, the next GO starts from the
@@ -14,6 +14,7 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - Version and changelog in Settings ("What's new").
 
 ### Changed
+- Scene editor: with light markers, the settings of each part (start and every marker) are framed.
 - Show mode: a light marker changes the light within the scene box. The box lists the parts of the scene, a small bar
   under the marker shows the fade; the stack on the right and the big bar only move for scene changes.
 
