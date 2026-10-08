@@ -94,6 +94,10 @@ gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
   dazwischen), ohne Markierung am Ende. Jede Szene gehört zur Cue-Liste. Darunter belegt „Faders“ bis zu 8 Fader mit
   einer Composition (z.B. Saallicht), Name optional. Die Liste nimmt 30 % der Breite ein, der Editor 70 %; „Save“
   steht unten im Editor und bleibt beim Scrollen sichtbar.
+  Das **Textbuch** wird formatiert bearbeitet: Sprechernamen in ihrer Farbe aus dem Betrieb, Regieanweisungen violett,
+  Licht-Marker orange, Steuerzeichen (`**`, `:`, `//##`) abgeschwächt. Gespeichert bleibt reiner Text; eine
+  Werkzeugleiste setzt den Sprecher der aktuellen Zeile, macht die Markierung zur Regieanweisung und fügt einen
+  Licht-Marker ein. „👁 Preview“ zeigt den Text wie im Betrieb.
   Im Editor: Abschnitt **Compositions** (vorhandene hinzufügen, „⏺ From programmer“, „✦ Effect“; pro Einsatz Level,
   Tempo und „Restart at GO“; umsortieren; ein Klick auf den Namen öffnet die Composition – Änderungen gelten in allen
   Szenen) und **Keys** 1–8 (Composition, Toggle/Flash, Fade). Eine neue Szene übernimmt die Tasten der Szene davor.

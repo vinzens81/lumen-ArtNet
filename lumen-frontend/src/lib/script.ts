@@ -31,14 +31,14 @@ export interface Script {
   markers: { name: string; info: string }[];
 }
 
-const MARKER = /^[ \t]*\/\/[ \t]*##[ \t]*(.*?)[ \t]*##[ \t]*$/gm;
+export const MARKER = /^[ \t]*\/\/[ \t]*##[ \t]*(.*?)[ \t]*##[ \t]*$/gm;
 
 /**
  * A speaker at the start of a line: one to four words starting with a capital letter, then a colon and a space (or
  * the end of the line) – "Maike Schmitz:", "ROMEO:", "Der Wirt:". "He said: …" is no speaker.
  */
-const SPEAKER = /^\s*(\p{Lu}[\p{L}\p{M}'’.-]*(?:[ \t]+\p{Lu}[\p{L}\p{M}'’.-]*){0,3})[ \t]*:(?=\s|$)/u;
-const MAX_SPEAKER_LENGTH = 40;
+export const SPEAKER = /^\s*(\p{Lu}[\p{L}\p{M}'’.-]*(?:[ \t]+\p{Lu}[\p{L}\p{M}'’.-]*){0,3})[ \t]*:(?=\s|$)/u;
+export const MAX_SPEAKER_LENGTH = 40;
 
 /** A dot after these words does not end a sentence (compared in lower case). */
 const ABBREVIATIONS = new Set([
@@ -46,7 +46,7 @@ const ABBREVIATIONS = new Set([
   'hr', 'fr', 'frl', 'abs', 'str',
 ]);
 
-const NOTE = /\*\*([\s\S]+?)\*\*/g;
+export const NOTE = /\*\*([\s\S]+?)\*\*/g;
 /** end of a sentence: punctuation, closing quotes or brackets, then whitespace or the end of the text */
 const SENTENCE_END = /([.!?…]+)(["'“”‘’»«)\]]*)(?=\s|$)/g;
 
