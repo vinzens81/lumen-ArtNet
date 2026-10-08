@@ -67,9 +67,8 @@ eigene haben (gilt für das GO in diese Szene, das Ausblenden am Ende nutzt die 
 | `s-curve` | sanft an, schnell in der Mitte, sanft aus (Smoothstep) | ebenso | weiche, „runde“ Übergänge |
 | `square` | Level², weicher im Dunkeln | gleichmäßig | wirkt fürs Auge gleichmäßiger, besonders bei LEDs |
 
-Die Kurve formt den Level (`L(t)`) von Fade-In und Fade-Out, die HTP-Mischung bleibt gleich. Hinweis: Ein Gerät, das
-in beiden Szenen gleich hell ist, geht bei gleichen Zeiten in der Mitte des Fades kurz auf die Hälfte herunter
-(`max(1 − p, p)`) – bei `square` noch tiefer. Das ist das bekannte Verhalten einer HTP-Überblendung.
+Die Kurve formt den Level (`L(t)`) von Fade-In und Fade-Out. Ein Gerät, das in beiden Szenen an ist, geht dabei nie
+durch eine Delle, siehe [Wie die Engine mischt](#wie-die-engine-mischt).
 
 ## Fade-Zeiten pro Szene
 
@@ -88,6 +87,8 @@ Feld bedeutet: Projektzeit.
   Projektzeit.
 - Die Zeiten werden beim GO festgehalten: Wird die Szene während des Fades bearbeitet, läuft der Fade unverändert zu Ende.
 - Die Stay-Zeit (Auto-Follow) beginnt nach Delay + Fade-In.
+- Ein **Lichtmarker** im Textbuch blendet mit Fade-In und Fade-Out der Szene, aber **ohne Delay**: Der gehört zum GO
+  in die Szene.
 - Während des Delays behalten diskrete Kanäle (Gobo, Farbrad, …) ihren alten Wert und springen erst, wenn der
   Fade-In beginnt.
 
@@ -103,12 +104,14 @@ Szene 5     │           │▁▂▄▆█████████████
 Jede laufende Szene hat einen **Level** `L(t)` zwischen 0 und 1, der durch Fade-In/-Out bestimmt wird.
 Pro Fixture und Attribut wird im Render-Loop (~40 Hz) berechnet:
 
-**Intensität (Dimmer, auch virtueller Dimmer): HTP – Highest Takes Precedence**
+**Intensität (Dimmer, auch virtueller Dimmer): direkt vom alten zum neuen Wert, ohne Delle**
 ```
-dimmer = max( dimmer_alt × L_alt(t) ,  dimmer_neu × L_neu(t) )
+wird heller:  dimmer = alt + (neu − alt) × L_in(t)          (Fade-In, nach dem Delay)
+wird dunkler: dimmer = neu + (alt − neu) × (1 − L_out(t))   (Fade-Out, ab dem GO)
 ```
-- Gerät ist in beiden Szenen an → es dimmt von alt nach neu; bei gleichen Werten und gleichen Zeiten sinkt es in der
-  Mitte des Fades auf die Hälfte (`max(1 − p, p)`), siehe [Fade-Kurven](#fade-kurven).
+- Gerät ist in beiden Szenen an → es geht direkt von alt nach neu, z.B. 30 % → 100 % nur aufwärts. Eine
+  HTP-Überblendung (`max(alt × L_out, neu × L_in)`) würde dazwischen abdunkeln – mit Delay oder kurzem Fade-Out fast
+  bis auf 0.
 - Gerät nur in der alten Szene → fadet mit `fade_out_ms` aus.
 - Gerät nur in der neuen Szene → fadet mit `fade_in_ms` ein.
 

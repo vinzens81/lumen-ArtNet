@@ -8,6 +8,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SceneTiming;
 import de.vinzens.lumen.domain.scene.ScriptMarkers;
 import org.junit.jupiter.api.Test;
 
@@ -65,6 +66,25 @@ class PlaybackSectionsTest {
 		assertThat(playback.output(START.plusSeconds(6), B).values())
 				.as("a part without light is dark").allSatisfy(values -> assertThat(values.get(DIMMER)).contains(0.0));
 		assertThat(playback.goToSection(3, START.plusSeconds(6), B)).as("no such marker").isFalse();
+	}
+
+	@Test
+	void aMarkerFadesWithoutTheDelayOfTheScene() {
+		var timing = new SceneTiming(Optional.empty(), Optional.empty(), Duration.ofSeconds(1));
+		var scene = new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "One", Optional.empty(), Optional.empty(),
+				timing));
+		var playback = new Playback(List.of(scene), Map.of(1L, List.of(WARM)), Duration.ofSeconds(2),
+				Duration.ofSeconds(2));
+		playback.useSections(Map.of(1L, List.of(List.of(SPOT))));
+		playback.go(START, B);
+		assertThat(playback.output(START.plusMillis(500), B).get(5L).get(DIMMER)).as("the GO waits for the delay")
+				.contains(0.0);
+		playback.finish(START);
+
+		playback.goToSection(1, START, B);
+		assertThat(playback.output(START.plusSeconds(1), B).get(6L).get(DIMMER).orElseThrow())
+				.as("the marker fades at once").isCloseTo(0.5, within(0.01));
+		assertThat(playback.fade(START)).hasValueSatisfying(fade -> assertThat(fade.delay()).isZero());
 	}
 
 	@Test

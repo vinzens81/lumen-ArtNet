@@ -16,7 +16,8 @@ import java.util.Set;
  * Mixes the outgoing look (a snapshot of the output at GO) with the incoming scene. Fade-out and fade-in run
  * in parallel, each with its own duration:
  * <ul>
- * <li>intensity: HTP – {@code max(old × levelOut, new × levelIn)}</li>
+ * <li>intensity: straight from the old to the new value, never through a dip – rising with the fade-in (after the
+ * delay), falling with the fade-out. A fixture only one side lights fades in or out alone.</li>
  * <li>smooth attributes (color, position, …): LTP, faded from the old to the new value with the fade-in;
  * if the fixture was dark at GO the new value is taken at once (invisible, no color smearing)</li>
  * <li>snap attributes (gobo, color wheel, …): LTP, jump when the fade-in starts</li>
@@ -91,7 +92,7 @@ public final class Crossfade {
 			var behavior = behaviors.of(fixtureId, attribute);
 			double value;
 			if (behavior == FadeBehavior.INTENSITY) {
-				value = Math.max(oldValue.orElse(0.0) * levelOut, newValue.orElse(0.0) * levelIn);
+				value = intensity(oldValue.orElse(0.0), newValue.orElse(0.0), levelIn, levelOut);
 			} else if (newValue.isEmpty()) {
 				value = oldValue.orElseThrow();
 			} else if (oldValue.isEmpty() || wasDark) {
@@ -104,6 +105,15 @@ public final class Crossfade {
 			values.put(attribute, value);
 		}
 		return new FixtureValues(values);
+	}
+
+	/**
+	 * A level going up follows the fade-in, one going down the fade-out. Fading the old value out and the new one in
+	 * at the same time (HTP) would dip a fixture lit on both sides, e.g. 30 % → 23 % → 100 %, with a delay or a
+	 * short fade-out almost to dark.
+	 */
+	static double intensity(double old, double target, double levelIn, double levelOut) {
+		return old <= target ? old + (target - old) * levelIn : target + (old - target) * levelOut;
 	}
 
 	/** 0 → 1 over the duration; a zero duration is complete at once, a negative elapsed time (delay) is 0. */

@@ -86,7 +86,8 @@ DmxFrame               512 Byte pro Universe
 
 Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injizierte `Clock`):
 - **Patch-Validierung:** Überschneidungen, Kanal > 512, fehlender Typ/Modus
-- **Mischen beim Szenenwechsel:** HTP für Intensität, LTP für die übrigen Attribute, siehe [PLAYBACK.md](PLAYBACK.md)
+- **Mischen beim Szenenwechsel:** Intensität direkt von alt nach neu (aufwärts mit dem Fade-In, abwärts mit dem
+  Fade-Out), LTP für die übrigen Attribute, siehe [PLAYBACK.md](PLAYBACK.md)
 - **Mapping OutputState → DmxFrame:** Funktionen auf Kanäle/Offsets, 16 Bit, virtueller Dimmer, `invert`
 - **Grand Master & Blackout** als letzte Stufe vor der Ausgabe
 

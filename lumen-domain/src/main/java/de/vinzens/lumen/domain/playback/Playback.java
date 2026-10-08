@@ -414,8 +414,9 @@ public final class Playback {
 		var fromRunning = fadeRunning ? running.stream().filter(r -> !taken.contains(r)).toList() : List.<Running>of();
 
 		var fromSceneId = currentScene().map(Scene::id);
-		var times = timesInto(target);
 		var withinScene = target == position && isScene(target);
+		// the delay of a scene is for the GO into it, a light marker changes the light at once
+		var times = withinScene ? timesInto(target).withoutDelay() : timesInto(target);
 		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v,
 				times, withinScene);
 		running = List.copyOf(next);
@@ -558,6 +559,10 @@ public final class Playback {
 
 	/** Fade times and curve of one transition, fixed at GO. */
 	private record Times(Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve) {
+
+		Times withoutDelay() {
+			return new Times(fadeIn, fadeOut, Duration.ZERO, curve);
+		}
 
 		Duration longest() {
 			var in = delay.plus(fadeIn);

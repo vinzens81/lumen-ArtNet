@@ -21,14 +21,42 @@ class CrossfadeTest {
 	private static final Duration OUT = Duration.ofSeconds(4);
 
 	@Test
-	void intensityIsHighestTakesPrecedenceOfBothLevels() {
-		var from = Map.of(1L, values(DIMMER, 1.0));
-		var to = Map.of(1L, values(DIMMER, 0.5));
+	void intensityGoesStraightToTheNewLevelDownWithTheFadeOutUpWithTheFadeIn() {
+		var down = mix(Map.of(1L, values(DIMMER, 1.0)), Map.of(1L, values(DIMMER, 0.5)), 1000);
+		// 0.5 + (1.0 - 0.5) × (1 - 1/4)
+		assertThat(dimmer(down, 1)).isCloseTo(0.875, within(1e-9));
 
-		// after 1 s: old 1.0 × (1 - 1/4) = 0.75, new 0.5 × 1/2 = 0.25
-		assertThat(dimmer(mix(from, to, 1000), 1)).isCloseTo(0.75, within(1e-9));
-		// after 3 s: old 1.0 × 1/4 = 0.25, new 0.5 × 1 = 0.5
-		assertThat(dimmer(mix(from, to, 3000), 1)).isCloseTo(0.5, within(1e-9));
+		var up = mix(Map.of(1L, values(DIMMER, 0.3)), Map.of(1L, values(DIMMER, 1.0)), 1000);
+		// 0.3 + (1.0 - 0.3) × 1/2
+		assertThat(dimmer(up, 1)).isCloseTo(0.65, within(1e-9));
+	}
+
+	@Test
+	void aFixtureLitOnBothSidesNeverDips() {
+		var delay = Duration.ofSeconds(2);
+		var shortOut = Duration.ofSeconds(1);
+		for (var curve : FadeCurve.values()) {
+			for (var levels : new double[][] {{0.3, 1.0}, {1.0, 0.3}}) {
+				var from = Map.of(1L, values(DIMMER, levels[0]));
+				var to = Map.of(1L, values(DIMMER, levels[1]));
+				var previous = levels[0];
+				for (long ms = 0; ms <= 6000; ms += 50) {
+					var withDelay = dimmer(Crossfade.mix(from, to, Duration.ofMillis(ms), IN, OUT, delay, curve,
+							FadeBehaviors.DEFAULTS, null), 1);
+					var shortFadeOut = dimmer(Crossfade.mix(from, to, Duration.ofMillis(ms), IN, shortOut,
+							Duration.ZERO, curve, FadeBehaviors.DEFAULTS, null), 1);
+					var what = curve + " " + levels[0] + " → " + levels[1] + " at " + ms + " ms";
+					assertThat(withDelay).as(what).isBetween(Math.min(levels[0], levels[1]) - 1e-9,
+							Math.max(levels[0], levels[1]) + 1e-9);
+					assertThat(shortFadeOut).as(what).isBetween(Math.min(levels[0], levels[1]) - 1e-9,
+							Math.max(levels[0], levels[1]) + 1e-9);
+					assertThat(levels[1] > levels[0] ? withDelay >= previous - 1e-9 : withDelay <= previous + 1e-9)
+							.as("only one direction: " + what).isTrue();
+					previous = withDelay;
+				}
+				assertThat(previous).isCloseTo(levels[1], within(1e-9));
+			}
+		}
 	}
 
 	@Test

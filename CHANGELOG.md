@@ -3,7 +3,7 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.81 – 1.0.86 · 2026-10-08
+## 1.0.81 – 1.0.88 · 2026-10-08
 
 ### Added
 - View-only stage for phones (`#/view`, "👁 View" in the top bar): the stage glowing live with the scene on
@@ -19,6 +19,11 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - Scene editor: with light markers, the settings of each part (start and every marker) are framed.
 - Show mode: a light marker changes the light within the scene box. The box lists the parts of the scene, a small bar
   under the marker shows the fade; the stack on the right and the big bar only move for scene changes.
+
+### Fixed
+- A fixture lit before and after a scene change or light marker dimmed down first (with a delay or a short fade-out
+  almost to dark) and then up again. It now fades straight to its new level.
+- Light markers waited for the delay of the scene; the delay is for the GO into the scene only.
 
 ## 1.0.68 – 1.0.80 · 2026-10-06
 
