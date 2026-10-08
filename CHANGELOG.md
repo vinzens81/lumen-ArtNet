@@ -24,6 +24,7 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - A fixture lit before and after a scene change or light marker dimmed down first (with a delay or a short fade-out
   almost to dark) and then up again. It now fades straight to its new level.
 - Light markers waited for the delay of the scene; the delay is for the GO into the scene only.
+- Scenes view: with many scenes the whole page scrolled, heading and editor too. Now only the list scrolls.
 
 ## 1.0.68 – 1.0.80 · 2026-10-06
 

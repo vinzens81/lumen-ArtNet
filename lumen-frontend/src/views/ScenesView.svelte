@@ -284,6 +284,10 @@
 
   function moveDrag(event: PointerEvent) {
     if (!drag || !listElement) return;
+    // the list scrolls on its own: dragging to its edge scrolls it
+    const box = listElement.getBoundingClientRect();
+    if (event.clientY < box.top + 40) listElement.scrollBy(0, -16);
+    else if (event.clientY > box.bottom - 40) listElement.scrollBy(0, 16);
     const rows = [...listElement.querySelectorAll<HTMLElement>('.cue-row')];
     // position among the other scenes: count rows (except the dragged one) whose middle is above the pointer
     let to = 0;
@@ -694,6 +698,9 @@
     flex-direction: column;
     gap: 16px;
     padding: 12px 8px;
+    /* fits between the top bar and the master bar: the heading stays, the list and the editor scroll on their own */
+    height: calc(100vh - 172px);
+    min-height: 420px;
   }
 
   .head {
@@ -740,6 +747,8 @@
   }
 
   .layout {
+    flex: 1;
+    min-height: 0;
     display: grid;
     /* a narrow list, most of the room for the selected scene: script, compositions, keys */
     grid-template-columns: minmax(0, 3fr) minmax(0, 7fr);
@@ -752,6 +761,10 @@
     flex-direction: column;
     padding: 8px;
     min-width: 0;
+    max-height: 100%;
+    overflow-y: auto;
+    /* hidden labels (absolute) stay inside the scrolling list instead of lengthening the page */
+    position: relative;
   }
 
   .cue {
@@ -916,11 +929,10 @@
   }
 
   .editor {
-    position: sticky;
-    top: 84px;
-    /* scrolls on its own, so the end of a long scene never hides behind the master bar */
-    max-height: calc(100vh - 290px); /* fits between the page header and the master bar */
+    /* scrolls on its own, Save stays at the bottom */
+    max-height: 100%;
     overflow-y: auto;
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 16px;
@@ -1038,13 +1050,19 @@
   }
 
   @media (max-width: 1000px) {
+    /* one column: the page scrolls as a whole */
+    .view {
+      height: auto;
+    }
+
     .layout {
       grid-template-columns: minmax(0, 1fr);
     }
 
+    .list,
     .editor {
-      position: static;
       max-height: none;
+      overflow-y: visible;
     }
   }
 </style>
