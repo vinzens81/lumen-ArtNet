@@ -200,6 +200,13 @@ Anders als Blackout bleibt dabei nicht die Position erhalten. `POST /api/playbac
 Der Reiter **Stage** neben Scenes, Script und DMX zeigt die Bühnenansicht nur lesend: Die Fixtures leuchten wie die
 echte Ausgabe, verschieben, Formen ändern und Tastenkürzel der Bühnenansicht gibt es hier nicht.
 
+### Nur zuschauen (`#/view`)
+
+Für Handy oder Tablet: Der Link **👁 View** in der Kopfleiste (oder direkt `http://<Rechner>:8080/#/view`) öffnet nur
+die Bühne, live leuchtend wie die Ausgabe, darüber Projekt, Modus, die Szene auf der Bühne und der aktive Lichtmarker
+sowie ein Hinweis bei Blackout. Es gibt keine Bedienelemente und keine Tastenkürzel, die Seite folgt nicht dem
+Betriebsmodus und fragt nicht nach der PIN. ✕ führt zurück in die App.
+
 ### DMX im Betrieb
 Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt nur die belegten
 Kanäle, nach Fixture gruppiert und alle Universen untereinander, live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich

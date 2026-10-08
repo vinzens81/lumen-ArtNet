@@ -27,10 +27,12 @@
   }
 
   /**
-   * embedded in the show view: only looking – no tray, no dragging, no shapes, no programmer, no floor plan
-   * buttons, and no keyboard shortcuts that would change the stage
+   * embedded in the show view or the view-only page: only looking – no tray, no dragging, no shapes, no programmer,
+   * no floor plan buttons, and no keyboard shortcuts that would change the stage. `reservedHeight` is the height of
+   * the page around the stage, so the stage fits the window.
    */
-  let { embedded = false }: { embedded?: boolean } = $props();
+  let { embedded = false, reservedHeight = embedded ? 280 : 310 }: { embedded?: boolean; reservedHeight?: number } =
+    $props();
 
   let fixtures = $state<Fixture[]>([]);
   let planVersion = $state(0);
@@ -327,7 +329,7 @@
       {/if}
 
       <div class="stage-wrap glass">
-        <div class="stage" class:plan={hasPlan} style="aspect-ratio: {aspect}; width: min(100%, calc((100vh - {embedded ? 280 : 310}px) * {aspect}))" bind:this={stageElement}
+        <div class="stage" class:plan={hasPlan} style="aspect-ratio: {aspect}; width: min(100%, calc((100dvh - {reservedHeight}px) * {aspect}))" bind:this={stageElement}
           role="presentation" onpointerdown={(e) => { if (e.target === stageElement) selectedId = null; }}>
           {#if projectId !== null}
             <img class="plan-image" class:hidden={!hasPlan} src={api.stage.planUrl(projectId, planVersion)} alt=""

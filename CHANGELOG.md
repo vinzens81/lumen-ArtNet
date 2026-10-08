@@ -6,6 +6,8 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 ## 1.0.81 – 1.0.86 · 2026-10-08
 
 ### Added
+- View-only stage for phones (`#/view`, "👁 View" in the top bar): the stage glowing live with the scene on
+  stage, nothing to control.
 - Show mode: "Stop" ends the show at once – scene, keys and faders to 0 without a fade, the next GO starts from the
   beginning. A second click confirms it.
 - Show mode: a "Stage" tab next to Scenes, Script and DMX shows the stage view read-only, glowing like the output.

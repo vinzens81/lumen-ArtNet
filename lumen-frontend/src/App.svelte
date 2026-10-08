@@ -9,7 +9,7 @@
   import { newlyMissing, nodeName, nodesIndicator, outputIndicator } from './lib/health';
   import { live } from './lib/live.svelte';
   import { stagePreview } from './lib/stagePreview.svelte';
-  import { isPrintPage, modeOfRoute, navigate, router, type Route } from './lib/router.svelte';
+  import { isPrintPage, isStandalonePage, modeOfRoute, navigate, router, type Route } from './lib/router.svelte';
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
   import LooksView from './views/LooksView.svelte';
@@ -25,6 +25,7 @@
   import ShowView from './views/ShowView.svelte';
   import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
+  import WatchView from './views/WatchView.svelte';
   import { notify, showError } from './lib/toasts.svelte';
   import type { NodeHealth, OperatingMode, OutputHealth } from './lib/types';
 
@@ -74,7 +75,7 @@
 
   // the operating mode is server state: every connected client follows it
   $effect(() => {
-    if (!live.modeKnown || isPrintPage(router.route)) return;
+    if (!live.modeKnown || isStandalonePage(router.route)) return;
     if (live.mode === 'show' && router.route !== '/show') navigate('/show');
     if (live.mode === 'party' && router.route !== '/party') navigate('/party');
     if (live.mode === 'setup' && liveMode) navigate('/setup/scenes');
@@ -118,6 +119,7 @@
   onMount(() => {
     const onLocked = () => {
       access.load();
+      if (isStandalonePage(router.route)) return;
       if (!access.promptOpen) access.requestUnlock();
     };
     window.addEventListener('lumen:locked', onLocked);
@@ -158,7 +160,7 @@
   function onkeydown(event: KeyboardEvent) {
     const target = event.target as HTMLElement;
     if (target.closest('input, textarea, select, [contenteditable]') || event.metaKey || event.ctrlKey) return;
-    if (isPrintPage(router.route)) return;
+    if (isStandalonePage(router.route)) return;
     if (event.key === 'b' || event.key === 'B') {
       event.preventDefault();
       live.setBlackout(!live.master.blackout);
@@ -173,6 +175,8 @@
 
 {#if isPrintPage(router.route)}
   <CuePrintView />
+{:else if router.route === '/view'}
+  <WatchView />
 {:else}
 <div class="shell">
   <header class="topbar glass">
@@ -253,6 +257,8 @@
         {access.locked ? '🔒 Locked' : '🔓 Unlocked'}
       </button>
     {/if}
+
+    <a class="watch-link" href="#/view" title="The stage as it glows, view only – e.g. on a phone">👁 View</a>
 
     <div class="status" class:tone-error={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
       <span class="dot"></span>{app.online ? 'Online' : 'Offline'}
@@ -552,6 +558,20 @@
     50% {
       opacity: 0.3;
     }
+  }
+
+  .watch-link {
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    color: var(--text-dim);
+    font-size: 12px;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .watch-link:hover {
+    color: var(--text);
   }
 
   .lock {
