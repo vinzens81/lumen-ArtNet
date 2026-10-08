@@ -21,6 +21,9 @@ public interface PreviewCompositionUseCase {
 	/** Plays the composition on stage above the playback (setup mode only). */
 	void showOnStage(long projectId, long compositionId);
 
+	/** Plays a move on stage above the playback (setup mode only): its heads follow the figure. */
+	void showMoveOnStage(long projectId, long moveId);
+
 	/** Plays a whole scene – its compositions – on stage above the playback (setup mode only). */
 	void showSceneOnStage(long projectId, long sceneId);
 
@@ -33,6 +36,8 @@ public interface PreviewCompositionUseCase {
 	void stopOnStage();
 
 	Optional<Long> compositionOnStage();
+
+	Optional<Long> moveOnStage();
 
 	/** The scene on stage, shown directly or as the target of a rehearsed fade. */
 	Optional<Long> sceneOnStage();

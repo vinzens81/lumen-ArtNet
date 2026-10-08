@@ -85,6 +85,32 @@ public record Look(Map<Long, FixtureValues> values, PresetRefs presets) {
 		return new Look(updated, presets);
 	}
 
+	/**
+	 * The look without pan and tilt: positions come only from moves. Fixtures left without values drop out, and so
+	 * do references to position presets.
+	 */
+	public Look withoutPositions() {
+		var result = new HashMap<Long, FixtureValues>();
+		values.forEach((fixtureId, fixtureValues) -> {
+			var kept = new HashMap<>(fixtureValues.values());
+			kept.keySet().removeIf(AttributeGroup.POSITION::contains);
+			if (!kept.isEmpty()) {
+				result.put(fixtureId, new FixtureValues(kept));
+			}
+		});
+		var refs = presets;
+		for (var fixtureId : values.keySet()) {
+			refs = refs.without(fixtureId, EnumSet.of(AttributeGroup.POSITION));
+		}
+		return new Look(result, refs);
+	}
+
+	/** Whether the look sets pan or tilt of any fixture. */
+	public boolean hasPositions() {
+		return values.values().stream().anyMatch(v -> v.values().keySet().stream()
+				.anyMatch(AttributeGroup.POSITION::contains));
+	}
+
 	/** Whether any fixture refers to the preset. */
 	public boolean uses(long presetId) {
 		return !presets.fixturesUsing(presetId).isEmpty();

@@ -25,6 +25,8 @@ public final class SqliteRepositories {
 	private final SqliteFaderRepository faders;
 	private final SqliteExpectedNodeRepository expectedNodes;
 	private final SqliteLookRepository looks;
+	private final SqliteFigureRepository figures;
+	private final SqliteMoveRepository moves;
 	private final SqliteLegacyShowStore legacyShows;
 
 	private final DataSource dataSource;
@@ -47,6 +49,8 @@ public final class SqliteRepositories {
 		this.faders = new SqliteFaderRepository(jdbc);
 		this.expectedNodes = new SqliteExpectedNodeRepository(jdbc);
 		this.looks = new SqliteLookRepository(jdbc, transactions);
+		this.figures = new SqliteFigureRepository(jdbc, transactions);
+		this.moves = new SqliteMoveRepository(jdbc, transactions);
 		this.legacyShows = new SqliteLegacyShowStore(jdbc, scenes);
 	}
 
@@ -92,6 +96,14 @@ public final class SqliteRepositories {
 
 	public SqliteLookRepository looks() {
 		return looks;
+	}
+
+	public SqliteFigureRepository figures() {
+		return figures;
+	}
+
+	public SqliteMoveRepository moves() {
+		return moves;
 	}
 
 	public SqliteLegacyShowStore legacyShows() {

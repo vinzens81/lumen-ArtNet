@@ -46,6 +46,7 @@ public final class Generator {
 			case Wave wave -> wave(wave, target);
 			case Flicker flicker -> flicker(flicker, target);
 			case StepSequence steps -> throw new IllegalArgumentException("a step sequence is not generated");
+			case MovePattern move -> throw new IllegalArgumentException("a move is not generated");
 		};
 	}
 

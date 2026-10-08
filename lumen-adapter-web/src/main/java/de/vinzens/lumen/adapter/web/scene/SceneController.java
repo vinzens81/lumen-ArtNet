@@ -9,6 +9,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneTiming;
@@ -109,14 +110,15 @@ class SceneController {
 			@RequestBody SectionDto section) {
 		return response(scenes.setSection(projectId, sceneId, section.marker() == null ? "" : section.marker(),
 				list(section.compositions()).stream().map(SceneCompositionDto::toUse).toList(),
-				list(section.looks()).stream().map(SceneLookDto::toUse).toList()));
+				list(section.looks()).stream().map(SceneLookDto::toUse).toList(),
+				list(section.moves()).stream().map(SceneMoveDto::toUse).toList()));
 	}
 
 	private static <T> List<T> list(List<T> items) {
 		return items == null ? List.of() : items;
 	}
 
-	/** The extra keys of the scene, each playing a composition. */
+	/** The extra keys of the scene, each playing a composition or a move. */
 	@PutMapping("/{sceneId}/keys")
 	SceneResponse setKeys(@PathVariable long projectId, @PathVariable long sceneId,
 			@RequestBody List<SceneKeyDto> keys) {
@@ -198,32 +200,56 @@ class SceneController {
 		}
 	}
 
+	/** A move used in the scene: where its fixtures point. */
+	record SceneMoveDto(Long moveId) {
+
+		SceneMove toUse() {
+			if (moveId == null) {
+				throw new DomainValidationException(List.of("moveId is missing"));
+			}
+			return new SceneMove(moveId);
+		}
+
+		static SceneMoveDto from(SceneMove use) {
+			return new SceneMoveDto(use.moveId());
+		}
+	}
+
 	/**
 	 * The light of a part of the scene.
 	 *
 	 * @param marker name of the light marker, {@code null} or empty = the start of the scene
+	 * @param moves  where the pan/tilt fixtures point; on the same fixture a later move wins
 	 */
-	record SectionDto(String marker, List<SceneCompositionDto> compositions, List<SceneLookDto> looks) {
+	record SectionDto(String marker, List<SceneCompositionDto> compositions, List<SceneLookDto> looks,
+			List<SceneMoveDto> moves) {
 
 		static SectionDto from(SceneSection section) {
 			return new SectionDto(section.marker(), section.compositions().stream().map(SceneCompositionDto::from)
-					.toList(), section.looks().stream().map(SceneLookDto::from).toList());
+					.toList(), section.looks().stream().map(SceneLookDto::from).toList(),
+					section.moves().stream().map(SceneMoveDto::from).toList());
 		}
 	}
 
-	/** @param mode toggle or flash */
-	record SceneKeyDto(Integer slot, Long compositionId, String mode, Long fadeMs) {
+	/**
+	 * @param compositionId the composition the key plays; exactly one of composition and move
+	 * @param moveId        the move the key plays
+	 * @param mode          toggle or flash
+	 */
+	record SceneKeyDto(Integer slot, Long compositionId, Long moveId, String mode, Long fadeMs) {
 
 		SceneKey toKey() {
-			if (slot == null || compositionId == null) {
-				throw new DomainValidationException(List.of("slot and compositionId of a key are required"));
+			if (slot == null || (compositionId == null && moveId == null)) {
+				throw new DomainValidationException(List.of("slot and compositionId or moveId of a key are required"));
 			}
 			var keyMode = mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode);
-			return new SceneKey(slot, compositionId, keyMode, Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)));
+			return new SceneKey(slot, Optional.ofNullable(compositionId), Optional.ofNullable(moveId), keyMode,
+					Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)));
 		}
 
 		static SceneKeyDto from(SceneKey key) {
-			return new SceneKeyDto(key.slot(), key.compositionId(), key.mode().id(), key.fade().toMillis());
+			return new SceneKeyDto(key.slot(), key.compositionId().orElse(null), key.moveId().orElse(null),
+					key.mode().id(), key.fade().toMillis());
 		}
 	}
 
@@ -235,12 +261,13 @@ class SceneController {
 	 * @param compositions   compositions running in the scene, in their order
 	 * @param keys           extra keys usable while the scene is on stage
 	 * @param looks          looks used directly at the start of the scene, applied before the compositions
+	 * @param moves          moves at the start of the scene
 	 * @param sections       the light of the parts after the light markers of the script, by marker name
 	 */
 	record SceneResponse(long id, String number, String name, String cueNote, Long autoFollowMs,
 			Long fadeInMs, Long fadeOutMs, long delayMs, String fadeCurve, String script,
 			List<SceneCompositionDto> compositions, List<SceneKeyDto> keys, List<SceneLookDto> looks,
-			List<SectionDto> sections) {
+			List<SceneMoveDto> moves, List<SectionDto> sections) {
 
 		static SceneResponse from(Scene scene) {
 			var spec = scene.spec();
@@ -252,6 +279,7 @@ class SceneController {
 					scene.compositions().stream().map(SceneCompositionDto::from).toList(),
 					scene.keys().stream().map(SceneKeyDto::from).toList(),
 					scene.looks().stream().map(SceneLookDto::from).toList(),
+					scene.moves().stream().map(SceneMoveDto::from).toList(),
 					scene.sections().stream().map(SectionDto::from).toList());
 		}
 	}

@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Trying out on the real stage in setup mode: a composition, a whole scene (its values and compositions) or a
+ * Trying out on the real stage in setup mode: a composition, a move, a whole scene (its values and compositions) or a
  * rehearsed fade into a scene runs as a layer above the playback until stopped. Only one at a time; starting show
  * mode stops it.
  */
@@ -38,6 +38,12 @@ class StagePreviewController {
 		return StagePreviewResponse.of(preview);
 	}
 
+	@PostMapping("/api/projects/{projectId}/moves/{moveId}/stage-preview")
+	StagePreviewResponse showMove(@PathVariable long projectId, @PathVariable long moveId) {
+		preview.showMoveOnStage(projectId, moveId);
+		return StagePreviewResponse.of(preview);
+	}
+
 	@PostMapping("/api/projects/{projectId}/scenes/{sceneId}/stage-preview")
 	StagePreviewResponse showScene(@PathVariable long projectId, @PathVariable long sceneId) {
 		preview.showSceneOnStage(projectId, sceneId);
@@ -56,14 +62,16 @@ class StagePreviewController {
 
 	/**
 	 * @param compositionId the composition on stage, null if none
+	 * @param moveId        the move on stage, null if none
 	 * @param sceneId       the scene on stage, null if none
 	 * @param fade          the running rehearsed fade into {@code sceneId}, null if none or ended; clients
 	 *                      interpolate its progress from the moment they received it
 	 */
-	record StagePreviewResponse(Long compositionId, Long sceneId, FadeResponse fade) {
+	record StagePreviewResponse(Long compositionId, Long moveId, Long sceneId, FadeResponse fade) {
 
 		static StagePreviewResponse of(PreviewCompositionUseCase preview) {
 			return new StagePreviewResponse(preview.compositionOnStage().orElse(null),
+					preview.moveOnStage().orElse(null),
 					preview.sceneOnStage().orElse(null),
 					preview.fadeOnStage().map(f -> new FadeResponse(f.fromSceneId().orElse(null),
 							f.elapsed().toMillis(), f.fadeIn().toMillis(), f.fadeOut().toMillis(),

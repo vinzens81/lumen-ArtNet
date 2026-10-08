@@ -7,6 +7,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -104,14 +105,20 @@ public class SqliteSceneRepository implements SceneRepository {
 	}
 
 	@Override
-	public Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks) {
+	public Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks,
+			List<SceneMove> moves) {
 		transactions.executeWithoutResult(status -> {
 			jdbc.sql("DELETE FROM scene_composition WHERE scene_id = ? AND section = ?").params(id, marker).update();
 			jdbc.sql("DELETE FROM scene_look WHERE scene_id = ? AND section = ?").params(id, marker).update();
+			jdbc.sql("DELETE FROM scene_move WHERE scene_id = ? AND section = ?").params(id, marker).update();
 			insertCompositions(id, marker, compositions);
 			for (int i = 0; i < looks.size(); i++) {
 				jdbc.sql("INSERT INTO scene_look (scene_id, section, look_id, position, level) VALUES (?, ?, ?, ?, ?)")
 						.params(id, marker, looks.get(i).lookId(), i, looks.get(i).level()).update();
+			}
+			for (int i = 0; i < moves.size(); i++) {
+				jdbc.sql("INSERT INTO scene_move (scene_id, section, move_id, position) VALUES (?, ?, ?, ?)")
+						.params(id, marker, moves.get(i).moveId(), i).update();
 			}
 		});
 		return findById(id).orElseThrow();
@@ -147,17 +154,20 @@ public class SqliteSceneRepository implements SceneRepository {
 	private void insertKeys(long sceneId, List<SceneKey> keys) {
 		for (var key : keys) {
 			jdbc.sql("""
-					INSERT INTO scene_key (scene_id, slot, composition_id, key_mode, fade_ms) VALUES (?, ?, ?, ?, ?)""")
-					.params(sceneId, key.slot(), key.compositionId(), key.mode().id(), key.fade().toMillis())
+					INSERT INTO scene_key (scene_id, slot, composition_id, move_id, key_mode, fade_ms)
+					VALUES (?, ?, ?, ?, ?, ?)""")
+					.params(sceneId, key.slot(), key.compositionId().orElse(null), key.moveId().orElse(null),
+							key.mode().id(), key.fade().toMillis())
 					.update();
 		}
 	}
 
-	/** Compositions and looks of a scene, per section ('' = the start of the scene). */
-	private record Light(Map<String, List<SceneComposition>> compositions, Map<String, List<SceneLook>> looks) {
+	/** Compositions, looks and moves of a scene, per section ('' = the start of the scene). */
+	private record Light(Map<String, List<SceneComposition>> compositions, Map<String, List<SceneLook>> looks,
+			Map<String, List<SceneMove>> moves) {
 
 		Light() {
-			this(new LinkedHashMap<>(), new LinkedHashMap<>());
+			this(new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>());
 		}
 	}
 
@@ -177,6 +187,12 @@ public class SqliteSceneRepository implements SceneRepository {
 							.computeIfAbsent(rs.getString("section"), s -> new ArrayList<>())
 							.add(new SceneLook(rs.getLong("look_id"), rs.getDouble("level")));
 				});
+		jdbc.sql("SELECT * FROM scene_move WHERE " + where + " ORDER BY scene_id, section, position").param(param)
+				.query(rs -> {
+					result.computeIfAbsent(rs.getLong("scene_id"), id -> new Light()).moves()
+							.computeIfAbsent(rs.getString("section"), s -> new ArrayList<>())
+							.add(new SceneMove(rs.getLong("move_id")));
+				});
 		return result;
 	}
 
@@ -185,7 +201,7 @@ public class SqliteSceneRepository implements SceneRepository {
 		jdbc.sql("SELECT * FROM scene_key WHERE " + where + " ORDER BY scene_id, slot").param(param)
 				.query(rs -> {
 					result.computeIfAbsent(rs.getLong("scene_id"), id -> new ArrayList<>()).add(new SceneKey(
-							rs.getInt("slot"), rs.getLong("composition_id"),
+							rs.getInt("slot"), optionalLong(rs, "composition_id"), optionalLong(rs, "move_id"),
 							KeyMode.valueOf(rs.getString("key_mode").toUpperCase(Locale.ROOT)),
 							Duration.ofMillis(rs.getLong("fade_ms"))));
 				});
@@ -204,13 +220,15 @@ public class SqliteSceneRepository implements SceneRepository {
 		var own = light.getOrDefault(id, new Light());
 		var markers = new TreeSet<String>(own.compositions().keySet());
 		markers.addAll(own.looks().keySet());
+		markers.addAll(own.moves().keySet());
 		markers.remove("");
 		var sections = markers.stream()
 				.map(marker -> new SceneSection(marker, own.compositions().getOrDefault(marker, List.of()),
-						own.looks().getOrDefault(marker, List.of())))
+						own.looks().getOrDefault(marker, List.of()), own.moves().getOrDefault(marker, List.of())))
 				.toList();
 		return new Scene(id, rs.getLong("project_id"), spec, own.compositions().getOrDefault("", List.of()),
-				keys.getOrDefault(id, List.of()), own.looks().getOrDefault("", List.of()), sections);
+				keys.getOrDefault(id, List.of()), own.looks().getOrDefault("", List.of()),
+				own.moves().getOrDefault("", List.of()), sections);
 	}
 
 	private static String curve(SceneSpec spec) {
@@ -219,6 +237,11 @@ public class SqliteSceneRepository implements SceneRepository {
 
 	private static Long millis(Optional<Duration> duration) {
 		return duration.map(Duration::toMillis).orElse(null);
+	}
+
+	private static Optional<Long> optionalLong(ResultSet rs, String column) throws SQLException {
+		var value = rs.getLong(column);
+		return rs.wasNull() ? Optional.empty() : Optional.of(value);
 	}
 
 	private static Optional<Duration> optionalMillis(ResultSet rs, String column) throws SQLException {

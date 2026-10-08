@@ -3,13 +3,15 @@
   import { compositionIcon, effectLabel, isFast, lookMap, overlaps, scenesUsing } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, Fixture, Group, Look, Mode, Scene, SceneComposition, SceneLook } from '../lib/types';
+  import type {
+    Composition, Fixture, Group, Look, Mode, Move, Scene, SceneComposition, SceneLook, SceneMove,
+  } from '../lib/types';
   import CompositionEditor from './CompositionEditor.svelte';
   import Modal from './Modal.svelte';
 
   /**
    * The light of a scene or of one part of it (after a light marker of the script): compositions with level, tempo
-   * and restart, and looks used directly.
+   * and restart, looks used directly, and moves for where the pan/tilt fixtures point.
    */
   let {
     projectId,
@@ -20,6 +22,7 @@
     scenes,
     compositions,
     looks,
+    moves = [],
     fixtures,
     groups,
     modes,
@@ -29,6 +32,7 @@
     scenes: Scene[];
     compositions: Composition[];
     looks: Look[];
+    moves?: Move[];
     fixtures: Fixture[];
     groups: Group[];
     modes: Map<number, Mode>;
@@ -42,6 +46,8 @@
 
   let uses = $state<SceneComposition[]>([]);
   let lookUses = $state<SceneLook[]>([]);
+  let moveUses = $state<SceneMove[]>([]);
+  let addMoveId = $state('');
   let addId = $state('');
   let addLookId = $state('');
   let editing = $state<{ id: number; generate: boolean } | null>(null);
@@ -56,19 +62,24 @@
   /** looks a scene can use: the shared ones (a composition's own looks stay in their composition) */
   const availableLooks = $derived(looks.filter((l) => l.owner === null && !lookUses.some((u) => u.lookId === l.id)));
   const section = $derived(marker === null ? scene : scene.sections.find((s) => s.marker === marker)
-    ?? { compositions: [], looks: [] });
+    ?? { compositions: [], looks: [], moves: [] });
+  const movesById = $derived(new Map(moves.map((m) => [m.id, m])));
+  const availableMoves = $derived(moves.filter((m) => !moveUses.some((u) => u.moveId === m.id)));
 
   // the uses of the scene or part; slider moves change them here first and are saved when let go
   $effect(() => {
     uses = section.compositions.map((u) => ({ ...u }));
     lookUses = section.looks.map((u) => ({ ...u }));
+    moveUses = section.moves.map((u) => ({ ...u }));
   });
 
-  async function save(next: SceneComposition[], nextLooks: SceneLook[] = lookUses) {
+  async function save(next: SceneComposition[], nextLooks: SceneLook[] = lookUses, nextMoves: SceneMove[] = moveUses) {
     uses = next;
     lookUses = nextLooks;
+    moveUses = nextMoves;
     try {
-      await api.scenes.setSection(projectId, scene.id, { marker, compositions: next, looks: nextLooks });
+      await api.scenes.setSection(projectId, scene.id, { marker, compositions: next, looks: nextLooks,
+        moves: nextMoves });
     } catch (e) {
       showError(e);
     }
@@ -82,6 +93,30 @@
     const id = Number(addLookId);
     addLookId = '';
     if (id) save(uses, [...lookUses, { lookId: id, level: 1 }]);
+  }
+
+  function addMove() {
+    const id = Number(addMoveId);
+    addMoveId = '';
+    if (id) save(uses, lookUses, [...moveUses, { moveId: id }]);
+  }
+
+  function reorderMove(index: number, step: number) {
+    const next = [...moveUses];
+    const other = index + step;
+    if (other < 0 || other >= next.length) return;
+    [next[index], next[other]] = [next[other], next[index]];
+    save(uses, lookUses, next);
+  }
+
+  function moveDetail(move: Move): string {
+    const heads = `${move.fixtures.length} ${move.fixtures.length === 1 ? 'head' : 'heads'}`;
+    return [heads, scenesUsingMove(move.id).length > 1 ? 'also in other scenes' : null].filter(Boolean).join(' · ');
+  }
+
+  function scenesUsingMove(moveId: number): Scene[] {
+    return scenes.filter((s) => s.moves.some((u) => u.moveId === moveId)
+      || s.sections.some((part) => part.moves.some((u) => u.moveId === moveId)));
   }
 
   function change(index: number, patch: Partial<SceneComposition>) {
@@ -211,6 +246,27 @@
   {:else if lookUses.length === 0}
     <p class="dim small">{marker === null ? 'No compositions – the scene is dark.' : 'Nothing chosen – the stage goes dark at this marker.'}</p>
   {/if}
+
+  {#if moveUses.length > 0}
+    <ol class="list">
+      {#each moveUses as use, i (use.moveId)}
+        {@const move = movesById.get(use.moveId)}
+        <li>
+          <div class="use-head">
+            <span class="icon" aria-hidden="true">↻</span>
+            <span class="name grow">{move?.name ?? '(deleted move)'}</span>
+            {#if move}<span class="dim small">{moveDetail(move)}</span>{/if}
+            <span class="actions">
+              <button class="btn small ghost" type="button" onclick={() => reorderMove(i, -1)} aria-label="Move up">↑</button>
+              <button class="btn small ghost" type="button" onclick={() => reorderMove(i, 1)} aria-label="Move down">↓</button>
+              <button class="btn small ghost danger" type="button"
+                onclick={() => save(uses, lookUses, moveUses.filter((_, j) => j !== i))} aria-label="Remove move">✕</button>
+            </span>
+          </div>
+        </li>
+      {/each}
+    </ol>
+  {/if}
   {#each warnings as warning, i (i)}<p class="hint warning-text">{warning}</p>{/each}
 
   <div class="add">
@@ -233,6 +289,14 @@
     <select bind:value={addLookId} onchange={addLook} disabled={availableLooks.length === 0}>
       <option value="">{availableLooks.length === 0 ? 'Shared looks are made in the Looks tab' : '+ Add a look…'}</option>
       {#each availableLooks as look (look.id)}<option value={String(look.id)}>◆ {look.name}</option>{/each}
+    </select>
+  </label>
+  <label class="field">
+    <span class="sr-only">Add a move</span>
+    <select bind:value={addMoveId} onchange={addMove} disabled={availableMoves.length === 0}
+      title="Where the moving heads point: pan and tilt come only from moves. Heads without a move stay where they are.">
+      <option value="">{availableMoves.length === 0 ? 'Moves are made in the Moves tab' : '+ Add a move…'}</option>
+      {#each availableMoves as move (move.id)}<option value={String(move.id)}>↻ {move.name}</option>{/each}
     </select>
   </label>
 </section>

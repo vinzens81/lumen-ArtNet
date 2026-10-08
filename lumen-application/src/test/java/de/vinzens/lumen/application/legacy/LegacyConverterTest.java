@@ -147,9 +147,9 @@ class LegacyConverterTest {
 		var keys = result.content().sceneKeys();
 
 		assertThat(keys.get(1L)).extracting(SceneKey::slot).containsExactly(1, 2, 3);
-		assertThat(keys.get(1L).get(1).compositionId()).as("the key scene's values").isEqualTo(
+		assertThat(keys.get(1L).get(1).compositionId()).as("the key scene's values").contains(
 				uses(result.content(), 9).get(0).compositionId());
-		assertThat(keys.get(1L).get(2).compositionId()).as("its siren on a free key").isEqualTo(
+		assertThat(keys.get(1L).get(2).compositionId()).as("its siren on a free key").contains(
 				uses(result.content(), 9).get(1).compositionId());
 		assertThat(keys.get(2L)).extracting(SceneKey::slot).containsExactly(1);
 		assertThat(keys.get(9L)).as("not in the cue list: no keys").isEmpty();

@@ -7,6 +7,10 @@ import type {
   Composition,
   CompositionRequest,
   FaderSetup,
+  Figure,
+  FigureRequest,
+  Move,
+  MoveRequest,
   AttributeValues,
   Fixture,
   FixtureRequest,
@@ -31,6 +35,7 @@ import type {
   SceneComposition,
   SceneKey,
   SceneLook,
+  SceneMove,
   SceneRequest,
   PartyMatrix,
   PartyStatus,
@@ -159,7 +164,7 @@ export const api = {
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/compositions`, compositions),
     /** The light of a part: after the marker, or the start of the scene for marker null. */
     setSection: (projectId: number, id: number, section: { marker: string | null; compositions: SceneComposition[];
-      looks: SceneLook[] }) => put<Scene>(`/api/projects/${projectId}/scenes/${id}/sections`, section),
+      looks: SceneLook[]; moves: SceneMove[] }) => put<Scene>(`/api/projects/${projectId}/scenes/${id}/sections`, section),
     setKeys: (projectId: number, id: number, keys: SceneKey[]) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/keys`, keys),
     duplicate: (projectId: number, id: number, number: string | null) =>
@@ -198,6 +203,25 @@ export const api = {
       post<Composition>(`/api/projects/${projectId}/compositions/${id}/generate`, generator),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/compositions/${id}`),
   },
+  figures: {
+    list: (projectId: number) => get<Figure[]>(`/api/projects/${projectId}/figures`),
+    create: (projectId: number, figure: FigureRequest) => post<Figure>(`/api/projects/${projectId}/figures`, figure),
+    update: (projectId: number, id: number, figure: FigureRequest) =>
+      put<Figure>(`/api/projects/${projectId}/figures/${id}`, figure),
+    duplicate: (projectId: number, id: number) => post<Figure>(`/api/projects/${projectId}/figures/${id}/duplicate`),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/figures/${id}`),
+  },
+  moves: {
+    list: (projectId: number) => get<Move[]>(`/api/projects/${projectId}/moves`),
+    create: (projectId: number, move: MoveRequest) => post<Move>(`/api/projects/${projectId}/moves`, move),
+    update: (projectId: number, id: number, move: MoveRequest) =>
+      put<Move>(`/api/projects/${projectId}/moves/${id}`, move),
+    duplicate: (projectId: number, id: number) => post<Move>(`/api/projects/${projectId}/moves/${id}/duplicate`),
+    remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/moves/${id}`),
+    /** the programmer positions of the fixtures become a move with one point (new, or the given move updated) */
+    recordPosition: (projectId: number, moveId: number | null, name: string, fixtureIds: number[]) =>
+      post<Move>(`/api/projects/${projectId}/moves/record-position`, { moveId, name, fixtureIds }),
+  },
   party: {
     status: () => get<PartyStatus>('/api/party'),
     press: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/press`),
@@ -213,6 +237,8 @@ export const api = {
     status: () => get<StagePreviewStatus>('/api/stage-preview'),
     showComposition: (projectId: number, id: number) =>
       post<StagePreviewStatus>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
+    showMove: (projectId: number, id: number) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/moves/${id}/stage-preview`),
     showScene: (projectId: number, sceneId: number) =>
       post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/stage-preview`),
     rehearseFade: (projectId: number, sceneId: number) =>

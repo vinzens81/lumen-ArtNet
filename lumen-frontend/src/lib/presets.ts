@@ -10,7 +10,6 @@ const BEAM = new Set(['focus', 'zoom', 'iris', 'gobo', 'gobo-rotation', 'prism',
 /** The attribute groups presets can be made for, with their names in the UI. */
 export const PRESET_GROUPS: { id: PresetGroup; label: string }[] = [
   { id: 'color', label: 'Color' },
-  { id: 'position', label: 'Position' },
   { id: 'beam', label: 'Beam' },
 ];
 

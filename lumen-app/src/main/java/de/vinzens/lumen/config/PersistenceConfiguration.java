@@ -10,6 +10,8 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.legacy.LegacyMigrationService;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.look.LookService;
+import de.vinzens.lumen.application.move.FigureService;
+import de.vinzens.lumen.application.move.MoveService;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputEngine;
 import de.vinzens.lumen.application.project.PatchService;
@@ -65,7 +67,7 @@ class PersistenceConfiguration {
 		return new ProjectTransferService(repositories.projects(), repositories.universes(), repositories.fixtures(),
 				repositories.groups(), repositories.looks(), repositories.compositions(), repositories.scenes(),
 				repositories.stagePlans(), repositories.partyMatrices(), repositories.presets(), repositories.faders(),
-				library, clock, outputEngine);
+				repositories.figures(), repositories.moves(), library, clock, outputEngine);
 	}
 
 	/**
@@ -89,7 +91,8 @@ class PersistenceConfiguration {
 	/** Created after old shows are converted, so nothing plays them half converted. */
 	@Bean
 	CompositionResolver compositionResolver(SqliteRepositories repositories, LegacyMigrationService legacyMigration) {
-		return new CompositionResolver(repositories.compositions(), repositories.looks(), repositories.scenes());
+		return new CompositionResolver(repositories.compositions(), repositories.looks(), repositories.scenes(),
+				repositories.moves(), repositories.figures());
 	}
 
 	@Bean
@@ -146,7 +149,7 @@ class PersistenceConfiguration {
 	SceneService sceneService(SqliteRepositories repositories, LookService lookService,
 			CompositionResolver compositionResolver, OutputEngine outputEngine, StateEvents stateEvents) {
 		return new SceneService(repositories.projects(), repositories.scenes(), repositories.compositions(),
-				repositories.looks(), lookService, compositionResolver, outputEngine, stateEvents);
+				repositories.looks(), repositories.moves(), lookService, compositionResolver, outputEngine, stateEvents);
 	}
 
 	@Bean
@@ -163,6 +166,19 @@ class PersistenceConfiguration {
 	@Bean
 	PartyMatrixService partyMatrixService(SqliteRepositories repositories, StateEvents stateEvents) {
 		return new PartyMatrixService(repositories.projects(), repositories.scenes(), repositories.compositions(),
-				repositories.partyMatrices(), stateEvents);
+				repositories.moves(), repositories.partyMatrices(), stateEvents);
+	}
+
+	@Bean
+	FigureService figureService(SqliteRepositories repositories, StateEvents stateEvents) {
+		return new FigureService(repositories.projects(), repositories.figures(), repositories.moves(), stateEvents);
+	}
+
+	@Bean
+	MoveService moveService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			OutputEngine outputEngine, StateEvents stateEvents) {
+		return new MoveService(repositories.projects(), repositories.moves(), repositories.figures(),
+				repositories.fixtures(), repositories.scenes(), repositories.partyMatrices(), library, outputEngine,
+				stateEvents);
 	}
 }

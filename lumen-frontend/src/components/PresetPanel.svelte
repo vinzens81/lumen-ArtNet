@@ -149,7 +149,7 @@
 <Modal bind:open={createOpen} title="New {createGroup} preset">
   <form id="preset-form" onsubmit={(e) => { e.preventDefault(); create(); }}>
     <p class="dim">Records the {createGroup} values of the {selection.length} selected fixtures from the programmer.</p>
-    <label class="field">Name<input bind:value={createName} placeholder={createGroup === 'position' ? 'Chair' : 'Warm'} required /></label>
+    <label class="field">Name<input bind:value={createName} placeholder={createGroup === 'beam' ? 'Narrow' : 'Warm'} required /></label>
   </form>
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (createOpen = false)}>Cancel</button>

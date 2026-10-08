@@ -49,11 +49,12 @@ public class SqlitePartyMatrixRepository implements PartyMatrixRepository {
 			for (var cell : matrix.cells()) {
 				jdbc.sql("""
 						INSERT INTO party_cell (project_id, row_index, column_index, label, scene_id, composition_id,
-						                        color, border_color, key_mode, group_name)
-						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
+						                        move_id, color, border_color, key_mode, group_name)
+						VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 						.params(projectId, cell.row(), cell.column(), cell.label().orElse(null),
-								cell.sceneId().orElse(null), cell.compositionId().orElse(null), cell.color(),
-								cell.borderColor(), cell.mode().id(), cell.group().orElse(null))
+								cell.sceneId().orElse(null), cell.compositionId().orElse(null),
+								cell.moveId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
+								cell.group().orElse(null))
 						.update();
 			}
 		});
@@ -62,7 +63,8 @@ public class SqlitePartyMatrixRepository implements PartyMatrixRepository {
 	private static PartyCell cell(ResultSet rs) throws SQLException {
 		return new PartyCell(rs.getInt("row_index"), rs.getInt("column_index"),
 				Optional.ofNullable(rs.getString("label")), optionalLong(rs, "scene_id"),
-				optionalLong(rs, "composition_id"), rs.getString("color"), rs.getString("border_color"),
+				optionalLong(rs, "composition_id"), optionalLong(rs, "move_id"), rs.getString("color"),
+				rs.getString("border_color"),
 				KeyMode.parse(rs.getString("key_mode")), Optional.ofNullable(rs.getString("group_name")));
 	}
 

@@ -11,8 +11,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Looks of a project: fixed values recorded from the programmer. Recording and loading work with the programmer
- * and therefore only for the active project.
+ * Looks of a project: fixed values recorded from the programmer – everything except pan and tilt, which come only
+ * from moves. Recording and loading work with the programmer and therefore only for the active project.
  */
 public interface ManageLooksUseCase {
 

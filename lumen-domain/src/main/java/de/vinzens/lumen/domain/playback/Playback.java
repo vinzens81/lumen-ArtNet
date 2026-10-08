@@ -3,6 +3,8 @@ package de.vinzens.lumen.domain.playback;
 import de.vinzens.lumen.domain.composition.ActiveComposition;
 import de.vinzens.lumen.domain.composition.CompositionMixer;
 import de.vinzens.lumen.domain.composition.FixtureAttributes;
+import de.vinzens.lumen.domain.composition.MovePattern;
+import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.Scene;
@@ -39,6 +41,9 @@ import java.util.Set;
  * <p>Light markers in the script split a scene into parts ({@link #goToSection}): each part has compositions of its
  * own, reached with a fade of the scene's times inside the same scene. What is in both parts continues, so identical
  * light does not move.
+ *
+ * <p>Pan and tilt come from moves. A fixture that no move of the new scene points keeps the position it had at GO,
+ * so changing only the color does not send the heads back to the middle.
  */
 public final class Playback {
 
@@ -56,6 +61,8 @@ public final class Playback {
 	private FixtureAttributes attributes = FixtureAttributes.ALL;
 	/** Compositions of the scene at the current position, with their start time. */
 	private List<Running> running = List.of();
+	/** Pan and tilt of every fixture at the last GO: kept where the scene on stage sets no position. */
+	private Map<Long, FixtureValues> held = Map.of();
 
 	private int position = READY;
 	private Integer pendingNext;
@@ -203,6 +210,7 @@ public final class Playback {
 		transition = null;
 		pendingNext = null;
 		stayStart = virtualNow(now);
+		held = Map.of();
 		var v = stayStart;
 		running = compositionsAt(index).stream().map(c -> new Running(c, v)).toList();
 		dropDeletedScene();
@@ -221,6 +229,7 @@ public final class Playback {
 		transition = null;
 		pendingNext = null;
 		running = List.of();
+		held = Map.of();
 		stayStart = virtualNow(now);
 		dropDeletedScene();
 	}
@@ -284,13 +293,13 @@ public final class Playback {
 	public Map<Long, FixtureValues> output(Instant now, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		if (transition == null) {
-			return look(valuesAt(position), running, v);
+			return look(held, running, v);
 		}
 		var elapsed = v.minus(transition.start());
 		var continuing = transition.continuing();
 		var from = look(transition.from(), transition.fromRunning(), v);
 		var incoming = running.stream().filter(r -> !continuing.containsKey(r.composition().id())).toList();
-		var to = look(valuesAt(transition.target()), incoming, v);
+		var to = look(held, incoming, v);
 		var times = transition.times();
 		var mixed = Crossfade.mix(from, to, elapsed, times.fadeIn(), times.fadeOut(), times.delay(), times.curve(),
 				behaviors, transition.darkAtGo());
@@ -398,7 +407,9 @@ public final class Playback {
 		});
 		// a single GO lets the outgoing compositions run on; a GO during a fade freezes everything
 		var fadeRunning = transition == null;
-		var from = fadeRunning ? valuesAt(position) : current;
+		// positions stay where they are at GO: an outgoing move stops there, the heads glide on from there
+		held = positions(current);
+		var from = fadeRunning ? held : current;
 
 		var next = new ArrayList<Running>();
 		var continuing = new LinkedHashMap<Long, Running>();
@@ -411,7 +422,10 @@ public final class Playback {
 			match.ifPresent(r -> continuing.put(composition.id(), r));
 			next.add(new Running(composition, match.map(Running::startedAt).orElse(v)));
 		}
-		var fromRunning = fadeRunning ? running.stream().filter(r -> !taken.contains(r)).toList() : List.<Running>of();
+		var fromRunning = fadeRunning
+				? running.stream().filter(r -> !taken.contains(r) && !(r.composition().pattern() instanceof MovePattern))
+						.toList()
+				: List.<Running>of();
 
 		var fromSceneId = currentScene().map(Scene::id);
 		var withinScene = target == position && isScene(target);
@@ -523,9 +537,17 @@ public final class Playback {
 				.map(stayStart::plus);
 	}
 
-	/** Scenes have no static values of their own: everything comes from their compositions. */
-	private Map<Long, FixtureValues> valuesAt(int index) {
-		return Map.of();
+	/** Only pan and tilt of the given values. */
+	private static Map<Long, FixtureValues> positions(Map<Long, FixtureValues> values) {
+		var result = new HashMap<Long, FixtureValues>();
+		values.forEach((fixtureId, fixtureValues) -> {
+			var position = new HashMap<>(fixtureValues.values());
+			position.keySet().removeIf(attribute -> AttributeGroup.of(attribute.function()) != AttributeGroup.POSITION);
+			if (!position.isEmpty()) {
+				result.put(fixtureId, new FixtureValues(position));
+			}
+		});
+		return Map.copyOf(result);
 	}
 
 	private boolean isScene(int index) {

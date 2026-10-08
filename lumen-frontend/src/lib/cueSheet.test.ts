@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { cueRows, sheetSeconds } from './cueSheet';
-import type { Composition, Scene } from './types';
+import type { Composition, Move, Scene } from './types';
 
 function scene(id: number, number: string, overrides: Partial<Scene> = {}): Scene {
   return {
     id, number, name: `Scene ${number}`, cueNote: null, autoFollowMs: null,
-    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [], looks: [], sections: [],
+    fadeInMs: null, fadeOutMs: null, delayMs: 0, fadeCurve: null, script: '', compositions: [], keys: [], looks: [], moves: [],
+    sections: [],
     ...overrides,
   };
 }
@@ -41,13 +42,17 @@ describe('cueRows', () => {
     const compositions = [{ id: 7, name: 'Storm' }, { id: 8, name: 'Candles' }] as Composition[];
     const scenes = [scene(1, '1', {
       compositions: [{ compositionId: 8, level: 1, speedFactor: 1, restart: false }],
-      keys: [{ slot: 2, compositionId: 8, mode: 'flash', fadeMs: 0 }, { slot: 1, compositionId: 7, mode: 'toggle', fadeMs: 0 }],
+      keys: [{ slot: 2, compositionId: 8, moveId: null, mode: 'flash', fadeMs: 0 },
+        { slot: 1, compositionId: 7, moveId: null, mode: 'toggle', fadeMs: 0 },
+        { slot: 3, compositionId: null, moveId: 4, mode: 'toggle', fadeMs: 0 }],
+      moves: [{ moveId: 4 }],
     })];
 
-    const rows = cueRows(project, scenes, compositions);
+    const rows = cueRows(project, scenes, compositions, [{ id: 4, name: 'Eight' }] as Move[]);
 
     expect(rows[0].compositions).toEqual(['Candles']);
-    expect(rows[0].keys).toEqual(['1 Storm', '2 Candles']);
+    expect(rows[0].moves).toEqual(['Eight']);
+    expect(rows[0].keys).toEqual(['1 Storm', '2 Candles', '3 Eight']);
   });
 });
 

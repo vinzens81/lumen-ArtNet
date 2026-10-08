@@ -39,5 +39,7 @@ public enum StateTopic {
 	/** Presets of the active project were added, changed or removed. */
 	PRESETS,
 	/** The fader setup of the active project changed. */
-	FADERS
+	FADERS,
+	/** Figures or moves of the active project changed. */
+	MOVES
 }

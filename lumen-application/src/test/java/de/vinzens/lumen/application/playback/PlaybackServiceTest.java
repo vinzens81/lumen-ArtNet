@@ -21,6 +21,7 @@ import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -248,7 +249,8 @@ class PlaybackServiceTest {
 	private PlaybackService service() {
 		var scenes = sceneRepository();
 		return new PlaybackService(projects(), scenes,
-				new CompositionResolver(show.compositions, show.looks, scenes), states(), faders, Runnable::run, clock,
+				new CompositionResolver(show.compositions, show.looks, scenes, show.moves, show.figures), states(), faders,
+				Runnable::run, clock,
 				events);
 	}
 
@@ -340,8 +342,8 @@ class PlaybackServiceTest {
 
 			@Override
 			public Scene replaceSection(long id, String marker, List<SceneComposition> compositions,
-					List<SceneLook> looks) {
-				return show.scenes.replaceSection(id, marker, compositions, looks);
+					List<SceneLook> looks, List<SceneMove> moves) {
+				return show.scenes.replaceSection(id, marker, compositions, looks, moves);
 			}
 
 			@Override

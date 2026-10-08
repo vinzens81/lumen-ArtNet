@@ -6,7 +6,7 @@ import java.util.List;
 import java.util.Locale;
 
 public enum PatternKind {
-	CHASE, COLOR_CYCLE, RAINBOW, WAVE, FLICKER, STEPS;
+	CHASE, COLOR_CYCLE, RAINBOW, WAVE, FLICKER, STEPS, MOVE;
 
 	/** Lower-case id used in the API and the database, e.g. {@code color_cycle}. */
 	public String id() {
@@ -20,6 +20,6 @@ public enum PatternKind {
 			}
 		}
 		throw new DomainValidationException(List.of(
-				"kind must be one of chase, color_cycle, rainbow, wave, flicker, steps, was '" + id + "'"));
+				"kind must be one of chase, color_cycle, rainbow, wave, flicker, steps, move, was '" + id + "'"));
 	}
 }

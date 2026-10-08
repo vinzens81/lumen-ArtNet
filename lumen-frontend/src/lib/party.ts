@@ -1,4 +1,4 @@
-import type { Composition, PartyCell, PartyMatrix, PartyStatus, Scene } from './types';
+import type { Composition, Move, PartyCell, PartyMatrix, PartyStatus, Scene } from './types';
 
 export const MAX_MATRIX_SIZE = 12;
 export const DEFAULT_COLOR = '#1c2230';
@@ -20,7 +20,7 @@ export function cellAt(matrix: PartyMatrix, row: number, column: number): PartyC
 
 /** A new field at a place: a text until it gets something to play. */
 export function emptyCell(row: number, column: number): PartyCell {
-  return { row, column, label: null, sceneId: null, compositionId: null, color: DEFAULT_COLOR,
+  return { row, column, label: null, sceneId: null, compositionId: null, moveId: null, color: DEFAULT_COLOR,
     borderColor: DEFAULT_BORDER, mode: 'toggle', group: null };
 }
 
@@ -56,18 +56,20 @@ export function toggledSeparator(matrix: PartyMatrix, row: number): PartyMatrix 
 }
 
 /** What the field shows: its label, else the name of what it plays. */
-export function cellLabel(cell: PartyCell, scenes: Map<number, Scene>, compositions: Map<number, Composition>): string {
+export function cellLabel(cell: PartyCell, scenes: Map<number, Scene>, compositions: Map<number, Composition>,
+  moves: Map<number, Move> = new Map()): string {
   if (cell.label) return cell.label;
   if (cell.sceneId !== null) {
     const scene = scenes.get(cell.sceneId);
     return scene ? `${scene.number} ${scene.name}` : '(missing scene)';
   }
   if (cell.compositionId !== null) return compositions.get(cell.compositionId)?.name ?? '(missing composition)';
+  if (cell.moveId !== null) return moves.get(cell.moveId)?.name ?? '(missing move)';
   return '';
 }
 
 export function playsSomething(cell: PartyCell): boolean {
-  return cell.sceneId !== null || cell.compositionId !== null;
+  return cell.sceneId !== null || cell.compositionId !== null || cell.moveId !== null;
 }
 
 export function isOn(status: PartyStatus | null, row: number, column: number): boolean {

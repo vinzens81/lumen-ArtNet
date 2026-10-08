@@ -45,6 +45,8 @@ class LiveState {
   dmx = $state<Record<number, number[]>>({});
   libraryRevision = $state(0);
   compositionsRevision = $state(0);
+  /** figures or moves changed */
+  movesRevision = $state(0);
   /** composition id → values of its on-screen preview, while a view watches 'preview:<id>' */
   previews = $state<Record<number, Record<number, AttributeValues>>>({});
   party = $state<PartyStatus | null>(null);
@@ -87,6 +89,7 @@ class LiveState {
       this.accessRevision++;
       this.libraryRevision++;
       this.compositionsRevision++;
+      this.movesRevision++;
       this.partyMatrixRevision++;
       this.presetsRevision++;
       this.fadersRevision++;
@@ -213,6 +216,9 @@ class LiveState {
         break;
       case 'compositions':
         this.compositionsRevision++;
+        break;
+      case 'moves':
+        this.movesRevision++;
         break;
       case 'library':
         this.libraryRevision++;

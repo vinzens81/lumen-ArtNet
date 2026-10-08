@@ -3,14 +3,15 @@ import { showError } from './toasts.svelte';
 import type { StagePreviewStatus } from './types';
 
 /**
- * What runs on the real stage for trying it out in setup mode: one composition, a whole scene or a rehearsed fade
- * into a scene. Server state – every browser shows the same; reloaded when the server reports composition changes.
+ * What runs on the real stage for trying it out in setup mode: one composition, one move, a whole scene or a
+ * rehearsed fade into a scene. Server state – every browser shows the same; reloaded when the server reports composition changes.
  */
 class StagePreviewState {
-  status = $state<StagePreviewStatus>({ compositionId: null, sceneId: null, fade: null });
+  status = $state<StagePreviewStatus>({ compositionId: null, moveId: null, sceneId: null, fade: null });
   /** performance.now() when the status arrived, to interpolate the fade */
   receivedAt = $state(0);
-  active = $derived(this.status.compositionId !== null || this.status.sceneId !== null);
+  active = $derived(this.status.compositionId !== null || this.status.moveId !== null
+    || this.status.sceneId !== null);
 
   async load() {
     try {
@@ -26,6 +27,11 @@ class StagePreviewState {
 
   async showComposition(projectId: number, compositionId: number) {
     await this.run(api.stagePreview.showComposition(projectId, compositionId));
+  }
+
+  /** Plays a move on stage: its heads follow the figure. */
+  async showMove(projectId: number, moveId: number) {
+    await this.run(api.stagePreview.showMove(projectId, moveId));
   }
 
   /** Plays the GO into the scene from the scene before it, with the fade times of the show. */

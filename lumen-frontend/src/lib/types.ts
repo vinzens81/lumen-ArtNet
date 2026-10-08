@@ -225,18 +225,27 @@ export interface SceneLook {
   level: number;
 }
 
+/** A move used in a scene: where its pan/tilt fixtures point. */
+export interface SceneMove {
+  moveId: number;
+}
+
 /** The light of a part of a scene: after the light marker `marker` of the script. */
 export interface SceneSection {
   marker: string;
   compositions: SceneComposition[];
   looks: SceneLook[];
+  /** on the same fixture a later move wins */
+  moves: SceneMove[];
 }
 
-/** An extra key of a scene: switches a composition on and off while the scene is on stage. */
+/** An extra key of a scene: switches a composition or a move on and off while the scene is on stage. */
 export interface SceneKey {
   /** 1–8 */
   slot: number;
-  compositionId: number;
+  /** exactly one of composition and move */
+  compositionId: number | null;
+  moveId: number | null;
   mode: KeyMode;
   fadeMs: number;
 }
@@ -263,6 +272,8 @@ export interface Scene {
   keys: SceneKey[];
   /** looks used directly at the start of the scene, applied before the compositions */
   looks: SceneLook[];
+  /** moves at the start of the scene: where the pan/tilt fixtures point */
+  moves: SceneMove[];
   /** the light of the parts after the light markers of the script; a marker without one is dark */
   sections: SceneSection[];
 }
@@ -296,8 +307,8 @@ export interface Look {
 /** What an attribute is about, e.g. to update only the colors of a scene. */
 export type AttributeGroup = 'intensity' | 'color' | 'position' | 'beam' | 'other';
 
-/** Groups a preset can be made for. */
-export type PresetGroup = 'color' | 'position' | 'beam';
+/** Groups a preset can be made for; a stored position is a move with one point. */
+export type PresetGroup = 'color' | 'beam';
 
 /** Which preset the values of a fixture come from: fixture id → attribute group → preset id. */
 export type PresetRefs = Record<number, Partial<Record<AttributeGroup, number>>>;
@@ -551,14 +562,15 @@ export interface RehearsedFade {
 
 export interface StagePreviewStatus {
   compositionId: number | null;
+  moveId: number | null;
   sceneId: number | null;
   /** running rehearsed fade into sceneId, null if none or ended */
   fade: RehearsedFade | null;
 }
 
 /**
- * A field of the party matrix (rows and columns from 0): plays a scene or a composition, or – with neither – only
- * shows its label.
+ * A field of the party matrix (rows and columns from 0): plays a scene, a composition or a move, or – with none –
+ * only shows its label.
  */
 export interface PartyCell {
   row: number;
@@ -567,6 +579,7 @@ export interface PartyCell {
   label: string | null;
   sceneId: number | null;
   compositionId: number | null;
+  moveId: number | null;
   /** fill #rrggbb */
   color: string;
   /** border #rrggbb */
@@ -589,3 +602,65 @@ export interface PartyMatrix {
 export interface PartyStatus {
   on: { row: number; column: number }[];
 }
+
+/** A point of a figure in DMX values: x = pan, y = tilt, 0–255 (decimals for a finer position). */
+export interface FigurePoint {
+  x: number;
+  y: number;
+}
+
+/** A shape in the pan/tilt grid, drawn without fixtures; one point = a fixed position. */
+export interface Figure {
+  id: number;
+  name: string;
+  /** after the last point back to the first */
+  closed: boolean;
+  points: FigurePoint[];
+}
+
+export interface FigureRequest {
+  name: string;
+  closed: boolean;
+  points: FigurePoint[];
+}
+
+export type MoveRepeat = 'loop' | 'once' | 'ping_pong';
+export type OnceStart = 'sequential' | 'together';
+
+/** A fixture of a move with its own corrections. */
+export interface MoveFixture {
+  fixtureId: number;
+  /** own shift in DMX values, on top of the shift of the move */
+  shiftX: number;
+  shiftY: number;
+  /** mirrored around the middle of the figure */
+  mirrorX: boolean;
+  mirrorY: boolean;
+  /** follows the figure the other way round */
+  reverse: boolean;
+}
+
+/** A figure laid onto pan/tilt fixtures: pan and tilt in the show come only from moves. */
+export interface Move {
+  id: number;
+  name: string;
+  figureId: number;
+  /** in order: the order decides the offset */
+  fixtures: MoveFixture[];
+  /** percent */
+  sizeX: number;
+  sizeY: number;
+  /** DMX values */
+  shiftX: number;
+  shiftY: number;
+  /** degrees, counter-clockwise */
+  rotation: number;
+  /** one round of the figure */
+  durationMs: number;
+  repeat: MoveRepeat;
+  /** points by which each further fixture starts later */
+  stepOffset: number;
+  onceStart: OnceStart;
+}
+
+export type MoveRequest = Omit<Move, 'id'>;

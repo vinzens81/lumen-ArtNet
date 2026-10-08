@@ -39,6 +39,15 @@ public final class ShowContentWriter {
 	 *                 mention keep what they play
 	 */
 	public Written write(long projectId, ShowContent content, Map<Long, Long> sceneIds) {
+		return write(projectId, content, sceneIds, Map.of());
+	}
+
+	/**
+	 * @param sceneIds scene ids of the content → scenes of the project, which must exist; scenes the content does not
+	 *                 mention keep what they play
+	 * @param moveIds  move ids of the content → moves of the project, for keys playing moves
+	 */
+	public Written write(long projectId, ShowContent content, Map<Long, Long> sceneIds, Map<Long, Long> moveIds) {
 		var compositionIds = new HashMap<Long, Long>();
 		for (var composition : content.compositions()) {
 			compositionIds.put(composition.id(), compositions.create(projectId, composition.spec(), List.of()).id());
@@ -46,7 +55,9 @@ public final class ShowContentWriter {
 		var lookIds = new HashMap<Long, Long>();
 		for (var look : content.looks()) {
 			var owner = look.spec().owner().map(compositionIds::get);
-			lookIds.put(look.id(), looks.create(projectId, new LookSpec(look.spec().name(), owner), look.look()).id());
+			// positions come only from moves
+			lookIds.put(look.id(), looks.create(projectId, new LookSpec(look.spec().name(), owner),
+					look.look().withoutPositions()).id());
 		}
 		for (var composition : content.compositions()) {
 			var steps = composition.steps().stream()
@@ -63,9 +74,8 @@ public final class ShowContentWriter {
 						.toList())));
 		content.sceneKeys().forEach((sceneId, keys) -> mapped(sceneIds, sceneId).ifPresent(id ->
 				scenes.replaceKeys(id, keys.stream()
-						.filter(key -> compositionIds.containsKey(key.compositionId()))
-						.map(key -> new SceneKey(key.slot(), compositionIds.get(key.compositionId()), key.mode(),
-								key.fade()))
+						.map(key -> mappedKey(key, compositionIds, moveIds))
+						.flatMap(Optional::stream)
 						.toList())));
 		for (var fader : content.faders()) {
 			mapped(compositionIds, fader.compositionId()).ifPresent(id ->
@@ -81,6 +91,17 @@ public final class ShowContentWriter {
 
 	/** Ids of the content → ids in the project. */
 	public record Written(Map<Long, Long> compositionIds, Map<Long, Long> lookIds) {
+	}
+
+	/** The key with the new ids; empty if what it plays is not in the content. */
+	private static Optional<SceneKey> mappedKey(SceneKey key, Map<Long, Long> compositionIds,
+			Map<Long, Long> moveIds) {
+		var composition = key.compositionId().map(compositionIds::get);
+		var move = key.moveId().map(moveIds::get);
+		if (composition.isEmpty() && move.isEmpty()) {
+			return Optional.empty();
+		}
+		return Optional.of(new SceneKey(key.slot(), composition, move, key.mode(), key.fade()));
 	}
 
 	private static Optional<Long> mapped(Map<Long, Long> ids, long id) {

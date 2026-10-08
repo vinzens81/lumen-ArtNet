@@ -124,7 +124,8 @@ class OutputConfiguration {
 	@Bean
 	CompositionPreviewService compositionPreviewService(SqliteRepositories repositories,
 			CompositionResolver compositionResolver, OutputEngine outputEngine, Clock clock, StateEvents stateEvents) {
-		var preview = new CompositionPreviewService(repositories.compositions(), repositories.scenes(),
+		var preview = new CompositionPreviewService(repositories.compositions(), repositories.moves(),
+				repositories.scenes(),
 				repositories.projects(), compositionResolver, outputEngine, clock, stateEvents);
 		outputEngine.addLayerSource(preview);
 		return preview;

@@ -101,7 +101,7 @@ class PartySwitchboardTest {
 				PartyCell.composition(0, 0, 1)))).hasMessageContaining("twice");
 		assertThatThrownBy(() -> new PartyMatrix(2, 2, Set.of(2), List.of())).hasMessageContaining("line");
 		assertThatThrownBy(() -> new PartyCell(0, 0, Optional.empty(), Optional.of(1L), Optional.of(2L), "#000000",
-				"#ffffff", KeyMode.TOGGLE, Optional.empty())).hasMessageContaining("either");
+				"#ffffff", KeyMode.TOGGLE, Optional.empty())).hasMessageContaining("not several");
 		assertThat(new PartyMatrix(3, 2, Set.of(1, 2), List.of()).separators()).containsExactlyInAnyOrder(1, 2);
 	}
 

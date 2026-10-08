@@ -5,6 +5,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 
@@ -49,12 +50,12 @@ public interface ManageScenesUseCase {
 
 	/**
 	 * The light of a part of the scene: after the light marker {@code marker} of the script, or the start of the
-	 * scene for an empty marker. Compositions and looks must belong to the project.
+	 * scene for an empty marker. Compositions, looks and moves must belong to the project.
 	 */
 	Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> compositions,
-			List<SceneLook> looks);
+			List<SceneLook> looks, List<SceneMove> moves);
 
-	/** The extra keys of the scene; each plays a composition of the project. */
+	/** The extra keys of the scene; each plays a composition or a move of the project. */
 	Scene setKeys(long projectId, long sceneId, List<SceneKey> keys);
 
 	/**

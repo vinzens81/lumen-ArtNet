@@ -88,7 +88,7 @@ class LegacyConversionTest {
 			assertThat(key.mode()).isEqualTo(KeyMode.FLASH);
 		});
 		assertThat(fair.keys()).extracting(k -> k.slot()).containsExactly(1, 2);
-		assertThat(composition(repos, fair.keys().get(1).compositionId()).spec().name())
+		assertThat(composition(repos, fair.keys().get(1).compositionId().orElseThrow()).spec().name())
 				.isEqualTo("3 Storm look");
 
 		assertThat(migration(new SqliteRepositories(SqliteDatabase.open(file))).convertPending())

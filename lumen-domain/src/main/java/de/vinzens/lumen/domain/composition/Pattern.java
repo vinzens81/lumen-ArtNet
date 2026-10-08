@@ -9,7 +9,8 @@ import java.util.Optional;
  * What a composition does, as a pure function of time: no clock, no state. The time is already scaled by the
  * speed factor of the composition.
  */
-public sealed interface Pattern permits Chase, ColorCycle, Rainbow, Wave, Flicker, StepSequence {
+public sealed interface Pattern permits Chase, ColorCycle, Rainbow, Wave, Flicker, StepSequence,
+		MovePattern {
 
 	PatternKind kind();
 

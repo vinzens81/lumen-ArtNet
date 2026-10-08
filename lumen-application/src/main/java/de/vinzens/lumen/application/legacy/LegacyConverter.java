@@ -235,7 +235,7 @@ public final class LegacyConverter {
 			}
 			for (var extra : extras) {
 				var keys = sceneKeys.get(extra.scene().id());
-				if (keys.stream().anyMatch(k -> k.compositionId() == extra.compositionId())) {
+				if (keys.stream().anyMatch(k -> k.plays(extra.compositionId()))) {
 					continue;
 				}
 				var used = new HashSet<Integer>();

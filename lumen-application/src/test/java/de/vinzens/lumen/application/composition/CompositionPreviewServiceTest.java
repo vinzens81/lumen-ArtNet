@@ -64,7 +64,8 @@ class CompositionPreviewServiceTest {
 			Map.of(3L, new FixtureValues(Map.of(DIMMER, 0.3)))).id()), SceneComposition.of(chase.id()),
 			SceneComposition.of(flicker.id())), List.of());
 	/** project fade times: in 2 s, out 4 s */
-	private final CompositionPreviewService preview = new CompositionPreviewService(show.compositions, show.scenes,
+	private final CompositionPreviewService preview = new CompositionPreviewService(show.compositions, show.moves,
+			show.scenes,
 			projects(), show.resolver(), mode(), clock(), events);
 
 	@Test

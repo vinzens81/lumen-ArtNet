@@ -24,6 +24,8 @@ public final class TestShow {
 	public final InMemoryLooks looks = new InMemoryLooks();
 	public final InMemoryCompositions compositions = new InMemoryCompositions(looks);
 	public final InMemoryScenes scenes = new InMemoryScenes();
+	public final InMemoryFigures figures = new InMemoryFigures();
+	public final InMemoryMoves moves = new InMemoryMoves();
 
 	/** A composition with one step: fixed values, like a recorded scene. */
 	public Composition fixed(long projectId, String name, Map<Long, FixtureValues> values) {
@@ -50,6 +52,6 @@ public final class TestShow {
 	}
 
 	public CompositionResolver resolver() {
-		return new CompositionResolver(compositions, looks, scenes);
+		return new CompositionResolver(compositions, looks, scenes, moves, figures);
 	}
 }

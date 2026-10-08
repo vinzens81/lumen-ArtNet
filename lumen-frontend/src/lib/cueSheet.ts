@@ -1,4 +1,4 @@
-import type { Composition, Project, Scene } from './types';
+import type { Composition, Move, Project, Scene } from './types';
 
 /** A fade time on the cue sheet; `own` marks a scene's own time instead of the project's. */
 export interface SheetTime {
@@ -19,6 +19,8 @@ export interface CueRow {
   autoFollowMs: number | null;
   /** names of the compositions running in the scene */
   compositions: string[];
+  /** names of the moves at the start of the scene */
+  moves: string[];
   /** extra keys of the scene, e.g. "1 Storm" */
   keys: string[];
 }
@@ -31,8 +33,10 @@ export function cueRows(
   project: Pick<Project, 'fadeInMs' | 'fadeOutMs'>,
   scenes: Scene[],
   compositions: Composition[],
+  moves: Move[] = [],
 ): CueRow[] {
   const names = new Map(compositions.map((c) => [c.id, c.name]));
+  const moveNames = new Map(moves.map((m) => [m.id, m.name]));
   return scenes.map((scene, index) => ({
     sceneId: scene.id,
     number: scene.number,
@@ -43,9 +47,11 @@ export function cueRows(
     delayMs: scene.delayMs,
     autoFollowMs: index < scenes.length - 1 ? scene.autoFollowMs : null,
     compositions: scene.compositions.map((use) => names.get(use.compositionId) ?? '?'),
+    moves: scene.moves.map((use) => moveNames.get(use.moveId) ?? '?'),
     keys: [...scene.keys]
       .sort((a, b) => a.slot - b.slot)
-      .map((key) => `${key.slot} ${names.get(key.compositionId) ?? '?'}`),
+      .map((key) => `${key.slot} ${(key.compositionId !== null ? names.get(key.compositionId)
+        : moveNames.get(key.moveId ?? -1)) ?? '?'}`),
   }));
 }
 

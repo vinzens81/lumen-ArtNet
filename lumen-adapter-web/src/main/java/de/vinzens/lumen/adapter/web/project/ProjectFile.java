@@ -5,6 +5,12 @@ import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionReque
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.CompositionResponse;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.GeneratorDto;
 import de.vinzens.lumen.adapter.web.composition.CompositionDtos.StepDto;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.FigureRequest;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.FigureResponse;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.MoveFixtureDto;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.MoveRequest;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.MoveResponse;
+import de.vinzens.lumen.adapter.web.move.MoveDtos.PointDto;
 import de.vinzens.lumen.adapter.web.output.PresetRefsJson;
 import de.vinzens.lumen.adapter.web.output.ValuesJson;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
@@ -25,6 +31,8 @@ import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.look.LookSpec;
 import de.vinzens.lumen.domain.look.NamedLook;
+import de.vinzens.lumen.domain.move.Figure;
+import de.vinzens.lumen.domain.move.Move;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyMatrix;
@@ -41,6 +49,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -61,10 +70,12 @@ import java.util.Set;
 /**
  * File format of an exported project (JSON), version {@value #VERSION}. Ids only connect the parts of the file:
  * fixtures refer to universes, groups and looks to fixtures, looks to presets and their composition, compositions to
- * looks, scenes and faders to compositions, fields of the party matrix to compositions and scene numbers. On import
- * everything gets new ids. Files of version 1 (before looks) are read by {@link LegacyProjectFile}. In files of version
- * 2, faders played a scene (by number) and scenes could be outside the cue list: such a fader plays the first
- * composition of its scene, such scenes are left out. Party buttons of older files are left out.
+ * looks, moves to figures and fixtures, scenes and faders to compositions and moves, fields of the party matrix to
+ * compositions, moves and scene numbers. On import everything gets new ids. Files of version 1 (before looks) are read
+ * by {@link LegacyProjectFile}. In files of version 2, faders played a scene (by number) and scenes could be outside
+ * the cue list: such a fader plays the first composition of its scene, such scenes are left out. Party buttons of
+ * older files are left out. Files before version 4 have no moves; pan and tilt in their looks and position presets
+ * are left out with a warning, positions come only from moves.
  *
  * @param format  always {@value #FORMAT}
  * @param version format version, currently {@value #VERSION}
@@ -72,10 +83,12 @@ import java.util.Set;
 record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRequest project,
 		List<UniverseEntry> universes, List<FixtureEntry> fixtures, List<GroupEntry> groups, List<LookEntry> looks,
 		List<CompositionEntry> compositions, List<SceneEntry> scenes, StagePlanEntry stagePlan,
-		PartyMatrixEntry partyMatrix, List<PresetEntry> presets, List<FaderEntry> faders) {
+		PartyMatrixEntry partyMatrix, List<PresetEntry> presets, List<FaderEntry> faders, List<FigureEntry> figures,
+		List<MoveEntry> moves) {
 
 	static final String FORMAT = "lumen-project";
-	static final int VERSION = 3;
+	static final int VERSION = 4;
+	private static final System.Logger LOG = System.getLogger(ProjectFile.class.getName());
 
 	static ProjectFile from(ProjectExport export, Instant now, JsonMapper json) {
 		var spec = export.project();
@@ -94,7 +107,9 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				PartyMatrixEntry.from(export.partyMatrix(), sceneNumbers),
 				export.presets().stream().map(PresetEntry::from).toList(),
 				export.faders().stream().map(f -> new FaderEntry(f.slot(), f.name().orElse(null), f.compositionId(),
-						null)).toList());
+						null)).toList(),
+				export.figures().stream().map(FigureEntry::from).toList(),
+				export.moves().stream().map(MoveEntry::from).toList());
 	}
 
 	/** Reads a file of any supported version. */
@@ -106,7 +121,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		var version = file.path("version").asInt(0);
 		return switch (version) {
 			case 1 -> json.treeToValue(file, LegacyProjectFile.class).toExport(json);
-			case 2, VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
+			case 2, 3, VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
 			default -> throw new DomainValidationException(List.of("Project file version " + version
 					+ " is not supported (supported: up to " + VERSION + ")"));
 		};
@@ -141,9 +156,52 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				Optional.ofNullable(stagePlan).map(plan -> new StagePlan(plan.contentType(),
 						plan.data() == null ? new byte[0] : plan.data())),
 				partyMatrix == null ? PartyMatrix.EMPTY : partyMatrix.toMatrix(sceneIds),
-				list(presets).stream().map(PresetEntry::toPreset).toList(),
+				list(presets).stream().filter(ProjectFile::notPositions).map(PresetEntry::toPreset).toList(),
 				list(faders).stream().flatMap(f -> f.toFader(firstComposition).stream()).toList(),
+				list(figures).stream().map(FigureEntry::toFigure).toList(),
+				list(moves).stream().map(MoveEntry::toMove).toList(),
 				LegacyShow.EMPTY);
+	}
+
+	/** Position presets of older files are left out: a stored position is a move now. */
+	private static boolean notPositions(PresetEntry preset) {
+		if (AttributeGroup.POSITION.id().equals(preset.group())) {
+			LOG.log(System.Logger.Level.WARNING, "Position preset \"{0}\" left out – positions are moves now",
+					preset.name());
+			return false;
+		}
+		return true;
+	}
+
+	/** A figure; points in DMX values as in the move API. */
+	record FigureEntry(Long id, String name, Boolean closed, List<PointDto> points) {
+
+		static FigureEntry from(Figure figure) {
+			var api = FigureResponse.from(figure);
+			return new FigureEntry(api.id(), api.name(), api.closed(), api.points());
+		}
+
+		Figure toFigure() {
+			return new Figure(require(id, "figure id"), 0, new FigureRequest(name, closed, points).toSpec());
+		}
+	}
+
+	/** A move; the fields are the same as in the move API. */
+	record MoveEntry(Long id, String name, Long figureId, List<MoveFixtureDto> fixtures, Double sizeX, Double sizeY,
+			Double shiftX, Double shiftY, Double rotation, Long durationMs, String repeat, Integer stepOffset,
+			String onceStart) {
+
+		static MoveEntry from(Move move) {
+			var api = MoveResponse.from(move);
+			return new MoveEntry(api.id(), api.name(), api.figureId(), api.fixtures(), api.sizeX(), api.sizeY(),
+					api.shiftX(), api.shiftY(), api.rotation(), api.durationMs(), api.repeat(), api.stepOffset(),
+					api.onceStart());
+		}
+
+		Move toMove() {
+			return new Move(require(id, "move id"), 0, new MoveRequest(name, figureId, fixtures, sizeX, sizeY, shiftX,
+					shiftY, rotation, durationMs, repeat, stepOffset, onceStart).toSpec());
+		}
 	}
 
 	/**
@@ -229,13 +287,14 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param mode          toggle or flash
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
-	record PartyCellEntry(int row, int column, String label, String scene, Long compositionId, String color,
-			String borderColor, String mode, String group) {
+	record PartyCellEntry(int row, int column, String label, String scene, Long compositionId, Long moveId,
+			String color, String borderColor, String mode, String group) {
 
 		static PartyCellEntry from(PartyCell cell, Map<Long, String> sceneNumbers) {
 			return new PartyCellEntry(cell.row(), cell.column(), cell.label().orElse(null),
 					cell.sceneId().map(sceneNumbers::get).orElse(null), cell.compositionId().orElse(null),
-					cell.color(), cell.borderColor(), cell.mode().id(), cell.group().orElse(null));
+					cell.moveId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
+					cell.group().orElse(null));
 		}
 
 		PartyCell toCell(Map<String, Long> sceneIds) {
@@ -248,7 +307,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				return id;
 			});
 			return new PartyCell(row, column, Optional.ofNullable(label), sceneId, Optional.ofNullable(compositionId),
-					Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
+					Optional.ofNullable(moveId), Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
 					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
 					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group));
 		}
@@ -370,13 +429,14 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param compositions   compositions of the scene in their order, referring to composition ids of the file
 	 * @param keys           extra keys of the scene
 	 * @param looks          looks used directly at the start of the scene, referring to look ids of the file
+	 * @param moves          moves at the start of the scene, referring to move ids of the file
 	 * @param sections       the light of the parts after the light markers of the script
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record SceneEntry(String number, String name, String cueNote, Long autoFollowMs, Boolean outsideCueList,
 			Long fadeInMs, Long fadeOutMs, Long delayMs, String fadeCurve, String script,
 			List<SceneCompositionEntry> compositions, List<SceneKeyEntry> keys, List<SceneLookEntry> looks,
-			List<SectionEntry> sections) {
+			List<SceneMoveEntry> moves, List<SectionEntry> sections) {
 
 		static SceneEntry from(Scene scene) {
 			var spec = scene.spec();
@@ -388,6 +448,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					scene.compositions().stream().map(SceneCompositionEntry::from).toList(),
 					scene.keys().stream().map(SceneKeyEntry::from).toList(),
 					scene.looks().stream().map(SceneLookEntry::from).toList(),
+					scene.moves().stream().map(SceneMoveEntry::from).toList(),
 					scene.sections().stream().map(SectionEntry::from).toList());
 		}
 
@@ -397,7 +458,19 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
 					list(keys).stream().map(SceneKeyEntry::toKey).toList(),
 					list(looks).stream().map(SceneLookEntry::toUse).toList(),
+					list(moves).stream().map(SceneMoveEntry::toUse).toList(),
 					list(sections).stream().map(SectionEntry::toSection).toList());
+		}
+	}
+
+	record SceneMoveEntry(Long moveId) {
+
+		static SceneMoveEntry from(SceneMove use) {
+			return new SceneMoveEntry(use.moveId());
+		}
+
+		SceneMove toUse() {
+			return new SceneMove(require(moveId, "moveId of a scene"));
 		}
 	}
 
@@ -413,12 +486,14 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	}
 
 	/** @param marker name of the light marker in the script */
-	record SectionEntry(String marker, List<SceneCompositionEntry> compositions, List<SceneLookEntry> looks) {
+	record SectionEntry(String marker, List<SceneCompositionEntry> compositions, List<SceneLookEntry> looks,
+			List<SceneMoveEntry> moves) {
 
 		static SectionEntry from(SceneSection section) {
 			return new SectionEntry(section.marker(),
 					section.compositions().stream().map(SceneCompositionEntry::from).toList(),
-					section.looks().stream().map(SceneLookEntry::from).toList());
+					section.looks().stream().map(SceneLookEntry::from).toList(),
+					section.moves().stream().map(SceneMoveEntry::from).toList());
 		}
 
 		SceneSection toSection() {
@@ -426,7 +501,8 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 				throw new DomainValidationException(List.of("A part of a scene has no marker"));
 			}
 			return new SceneSection(marker, list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
-					list(looks).stream().map(SceneLookEntry::toUse).toList());
+					list(looks).stream().map(SceneLookEntry::toUse).toList(),
+					list(moves).stream().map(SceneMoveEntry::toUse).toList());
 		}
 	}
 
@@ -443,18 +519,24 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	/** @param mode toggle or flash */
-	record SceneKeyEntry(Integer slot, Long compositionId, String mode, Long fadeMs) {
+	/**
+	 * @param compositionId the composition the key plays; files before version 4 have only these
+	 * @param moveId        the move the key plays
+	 * @param mode          toggle or flash
+	 */
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	record SceneKeyEntry(Integer slot, Long compositionId, Long moveId, String mode, Long fadeMs) {
 
 		static SceneKeyEntry from(SceneKey key) {
-			return new SceneKeyEntry(key.slot(), key.compositionId(), key.mode().id(), key.fade().toMillis());
+			return new SceneKeyEntry(key.slot(), key.compositionId().orElse(null), key.moveId().orElse(null),
+					key.mode().id(), key.fade().toMillis());
 		}
 
 		SceneKey toKey() {
 			if (slot == null) {
 				throw new DomainValidationException(List.of("A key of a scene has no slot"));
 			}
-			return new SceneKey(slot, require(compositionId, "compositionId of key " + slot),
+			return new SceneKey(slot, Optional.ofNullable(compositionId), Optional.ofNullable(moveId),
 					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode),
 					Duration.ofMillis(Objects.requireNonNullElse(fadeMs, 0L)));
 		}

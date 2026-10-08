@@ -5,15 +5,16 @@
   import { curveLabel } from '../lib/sceneTiming';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, Scene } from '../lib/types';
+  import type { Composition, Move, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
   let compositions = $state<Composition[]>([]);
+  let moves = $state<Move[]>([]);
   let loaded = $state(false);
 
   const project = $derived(app.active);
   const projectId = $derived(app.active?.id ?? null);
-  const rows = $derived<CueRow[]>(project ? cueRows(project, scenes, compositions) : []);
+  const rows = $derived<CueRow[]>(project ? cueRows(project, scenes, compositions, moves) : []);
   const printedAt = new Date().toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
   $effect(() => {
@@ -28,7 +29,8 @@
 
   async function load(id: number) {
     try {
-      [scenes, compositions] = await Promise.all([api.scenes.list(id), api.compositions.list(id)]);
+      [scenes, compositions, moves] = await Promise.all([api.scenes.list(id), api.compositions.list(id),
+        api.moves.list(id)]);
       loaded = true;
     } catch (e) {
       showError(e);
@@ -92,6 +94,7 @@
               <td class="time">{row.autoFollowMs !== null ? `→ ${sheetSeconds(row.autoFollowMs)}` : ''}</td>
               <td class="extra">
                 {#if row.compositions.length > 0}<div>{row.compositions.join(', ')}</div>{/if}
+                {#if row.moves.length > 0}<div class="keys">Moves: {row.moves.join(', ')}</div>{/if}
                 {#if row.keys.length > 0}<div class="keys">Keys: {row.keys.join(', ')}</div>{/if}
               </td>
               <td class="check"><span class="box"></span></td>

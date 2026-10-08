@@ -58,19 +58,21 @@ public final class PartyDtos {
 	 * @param mode        toggle or flash, {@code null} = toggle
 	 * @param group       fields of the same group exclude each other, {@code null} = no group
 	 */
-	public record PartyCellDto(int row, int column, String label, Long sceneId, Long compositionId, String color,
-			String borderColor, String mode, String group) {
+	public record PartyCellDto(int row, int column, String label, Long sceneId, Long compositionId, Long moveId,
+			String color, String borderColor, String mode, String group) {
 
 		PartyCell toCell() {
 			return new PartyCell(row, column, Optional.ofNullable(label), Optional.ofNullable(sceneId),
-					Optional.ofNullable(compositionId), Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
+					Optional.ofNullable(compositionId), Optional.ofNullable(moveId),
+					Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
 					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
 					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group));
 		}
 
 		static PartyCellDto from(PartyCell cell) {
 			return new PartyCellDto(cell.row(), cell.column(), cell.label().orElse(null), cell.sceneId().orElse(null),
-					cell.compositionId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
+					cell.compositionId().orElse(null), cell.moveId().orElse(null), cell.color(), cell.borderColor(),
+					cell.mode().id(),
 					cell.group().orElse(null));
 		}
 	}

@@ -1,6 +1,9 @@
 package de.vinzens.lumen.domain.composition;
 
 import de.vinzens.lumen.domain.look.Look;
+import de.vinzens.lumen.domain.move.Figure;
+import de.vinzens.lumen.domain.move.Move;
+import de.vinzens.lumen.domain.move.MoveRepeat;
 
 import java.util.List;
 import java.util.Map;
@@ -17,6 +20,9 @@ import java.util.Optional;
  */
 public record ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds,
 		double level, double speedFactor, boolean restart, boolean once, boolean perHead) {
+
+	/** Moves play with ids from here on, so they never meet a composition or look id. */
+	public static final long MOVE_IDS = 1L << 40;
 
 	public ActiveComposition {
 		Objects.requireNonNull(sourceId, "sourceId");
@@ -47,6 +53,16 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 				StepSequence.PlayMode.LOOP);
 		return new ActiveComposition(-lookId, Optional.of(-lookId), sequence, sequence.ownFixtures().orElse(List.of()),
 				level, 1, false);
+	}
+
+	/**
+	 * A move: its fixtures follow the figure. It continues from scene to scene and from one part of a scene to the
+	 * next as long as it is the same move.
+	 */
+	public static ActiveComposition ofMove(Move move, Figure figure) {
+		var id = MOVE_IDS + move.id();
+		return new ActiveComposition(id, Optional.of(id), MovePattern.of(move.spec(), figure),
+				move.spec().fixtureIds(), 1, 1, false, move.spec().repeat() == MoveRepeat.ONCE, false);
 	}
 
 	/** A composition on its own at full level and speed (previews, keys). */

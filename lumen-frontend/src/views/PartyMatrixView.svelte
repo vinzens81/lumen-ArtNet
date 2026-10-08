@@ -8,21 +8,23 @@
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, KeyMode, PartyCell, PartyMatrix, Scene } from '../lib/types';
+  import type { Composition, KeyMode, Move, PartyCell, PartyMatrix, Scene } from '../lib/types';
 
-  type Kind = 'empty' | 'text' | 'scene' | 'composition';
+  type Kind = 'empty' | 'text' | 'scene' | 'composition' | 'move';
 
   let matrix = $state<PartyMatrix>({ rows: 4, columns: 4, separators: [], cells: [] });
   let scenes = $state<Scene[]>([]);
   let compositions = $state<Composition[]>([]);
+  let moves = $state<Move[]>([]);
   let selected = $state<{ row: number; column: number } | null>(null);
 
   const projectId = $derived(app.active?.id ?? null);
   const scenesById = $derived(new Map(scenes.map((s) => [s.id, s])));
   const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
+  const movesById = $derived(new Map(moves.map((m) => [m.id, m])));
   const cell = $derived(selected ? cellAt(matrix, selected.row, selected.column) : null);
   const kind = $derived<Kind>(!cell ? 'empty' : cell.sceneId !== null ? 'scene'
-    : cell.compositionId !== null ? 'composition' : 'text');
+    : cell.compositionId !== null ? 'composition' : cell.moveId !== null ? 'move' : 'text');
   const groups = $derived(groupNames(matrix));
   const sortedCompositions = $derived([...compositions].sort((a, b) => a.name.localeCompare(b.name)));
 
@@ -30,13 +32,14 @@
     void live.partyMatrixRevision;
     void live.scenesRevision;
     void live.compositionsRevision;
+    void live.movesRevision;
     if (projectId !== null) load(projectId);
   });
 
   async function load(id: number) {
     try {
-      [matrix, scenes, compositions] = await Promise.all([api.partyMatrix.get(id), api.scenes.list(id),
-        api.compositions.list(id)]);
+      [matrix, scenes, compositions, moves] = await Promise.all([api.partyMatrix.get(id), api.scenes.list(id),
+        api.compositions.list(id), api.moves.list(id)]);
     } catch (e) {
       showError(e);
     }
@@ -66,11 +69,13 @@
     if (next === 'empty') {
       save(withoutCell(matrix, selected.row, selected.column));
     } else if (next === 'text') {
-      update({ sceneId: null, compositionId: null, label: cell?.label ?? 'Text' });
+      update({ sceneId: null, compositionId: null, moveId: null, label: cell?.label ?? 'Text' });
     } else if (next === 'scene') {
-      update({ sceneId: scenes[0]?.id ?? null, compositionId: null });
+      update({ sceneId: scenes[0]?.id ?? null, compositionId: null, moveId: null });
+    } else if (next === 'move') {
+      update({ moveId: moves[0]?.id ?? null, sceneId: null, compositionId: null });
     } else {
-      update({ compositionId: sortedCompositions[0]?.id ?? null, sceneId: null });
+      update({ compositionId: sortedCompositions[0]?.id ?? null, sceneId: null, moveId: null });
     }
   }
 
@@ -92,8 +97,8 @@
       <div>
         <h1>Party</h1>
         <p class="dim">
-          A matrix of fields for party mode. Each field switches a scene or a composition on and off – or just shows a
-          text. Any number can be on at once; where they collide, the higher value wins. Fields of the same group
+          A matrix of fields for party mode. Each field switches a scene, a composition or a move on and off – or just
+          shows a text. Any number can be on at once; where they collide, the higher value wins. Fields of the same group
           exclude each other (e.g. colors: blue goes off when red goes on). Click between two rows for a line.
         </p>
       </div>
@@ -107,7 +112,7 @@
 
     <div class="layout">
       <div class="grid glass">
-        <PartyGrid {matrix} scenes={scenesById} compositions={compositionsById} editing {selected}
+        <PartyGrid {matrix} scenes={scenesById} compositions={compositionsById} moves={movesById} editing {selected}
           onselect={(row, column) => (selected = { row, column })}
           ontoggleseparator={(row) => save(toggledSeparator(matrix, row))} />
       </div>
@@ -118,11 +123,13 @@
         {:else}
           <h3>Field {selected.row + 1} / {selected.column + 1}</h3>
           <div class="kinds" role="radiogroup" aria-label="What the field does">
-            {#each [['empty', 'Empty'], ['text', 'Text'], ['scene', 'Scene'], ['composition', 'Composition']] as [value, text] (value)}
+            {#each [['empty', 'Empty'], ['text', 'Text'], ['scene', 'Scene'], ['composition', 'Composition'],
+              ['move', 'Move']] as [value, text] (value)}
               <button type="button" class="btn small" class:active={kind === value} role="radio"
                 aria-checked={kind === value} onclick={() => setKind(value as Kind)}
                 disabled={(value === 'scene' && scenes.length === 0)
-                  || (value === 'composition' && compositions.length === 0)}>{text}</button>
+                  || (value === 'composition' && compositions.length === 0)
+                  || (value === 'move' && moves.length === 0)}>{text}</button>
             {/each}
           </div>
 
@@ -145,11 +152,19 @@
                   {/each}
                 </select>
               </label>
+            {:else if kind === 'move'}
+              <label class="field">Move
+                <select value={cell.moveId} onchange={(e) => update({ moveId: Number(e.currentTarget.value) })}>
+                  {#if cell.moveId === null || !movesById.has(cell.moveId)}<option value={cell.moveId}>(missing move)</option>{/if}
+                  {#each moves as move (move.id)}<option value={move.id}>{move.name}</option>{/each}
+                </select>
+              </label>
+              <p class="hint dim">Where the heads point while the field is on.</p>
             {/if}
 
             <label class="field">Label
               <input value={cell.label ?? ''} maxlength="60"
-                placeholder={kind === 'text' ? 'Text' : cellLabel({ ...cell, label: null }, scenesById, compositionsById)}
+                placeholder={kind === 'text' ? 'Text' : cellLabel({ ...cell, label: null }, scenesById, compositionsById, movesById)}
                 onchange={(e) => update({ label: e.currentTarget.value.trim() || null })} />
             </label>
 

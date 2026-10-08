@@ -9,6 +9,8 @@ import de.vinzens.lumen.application.legacy.LegacyShow.LegacyKey;
 import de.vinzens.lumen.application.legacy.LegacyShow.LegacyScene;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.look.port.out.LookRepository;
+import de.vinzens.lumen.application.move.port.out.FigureRepository;
+import de.vinzens.lumen.application.move.port.out.MoveRepository;
 import de.vinzens.lumen.application.party.port.out.PartyMatrixRepository;
 import de.vinzens.lumen.application.playback.port.out.FaderRepository;
 import de.vinzens.lumen.application.preset.port.out.PresetRepository;
@@ -30,6 +32,8 @@ import de.vinzens.lumen.domain.composition.Target;
 import de.vinzens.lumen.domain.library.AttributeGroup;
 import de.vinzens.lumen.domain.look.Look;
 import de.vinzens.lumen.domain.look.NamedLook;
+import de.vinzens.lumen.domain.move.MoveFixture;
+import de.vinzens.lumen.domain.move.MoveSpec;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.party.PartyCell;
@@ -40,6 +44,7 @@ import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 
 import java.lang.System.Logger.Level;
@@ -68,6 +73,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	private final PartyMatrixRepository partyMatrices;
 	private final PresetRepository presets;
 	private final FaderRepository faders;
+	private final FigureRepository figures;
+	private final MoveRepository moves;
 	private final QueryFixtureLibraryUseCase library;
 	private final Clock clock;
 	private final PatchChangeListener listener;
@@ -75,8 +82,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	public ProjectTransferService(ProjectRepository projects, UniverseRepository universes,
 			FixtureRepository fixtures, GroupRepository groups, LookRepository looks, CompositionRepository compositions,
 			SceneRepository scenes, StagePlanRepository stagePlans, PartyMatrixRepository partyMatrices,
-			PresetRepository presets, FaderRepository faders, QueryFixtureLibraryUseCase library, Clock clock,
-			PatchChangeListener listener) {
+			PresetRepository presets, FaderRepository faders, FigureRepository figures, MoveRepository moves,
+			QueryFixtureLibraryUseCase library, Clock clock, PatchChangeListener listener) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.universes = Objects.requireNonNull(universes, "universes");
 		this.fixtures = Objects.requireNonNull(fixtures, "fixtures");
@@ -88,6 +95,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		this.partyMatrices = Objects.requireNonNull(partyMatrices, "partyMatrices");
 		this.presets = Objects.requireNonNull(presets, "presets");
 		this.faders = Objects.requireNonNull(faders, "faders");
+		this.figures = Objects.requireNonNull(figures, "figures");
+		this.moves = Objects.requireNonNull(moves, "moves");
 		this.library = Objects.requireNonNull(library, "library");
 		this.clock = Objects.requireNonNull(clock, "clock");
 		this.listener = Objects.requireNonNull(listener, "listener");
@@ -100,7 +109,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				fixtures.findByProject(projectId), groups.findByProject(projectId), looks.findByProject(projectId),
 				compositions.findByProject(projectId), scenes.findByProject(projectId), stagePlans.find(projectId),
 				partyMatrices.find(projectId), presets.findByProject(projectId),
-				faders.findByProject(projectId), LegacyShow.EMPTY);
+				faders.findByProject(projectId), figures.findByProject(projectId), moves.findByProject(projectId),
+				LegacyShow.EMPTY);
 	}
 
 	@Override
@@ -135,9 +145,25 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			ids.groups.put(group.id(), groups.create(projectId, new GroupSpec(spec.name(), spec.color(),
 					spec.sortOrder(), spec.fixtureIds().stream().map(ids.fixtures::get).toList())).id());
 		}
+		var name = export.project().name();
 		for (var preset : export.presets()) {
 			ids.presets.put(preset.id(), presets.create(projectId, preset.spec(),
 					ids.values(preset.values())).id());
+		}
+		for (var figure : export.figures()) {
+			ids.figures.put(figure.id(), figures.create(projectId, figure.spec()).id());
+		}
+		for (var move : export.moves()) {
+			var spec = move.spec();
+			var fixtureList = spec.fixtures().stream()
+					.filter(f -> ids.fixtures.containsKey(f.fixtureId()))
+					.map(f -> new MoveFixture(ids.fixtures.get(f.fixtureId()), f.shiftX(), f.shiftY(), f.mirrorX(),
+							f.mirrorY(), f.reverse()))
+					.toList();
+			var copy = new MoveSpec(spec.name(), ids.figures.get(spec.figureId()),
+					fixtureList, spec.sizeX(), spec.sizeY(), spec.shiftX(), spec.shiftY(), spec.rotationDegrees(),
+					spec.durationSeconds(), spec.repeat(), spec.stepOffset(), spec.onceStart());
+			ids.moves.put(move.id(), moves.create(projectId, copy).id());
 		}
 		export.stagePlan().ifPresent(plan -> stagePlans.save(projectId, plan));
 
@@ -166,24 +192,26 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				sceneCompositions.put(scene.id(), scene.compositions());
 				sceneKeys.put(scene.id(), scene.keys());
 			});
-			var content = new ShowContent(
-					export.looks().stream().map(ids::look).toList(),
+			var importedLooks = export.looks().stream().map(look -> withoutPositions(name, look)).map(ids::look)
+					.toList();
+			var content = new ShowContent(importedLooks,
 					export.compositions().stream().map(ids::composition).toList(),
 					sceneCompositions, sceneKeys, export.faders(), Set.of());
-			var written = writer.write(projectId, content, sceneIds);
+			var written = writer.write(projectId, content, sceneIds, ids.moves);
 			for (var scene : export.scenes()) {
 				var id = sceneIds.get(scene.id());
-				if (!scene.looks().isEmpty()) {
+				if (!scene.looks().isEmpty() || !scene.moves().isEmpty()) {
 					scenes.replaceSection(id, "", mappedUses(scene.compositions(), written.compositionIds()),
-							mappedLooks(scene.looks(), written.lookIds()));
+							mappedLooks(scene.looks(), written.lookIds()), mappedMoves(scene.moves(), ids.moves));
 				}
 				for (var section : scene.sections()) {
 					scenes.replaceSection(id, section.marker(),
 							mappedUses(section.compositions(), written.compositionIds()),
-							mappedLooks(section.looks(), written.lookIds()));
+							mappedLooks(section.looks(), written.lookIds()), mappedMoves(section.moves(), ids.moves));
 				}
 			}
-			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds()));
+			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds(),
+					ids.moves));
 		}
 	}
 
@@ -194,19 +222,37 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				.toList();
 	}
 
+	/** A look of an older file: pan and tilt are left out, positions come only from moves now. */
+	private static NamedLook withoutPositions(String project, NamedLook look) {
+		if (!look.look().hasPositions()) {
+			return look;
+		}
+		LOG.log(Level.WARNING, "Import of \"{0}\": pan and tilt of look \"{1}\" left out – positions are moves now",
+				project, look.spec().name());
+		return new NamedLook(look.id(), look.projectId(), look.spec(), look.look().withoutPositions());
+	}
+
+	private static List<SceneMove> mappedMoves(List<SceneMove> uses, Map<Long, Long> moveIds) {
+		return uses.stream().filter(use -> moveIds.containsKey(use.moveId()))
+				.map(use -> new SceneMove(moveIds.get(use.moveId())))
+				.toList();
+	}
+
 	private static List<SceneLook> mappedLooks(List<SceneLook> uses, Map<Long, Long> lookIds) {
 		return uses.stream().filter(use -> lookIds.containsKey(use.lookId()))
 				.map(use -> new SceneLook(lookIds.get(use.lookId()), use.level()))
 				.toList();
 	}
 
-	/** The matrix with the new ids; a field whose scene or composition is not in the export shows only its text. */
+	/**
+	 * The matrix with the new ids; a field whose scene, composition or move is not in the export shows only its text.
+	 */
 	private static PartyMatrix partyMatrix(PartyMatrix matrix, Map<Long, Long> sceneIds,
-			Map<Long, Long> compositionIds) {
+			Map<Long, Long> compositionIds, Map<Long, Long> moveIds) {
 		var cells = matrix.cells().stream()
 				.map(cell -> new PartyCell(cell.row(), cell.column(), cell.label(),
-						cell.sceneId().map(sceneIds::get), cell.compositionId().map(compositionIds::get), cell.color(),
-						cell.borderColor(), cell.mode(), cell.group()))
+						cell.sceneId().map(sceneIds::get), cell.compositionId().map(compositionIds::get),
+						cell.moveId().map(moveIds::get), cell.color(), cell.borderColor(), cell.mode(), cell.group()))
 				.toList();
 		return new PartyMatrix(matrix.rows(), matrix.columns(), matrix.separators(), cells);
 	}
@@ -223,6 +269,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 		final Map<Long, Long> fixtures = new HashMap<>();
 		final Map<Long, Long> groups = new HashMap<>();
 		final Map<Long, Long> presets = new HashMap<>();
+		final Map<Long, Long> figures = new HashMap<>();
+		final Map<Long, Long> moves = new HashMap<>();
 
 		Map<Long, FixtureValues> values(Map<Long, FixtureValues> values) {
 			var result = new HashMap<Long, FixtureValues>();
@@ -234,7 +282,11 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			var refs = new HashMap<Long, Map<AttributeGroup, Long>>();
 			look.presets().refs().forEach((fixtureId, byGroup) -> {
 				var mapped = new HashMap<AttributeGroup, Long>();
-				byGroup.forEach((group, presetId) -> mapped.put(group, presets.get(presetId)));
+				byGroup.forEach((group, presetId) -> {
+					if (presets.containsKey(presetId)) {
+						mapped.put(group, presets.get(presetId));
+					}
+				});
 				refs.put(fixtures.get(fixtureId), mapped);
 			});
 			return new Look(values(look.values()), new PresetRefs(refs));
@@ -339,6 +391,24 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			composition.spec().generator().ifPresent(settings ->
 					validateTarget(name, settings.target(), groupIds, fixtureIds, errors));
 		}
+		var figureIds = new HashSet<Long>();
+		export.figures().forEach(f -> {
+			if (!figureIds.add(f.id())) {
+				errors.add("Figure id " + f.id() + " is used twice");
+			}
+		});
+		var moveIds = new HashSet<Long>();
+		for (var move : export.moves()) {
+			var name = "Move '" + move.spec().name() + "'";
+			if (!moveIds.add(move.id())) {
+				errors.add("Move id " + move.id() + " is used twice");
+			}
+			if (!figureIds.contains(move.spec().figureId())) {
+				errors.add(name + " refers to unknown figure " + move.spec().figureId());
+			}
+			move.spec().fixtureIds().stream().filter(id -> !fixtureIds.contains(id))
+					.forEach(id -> errors.add(name + " refers to unknown fixture " + id));
+		}
 		var sceneIds = new HashSet<Long>();
 		var sceneNumbers = new HashSet<SceneNumber>();
 		for (var scene : export.scenes()) {
@@ -348,9 +418,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 			}
 			scene.compositions().stream().filter(use -> !compositionIds.contains(use.compositionId())).forEach(use ->
 					errors.add("Scene " + scene.spec().number() + " plays unknown composition " + use.compositionId()));
-			scene.keys().stream().filter(key -> !compositionIds.contains(key.compositionId())).forEach(key ->
-					errors.add("Key " + key.slot() + " of scene " + scene.spec().number()
-							+ " plays unknown composition " + key.compositionId()));
+			scene.keys().forEach(key -> {
+				key.compositionId().filter(id -> !compositionIds.contains(id)).ifPresent(id -> errors.add("Key "
+						+ key.slot() + " of scene " + scene.spec().number() + " plays unknown composition " + id));
+				key.moveId().filter(id -> !moveIds.contains(id)).ifPresent(id -> errors.add("Key "
+						+ key.slot() + " of scene " + scene.spec().number() + " plays unknown move " + id));
+			});
+			scene.moves().stream().filter(use -> !moveIds.contains(use.moveId())).forEach(use ->
+					errors.add("Scene " + scene.spec().number() + " plays unknown move " + use.moveId()));
 			scene.looks().stream().filter(use -> !lookIds.contains(use.lookId())).forEach(use ->
 					errors.add("Scene " + scene.spec().number() + " plays unknown look " + use.lookId()));
 			for (var section : scene.sections()) {
@@ -359,6 +434,8 @@ public class ProjectTransferService implements TransferProjectUseCase {
 						.forEach(use -> errors.add(where + " plays unknown composition " + use.compositionId()));
 				section.looks().stream().filter(use -> !lookIds.contains(use.lookId()))
 						.forEach(use -> errors.add(where + " plays unknown look " + use.lookId()));
+				section.moves().stream().filter(use -> !moveIds.contains(use.moveId()))
+						.forEach(use -> errors.add(where + " plays unknown move " + use.moveId()));
 			}
 		}
 		validateLegacy(export.legacy(), fixtureIds, groupIds, presetIds, sceneIds, sceneNumbers, errors);

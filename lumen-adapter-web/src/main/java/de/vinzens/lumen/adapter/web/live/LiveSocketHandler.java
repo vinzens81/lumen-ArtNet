@@ -226,6 +226,7 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 			case PARTY_MATRIX -> message.put("type", "partyMatrix");
 			case PRESETS -> message.put("type", "presets");
 			case FADERS -> message.put("type", "faders");
+			case MOVES -> message.put("type", "moves");
 			case HEALTH -> {
 				message.put("type", "health");
 				message.put("health", HealthResponse.from(health.health()));

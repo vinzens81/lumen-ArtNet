@@ -6,7 +6,6 @@
   const ATTRIBUTE_GROUPS: { id: AttributeGroup; label: string }[] = [
     { id: 'intensity', label: 'Intensity' },
     { id: 'color', label: 'Color' },
-    { id: 'position', label: 'Position' },
     { id: 'beam', label: 'Beam' },
     { id: 'other', label: 'Other' },
   ];

@@ -13,6 +13,7 @@
   import { app } from './lib/state.svelte';
   import CompositionsView from './views/CompositionsView.svelte';
   import LooksView from './views/LooksView.svelte';
+  import MovesView from './views/MovesView.svelte';
   import CuePrintView from './views/CuePrintView.svelte';
   import DmxMonitorView from './views/DmxMonitorView.svelte';
   import PartyMatrixView from './views/PartyMatrixView.svelte';
@@ -37,6 +38,7 @@
     { route: '/setup/stage', label: 'Stage' },
     { route: '/setup/looks', label: 'Looks' },
     { route: '/setup/compositions', label: 'Compositions' },
+    { route: '/setup/moves', label: 'Moves' },
     { route: '/setup/scenes', label: 'Scenes' },
     { route: '/setup/party', label: 'Party' },
     { route: '/setup/dmx', label: 'DMX' },
@@ -46,6 +48,8 @@
   /** the mode of the page shown; show and party have their own page without the setup tabs */
   const pageMode = $derived(modeOfRoute(router.route));
   const liveMode = $derived(pageMode !== 'setup');
+  const previewKind = $derived(stagePreview.status.sceneId !== null ? 'scene'
+    : stagePreview.status.moveId !== null ? 'move' : 'composition');
   const output = $derived(outputIndicator(live.health, live.connected));
   const nodes = $derived(nodesIndicator(live.health, live.connected));
   let nodesOpen = $state(false);
@@ -245,9 +249,9 @@
 
     {#if stagePreview.active && !liveMode}
       <button type="button" class="preview-pill" onclick={() => stagePreview.stop()}
-        title="A {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} is playing on stage above the playback – click to stop">
+        title="A {previewKind} is playing on stage above the playback – click to stop">
         <span class="pulse" aria-hidden="true"></span>
-        On stage: {stagePreview.status.sceneId !== null ? 'scene' : 'composition'} <strong>■ Stop</strong>
+        On stage: {previewKind} <strong>■ Stop</strong>
       </button>
     {/if}
 
@@ -294,6 +298,8 @@
       <LooksView />
     {:else if router.route === '/setup/compositions'}
       <CompositionsView />
+    {:else if router.route === '/setup/moves'}
+      <MovesView />
     {:else if router.route === '/setup/dmx'}
       <DmxMonitorView />
     {:else if router.route === '/setup/settings'}

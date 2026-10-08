@@ -1,11 +1,12 @@
 <script lang="ts">
   import { cellLabel, isOn, matrixGrid, playsSomething, textColorFor } from '../lib/party';
-  import type { Composition, PartyCell, PartyMatrix, PartyStatus, Scene } from '../lib/types';
+  import type { Composition, Move, PartyCell, PartyMatrix, PartyStatus, Scene } from '../lib/types';
 
   let {
     matrix,
     scenes,
     compositions,
+    moves = new Map(),
     editing = false,
     status = null,
     selected = null,
@@ -17,6 +18,7 @@
     matrix: PartyMatrix;
     scenes: Map<number, Scene>;
     compositions: Map<number, Composition>;
+    moves?: Map<number, Move>;
     /** setup: every place can be selected, lines between rows can be switched */
     editing?: boolean;
     /** party mode: which fields are on */
@@ -60,7 +62,7 @@
             class:selected={isSelected(row, column)} style={cell ? style(cell) : ''}
             aria-label="Field {row + 1}/{column + 1}" onclick={() => onselect?.(row, column)}>
             {#if cell}
-              <span class="label">{cellLabel(cell, scenes, compositions)}</span>
+              <span class="label">{cellLabel(cell, scenes, compositions, moves)}</span>
               <span class="meta">
                 {#if cell.mode === 'flash'}<span>flash</span>{/if}
                 {#if cell.group}<span>▣ {cell.group}</span>{/if}
@@ -77,14 +79,14 @@
             onpointerup={() => onrelease?.(cell)} onpointerleave={() => onrelease?.(cell)}
             onpointercancel={() => onrelease?.(cell)}
             onclick={(e) => { if (e.detail === 0) { onpress?.(cell); onrelease?.(cell); } }}>
-            <span class="label">{cellLabel(cell, scenes, compositions)}</span>
+            <span class="label">{cellLabel(cell, scenes, compositions, moves)}</span>
             <span class="meta">
               <span class="state">{cell.mode === 'flash' ? 'flash' : on ? 'on' : 'off'}</span>
               {#if cell.group}<span>{cell.group}</span>{/if}
             </span>
           </button>
         {:else if cell}
-          <div class="cell text" style={style(cell)}><span class="label">{cellLabel(cell, scenes, compositions)}</span></div>
+          <div class="cell text" style={style(cell)}><span class="label">{cellLabel(cell, scenes, compositions, moves)}</span></div>
         {:else}
           <div class="cell blank" aria-hidden="true"></div>
         {/if}

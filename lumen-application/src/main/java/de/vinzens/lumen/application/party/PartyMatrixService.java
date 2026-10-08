@@ -4,6 +4,7 @@ import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
+import de.vinzens.lumen.application.move.port.out.MoveRepository;
 import de.vinzens.lumen.application.party.port.in.ManagePartyMatrixUseCase;
 import de.vinzens.lumen.application.party.port.out.PartyMatrixRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
@@ -21,14 +22,16 @@ public class PartyMatrixService implements ManagePartyMatrixUseCase {
 	private final ProjectRepository projects;
 	private final SceneRepository scenes;
 	private final CompositionRepository compositions;
+	private final MoveRepository moves;
 	private final PartyMatrixRepository matrices;
 	private final StateEvents events;
 
 	public PartyMatrixService(ProjectRepository projects, SceneRepository scenes, CompositionRepository compositions,
-			PartyMatrixRepository matrices, StateEvents events) {
+			MoveRepository moves, PartyMatrixRepository matrices, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
+		this.moves = Objects.requireNonNull(moves, "moves");
 		this.matrices = Objects.requireNonNull(matrices, "matrices");
 		this.events = Objects.requireNonNull(events, "events");
 	}
@@ -46,6 +49,8 @@ public class PartyMatrixService implements ManagePartyMatrixUseCase {
 		scenes.findByProject(projectId).forEach(scene -> sceneIds.add(scene.id()));
 		var compositionIds = new HashSet<Long>();
 		compositions.findByProject(projectId).forEach(composition -> compositionIds.add(composition.id()));
+		var moveIds = new HashSet<Long>();
+		moves.findByProject(projectId).forEach(move -> moveIds.add(move.id()));
 		var errors = new ArrayList<String>();
 		for (var cell : matrix.cells()) {
 			var field = "Field " + (cell.row() + 1) + "/" + (cell.column() + 1);
@@ -53,6 +58,8 @@ public class PartyMatrixService implements ManagePartyMatrixUseCase {
 					.ifPresent(id -> errors.add(field + " plays unknown scene " + id));
 			cell.compositionId().filter(id -> !compositionIds.contains(id))
 					.ifPresent(id -> errors.add(field + " plays unknown composition " + id));
+			cell.moveId().filter(id -> !moveIds.contains(id))
+					.ifPresent(id -> errors.add(field + " plays unknown move " + id));
 		}
 		if (!errors.isEmpty()) {
 			throw new DomainValidationException(List.copyOf(errors));

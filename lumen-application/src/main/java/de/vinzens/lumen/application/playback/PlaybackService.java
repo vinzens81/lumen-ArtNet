@@ -97,7 +97,7 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 		this.events = Objects.requireNonNull(events, "events");
 		events.subscribe(topic -> {
 			if (topic == StateTopic.SCENES || topic == StateTopic.PROJECTS || topic == StateTopic.COMPOSITIONS
-					|| topic == StateTopic.LOOKS || topic == StateTopic.FADERS) {
+					|| topic == StateTopic.LOOKS || topic == StateTopic.FADERS || topic == StateTopic.MOVES) {
 				reload();
 			}
 		});

@@ -4,6 +4,8 @@ import de.vinzens.lumen.application.legacy.LegacyShow;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.Fader;
 import de.vinzens.lumen.domain.look.NamedLook;
+import de.vinzens.lumen.domain.move.Figure;
+import de.vinzens.lumen.domain.move.Move;
 import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.project.Group;
@@ -32,7 +34,8 @@ public interface TransferProjectUseCase {
 	/**
 	 * Everything that belongs to a project, connected by the ids in this export: fixtures refer to universes, groups
 	 * and looks to fixtures, looks to presets and their composition, compositions to looks (and generator targets to
-	 * groups and fixtures), scenes, faders and the fields of the party matrix to compositions (fields also to scenes).
+	 * groups and fixtures), moves to figures and fixtures, scenes, faders and the fields of the party matrix to
+	 * compositions and moves (fields also to scenes).
 	 *
 	 * @param legacy scenes, compositions and keys of a file from before iteration S; then {@code looks},
 	 *               {@code compositions} and {@code scenes} are empty and the import converts the old show
@@ -40,7 +43,7 @@ public interface TransferProjectUseCase {
 	record ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
 			List<Group> groups, List<NamedLook> looks, List<Composition> compositions, List<Scene> scenes,
 			Optional<StagePlan> stagePlan, PartyMatrix partyMatrix, List<Preset> presets, List<Fader> faders,
-			LegacyShow legacy) {
+			List<Figure> figures, List<Move> moves, LegacyShow legacy) {
 
 		public ProjectExport {
 			Objects.requireNonNull(stagePlan, "stagePlan");
@@ -54,6 +57,17 @@ public interface TransferProjectUseCase {
 			scenes = List.copyOf(scenes);
 			presets = List.copyOf(presets);
 			faders = List.copyOf(faders);
+			figures = List.copyOf(figures);
+			moves = List.copyOf(moves);
+		}
+
+		/** An export without moves (files before version 4). */
+		public ProjectExport(ProjectSpec project, List<Universe> universes, List<PatchedFixture> fixtures,
+				List<Group> groups, List<NamedLook> looks, List<Composition> compositions, List<Scene> scenes,
+				Optional<StagePlan> stagePlan, PartyMatrix partyMatrix, List<Preset> presets, List<Fader> faders,
+				LegacyShow legacy) {
+			this(project, universes, fixtures, groups, looks, compositions, scenes, stagePlan, partyMatrix, presets,
+					faders, List.of(), List.of(), legacy);
 		}
 	}
 }

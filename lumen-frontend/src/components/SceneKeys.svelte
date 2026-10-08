@@ -2,12 +2,17 @@
   import { api } from '../lib/api';
   import { compositionIcon } from '../lib/compositions';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, KeyMode, Scene, SceneKey } from '../lib/types';
+  import type { Composition, KeyMode, Move, Scene, SceneKey } from '../lib/types';
 
   const SLOTS = [1, 2, 3, 4, 5, 6, 7, 8];
 
-  /** The extra keys 1–8 of a scene: each switches a composition on and off over the scene in show mode. */
-  let { projectId, scene, compositions }: { projectId: number; scene: Scene; compositions: Composition[] } = $props();
+  /** The extra keys 1–8 of a scene: each switches a composition or a move on and off over the scene in show mode. */
+  let { projectId, scene, compositions, moves = [] }: {
+    projectId: number;
+    scene: Scene;
+    compositions: Composition[];
+    moves?: Move[];
+  } = $props();
 
   const bySlot = $derived(new Map(scene.keys.map((k) => [k.slot, k])));
 
@@ -25,20 +30,32 @@
       save(others);
       return;
     }
-    const current = bySlot.get(slot) ?? { slot, compositionId: 0, mode: 'toggle' as KeyMode, fadeMs: 0 };
+    const current: SceneKey = bySlot.get(slot) ?? { slot, compositionId: null, moveId: null, mode: 'toggle' as KeyMode,
+      fadeMs: 0 };
     save([...others, { ...current, ...patch }].sort((a, b) => a.slot - b.slot));
   }
 
-  function chooseComposition(slot: number, value: string) {
-    setKey(slot, value === '' ? null : { compositionId: Number(value) });
+  /** `c:<id>` plays a composition, `m:<id>` a move. */
+  function choose(slot: number, value: string) {
+    if (value === '') {
+      setKey(slot, null);
+    } else {
+      const id = Number(value.slice(2));
+      setKey(slot, value.startsWith('m:') ? { compositionId: null, moveId: id } : { compositionId: id, moveId: null });
+    }
+  }
+
+  function keyValue(key: SceneKey | undefined): string {
+    if (!key) return '';
+    return key.moveId !== null ? `m:${key.moveId}` : `c:${key.compositionId}`;
   }
 </script>
 
 <section class="keys">
   <h3>Keys</h3>
   <p class="hint dim">
-    Switch a composition on over this scene in show mode (keys 1–8). A key that is on stays on at GO if the next scene
-    has the same composition on a key; a new scene takes the keys of the scene before it.
+    Switch a composition or a move on over this scene in show mode (keys 1–8). A key that is on stays on at GO if the
+    next scene has the same one on a key; a new scene takes the keys of the scene before it.
   </p>
   <ul>
     {#each SLOTS as slot (slot)}
@@ -46,13 +63,17 @@
       <li>
         <span class="slot mono">{slot}</span>
         <label class="grow">
-          <span class="sr-only">Composition on key {slot}</span>
-          <select value={key ? String(key.compositionId) : ''}
-            onchange={(e) => chooseComposition(slot, e.currentTarget.value)}>
+          <span class="sr-only">Composition or move on key {slot}</span>
+          <select value={keyValue(key)} onchange={(e) => choose(slot, e.currentTarget.value)}>
             <option value="">–</option>
             {#each compositions as composition (composition.id)}
-              <option value={String(composition.id)}>{compositionIcon(composition)} {composition.name}</option>
+              <option value={`c:${composition.id}`}>{compositionIcon(composition)} {composition.name}</option>
             {/each}
+            {#if moves.length > 0}
+              <optgroup label="Moves">
+                {#each moves as move (move.id)}<option value={`m:${move.id}`}>↻ {move.name}</option>{/each}
+              </optgroup>
+            {/if}
           </select>
         </label>
         {#if key}

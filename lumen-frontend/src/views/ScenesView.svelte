@@ -22,7 +22,7 @@
   import { shortTime } from '../lib/format';
   import { stagePreview } from '../lib/stagePreview.svelte';
   import type {
-    Composition, FadeCurve, Fixture, Group, Look, LookRevision, RecordRequest, Scene,
+    Composition, FadeCurve, Fixture, Group, Look, LookRevision, Move, RecordRequest, Scene,
   } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
@@ -36,6 +36,7 @@
   let revisions = $state<LookRevision[]>([]);
   let compositions = $state<Composition[]>([]);
   let looks = $state<Look[]>([]);
+  let moves = $state<Move[]>([]);
   let form = $state({
     number: '',
     name: '',
@@ -109,6 +110,7 @@
     void live.patchRevision;
     void live.compositionsRevision;
     void live.looksRevision;
+    void live.movesRevision;
     if (projectId !== null) load(projectId);
   });
 
@@ -147,12 +149,13 @@
 
   async function load(projectId: number) {
     try {
-      [scenes, fixtures, groups, compositions, looks] = await Promise.all([
+      [scenes, fixtures, groups, compositions, looks, moves] = await Promise.all([
         api.scenes.list(projectId),
         api.fixtures.list(projectId),
         api.groups.list(projectId),
         api.compositions.list(projectId),
         api.looks.list(projectId),
+        api.moves.list(projectId),
       ]);
       if (selectedId !== null && !scenes.some((s) => s.id === selectedId)) selectedId = null;
     } catch (e) {
@@ -609,13 +612,13 @@
           {/if}
 
           {#if projectId !== null}
-            <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes}
-              framed={sceneMarkers.length > 0} />
+            <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {moves} {fixtures} {groups}
+              {modes} framed={sceneMarkers.length > 0} />
             {#each sceneMarkers as marker (marker.name)}
-              <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {fixtures} {groups} {modes}
-                marker={marker.name} info={marker.info} framed />
+              <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {moves} {fixtures} {groups}
+                {modes} marker={marker.name} info={marker.info} framed />
             {/each}
-            <SceneKeys {projectId} scene={selected} {compositions} />
+            <SceneKeys {projectId} scene={selected} {compositions} {moves} />
           {/if}
 
           <footer class="editor-foot">

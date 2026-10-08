@@ -9,6 +9,7 @@ import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.look.port.in.ManageLooksUseCase;
 import de.vinzens.lumen.application.look.port.in.ManageLooksUseCase.RecordOptions;
 import de.vinzens.lumen.application.look.port.out.LookRepository;
+import de.vinzens.lumen.application.move.port.out.MoveRepository;
 import de.vinzens.lumen.application.output.port.in.ControlProgrammerUseCase;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.scene.port.in.ManageScenesUseCase;
@@ -23,6 +24,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
+import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
@@ -41,18 +43,20 @@ public class SceneService implements ManageScenesUseCase {
 	private final SceneRepository scenes;
 	private final CompositionRepository compositions;
 	private final LookRepository looks;
+	private final MoveRepository moves;
 	private final ManageLooksUseCase lookUseCase;
 	private final CompositionResolver resolver;
 	private final ControlProgrammerUseCase programmer;
 	private final StateEvents events;
 
 	public SceneService(ProjectRepository projects, SceneRepository scenes, CompositionRepository compositions,
-			LookRepository looks, ManageLooksUseCase lookUseCase, CompositionResolver resolver,
+			LookRepository looks, MoveRepository moves, ManageLooksUseCase lookUseCase, CompositionResolver resolver,
 			ControlProgrammerUseCase programmer, StateEvents events) {
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
 		this.looks = Objects.requireNonNull(looks, "looks");
+		this.moves = Objects.requireNonNull(moves, "moves");
 		this.lookUseCase = Objects.requireNonNull(lookUseCase, "lookUseCase");
 		this.resolver = Objects.requireNonNull(resolver, "resolver");
 		this.programmer = Objects.requireNonNull(programmer, "programmer");
@@ -89,7 +93,7 @@ public class SceneService implements ManageScenesUseCase {
 	private long recordedComposition(long projectId, String name) {
 		var composition = compositions.create(projectId, CompositionSpec.of(name), List.of());
 		var look = looks.create(projectId, new LookSpec(name, Optional.of(composition.id())),
-				programmer.programmerLook());
+				programmer.programmerLook().withoutPositions());
 		compositions.update(composition.id(), composition.spec(), List.of(CompositionStep.of(look.id())));
 		events.publish(StateTopic.LOOKS);
 		events.publish(StateTopic.COMPOSITIONS);
@@ -123,11 +127,12 @@ public class SceneService implements ManageScenesUseCase {
 		var spec = original.spec();
 		var copy = scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
 				spec.autoFollow(), spec.timing(), spec.script()), original.compositions(), original.keys());
-		if (!original.looks().isEmpty()) {
-			copy = scenes.replaceSection(copy.id(), "", original.compositions(), original.looks());
+		if (!original.looks().isEmpty() || !original.moves().isEmpty()) {
+			copy = scenes.replaceSection(copy.id(), "", original.compositions(), original.looks(), original.moves());
 		}
 		for (var section : original.sections()) {
-			copy = scenes.replaceSection(copy.id(), section.marker(), section.compositions(), section.looks());
+			copy = scenes.replaceSection(copy.id(), section.marker(), section.compositions(), section.looks(),
+					section.moves());
 		}
 		return published(copy);
 	}
@@ -142,24 +147,26 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> sceneCompositions,
-			List<SceneLook> sceneLooks) {
+			List<SceneLook> sceneLooks, List<SceneMove> sceneMoves) {
 		var scene = requireScene(projectId, sceneId);
 		var name = marker == null ? "" : marker.strip();
 		requireCompositions(projectId, sceneCompositions.stream().map(SceneComposition::compositionId));
 		requireLooks(projectId, sceneLooks.stream().map(SceneLook::lookId));
+		requireMoves(projectId, sceneMoves.stream().map(SceneMove::moveId));
 		// validates
 		if (name.isEmpty()) {
-			scene.withStart(sceneCompositions, sceneLooks);
+			scene.withStart(sceneCompositions, sceneLooks, sceneMoves);
 		} else {
-			scene.withSection(new SceneSection(name, sceneCompositions, sceneLooks));
+			scene.withSection(new SceneSection(name, sceneCompositions, sceneLooks, sceneMoves));
 		}
-		return published(scenes.replaceSection(sceneId, name, sceneCompositions, sceneLooks));
+		return published(scenes.replaceSection(sceneId, name, sceneCompositions, sceneLooks, sceneMoves));
 	}
 
 	@Override
 	public Scene setKeys(long projectId, long sceneId, List<SceneKey> keys) {
 		var scene = requireScene(projectId, sceneId);
-		requireCompositions(projectId, keys.stream().map(SceneKey::compositionId));
+		requireCompositions(projectId, keys.stream().flatMap(key -> key.compositionId().stream()));
+		requireMoves(projectId, keys.stream().flatMap(key -> key.moveId().stream()));
 		new Scene(scene.id(), projectId, scene.spec(), scene.compositions(), keys); // validates
 		return published(scenes.replaceKeys(sceneId, keys));
 	}
@@ -203,6 +210,18 @@ public class SceneService implements ManageScenesUseCase {
 		ids.distinct().forEach(id -> {
 			if (compositions.findById(id).filter(c -> c.projectId() == projectId).isEmpty()) {
 				problems.add("composition " + id + " does not exist in this project");
+			}
+		});
+		if (!problems.isEmpty()) {
+			throw new DomainValidationException(problems);
+		}
+	}
+
+	private void requireMoves(long projectId, Stream<Long> ids) {
+		var problems = new ArrayList<String>();
+		ids.distinct().forEach(id -> {
+			if (moves.findById(id).filter(m -> m.projectId() == projectId).isEmpty()) {
+				problems.add("move " + id + " does not exist in this project");
 			}
 		});
 		if (!problems.isEmpty()) {

@@ -66,7 +66,7 @@ public class LookService implements ManageLooksUseCase {
 		} else {
 			requireProject(projectId);
 		}
-		var content = recordFromProgrammer ? programmer.programmerLook() : Look.EMPTY;
+		var content = recordFromProgrammer ? programmer.programmerLook().withoutPositions() : Look.EMPTY;
 		return published(looks.create(projectId, LookSpec.shared(name), content));
 	}
 
@@ -92,8 +92,9 @@ public class LookService implements ManageLooksUseCase {
 		requireActive(projectId);
 		var look = look(projectId, lookId);
 		var content = options.merge()
-				? look.look().merge(programmer.programmerLook(), options.fixtureIds(), options.groups())
-				: programmer.programmerLook();
+				? look.look().merge(programmer.programmerLook().withoutPositions(), options.fixtureIds(),
+						options.groups())
+				: programmer.programmerLook().withoutPositions();
 		return replace(look, content, options.merge() ? "Merge from programmer" : "Update from programmer");
 	}
 

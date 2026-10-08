@@ -67,8 +67,8 @@ class ShowServicesTest {
 			clock);
 	private final CompositionService compositions = new CompositionService(projects(), show.compositions, show.looks,
 			show.scenes, fixtures(), groups(), library(), programmer, events);
-	private final SceneService scenes = new SceneService(projects(), show.scenes, show.compositions, show.looks, looks,
-			show.resolver(), programmer, events);
+	private final SceneService scenes = new SceneService(projects(), show.scenes, show.compositions, show.looks,
+			show.moves, looks, show.resolver(), programmer, events);
 
 	@Test
 	void recordingASceneMakesALookAndACompositionWithOneStep() {

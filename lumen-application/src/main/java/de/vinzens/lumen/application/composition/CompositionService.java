@@ -120,7 +120,7 @@ public class CompositionService implements ManageCompositionsUseCase {
 		composition(projectId, compositionId);
 		var users = scenes.findByProject(projectId).stream()
 				.filter(scene -> scene.contains(compositionId)
-						|| scene.keys().stream().anyMatch(key -> key.compositionId() == compositionId))
+						|| scene.keys().stream().anyMatch(key -> key.plays(compositionId)))
 				.map(scene -> scene.spec().number().toString())
 				.collect(Collectors.joining(", "));
 		if (!users.isEmpty()) {
@@ -136,7 +136,7 @@ public class CompositionService implements ManageCompositionsUseCase {
 		requireActive(projectId);
 		var composition = composition(projectId, compositionId);
 		var look = looks.create(projectId, ownLookSpec(composition, composition.steps().size() + 1),
-				programmer.programmerLook());
+				programmer.programmerLook().withoutPositions());
 		var steps = new ArrayList<>(composition.steps());
 		steps.add(CompositionStep.of(look.id()));
 		events.publish(StateTopic.LOOKS);

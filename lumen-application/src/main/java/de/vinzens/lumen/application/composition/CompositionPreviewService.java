@@ -6,6 +6,7 @@ import de.vinzens.lumen.application.composition.port.in.PreviewCompositionUseCas
 import de.vinzens.lumen.application.composition.port.out.CompositionRepository;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
+import de.vinzens.lumen.application.move.port.out.MoveRepository;
 import de.vinzens.lumen.application.output.OutputLayerSource;
 import de.vinzens.lumen.application.output.port.in.ControlModeUseCase;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
@@ -37,8 +38,8 @@ import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Runs compositions for the editor. The on-screen preview runs on its own clock and never reaches the stage; the
- * stage preview (one composition, a whole scene with its compositions, or a rehearsed fade into a scene) is an
- * output layer between playback and programmer and stops when show mode starts.
+ * stage preview (one composition, one move, a whole scene with its compositions, or a rehearsed fade into a scene)
+ * is an output layer between playback and programmer and stops when show mode starts.
  */
 public class CompositionPreviewService implements PreviewCompositionUseCase, OutputLayerSource {
 
@@ -46,6 +47,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 
 	private final CompositionRepository compositions;
+	private final MoveRepository moves;
 	private final SceneRepository scenes;
 	private final ProjectRepository projects;
 	private final CompositionResolver resolver;
@@ -59,10 +61,11 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	private volatile Map<Long, Mode> modes = Map.of();
 	private volatile StagePreview onStage;
 
-	public CompositionPreviewService(CompositionRepository compositions, SceneRepository scenes,
+	public CompositionPreviewService(CompositionRepository compositions, MoveRepository moves, SceneRepository scenes,
 			ProjectRepository projects, CompositionResolver resolver, ControlModeUseCase mode, Clock clock,
 			StateEvents events) {
 		this.compositions = Objects.requireNonNull(compositions, "compositions");
+		this.moves = Objects.requireNonNull(moves, "moves");
 		this.scenes = Objects.requireNonNull(scenes, "scenes");
 		this.projects = Objects.requireNonNull(projects, "projects");
 		this.resolver = Objects.requireNonNull(resolver, "resolver");
@@ -75,7 +78,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	private void changed(StateTopic topic) {
 		switch (topic) {
-			case COMPOSITIONS, LOOKS, PATCH, SCENES -> {
+			case COMPOSITIONS, LOOKS, PATCH, SCENES, MOVES -> {
 				resolved.clear();
 				refreshStage();
 			}
@@ -109,6 +112,17 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 				.orElseThrow(() -> new NotFoundException("Composition " + compositionId + " does not exist in project "
 						+ projectId));
 		onStage = new CompositionOnStage(compositionId, resolver.resolve(composition), clock.instant());
+		events.publish(StateTopic.STAGE_PREVIEW);
+	}
+
+	@Override
+	public synchronized void showMoveOnStage(long projectId, long moveId) {
+		requireSetupMode();
+		var move = moves.findById(moveId).filter(m -> m.projectId() == projectId)
+				.orElseThrow(() -> new NotFoundException("Move " + moveId + " does not exist in project " + projectId));
+		var active = resolver.resolve(move)
+				.orElseThrow(() -> new ConflictException("The figure of the move does not exist"));
+		onStage = new MoveOnStage(moveId, active, clock.instant());
 		events.publish(StateTopic.STAGE_PREVIEW);
 	}
 
@@ -161,6 +175,9 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 					c -> onStage = new CompositionOnStage(current.compositionId(), resolver.resolve(c),
 							current.startedAt()),
 					this::stopOnStage);
+			case MoveOnStage current -> moves.findById(current.moveId()).flatMap(resolver::resolve).ifPresentOrElse(
+					active -> onStage = new MoveOnStage(current.moveId(), active, current.startedAt()),
+					this::stopOnStage);
 			case SceneOnStage current -> scenes.findById(current.sceneId()).ifPresentOrElse(
 					scene -> onStage = new SceneOnStage(current.projectId(), current.sceneId(),
 							resolver.scenes(current.projectId()).getOrDefault(current.sceneId(), List.of()),
@@ -205,6 +222,11 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 	}
 
 	@Override
+	public Optional<Long> moveOnStage() {
+		return onStage instanceof MoveOnStage preview ? Optional.of(preview.moveId()) : Optional.empty();
+	}
+
+	@Override
 	public Optional<Long> sceneOnStage() {
 		return switch (onStage) {
 			case SceneOnStage preview -> Optional.of(preview.sceneId());
@@ -236,6 +258,7 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 		var attributes = FixtureAttributes.of(currentModes);
 		return new LayerOutput(PREVIEW_PRIORITY, switch (preview) {
 			case CompositionOnStage composition -> look(composition.composition(), seconds, attributes);
+			case MoveOnStage move -> CompositionMixer.apply(Map.of(), move.move(), seconds, attributes);
 			case SceneOnStage scene -> {
 				// like the playback shows the scene once its fade-in is done
 				Map<Long, FixtureValues> look = Map.of();
@@ -275,6 +298,9 @@ public class CompositionPreviewService implements PreviewCompositionUseCase, Out
 
 	private record CompositionOnStage(long compositionId, ActiveComposition composition, Instant startedAt)
 			implements StagePreview {
+	}
+
+	private record MoveOnStage(long moveId, ActiveComposition move, Instant startedAt) implements StagePreview {
 	}
 
 	private record SceneOnStage(long projectId, long sceneId, List<ActiveComposition> compositions,

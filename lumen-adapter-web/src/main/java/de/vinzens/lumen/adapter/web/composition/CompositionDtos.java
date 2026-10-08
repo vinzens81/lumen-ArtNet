@@ -10,6 +10,7 @@ import de.vinzens.lumen.domain.composition.CompositionStep;
 import de.vinzens.lumen.domain.composition.Flicker;
 import de.vinzens.lumen.domain.composition.GeneratorSettings;
 import de.vinzens.lumen.domain.composition.IntensityMode;
+import de.vinzens.lumen.domain.composition.MovePattern;
 import de.vinzens.lumen.domain.composition.Pattern;
 import de.vinzens.lumen.domain.composition.PatternKind;
 import de.vinzens.lumen.domain.composition.PlayMode;
@@ -105,6 +106,7 @@ public final class CompositionDtos {
 				case Wave wave -> WaveParams.from(wave);
 				case Flicker flicker -> FlickerParams.from(flicker);
 				case StepSequence steps -> throw new IllegalStateException("a step sequence is not a generator");
+				case MovePattern move -> throw new IllegalStateException("a move is not a generator");
 			};
 			var target = switch (settings.target()) {
 				case Target.Group group -> new TargetDto(group.groupId(), null);
@@ -135,7 +137,7 @@ public final class CompositionDtos {
 			case RAINBOW -> read(json, kind, params, RainbowParams.class).toPattern();
 			case WAVE -> read(json, kind, params, WaveParams.class).toPattern();
 			case FLICKER -> read(json, kind, params, FlickerParams.class).toPattern();
-			case STEPS -> throw new DomainValidationException(List.of("steps are not an effect"));
+			case STEPS, MOVE -> throw new DomainValidationException(List.of(kind + " is not an effect"));
 		};
 	}
 

@@ -6,23 +6,26 @@
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
-  import type { Composition, PartyCell, PartyMatrix, PartyStatus, Scene } from '../lib/types';
+  import type { Composition, Move, PartyCell, PartyMatrix, PartyStatus, Scene } from '../lib/types';
 
   let matrix = $state<PartyMatrix | null>(null);
   let scenes = $state<Scene[]>([]);
   let compositions = $state<Composition[]>([]);
+  let moves = $state<Move[]>([]);
   /** flash fields held down, to release them exactly once */
   const held = new Set<string>();
 
   const projectId = $derived(app.active?.id ?? null);
   const scenesById = $derived(new Map(scenes.map((s) => [s.id, s])));
   const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
+  const movesById = $derived(new Map(moves.map((m) => [m.id, m])));
   const onCount = $derived(live.party?.on.length ?? 0);
 
   $effect(() => {
     void live.partyMatrixRevision;
     void live.scenesRevision;
     void live.compositionsRevision;
+    void live.movesRevision;
     if (projectId !== null) load(projectId);
   });
 
@@ -40,8 +43,8 @@
 
   async function load(id: number) {
     try {
-      [matrix, scenes, compositions] = await Promise.all([api.partyMatrix.get(id), api.scenes.list(id),
-        api.compositions.list(id)]);
+      [matrix, scenes, compositions, moves] = await Promise.all([api.partyMatrix.get(id), api.scenes.list(id),
+        api.compositions.list(id), api.moves.list(id)]);
     } catch (e) {
       showError(e);
     }
@@ -82,7 +85,7 @@
 
     {#if matrix && matrix.cells.length > 0}
       <div class="grid glass">
-        <PartyGrid {matrix} scenes={scenesById} compositions={compositionsById} status={live.party}
+        <PartyGrid {matrix} scenes={scenesById} compositions={compositionsById} moves={movesById} status={live.party}
           onpress={press} onrelease={release} />
       </div>
     {:else}

@@ -12,27 +12,38 @@ import java.util.Objects;
  *
  * @param marker the name of the marker in the script
  * @param looks  applied first, the compositions over them
+ * @param moves  where the pan/tilt fixtures point; on the same fixture a later move wins
  */
-public record SceneSection(String marker, List<SceneComposition> compositions, List<SceneLook> looks) {
+public record SceneSection(String marker, List<SceneComposition> compositions, List<SceneLook> looks,
+		List<SceneMove> moves) {
 
 	public SceneSection {
 		Objects.requireNonNull(marker, "marker");
 		compositions = List.copyOf(compositions);
 		looks = List.copyOf(looks);
-		validate(compositions, looks, "the part " + marker);
+		moves = List.copyOf(moves);
+		validate(compositions, looks, moves, "the part " + marker);
+	}
+
+	/** A part without moves. */
+	public SceneSection(String marker, List<SceneComposition> compositions, List<SceneLook> looks) {
+		this(marker, compositions, looks, List.of());
 	}
 
 	public boolean isEmpty() {
-		return compositions.isEmpty() && looks.isEmpty();
+		return compositions.isEmpty() && looks.isEmpty() && moves.isEmpty();
 	}
 
-	static void validate(List<SceneComposition> compositions, List<SceneLook> looks, String where) {
+	static void validate(List<SceneComposition> compositions, List<SceneLook> looks, List<SceneMove> moves,
+			String where) {
 		var compositionIds = new HashSet<Long>();
 		var lookIds = new HashSet<Long>();
+		var moveIds = new HashSet<Long>();
 		new Validation()
 				.require(compositions.stream().allMatch(c -> compositionIds.add(c.compositionId())),
 						"a composition is in " + where + " twice")
 				.require(looks.stream().allMatch(l -> lookIds.add(l.lookId())), "a look is in " + where + " twice")
+				.require(moves.stream().allMatch(m -> moveIds.add(m.moveId())), "a move is in " + where + " twice")
 				.throwIfInvalid();
 	}
 }

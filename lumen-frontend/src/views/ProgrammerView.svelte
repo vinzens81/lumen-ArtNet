@@ -3,10 +3,12 @@
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import Modal from '../components/Modal.svelte';
   import ProgrammerPanel from '../components/ProgrammerPanel.svelte';
+  import RecordPositionModal from '../components/RecordPositionModal.svelte';
   import RecordSceneModal from '../components/RecordSceneModal.svelte';
   import { api } from '../lib/api';
   import { headPreviewsOf, previewOf, rgbToCss } from '../lib/color';
   import { live } from '../lib/live.svelte';
+  import { positionedFixtures } from '../lib/moves';
   import { programmerEntries, type ProgrammerEntry } from '../lib/programmer';
   import { navigate } from '../lib/router.svelte';
   import { programmerSelection } from '../lib/selection.svelte';
@@ -21,6 +23,7 @@
   let editingGroup = $state<Group | null>(null);
   let groupForm = $state({ name: '', color: '#3cf0ff', useSelection: true });
   let recordOpen = $state(false);
+  let positionOpen = $state(false);
 
   const project = $derived(app.active);
   // effects depend on the id only: reloading the project list yields new objects for the same project
@@ -167,6 +170,9 @@
     <div class="toolbar">
       <span class="dim">{Object.keys(live.programmer).length} fixtures with programmer values</span>
       <ClearAllButton />
+      <button class="btn small record-outline" type="button" onclick={() => (positionOpen = true)}
+        disabled={positionedFixtures(live.programmer, selection).length === 0}
+        title="Where the selected heads point becomes a move with one point">⏺ Record position</button>
       <button class="btn small record" type="button" onclick={() => (recordOpen = true)}
         disabled={Object.keys(live.programmer).length === 0}>⏺ Record scene</button>
     </div>
@@ -219,6 +225,7 @@
 {/if}
 
 <RecordSceneModal bind:open={recordOpen} />
+<RecordPositionModal bind:open={positionOpen} fixtureIds={selection} />
 
 <Modal bind:open={groupOpen} title={editingGroup ? 'Edit group' : 'New group'}>
   <form id="group-form" onsubmit={(e) => { e.preventDefault(); saveGroup(); }}>

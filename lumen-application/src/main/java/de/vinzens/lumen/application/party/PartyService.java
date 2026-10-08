@@ -33,7 +33,7 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 
 	static final int PARTY_PRIORITY = 60;
 	private static final Set<StateTopic> RELOAD_ON = Set.of(StateTopic.PROJECTS, StateTopic.PARTY_MATRIX,
-			StateTopic.SCENES, StateTopic.COMPOSITIONS, StateTopic.LOOKS);
+			StateTopic.SCENES, StateTopic.COMPOSITIONS, StateTopic.LOOKS, StateTopic.MOVES);
 
 	private final ProjectRepository projects;
 	private final PartyMatrixRepository matrices;
@@ -79,9 +79,11 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 	private List<PlayableCell> playable(long projectId) {
 		var scenes = resolver.scenes(projectId);
 		var compositions = resolver.compositions(projectId);
+		var moves = resolver.moves(projectId);
 		return matrices.find(projectId).cells().stream()
 				.map(cell -> new PlayableCell(cell, cell.sceneId().map(id -> scenes.getOrDefault(id, List.of()))
 						.or(() -> cell.compositionId().map(id -> compositionList(compositions.get(id))))
+						.or(() -> cell.moveId().map(id -> compositionList(moves.get(id))))
 						.orElse(List.of())))
 				.toList();
 	}

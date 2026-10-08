@@ -50,7 +50,8 @@ public final class PartySwitchboard {
 			var before = cells.get(position);
 			return now == null || before == null || !now.cell().playsSomething()
 					|| !now.cell().sceneId().equals(before.cell().sceneId())
-					|| !now.cell().compositionId().equals(before.cell().compositionId());
+					|| !now.cell().compositionId().equals(before.cell().compositionId())
+					|| !now.cell().moveId().equals(before.cell().moveId());
 		});
 		cells = Map.copyOf(byPosition);
 	}
