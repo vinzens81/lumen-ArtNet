@@ -44,7 +44,7 @@ per **GO** mit parallelem Fade-Out/Fade-In ineinander überblenden.
 | [docs/COMPOSITIONS.md](docs/COMPOSITIONS.md) | Das alte Modell der Kompositionen (abgelöst), Mischregeln und Effekte |
 | [docs/MIDI.md](docs/MIDI.md) | *Optional:* USB-MIDI-Controller mit Fadern & Buttons, MIDI-Learn, LED-Feedback |
 | [docs/PARTY-MODE.md](docs/PARTY-MODE.md) | *Zukunft:* Party-Modus mit Live-Steuerung, Effekten, BPM und Executors |
-| [docs/MOVEMENT.md](docs/MOVEMENT.md) | *Zukunft:* Bewegungsbilder für Moving Heads & Scanner (Offset, Scale, Form) |
+| [docs/MOVEMENT.md](docs/MOVEMENT.md) | *Konzept:* Moves – gezeichnete Figuren für Pan/Tilt-Geräte, Größe, Verschiebung, Versatz |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Iterative Teilschritte mit Definition of Done |
 
 ## Tech-Stack

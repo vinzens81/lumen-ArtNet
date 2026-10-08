@@ -447,13 +447,14 @@ Grob in Teilschritten:
 **DoD (Schritt 1–3):** Auf einer Party lassen sich per Tablet Farben im Takt wechseln, und Effekte sind über
 Executor-Fader dosierbar.
 
-## ⬜ Iteration 12+ – Bewegungsbilder für Moving Heads & Scanner 🌀 (Zukunft)
-Konzept und offene Fragen: [MOVEMENT.md](MOVEMENT.md). Noch nicht ausgearbeitet, wird vor dem Start gemeinsam
-konkretisiert.
-- Formen (Kreis, Acht, Linie, Welle, …) mit Pan/Tilt-Offset, Scale (getrennt Pan/Tilt), Rotation, Speed, Phasenversatz
-- Montage-Infos und Pan/Tilt-Limits pro Fixture im Patch
-- Editor mit animierter Vorschau
-- Nutzung im Party-Modus und ggf. als Szenen-Attribut im Theater-Modus
+## ⬜ Iteration 12+ – Moves: Figuren für Pan/Tilt-Geräte 🌀
+Konzept beschlossen am 2026-10-08: [MOVEMENT.md](MOVEMENT.md). Koordinaten in DMX-Werten, absolut, Versatz in Schritten.
+Position nur noch über Moves (auch stehende Köpfe: Figur mit einem Punkt); Looks und Presets ohne Pan/Tilt.
+1. Figuren: gezeichnete Punktfolgen ohne Geräte, Figureneditor mit Vorlagen
+2. Moves: Figur + Geräte + Größe, Verschiebung, Drehung, Dauer, Loop/Once/Ping-Pong, Versatz, Spiegeln; Vorschau
+3. Nutzung in Szenen, Lichtmarkern, Party und Tasten; „Record position“ im Programmer; Projektdateien Version 4
+4. Move in dark pro Szene: ausdimmen, im Dunkeln fahren, eindimmen
+5. Pan/Tilt-Grenzen pro Gerät im Patch, gelten für die Wiedergabe (nicht für den Programmer)
 
 Bis dahin: nur statische Pan/Tilt-Positionen (XY-Pad).
 
