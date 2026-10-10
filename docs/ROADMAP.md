@@ -143,7 +143,8 @@ Geprüft im Browser (Desktop, Tablet-Hochformat 820 px, Handy 390 px): Bühne ei
 Szenenwechsel, DMX-Monitor, Show-Steuerung. Auf einem echten Tablet noch nicht ausprobiert.
 
 ## ✅ Iteration K – Kompositionen & dynamische Szenen 🌈
-Konzept und Entscheidungen: [COMPOSITIONS.md](COMPOSITIONS.md). Szenen bestehen danach aus einer **statischen Basis**
+Das Konzept ist mit Iteration S in [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md) aufgegangen
+(das alte Dokument steht in der Git-Historie). Szenen bestehen danach aus einer **statischen Basis**
 (wie bisher) plus beliebig vielen **Kompositionen**: Abläufe wie Lauflicht, Farbwechsel auf RGB-PARs oder freie
 Schrittfolgen, die in der Szene über dem festen Licht mitlaufen. Kompositionen werden in einer Bibliothek gepflegt
 und beim Einfügen in eine Szene **kopiert**. Die Kopie ist dort frei anpassbar.

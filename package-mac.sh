@@ -45,7 +45,7 @@ if ! [[ "$version" =~ ^[1-9][0-9]*(\.[0-9]+){0,2}$ ]]; then
 	echo "Invalid version '$version' – macOS wants 1–3 numbers, the first at least 1, e.g. 1.2.0" >&2
 	exit 2
 fi
-if [ -n "$(git status --porcelain -- . ':!additional.md' ':!.additional.md.swp' 2>/dev/null)" ]; then
+if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
 	echo "⚠ There are uncommitted changes – they are part of this build."
 fi
 

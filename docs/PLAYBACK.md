@@ -186,5 +186,4 @@ Fader, der vorher eine solche Szene spielte, spielt jetzt deren erste Compositio
 
 ## Mögliche Erweiterungen (Backlog)
 
-- Dynamische Szenen mit Lauflicht, Farbwechsel usw.: siehe [COMPOSITIONS.md](COMPOSITIONS.md)
 - Externe GO-Taste (USB-Fußschalter / OSC); MIDI-Controller siehe [MIDI.md](MIDI.md)

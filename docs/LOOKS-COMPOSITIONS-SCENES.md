@@ -1,7 +1,7 @@
 # Looks, Compositions, Scenes – drei Stufen
 
-> **Status:** umgesetzt (Iteration S, siehe [ROADMAP.md](ROADMAP.md)). Ersetzt das Modell aus
-> [COMPOSITIONS.md](COMPOSITIONS.md) (Szene = Basis + Kopien von Kompositionen, Szenen auf Extra-Tasten).
+> **Status:** umgesetzt (Iteration S, siehe [ROADMAP.md](ROADMAP.md)). Ersetzt das Modell aus Iteration K
+> (Szene = Basis + Kopien von Kompositionen, Szenen auf Extra-Tasten).
 > Abweichungen vom Plan stehen unter [Umsetzung](#umsetzung).
 
 ## Warum
@@ -68,13 +68,17 @@ Lauflicht, Farbwechsel, Regenbogen, Welle und Flackern sind keine eigene Art von
 **Generatoren**: Sie erzeugen die Schritte (und deren eigene Looks) einer ganz normalen Composition. Danach lässt sich
 jeder Schritt wie jeder andere bearbeiten.
 
-| Generator | erzeugt |
-|---|---|
-| Lauflicht | ein Schritt pro Gerät/Kopf (bzw. pro Position bei Breite > 1), Hold/Fade aus Tempo und „weich“ |
-| Farbwechsel | ein Schritt pro Farbe mit deren Hold und Fade; mit Spreizung pro Schritt versetzte Farben je Gerät |
-| Regenbogen | 12 Farbtöne mit Fades, Spreizung über die Geräte |
-| Welle | 16 Stützpunkte einer Periode mit Fades (Sinus wird zu einem geglätteten Vieleck) |
-| Flackern | ca. 40 zufällige Helligkeiten mit kurzen, unregelmäßigen Zeiten, Intensität relativ |
+| Generator | Einstellungen | erzeugt |
+|---|---|---|
+| Lauflicht | Tempo (s pro Schritt), Breite, Richtung (vor / zurück / Ping-Pong / zufällig), weich ↔ hart, Min/Max | ein Schritt pro Gerät/Kopf (bzw. pro Position bei Breite > 1), Hold/Fade aus Tempo und „weich“ |
+| Farbwechsel | 2–n Farben mit Hold und Fade, Spreizung (0 = alle gleich, 100 % = Farb-Lauflicht) | ein Schritt pro Farbe mit deren Hold und Fade; mit Spreizung pro Schritt versetzte Farben je Gerät |
+| Regenbogen | Tempo (s pro Umlauf), Sättigung, Spreizung | 12 Farbtöne mit Fades, Spreizung über die Geräte |
+| Welle | Form (Sinus, Dreieck, Sägezahn, Rechteck), Tempo, Min/Max, Spreizung | 16 Stützpunkte einer Periode mit Fades (Sinus wird zu einem geglätteten Vieleck) |
+| Flackern | Charakter (Kerze, Feuer, defekte Röhre), Stärke, Tempo, fester Zufalls-Seed | ca. 40 zufällige Helligkeiten mit kurzen, unregelmäßigen Zeiten, Intensität relativ |
+
+Ziel eines Generators ist eine Gruppe oder eine feste Liste von Fixtures; die Reihenfolge bestimmt Richtung und
+Spreizung. Ein Generator setzt nur Attribute, die die Geräte haben – ein Farbwechsel auf einem reinen Dimmer wird im
+Editor als Hinweis gemeldet, statt still nichts zu tun.
 
 Folgen, die man kennen sollte:
 - **Gruppen sind nicht mehr dynamisch:** Die Schritte enthalten feste Geräte. Ändert sich die Gruppe, muss man neu
@@ -123,6 +127,37 @@ außerdem gemeinsame **Looks** direkt spielen (`SceneLook`, mit Level), unter de
 - Mischung wie heute: Tasten liegen über der Szene, Intensität HTP bzw. relativ, Farbe LTP mit Level × Fade; bei
   mehreren Tasten gewinnt die höhere Nummer. Blackout und Grand Master wirken auch auf sie. Tasten laufen auf der
   echten Uhr, Pause hält sie nicht an.
+
+## Mischung und Zeit
+
+Diese Regeln stammen aus Iteration K und gelten unverändert für Compositions in Szenen, auf Tasten und Fadern.
+
+**Mischung pro Fixture und Attribut** (vor dem Layer-Merger und der Crossfade-Logik):
+- **Intensität absolut:** HTP, `max(darunter, composition × level)` – ein Grundlicht bleibt stehen, ein Lauflicht
+  „blitzt darüber“.
+- **Intensität relativ** (Flackern): moduliert, was darunter liegt, `darunter × faktor(t)` – die Kerze flackert um
+  die programmierte Helligkeit herum.
+- **Farbe und übrige Attribute (LTP):** `darunter + (composition − darunter) × level`. Bei Level 50 % liegt ein
+  Farbwechsel „halb“ über der Grundfarbe. Wirken mehrere Compositions auf dasselbe Attribut, gewinnt die spätere;
+  der Szenen-Editor zeigt solche Überschneidungen an.
+
+**Zeit, Überblendung und Playback:**
+- Compositions der Szene laufen auf der **virtuellen Playback-Uhr**: **Pause** friert auch Lauflichter und
+  Farbwechsel ein, „Finish fade“ betrifft nur den Szenenübergang, nicht den Ablauf.
+- **Fade-In:** Die Composition läuft ab dem GO (bzw. ab dem Ende des Delays) und wird mit dem Szenenlevel eingeblendet.
+- **Fade-Out:** Die Compositions der alten Szene **laufen beim Ausblenden weiter** und werden dunkler, statt
+  einzufrieren. Bei einem Doppel-GO werden ältere ausblendende Compositions in den Snapshot übernommen, damit
+  höchstens zwei Ebenen laufen.
+- Für den Crossfade sind die Werte einer Composition „LTP-Ziele, die sich bewegen“: `Crossfade.mix` bekommt pro Tick
+  die **aktuellen** Zielwerte. Die Regel „War das Gerät beim GO dunkel, springt die Farbe sofort“ bleibt.
+
+```
+            GO (Sz. 4)                                  GO (Sz. 5)
+            │                                           │
+Grundlicht  │▁▂▄▆██████████████████████████████████████│█▇▅▃▁
+Lauflicht   │▁▂▄▆█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█│▇▁▅▁▃▁▁       läuft beim Ausblenden weiter
+Farbwechsel │▁▂▄▆ rot → gelb → grün → rot → gelb → grün│→ rot → …    in Sz. 5 auch enthalten: läuft nahtlos weiter
+```
 
 ## Was gleich bleibt
 
@@ -201,7 +236,8 @@ Auf einem eigenen Branch, jeder Schritt mit grünem `./build.sh`.
    Export Version 2, Import alter Dateien über denselben Umwandler.
 3. **S3 – REST & WebSocket** für Looks, Compositions, Szenen und Tasten; alte Endpunkte entfallen.
 4. **S4 – UI:** Looks, Compositions-Editor mit Generator, Szenen-Editor mit Tasten, Show-Modus; alte Wege entfernen.
-5. **S5 – Doku:** COMPOSITIONS.md, PLAYBACK.md, UI.md, PROJECT-DATA.md nachziehen.
+5. **S5 – Doku:** PLAYBACK.md, UI.md, PROJECT-DATA.md nachziehen; das alte Konzept (COMPOSITIONS.md) ist
+   inzwischen in diesem Dokument aufgegangen.
 
 ## Entscheidungen (2026-10-06)
 

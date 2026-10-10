@@ -148,9 +148,10 @@ Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injiziert
 | `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
 | `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Bühnenpositionen (0–1) mehrerer Fixtures auf einmal, `null` = nicht auf der Bühne |
 | `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
-| `CRUD /api/projects/{id}/compositions` · `/scenes/{sceneId}/compositions` | Kompositions-Bibliothek und Kopien in Szenen, siehe [COMPOSITIONS.md](COMPOSITIONS.md#umsetzung-k1) |
+| `CRUD /api/projects/{id}/looks` · `POST …/looks/{lid}/record` · `/load` · `/duplicate` · `GET …/revisions` · `POST …/revisions/{rid}/restore` | Looks: aufnehmen aus dem Programmer, in den Programmer laden, Verlauf und Rückgängig, siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md) |
+| `CRUD /api/projects/{id}/compositions` · `POST …/compositions/{cid}/duplicate` · `/record-step` · `/generate` | Compositions aus Look-Schritten, Schritt aus dem Programmer, Schritte per Generator erzeugen |
+| `PUT /api/projects/{id}/scenes/{sid}/compositions` · `/sections` · `/keys` | Compositions und Looks einer Szene, Licht der Abschnitte nach Licht-Markern, Tasten 1–8 (jeweils die ganze Liste) |
 | `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Komposition oder ganze Szene zum Ausprobieren auf der Bühne zeigen (nur Konfigurationsmodus) |
-| `GET /api/projects/{id}/extra-keys` · `PUT/DELETE …/extra-keys/{slot}` · `GET/PUT …/scenes/{sid}/extra-keys` | Extra-Tasten belegen (`{libraryId}` oder `{sceneId}`, dazu `mode`, `fadeMs`) und pro Szene freischalten (`{slots}`) |
 | `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
 | `POST /api/library/import/ofl?manufacturer=…&replace=false` (Body: OFL-JSON) | Gerät aus der Open Fixture Library als YAML-Profil in die Bibliothek übernehmen, Antwort mit `warnings` (409, wenn die ID schon existiert) |
 | `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |

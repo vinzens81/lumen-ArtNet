@@ -20,7 +20,7 @@ und welche Szenen es gibt.
 - **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
   Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
   V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9), V5 = Kompositionen
-  (Iteration K, Schema in [COMPOSITIONS.md](COMPOSITIONS.md#datenmodell-entwurf-neue-flyway-migration)),
+  (Iteration K, mit V19 durch Looks/Compositions ersetzt),
   V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
   V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
   (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
