@@ -26,6 +26,7 @@
   import ShowView from './views/ShowView.svelte';
   import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
+  import ScriptWatchView from './views/ScriptWatchView.svelte';
   import WatchView from './views/WatchView.svelte';
   import { notify, showError } from './lib/toasts.svelte';
   import type { NodeHealth, OperatingMode, OutputHealth } from './lib/types';
@@ -181,6 +182,8 @@
   <CuePrintView />
 {:else if router.route === '/view'}
   <WatchView />
+{:else if router.route === '/view/script'}
+  <ScriptWatchView />
 {:else}
 <div class="shell">
   <header class="topbar glass">
@@ -263,6 +266,7 @@
     {/if}
 
     <a class="watch-link" href="#/view" title="The stage as it glows, view only – e.g. on a phone">👁 View</a>
+    <a class="watch-link" href="#/view/script" title="Follow the script during the show, view only – e.g. on a tablet">📜 Script</a>
 
     <div class="status" class:tone-error={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
       <span class="dot"></span>{app.online ? 'Online' : 'Offline'}

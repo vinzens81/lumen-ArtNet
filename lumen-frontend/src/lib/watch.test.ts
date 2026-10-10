@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaybackStatus, Scene } from './types';
-import { watchCaption } from './watch';
+import { watchCaption, watchIdleText, watchNext } from './watch';
 
 const scenes = [
   { id: 1, number: '1', name: 'Opening', script: 'Anna: Hello.\n//## Window (blue)##\nBen: Bye.' },
@@ -25,5 +25,30 @@ describe('watchCaption', () => {
     expect(watchCaption(scenes, null).title).toBe('No show running');
     expect(watchCaption(scenes, status({ position: -1, currentSceneId: null })).title).toBe('Before the first scene');
     expect(watchCaption(scenes, status({ position: 2, currentSceneId: null })).title).toBe('End of the show');
+  });
+});
+
+describe('watchNext', () => {
+  it('names the scene after the one on stage', () => {
+    expect(watchNext(scenes, status({}))).toBe('Next: 2.5 · Night');
+    expect(watchNext(scenes, status({ currentSceneId: 2, nextSceneId: null, nextIsEnd: true }))).toBe('Next: end of the show');
+  });
+
+  it('says nothing when no show is running or nothing follows', () => {
+    expect(watchNext(scenes, null)).toBeNull();
+    expect(watchNext(scenes, status({ nextSceneId: null }))).toBeNull();
+  });
+});
+
+describe('watchIdleText', () => {
+  it('says why there is no script to show', () => {
+    expect(watchIdleText(null)).toMatch(/^No show running/);
+    expect(watchIdleText(status({ available: false }))).toMatch(/^No show running/);
+    expect(watchIdleText(status({ position: -1, currentSceneId: null }))).toMatch(/^Before the first scene/);
+    expect(watchIdleText(status({ position: 2, currentSceneId: null }))).toBe('End of the show.');
+  });
+
+  it('is null while a scene is on stage', () => {
+    expect(watchIdleText(status({}))).toBeNull();
   });
 });

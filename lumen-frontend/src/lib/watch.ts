@@ -18,3 +18,19 @@ export function watchCaption(scenes: Scene[], status: PlaybackStatus | null): Wa
   const markers = status.section > 0 ? parseScript(scene.script).markers : [];
   return { title: `${scene.number} · ${scene.name}`, part: markers[status.section - 1]?.name ?? null };
 }
+
+/** What comes after the scene on stage, for the view-only script: "Next: 2.5 · Night", or null when nothing is known. */
+export function watchNext(scenes: Scene[], status: PlaybackStatus | null): string | null {
+  if (!status?.available) return null;
+  const next = scenes.find((s) => s.id === status.nextSceneId);
+  if (next) return `Next: ${next.number} · ${next.name}`;
+  return status.nextIsEnd ? 'Next: end of the show' : null;
+}
+
+/** What the view-only script says while no scene is on stage, or null when one is. */
+export function watchIdleText(status: PlaybackStatus | null): string | null {
+  if (!status?.available) return 'No show running – the script appears here once a scene is on stage.';
+  if (status.currentSceneId !== null) return null;
+  if (status.position >= status.sceneCount && status.sceneCount > 0) return 'End of the show.';
+  return 'Before the first scene – the script appears here with the first GO.';
+}

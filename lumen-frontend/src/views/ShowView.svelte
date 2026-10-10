@@ -12,6 +12,7 @@
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
   import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
+  import { centerIn } from '../lib/scroll';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -115,17 +116,8 @@
     }
   });
 
-  /**
-   * Scrolls the list so the element is in its middle. Unlike scrollIntoView this moves only the list, never the page
-   * or the tabs and heading above it.
-   */
   function center(selector: string) {
-    const element = listElement?.querySelector<HTMLElement>(selector);
-    if (!listElement || !element) return;
-    const list = listElement.getBoundingClientRect();
-    const box = element.getBoundingClientRect();
-    const top = listElement.scrollTop + box.top - list.top - (list.height - box.height) / 2;
-    listElement.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    centerIn(listElement, selector);
   }
 
   // keep the current scene in view

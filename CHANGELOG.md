@@ -3,6 +3,16 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.95 – 1.0.96 · 2026-10-10
+
+### Added
+- View-only script (link "📜 Script" in the header, or `#/view/script`): follow the text of the scene on stage on a
+  tablet or phone. The speech the operator is at is highlighted and kept in the middle; text size A− / A+, scrolling
+  by hand pauses following until "Follow the show" or the next scene. No controls, no PIN, the screen stays on.
+
+### Changed
+- The view-only stage and the view-only script link to each other.
+
 ## 1.0.81 – 1.0.94 · 2026-10-08
 
 ### Added

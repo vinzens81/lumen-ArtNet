@@ -207,6 +207,16 @@ die Bühne, live leuchtend wie die Ausgabe, darüber Projekt, Modus, die Szene a
 sowie ein Hinweis bei Blackout. Es gibt keine Bedienelemente und keine Tastenkürzel, die Seite folgt nicht dem
 Betriebsmodus und fragt nicht nach der PIN. ✕ führt zurück in die App.
 
+### Textbuch nur mitlesen (`#/view/script`)
+
+Für Tablet oder Handy, z.B. für Souffleuse, Inspizienz oder Regie: Der Link **📜 Script** in der Kopfleiste (oder
+`http://<Rechner>:8080/#/view/script`, auch per „📜 Script“ aus `#/view`) zeigt nur das Textbuch der Szene auf der
+Bühne. Die Rede, bei der der Betrieb gerade steht, ist hervorgehoben und wird mittig gehalten – die Seite folgt der
+Textposition des Servers (↑/↓ im Betrieb), kann sie aber nicht ändern. Darüber Szene, aktiver Lichtmarker, Blackout
+und die nächste Szene am Textende. Schriftgröße per A−/A+ (merkt sich der Browser). Wer von Hand scrollt (z.B. zum
+Vorauslesen), hält das Mitlaufen an; „↧ Follow the show“ oder die nächste Szene nimmt es wieder auf. Der Bildschirm
+bleibt an. Wie `#/view`: keine Bedienelemente, keine Tastenkürzel, keine PIN, folgt nicht dem Betriebsmodus.
+
 ### DMX im Betrieb
 Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt nur die belegten
 Kanäle, nach Fixture gruppiert und alle Universen untereinander, live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
