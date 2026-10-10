@@ -1,64 +1,64 @@
-# Moves – Figuren für Pan/Tilt-Geräte
+# Moves – figures for pan/tilt fixtures
 
-> **Status:** umgesetzt am 2026-10-08 (Stufen 1–5), siehe [Umsetzung](#umsetzung-2026-10-08). Beschlossen am 2026-10-08.
+> **Status:** implemented on 2026-10-08 (stages 1–5), see [Implementation](#implementation-2026-10-08). Decided on
+> 2026-10-08.
 
-## Worum es geht
+## What it is about
 
-Bisher gibt es für Moving Heads und Washlights nur **feste Positionen** (XY-Pad im Programmer, in Looks gespeichert).
-Moves bringen **Bewegung**: Ein Kopf fährt eine gezeichnete Figur ab, endlos oder einmal als „Reise“ von A nach B. Er
-kann allein fahren oder zusammen mit anderen Köpfen, die versetzt einsteigen.
+Until now moving heads and wash lights only had **fixed positions** (XY pad in the programmer, stored in looks).
+Moves bring **movement**: a head follows a drawn figure, endlessly or once as a "journey" from A to B. It can move
+alone or together with other heads that join in with an offset.
 
-Dabei gilt eine klare Trennung: **Looks sagen, wie das Licht aussieht** (Helligkeit, Farbe, Gobo, Zoom, …), **Moves
-sagen, wohin es zeigt** – auch wenn ein Kopf nur steht. Pan und Tilt kommen in der Wiedergabe ausschließlich aus
-Moves.
+There is a clear separation: **looks say what the light looks like** (brightness, color, gobo, zoom, …), **moves say
+where it points** – even if a head just stands still. In playback, pan and tilt come exclusively from moves.
 
-Vorbild ist der Figureneditor mit Bewegungsszene in DMXControl 2: Die Figuren werden ohne Geräte gezeichnet, die
-Zuordnung zu Geräten mit Größe und Lage kommt erst danach.
+The model is the figure editor with movement scene in DMXControl 2: figures are drawn without fixtures; assigning them
+to fixtures with size and placement comes afterwards.
 
-## Entscheidungen (2026-10-08)
+## Decisions (2026-10-08)
 
-| Thema | Entscheidung |
+| Topic | Decision |
 |---|---|
-| Koordinaten | **DMX-Werte**, nicht Grad: X = Pan, Y = Tilt, jeweils 0–255 (intern fein aufgelöst, 16 Bit) |
-| Lage | **Absolut**: Die Figur liegt dort, wo sie gezeichnet und verschoben ist. Ein Look darunter verschiebt sie nicht |
-| Versatz zwischen Geräten | **In Schritten**: Gerät 1 steigt bei Punkt 1 ein, Gerät 2 bei Punkt 1 + Versatz, … |
-| Einordnung | Figur und Move sind eigene Objekte wie Looks; ein Move spielt in Szenen, Lichtmarkern, Party und Tasten |
-| Once mit Versatz | **beides wählbar**: nacheinander („Schlange“) oder gleichzeitig ab versetzten Punkten |
-| Position nur über Moves | **Streng**: Looks, Compositions und Presets enthalten kein Pan/Tilt mehr. Eine Umwandlung bestehender Daten ist nicht nötig, es gibt noch keine Bewegungen |
-| Feste Position | ein Move, dessen Figur nur **einen Punkt** hat |
-| Lage pro Gerät | jedes Gerät eines Moves hat zusätzlich eine **eigene Verschiebung**, damit verschieden hängende Köpfe auf dieselbe Stelle zeigen |
-| Grenzen pro Gerät | gelten für die Wiedergabe, **nicht für den Programmer** |
-| Bewegen im Dunkeln | **pro Szene** einstellbar: ausdimmen, fahren, eindimmen, statt leuchtend über die Bühne zu fahren |
-| Drehung | im DMX-Raster; ein gedrehter Kreis wird auf der Bühne zur Ellipse, wenn Pan mehr Grad abdeckt als Tilt |
+| Coordinates | **DMX values**, not degrees: X = pan, Y = tilt, each 0–255 (internally finer, 16 bit) |
+| Placement | **Absolute**: the figure lies where it is drawn and shifted. A look below does not move it |
+| Offset between fixtures | **In steps**: fixture 1 joins at point 1, fixture 2 at point 1 + offset, … |
+| Place in the model | Figure and move are objects of their own like looks; a move plays in scenes, light markers, party and keys |
+| Once with offset | **both selectable**: one after another ("snake") or at the same time from offset points |
+| Position only via moves | **Strict**: looks, compositions and presets no longer contain pan/tilt. No conversion of existing data is needed, there are no movements yet |
+| Fixed position | a move whose figure has only **one point** |
+| Placement per fixture | every fixture of a move also has an **own shift**, so that heads hanging in different places point at the same spot |
+| Limits per fixture | apply to playback, **not to the programmer** |
+| Moving in the dark | settable **per scene**: dim out, move, dim in, instead of travelling across the stage lit |
+| Rotation | in the DMX grid; a rotated circle becomes an ellipse on stage if pan covers more degrees than tilt |
 
-## Begriffe
+## Terms
 
 ```
-Figur  „Acht“        nur die Form: Punkte in Reihenfolge, offen oder geschlossen – ohne Geräte
-  └─ Move „Acht über der Bühne“  Figur + Geräte + Größe, Verschiebung, Drehung, Tempo, Wiederholung, Versatz
-       └─ Szene 4 / Lichtmarker / Party-Feld / Taste   spielt den Move
+Figure  "Eight"        just the shape: points in order, open or closed – without fixtures
+  └─ Move "Eight above the stage"  figure + fixtures + size, shift, rotation, tempo, repeat, offset
+       └─ scene 4 / light marker / party field / key   plays the move
 ```
 
-- Eine **Figur** gehört zum Projekt und kann von mehreren Moves benutzt werden. Wird sie geändert, ändern sich alle
-  Moves damit (wie bei Presets).
-- Ein **Move** ist das, was man in einer Szene auswählt, so wie einen Look oder eine Composition.
-- Ein einfacher Spot auf den Sänger besteht also aus zwei Teilen: Look „Weiß 80 %“ + Move „Sänger Mitte“. Dafür lässt
-  sich jede Farbe mit jeder Position kombinieren, und eine Position wird an einer Stelle gepflegt.
+- A **figure** belongs to the project and can be used by several moves. If it is changed, all moves change with it
+  (as with presets).
+- A **move** is what you pick in a scene, like a look or a composition.
+- So a simple spot on the singer consists of two parts: look "White 80 %" + move "Singer centre". In return, every
+  color can be combined with every position, and a position is maintained in one place.
 
-## Stufe 1 – Figur
+## Stage 1 – figure
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
-| Name | z.B. „Acht“, „Weg Bühne links → Mitte“ |
-| Punkte | geordnete Liste von (X, Y) im Bereich 0–255, mindestens 1 – **ein Punkt = feste Position** |
-| Geschlossen | ja: nach dem letzten Punkt geht es zurück zum ersten (Kreise, Achten); nein: offener Weg (Reisen) |
+| Name | e.g. "Eight", "Path stage left → centre" |
+| Points | ordered list of (X, Y) in the range 0–255, at least 1 – **one point = fixed position** |
+| Closed | yes: after the last point it goes back to the first (circles, eights); no: open path (journeys) |
 
-Die Punkte werden **mit geraden Linien** verbunden. Weiche Kurven kommen später (siehe [Später](#später)).
+The points are connected **with straight lines**. Smooth curves come later (see [Later](#later)).
 
-### Figureneditor
+### Figure editor
 
 ```
-┌ Figure: [ Acht           ▾] [+ New] [Duplicate] [Delete] ───────────────────────────────┐
+┌ Figure: [ Eight          ▾] [+ New] [Duplicate] [Delete] ───────────────────────────────┐
 │ Template: [Circle ▾] Points: [8] [Apply]        ☑ Closed   ☑ Show numbers   [Clear]     │
 │  255 ┼───────────────────────────────────────────────┐                                  │
 │      │            ②────────③                         │   Points                         │
@@ -70,273 +70,271 @@ Die Punkte werden **mit geraden Linien** verbunden. Weiche Kurven kommen später
 └─────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Klick** in die Fläche hängt einen Punkt hinten an. Aufeinanderfolgende Punkte werden verbunden, die Linie vom
-  letzten zum ersten Punkt (bei „Closed“) ist gestrichelt. Pfeile auf den Linien zeigen die Richtung.
-- **Ziehen** verschiebt einen Punkt, **Klick auf eine Linie** fügt dort einen Punkt ein, **Alt+Klick** oder ✕ in der
-  Liste löscht ihn. Die Liste rechts erlaubt genaue Werte und das Umsortieren.
-- **Nummern** an den Punkten zeigen die Reihenfolge. Sie sind wichtig für den Versatz der Geräte.
-- **Vorlagen** mit wählbarer Punktzahl: Kreis, Acht, Linie waagrecht, Linie senkrecht, Dreieck, Rechteck, Zufall.
-  „Apply“ ersetzt die Punkte; danach lässt sich alles von Hand ändern.
-- Raster mit Hilfslinien bei 64/128/192; Snap auf ganze Werte, mit Shift auf das 16er-Raster.
+- **Clicking** into the area appends a point. Consecutive points are connected; the line from the last to the first
+  point (with "Closed") is dashed. Arrows on the lines show the direction.
+- **Dragging** moves a point, **clicking a line** inserts a point there, **Alt+click** or ✕ in the list deletes it.
+  The list on the right allows exact values and reordering.
+- **Numbers** at the points show the order. They matter for the offset of the fixtures.
+- **Templates** with a selectable number of points: circle, eight, horizontal line, vertical line, triangle,
+  rectangle, random. "Apply" replaces the points; afterwards everything can be changed by hand.
+- Grid with guides at 64/128/192; snap to whole values, with Shift to the 16 grid.
 
-## Stufe 2 – Move
+## Stage 2 – move
 
-| Feld | Bedeutung | Standard |
+| Field | Meaning | Default |
 |---|---|---|
-| Name | z.B. „Acht über der Bühne“ | |
-| Figur | Auswahl aus der Bibliothek oder „New figure…“ (öffnet den Figureneditor) | |
-| Geräte | geordnete Liste von Fixtures mit Pan **und** Tilt; die Reihenfolge bestimmt den Versatz | |
-| Größe X / Y | Skalierung der Figur um ihre Mitte, getrennt für Pan und Tilt, in % | 100 % |
-| Verschiebung X / Y | Verschiebung der ganzen Figur in DMX-Werten (−255 … +255) | 0 |
-| Drehung | Drehung um die Mitte der Figur in Grad (Ansicht im DMX-Raster) | 0° |
-| Dauer | Zeit für einen Durchlauf der Figur in Sekunden (bei einem Punkt ausgeblendet, wie Wiederholung und Versatz) | 8 s |
-| Wiederholung | **Loop** (endlos), **Once** (einmal, bleibt am Ende stehen), **Ping-Pong** (hin und zurück) | Loop |
-| Versatz | Schritte, um die jedes weitere Gerät später einsteigt (0 = alle synchron) | 0 |
-| Einstieg bei Once | **Nacheinander** (alle fahren dieselbe Reise, Gerät *i* startet später) oder **Gleichzeitig** (alle starten sofort, Gerät *i* ab Punkt `1 + i × Versatz`) | Nacheinander |
+| Name | e.g. "Eight above the stage" | |
+| Figure | choice from the library or "New figure…" (opens the figure editor) | |
+| Fixtures | ordered list of fixtures with pan **and** tilt; the order defines the offset | |
+| Size X / Y | scaling of the figure around its centre, separately for pan and tilt, in % | 100 % |
+| Shift X / Y | shift of the whole figure in DMX values (−255 … +255) | 0 |
+| Rotation | rotation around the centre of the figure in degrees (view in the DMX grid) | 0° |
+| Duration | time for one round of the figure in seconds (hidden for one point, like repeat and offset) | 8 s |
+| Repeat | **loop** (endless), **once** (once, stays at the end), **ping-pong** (there and back) | loop |
+| Offset | steps by which every further fixture joins later (0 = all in sync) | 0 |
+| Start for once | **one after another** (all make the same journey, fixture *i* starts later) or **together** (all start at once, fixture *i* from point `1 + i × offset`) | one after another |
 
-Pro Gerät, als Ausnahme in der Geräteliste:
+Per fixture, as an exception in the fixture list:
 
-| Feld | Bedeutung |
+| Field | Meaning |
 |---|---|
-| Verschiebung X / Y | eigene Korrektur in DMX-Werten, zusätzlich zur Verschiebung für alle |
-| Spiegeln X / Y | Pan bzw. Tilt um die Mitte der Figur gespiegelt, z.B. für symmetrisch laufende Köpfe links und rechts |
-| Rückwärts | fährt die Figur in umgekehrter Richtung |
+| Shift X / Y | own correction in DMX values, in addition to the shift for all |
+| Mirror X / Y | pan or tilt mirrored around the centre of the figure, e.g. for heads left and right moving symmetrically |
+| Reverse | follows the figure in the opposite direction |
 
-Größe, Verschiebung und Drehung gelten für **alle** Geräte des Moves (Schritt 4 der Idee). Die **Verschiebung pro
-Gerät** gleicht aus, dass die Köpfe an verschiedenen Stellen hängen: Ohne sie zeigen vier Köpfe auf demselben
-DMX-Punkt auf vier verschiedene Stellen der Bühne, und jeder malt die Acht woanders hin. Im Editor wird sie pro Gerät
-mit einem kleinen XY-Pad nachgestellt, während der Kopf auf der Bühne die Figur zeigt.
-
-```
-Move „Sänger Mitte“   Figur: 1 Punkt (128, 100)
-  MH 1  Shift X −18  Y +6
-  MH 2  Shift X  −5  Y +4
-  MH 3  Shift X  +7  Y +4
-```
-
-### Move-Editor
+Size, shift and rotation apply to **all** fixtures of the move (step 4 of the idea). The **shift per fixture**
+compensates for the heads hanging in different places: without it, four heads at the same DMX point point at four
+different spots on stage, and each draws the eight somewhere else. In the editor it is adjusted per fixture with a
+small XY pad while the head shows the figure on stage.
 
 ```
-┌ Move: [ Acht über der Bühne ▾] [+ New move] ──────────────────────────────────────────────┐
-│ Figure [ Acht ▾] [Edit figure]          Fixtures: [MH 1] [MH 2] [MH 3] [MH 4]  [+ Add]     │
+Move "Singer centre"   figure: 1 point (128, 100)
+  MH 1  shift X −18  Y +6
+  MH 2  shift X  −5  Y +4
+  MH 3  shift X  +7  Y +4
+```
+
+### Move editor
+
+```
+┌ Move: [ Eight above the stage ▾] [+ New move] ────────────────────────────────────────────┐
+│ Figure [ Eight ▾] [Edit figure]         Fixtures: [MH 1] [MH 2] [MH 3] [MH 4]  [+ Add]     │
 │ ┌──────────────────────────────┐   Size    X [ 80 %]  Y [ 50 %]                            │
-│ │   ·  · (Figur grau)          │   Shift   X [ +20 ]  Y [ −10 ]                            │
-│ │  ●1 ───── ●2   (Figur nach   │   Rotate  [ 0° ]                                          │
-│ │   ╲        ╲   Größe/Shift)  │   Time    [ 8.0 s ] per round   Repeat (Loop|Once|Ping-pong)│
-│ │    ●3 ──── ●4  ● = Gerät,    │   Offset  [ 2 ] steps per fixture                         │
-│ │                animiert)     │   ─────────────────────────────────────────                │
+│ │   ·  · (figure grey)         │   Shift   X [ +20 ]  Y [ −10 ]                            │
+│ │  ●1 ───── ●2   (figure after │   Rotate  [ 0° ]                                          │
+│ │   ╲        ╲   size/shift)   │   Time    [ 8.0 s ] per round   Repeat (Loop|Once|Ping-pong)│
+│ │    ●3 ──── ●4  ● = fixture,  │   Offset  [ 2 ] steps per fixture                         │
+│ │                animated)     │   ─────────────────────────────────────────                │
 │ └──────────────────────────────┘   MH 1  ☐ Mirror X ☐ Mirror Y ☐ Reverse   starts at ①     │
 │ [▶ Preview] [Show on stage]        MH 2  ☑ Mirror X ☐ Mirror Y ☐ Reverse   starts at ③     │
 └────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- In der Fläche erscheint die Grundfigur blass und die Figur nach Größe, Verschiebung und Drehung kräftig. Darauf
-  fährt pro Gerät ein Punkt mit Namen (Vorschau im Browser, ohne Ausgabe).
-- **Größe und Verschiebung** lassen sich auch direkt in der Fläche einstellen: Ziehen der Figur verschiebt sie,
-  die Eckgriffe ändern die Größe.
-- „Show on stage“ spielt den Move wie heute bei Compositions auf der Bühne (bewegt echte Köpfe), mit dem bekannten
-  Hinweis in der Kopfleiste und Stop.
-- Geräte ohne Pan/Tilt werden nicht angeboten.
-- Die Spalte „starts at“ zeigt, bei welchem Punkt jedes Gerät einsteigt.
+- The area shows the base figure faintly and the figure after size, shift and rotation strongly. A named dot per
+  fixture moves along it (preview in the browser, without output).
+- **Size and shift** can also be set directly in the area: dragging the figure shifts it, the corner handles change
+  the size.
+- "Show on stage" plays the move on stage as with compositions (moves real heads), with the known hint in the header
+  and Stop.
+- Fixtures without pan/tilt are not offered.
+- The column "starts at" shows at which point every fixture joins.
 
-## Stufe 3 – Nutzung
+## Stage 3 – use
 
-- **Szenen und Lichtmarker:** In jedem Teil der Szene gibt es neben Looks und Compositions eine Auswahl **Moves**.
-  Wie bei Compositions läuft ein Move, der in beiden Szenen oder Teilen steht, **ohne Unterbrechung weiter**.
-- **Party:** Ein Feld der Matrix kann einen Move ein- und ausschalten (Toggle oder Flash).
-- **Tasten** einer Szene können einen Move spielen.
-- **Programmer:** Pan/Tilt stellt man weiter mit dem XY-Pad ein, der Programmer überschreibt wie heute alles, auch
-  einen laufenden Move. Beim Speichern trennt er:
-  - **Record look** speichert alles außer Pan/Tilt.
-  - **Record position** legt einen Move mit einem Punkt an (oder aktualisiert ihn): Der Punkt ist die Mitte der
-    Positionen der ausgewählten Geräte, jedes Gerät bekommt seine Abweichung davon als eigene Verschiebung.
-  - **Record look + position** macht beides in einem Schritt und kann beides gleich in die Szene setzen.
-- **Ohne Move** behält ein Kopf seine letzte Position (bestehende Regel: was die neue Szene nicht setzt, bleibt
-  stehen). Ein Wechsel nur der Farbe lässt die Köpfe also nicht zurück in die Mitte fahren.
+- **Scenes and light markers:** in every part of the scene there is a choice of **moves** next to looks and
+  compositions. As with compositions, a move that is in both scenes or parts **keeps running without interruption**.
+- **Party:** a field of the matrix can switch a move on and off (toggle or flash).
+- **Keys** of a scene can play a move.
+- **Programmer:** pan/tilt is still set with the XY pad; the programmer overrides everything as before, including a
+  running move. When saving, it separates:
+  - **Record look** saves everything except pan/tilt.
+  - **Record position** creates a move with one point (or updates it): the point is the centre of the positions of
+    the selected fixtures, every fixture gets its deviation from it as its own shift.
+  - **Record look + position** does both in one step and can put both into the scene right away.
+- **Without a move** a head keeps its last position (existing rule: what the new scene does not set stays). Changing
+  only the color therefore does not send the heads back to the centre.
 
-## Wie gerechnet wird
+## How it is computed
 
-Alles als reine Funktion der Zeit, wie die übrigen Compositions. Mit `t` = Zeit seit dem Start × Tempo-Faktor:
+Everything as a pure function of time, like the other compositions. With `t` = time since the start × tempo factor:
 
 ```
-1. Weg:       Figur → Polygonzug (geschlossen: zurück zum ersten Punkt); Länge L, Punkt k bei Wegstrecke s_k
-2. Fortschritt eines Geräts i:
-     Loop:       p = frac( t / Dauer + s_(i × Versatz mod n) / L )
-     Ping-Pong:  wie Loop, aber jede zweite Runde rückwärts
-     Once:       wie Loop ohne frac, bei 1 stehen bleiben; Versatz je nach „Einstieg“ (siehe unten)
-     Rückwärts:  p → 1 − p
-3. Punkt auf dem Weg bei Strecke p × L          → (x, y), gleichmäßige Geschwindigkeit entlang des Wegs
-4. Spiegeln:     x → 2·cx − x  bzw.  y → 2·cy − y        (c = Mitte der Figur, Mitte der Bounding Box)
-5. Lage:         (x, y) = c + Shift + Shift_Gerät + Drehung( Größe ⊙ ((x, y) − c) )
-6. Begrenzen:    auf 0–255 und auf die Grenzen des Geräts (siehe unten)
-7. Ausgabe:      Pan = x / 255, Tilt = y / 255  (normiert, 16 Bit bei Geräten mit Fine-Kanal)
+1. Path:      figure → polyline (closed: back to the first point); length L, point k at distance s_k
+2. Progress of a fixture i:
+     Loop:       p = frac( t / duration + s_(i × offset mod n) / L )
+     Ping-pong:  like loop, but every second round backwards
+     Once:       like loop without frac, stop at 1; offset depending on "start" (see below)
+     Reverse:    p → 1 − p
+3. Point on the path at distance p × L          → (x, y), even speed along the path
+4. Mirror:      x → 2·cx − x  or  y → 2·cy − y        (c = centre of the figure, centre of the bounding box)
+5. Placement:   (x, y) = c + shift + shift_fixture + rotation( size ⊙ ((x, y) − c) )
+6. Clamp:       to 0–255 and to the limits of the fixture (see below)
+7. Output:      pan = x / 255, tilt = y / 255  (normalized, 16 bit for fixtures with a fine channel)
 ```
 
-- **Gleichmäßige Geschwindigkeit:** Die Zeit verteilt sich nach der Länge der Abschnitte, nicht gleich pro Punkt.
-  Sonst würde der Kopf über lange Strecken rasen und über kurze schleichen.
-- **Versatz in Schritten:** Bei Loop und Ping-Pong beginnt Gerät *i* an Punkt `1 + i × Versatz` (zyklisch). Bei
-  **Once** (Reise) fahren alle denselben Weg von Anfang an, Gerät *i* startet um `i × Versatz` Schritte später, also
-  um die Zeit, die der Weg bis Punkt `1 + i × Versatz` braucht. Bis dahin steht es auf dem Startpunkt. Das ergibt die
-  „Schlange“, die nacheinander dieselbe Reise macht. Mit Einstieg **Gleichzeitig** starten alle sofort, Gerät *i*
-  ab Punkt `1 + i × Versatz`, und jedes bleibt am Ende des Wegs stehen; bei offenen Figuren ist der Weg für spätere
-  Geräte also kürzer, bei geschlossenen Figuren fährt jedes genau eine Runde bis zu seinem Startpunkt.
-- **Mischen:** Moves setzen nur Pan und Tilt, Looks und Compositions alles andere. Stehen zwei Moves mit demselben
-  Gerät in einer Szene, gewinnt der spätere in der Liste (LTP). Ein Move hat keinen Level.
-- **Übergänge:** Beim GO fährt ein Kopf mit dem Fade-In von seiner Position zum Weg und folgt ihm dann. War er
-  beim GO dunkel, springt er sofort dorthin (bestehende Regel für stufenlose Attribute). Läuft derselbe Move in der
-  neuen Szene weiter, gibt es keinen Übergang.
-- **Fine-Kanäle:** Bewegungen ruckeln mit 8 Bit sichtbar. Der Renderer gibt Pan/Tilt schon heute mit 16 Bit aus,
-  wenn das Profil einen Fine-Kanal hat.
+- **Even speed:** time is distributed by the length of the segments, not equally per point. Otherwise the head would
+  race over long distances and crawl over short ones.
+- **Offset in steps:** with loop and ping-pong, fixture *i* starts at point `1 + i × offset` (cyclic). With **once**
+  (journey), all follow the same path from the beginning, fixture *i* starts `i × offset` steps later, i.e. by the
+  time the path needs up to point `1 + i × offset`. Until then it stands on the start point. That gives the "snake"
+  that makes the same journey one after another. With start **together**, all start at once, fixture *i* from point
+  `1 + i × offset`, and each stops at the end of the path; for open figures the path is shorter for later fixtures,
+  for closed figures each makes exactly one round up to its start point.
+- **Mixing:** moves only set pan and tilt, looks and compositions everything else. If two moves with the same fixture
+  are in a scene, the later one in the list wins (LTP). A move has no level.
+- **Transitions:** at GO a head travels with the fade-in from its position to the path and then follows it. If it was
+  dark at GO, it jumps there at once (existing rule for continuous attributes). If the same move keeps running in the
+  new scene, there is no transition.
+- **Fine channels:** movements stutter visibly with 8 bit. The renderer already outputs pan/tilt with 16 bit if the
+  profile has a fine channel.
 
-## Bewegen im Dunkeln (pro Szene)
+## Moving in the dark (per scene)
 
-Fährt ein Kopf beim GO leuchtend von einer Position zur nächsten, sieht das Publikum den Lichtfleck über die Bühne
-wandern. Oft soll der Kopf stattdessen **ausdimmen, im Dunkeln fahren und an der neuen Stelle wieder eindimmen**
-(an Lichtpulten „Move in Black“).
+If a head travels lit from one position to the next at GO, the audience sees the light spot wander across the stage.
+Often the head should instead **dim out, move in the dark and dim in again at the new place** ("move in black" on
+lighting desks).
 
-Im Szenen-Editor gibt es dafür bei den Fade-Zeiten:
+The scene editor has these fields with the fade times:
 
-| Feld | Bedeutung | Standard |
+| Field | Meaning | Default |
 |---|---|---|
-| **Move in dark** | an/aus für das GO in diese Szene | aus |
-| **Dim out** | Zeit zum Ausdimmen der Köpfe, die fahren | 0,5 s (Projekt) |
-| **Travel** | Zeit, die die Köpfe im Dunkeln zum Fahren bekommen; die tatsächliche Motorgeschwindigkeit kennt Lumen nicht | 1,5 s (Projekt) |
+| **Move in dark** | on/off for the GO into this scene | off |
+| **Dim out** | time to dim out the heads that move | 0.5 s (project) |
+| **Travel** | time the heads get to move in the dark; Lumen does not know the actual motor speed | 1.5 s (project) |
 
-Ablauf für einen Kopf, der beim GO leuchtet und in der neuen Szene **woanders hinzeigt** (mehr als 2 DMX-Werte
-Unterschied bei Pan oder Tilt):
+Sequence for a head that is lit at GO and **points somewhere else** in the new scene (more than 2 DMX values
+difference in pan or tilt):
 
 ```
 GO
-│ Dim out 0,5 s │ Travel 1,5 s           │ Fade-In der Szene 3 s
+│ Dim out 0.5 s │ Travel 1.5 s           │ fade-in of the scene 3 s
 │█▇▅▃▁          │                        │▁▃▅▇█
-│ Position alt  │→ springt auf die neue Position, Farbe/Gobo springen mit
+│ old position  │→ jumps to the new position, color/gobo jump along
 ```
 
-- Pan/Tilt **springen** zu Beginn von „Travel“ auf das Ziel. Der Kopf fährt dann so schnell er kann, also im
-  Dunkeln. Farbe, Gobo und Zoom springen gleich mit, auch ihr Wechsel bleibt unsichtbar.
-- Danach dimmt der Kopf mit dem **Fade-In der Szene** auf seine neue Helligkeit.
-- Ein laufender Move (Figur) startet seine Zeit erst, wenn der Kopf eindimmt, damit er nicht schon unterwegs ist.
-- **War der Kopf beim GO dunkel**, fällt „Dim out“ weg. Er springt sofort auf die neue Position und wartet „Travel“
-  ab, bevor er eindimmt. So taucht er nicht auf, bevor er angekommen ist.
-- **Köpfe, die an derselben Stelle bleiben**, und alle Geräte ohne Pan/Tilt blenden ganz normal mit den Zeiten der
-  Szene über, ohne Dunkelphase.
-- Läuft **derselbe Move** in der neuen Szene weiter, ist das keine Positionsänderung: Es gibt keine Dunkelphase.
-- Der **Delay** der Szene gilt wie bisher: Die Köpfe dimmen frühestens nach dem Delay ein, also nach
-  `max(Delay, Dim out + Travel)`.
-- Die Stay-Zeit (Auto-Follow) beginnt erst, wenn alle Köpfe eingedimmt sind. Die Fortschrittsanzeige in der Show
-  rechnet die Dunkelphase mit.
-- **Lichtmarker** einer Szene mit „Move in dark“ verhalten sich ebenso (mit Dim out und Travel, ohne Delay, wie
-  bei Lichtmarkern üblich).
-- Party und Tasten: vorerst ohne Dunkelphase (siehe [Später](#später)).
+- Pan/tilt **jump** to the target at the start of "Travel". The head then moves as fast as it can, i.e. in the dark.
+  Color, gobo and zoom jump at the same time, so their change also stays invisible.
+- Afterwards the head dims up to its new brightness with the **fade-in of the scene**.
+- A running move (figure) only starts its time when the head dims in, so that it is not already under way.
+- **If the head was dark at GO**, "Dim out" is skipped. It jumps to the new position at once and waits out "Travel"
+  before dimming in. So it does not appear before it has arrived.
+- **Heads that stay in the same place**, and all fixtures without pan/tilt, cross-fade normally with the times of the
+  scene, without a dark phase.
+- If **the same move** keeps running in the new scene, that is not a change of position: there is no dark phase.
+- The **delay** of the scene applies as before: the heads dim in at the earliest after the delay, i.e. after
+  `max(delay, dim out + travel)`.
+- The stay time (auto-follow) only starts when all heads have dimmed in. The progress display in the show includes the
+  dark phase.
+- **Light markers** of a scene with "Move in dark" behave the same (with dim out and travel, without delay, as usual
+  for light markers).
+- Party and keys: without a dark phase for now (see [Later](#later)).
 
-## Grenzen pro Gerät
+## Limits per fixture
 
-Im **Patch** bekommt jedes Gerät mit Pan/Tilt optional einen erlaubten Bereich: Pan min/max und Tilt min/max in
-DMX-Werten. Die Grenzen gelten für die **Wiedergabe**, also für alle Moves in Szenen, Party und Tasten. So leuchtet
-kein Kopf ins Publikum oder in den Schnürboden, egal aus welcher Szene der Wert kommt.
+In the **patch**, every fixture with pan/tilt optionally gets an allowed range: pan min/max and tilt min/max in DMX
+values. The limits apply to **playback**, i.e. to all moves in scenes, party and keys. So no head shines into the
+audience or the fly loft, no matter which scene the value comes from.
 
-Der **Programmer** ist ausgenommen: Beim Einrichten soll man jeden Punkt anfahren können. Das XY-Pad zeigt den
-erlaubten Bereich als Rahmen an. Wird eine Position außerhalb als Move gespeichert, begrenzt sie erst die Wiedergabe.
+The **programmer** is exempt: when setting up, you should be able to reach every point. The XY pad shows the allowed
+range as a frame. If a position outside it is saved as a move, it is only limited in playback.
 
-## Was sich an Bestehendem ändert
+## What changes in existing parts
 
-| Bereich | Heute | Mit Moves |
+| Area | Before | With moves |
 |---|---|---|
-| Looks | können Pan/Tilt enthalten | kein Pan/Tilt mehr; der Look-Editor zeigt die Gruppe „Position“ nicht, die API lehnt sie ab |
-| Compositions | Schritte sind Looks | dadurch ebenfalls ohne Pan/Tilt; Generatoren bieten Pan/Tilt nicht an |
-| Presets | Farbe, Position, Beam | nur noch Farbe und Beam; eine gespeicherte Position ist ein Move mit einem Punkt |
-| Programmer | „Record“ speichert alles in einen Look | Record look / Record position / Record look + position (siehe oben) |
-| Party | Felder schalten Szenen und Compositions | zusätzlich Moves |
+| Looks | can contain pan/tilt | no pan/tilt any more; the look editor does not show the group "Position", the API rejects it |
+| Compositions | steps are looks | therefore also without pan/tilt; generators do not offer pan/tilt |
+| Presets | color, position, beam | only color and beam; a saved position is a move with one point |
+| Programmer | "Record" saves everything into a look | Record look / Record position / Record look + position (see above) |
+| Party | fields switch scenes and compositions | moves as well |
 
-Eine Umwandlung bestehender Daten ist nicht nötig: Es gibt noch keine Bewegungen und keine gespeicherten Positionen.
-Sollte eine ältere Projektdatei doch Pan/Tilt in Looks oder Positions-Presets enthalten, verwirft der Import sie mit
-einer Warnung.
+No conversion of existing data is needed: there are no movements and no saved positions yet. Should an older project
+file contain pan/tilt in looks or position presets after all, the import drops them with a warning.
 
-Im Move-Editor ist der erlaubte Bereich eines ausgewählten Geräts als Rahmen in der Fläche sichtbar. Punkte außerhalb
-werden rot markiert.
+In the move editor, the allowed range of a selected fixture is visible as a frame in the area. Points outside are
+marked red.
 
-## Datenmodell (neue Flyway-Migration)
+## Data model (new Flyway migration)
 
 ```
 figure        (id, project_id, name, closed)
-figure_point  (figure_id, position, x, y)                    -- x, y: 0.0–1.0 (= 0–255 DMX, fein aufgelöst)
+figure_point  (figure_id, position, x, y)                    -- x, y: 0.0–1.0 (= 0–255 DMX, finely resolved)
 move          (id, project_id, name, figure_id, size_x, size_y, shift_x, shift_y, rotation_deg,
                duration_ms, repeat_mode, step_offset, once_start)
               -- once_start: sequential | together; figure_id: ON DELETE RESTRICT
 move_fixture  (move_id, position, fixture_id, shift_x, shift_y, mirror_x, mirror_y, reverse)
-scene_move    (scene_id, section, position, move_id)         -- section wie bei scene_composition
-scene         + move_in_dark, dim_out_ms, travel_ms           -- NULL bei den Zeiten = Projektzeit
-project       + dim_out_ms, travel_ms                         -- Standard 500 / 1500
-fixture       + pan_min, pan_max, tilt_min, tilt_max  (NULL = ohne Grenze)
+scene_move    (scene_id, section, position, move_id)         -- section as for scene_composition
+scene         + move_in_dark, dim_out_ms, travel_ms           -- NULL for the times = project time
+project       + dim_out_ms, travel_ms                         -- default 500 / 1500
+fixture       + pan_min, pan_max, tilt_min, tilt_max  (NULL = no limit)
 party_cell    + move_id
-scene_key     + move_id                                       -- eine Taste spielt eine Composition oder einen Move
+scene_key     + move_id                                       -- a key plays a composition or a move
 ```
 
-- Löschen einer Figur, die ein Move benutzt, und eines Moves, der in Szenen, Party oder Tasten steht, wird abgelehnt
-  („where used“ wie bei Compositions).
-- Wird ein Fixture aus dem Patch gelöscht, fällt es aus den Moves heraus.
-- Projektdateien: neue Version 4 mit Figuren und Moves; Versionen 1–3 bleiben importierbar.
+- Deleting a figure a move uses, and a move that is in scenes, party or keys, is rejected ("where used" as for
+  compositions).
+- If a fixture is deleted from the patch, it drops out of the moves.
+- Project files: new version 4 with figures and moves; versions 1–3 stay importable.
 
-## Umsetzung (Skizze)
+## Implementation (sketch)
 
-- **Domain** (`de.vinzens.lumen.domain.move`): `Figure` (Validierung: ≥ 1 Punkt, Werte 0–1), `FigurePath`
-  (Polygonzug, Länge, Punkt bei Strecke), `MoveSpec`, `MovePattern implements Pattern` (das sealed Interface
-  bekommt einen weiteren Typ). Ein Move spielt als `ActiveComposition` (eigene Id-Reihe wie `ofLook`, `sourceId` für
-  das Weiterlaufen über Szenen). Grenzen auf der Wiedergabe-Ebene, bevor der Programmer
-  darübergelegt wird (`LayerMerger`), getestet ohne Spring.
-  Move in dark: `Playback.startTransition` bestimmt beim GO die Köpfe, die fahren; `Crossfade` bekommt für sie eine
-  Dunkelphase (Dim out → Sprung → Travel → Fade-In), `SceneTiming` die neuen Felder.
-- **Application:** `ManageFiguresUseCase`, `ManageMovesUseCase`; Szenen, Party und Tasten lernen Moves. Looks und
-  Presets lehnen Pan/Tilt ab (Validierung in `LookSpec` und `PresetSpec`), „Record position“ im Programmer.
-- **Adapter:** SQLite-Repositories, REST unter `/api/projects/{id}/figures` und `/moves`, DTOs im Web-Adapter,
-  Import/Export.
-- **Frontend:** Setup-Reiter **Moves** (Liste links, Figuren- und Move-Editor rechts), Auswahl in
-  `SceneCompositions`, `PartyGrid` und den Tasten. Geometrie (Weg, Vorlagen, Lage, Vorschau) als reine Funktionen
-  in `src/lib/moves.ts` mit Vitest, dieselben Regeln wie im Backend.
-- **Tests:** gleichmäßige Geschwindigkeit, geschlossene/offene Figur, Versatz in Loop und Once (beide Einstiege), Ping-Pong,
-  Spiegeln, Drehung, Verschiebung pro Gerät, Figur mit einem Punkt, Begrenzen, zwei Moves auf einem Gerät (LTP),
-  Weiterlaufen über Szenen, Kopf ohne Move bleibt stehen, Grenzen in der Wiedergabe, Programmer ohne Grenzen,
-  Looks/Presets ohne Pan/Tilt, „Record position“ (Mitte + Abweichung pro Gerät), Move in dark (leuchtend → fahren,
-  dunkel → fahren, bleibt stehen, derselbe Move läuft weiter, Delay, Stay-Zeit, Lichtmarker).
+- **Domain** (`de.vinzens.lumen.domain.move`): `Figure` (validation: ≥ 1 point, values 0–1), `FigurePath`
+  (polyline, length, point at distance), `MoveSpec`, `MovePattern implements Pattern` (the sealed interface gets
+  another type). A move plays as an `ActiveComposition` (own ID range like `ofLook`, `sourceId` for continuing across
+  scenes). Limits on the playback layer, before the programmer is laid over it (`LayerMerger`), tested without Spring.
+  Move in dark: `Playback.startTransition` determines the heads that move at GO; `Crossfade` gets a dark phase for
+  them (dim out → jump → travel → fade-in), `SceneTiming` the new fields.
+- **Application:** `ManageFiguresUseCase`, `ManageMovesUseCase`; scenes, party and keys learn moves. Looks and presets
+  reject pan/tilt (validation in `LookSpec` and `PresetSpec`), "Record position" in the programmer.
+- **Adapters:** SQLite repositories, REST under `/api/projects/{id}/figures` and `/moves`, DTOs in the web adapter,
+  import/export.
+- **Frontend:** setup tab **Moves** (list on the left, figure and move editor on the right), choice in
+  `SceneCompositions`, `PartyGrid` and the keys. Geometry (path, templates, placement, preview) as pure functions in
+  `src/lib/moves.ts` with Vitest, the same rules as in the backend.
+- **Tests:** even speed, closed/open figure, offset in loop and once (both starts), ping-pong, mirror, rotation,
+  shift per fixture, figure with one point, clamping, two moves on one fixture (LTP), continuing across scenes, head
+  without a move stands still, limits in playback, programmer without limits, looks/presets without pan/tilt,
+  "Record position" (centre + deviation per fixture), move in dark (lit → move, dark → move, stays, same move keeps
+  running, delay, stay time, light markers).
 
-Vorgeschlagene Reihenfolge, jeweils mit Commit:
+Suggested order, each with a commit:
 
-1. Figuren: Domain, Speicherung, REST, Figureneditor mit Vorlagen
-2. Moves: Domain mit Rechnung, Speicherung, REST, Move-Editor mit Vorschau und „Show on stage“
-3. Nutzung in Szenen und Lichtmarkern, Party und Tasten; Programmer „Record position“; Looks und Presets ohne
-   Pan/Tilt; Projektdateien Version 4
-4. Move in dark pro Szene (Crossfade mit Dunkelphase, Zeiten im Szenen-Editor und in der Show-Anzeige)
-5. Grenzen pro Gerät im Patch und in der Wiedergabe (nicht im Programmer), Rahmen im XY-Pad
+1. Figures: domain, storage, REST, figure editor with templates
+2. Moves: domain with computation, storage, REST, move editor with preview and "Show on stage"
+3. Use in scenes and light markers, party and keys; programmer "Record position"; looks and presets without pan/tilt;
+   project files version 4
+4. Move in dark per scene (cross-fade with dark phase, times in the scene editor and in the show display)
+5. Limits per fixture in the patch and in playback (not in the programmer), frame in the XY pad
 
-## Umsetzung (2026-10-08)
+## Implementation (2026-10-08)
 
-Wie oben beschrieben, mit diesen Details:
+As described above, with these details:
 
-- **Domain:** `domain.move` (`Figure`, `FigurePath`, `MoveSpec`, `MoveFixture`, …); `MovePattern` liegt im Package
-  `composition`, weil das sealed Interface `Pattern` nur Typen im selben Package erlaubt. Moves spielen als
-  `ActiveComposition.ofMove` mit Ids ab `ActiveComposition.MOVE_IDS` (2⁴⁰ + Move-Id).
-- **Position halten:** `Playback` merkt sich beim GO Pan/Tilt aller Geräte und legt die neuen Moves darüber. Ein
-  ausblendender Move bleibt beim GO stehen; der Kopf gleitet mit dem Fade-In von dort zum neuen Move (dunkle Köpfe
-  springen). So fährt ein Kopf ohne Move in der neuen Szene nicht weiter oder zurück.
-- **Move in dark:** Alle Köpfe, die im Dunkeln fahren, dimmen gemeinsam ein (nach Dim out + Travel, sobald einer von
-  ihnen beim GO leuchtete); ein dunkler Kopf wartet dann ggf. etwas länger. Die Fortschrittsanzeige bekommt den
-  späteren Beginn des Fade-Ins als `delay`.
-- **Grenzen:** in DMX-Werten am Fixture (`limits` in der Patch-API), angewendet in `OutputEngine` auf alles unter dem
-  Programmer (Playback, Party, Vorschau „Show on stage“).
-- **Bestehende Daten:** Migration V25 löscht Pan/Tilt aus Looks und Positions-Presets; der Import älterer
-  Projektdateien lässt sie mit einer Warnung im Log weg.
-- **Programmer:** „Record position“ als eigener Knopf; „Record scene“ legt auf Wunsch die Position der Köpfe als Move
-  in die neue Szene (Look + Position).
-- Der Figureneditor wird mit der Maus bedient; genaue Werte und das Umsortieren gehen über die Punktliste.
+- **Domain:** `domain.move` (`Figure`, `FigurePath`, `MoveSpec`, `MoveFixture`, …); `MovePattern` lives in the package
+  `composition`, because the sealed interface `Pattern` only allows types in the same package. Moves play as
+  `ActiveComposition.ofMove` with IDs from `ActiveComposition.MOVE_IDS` (2⁴⁰ + move ID).
+- **Holding position:** `Playback` remembers pan/tilt of all fixtures at GO and lays the new moves over them. A move
+  that fades out stops at GO; the head glides from there to the new move with the fade-in (dark heads jump). So a head
+  without a move in the new scene does not keep moving or travel back.
+- **Move in dark:** all heads that move in the dark dim in together (after dim out + travel, as soon as one of them was
+  lit at GO); a dark head may then wait a little longer. The progress display gets the later start of the fade-in as
+  `delay`.
+- **Limits:** in DMX values on the fixture (`limits` in the patch API), applied in `OutputEngine` to everything below
+  the programmer (playback, party, preview "Show on stage").
+- **Existing data:** migration V25 deletes pan/tilt from looks and position presets; the import of older project files
+  leaves them out with a warning in the log.
+- **Programmer:** "Record position" as a button of its own; "Record scene" optionally puts the position of the heads
+  into the new scene as a move (look + position).
+- The figure editor is used with the mouse; exact values and reordering go through the point list.
 
-## Später
+## Later
 
-- Weiche Kurven statt gerader Linien (Spline durch die Punkte)
-- Haltezeit pro Punkt (für Reisen: anhalten, warten, weiterfahren)
-- Tempo im Takt (BPM, Tap) für die Party
-- Relativ zu einer Look-Position statt absolut
-- Versatz „gleichmäßig verteilt“ statt in Schritten
-- Weitere Kanäle entlang der Figur (z.B. Farbe abhängig von der Position)
-- Move in dark auch für Party-Felder und Tasten
-- Den Kanal „Blackout while moving“ mancher Geräte nutzen
-- Maximale Fahrgeschwindigkeit eines Geräts berücksichtigen (Warnung, wenn eine Figur zu schnell ist)
+- Smooth curves instead of straight lines (spline through the points)
+- Hold time per point (for journeys: stop, wait, move on)
+- Tempo on the beat (BPM, tap) for the party
+- Relative to a look position instead of absolute
+- Offset "evenly distributed" instead of in steps
+- Further channels along the figure (e.g. color depending on the position)
+- Move in dark for party fields and keys too
+- Use the channel "Blackout while moving" of some fixtures
+- Respect the maximum travel speed of a fixture (warning if a figure is too fast)

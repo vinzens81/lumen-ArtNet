@@ -3,8 +3,9 @@
 DMX/Art-Net-Lichtsteuerung fürs Theater. Konzept und Planung stehen in `README.md` und `docs/`;
 der aktuelle Stand steht in `docs/ROADMAP.md`.
 
-**Sprache:** Dokumente (`README.md`, `docs/`, `CLAUDE.md`) auf Deutsch. Alles andere auf **Englisch**: Code, Kommentare,
-Javadoc, Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in `fixture-types/` und die Web-Oberfläche.
+**Sprache:** Alles auf **Englisch** – auch `README.md`, `docs/` und `CHANGELOG.md`, dazu Code, Kommentare, Javadoc,
+Log- und Fehlermeldungen, API-Antworten, Testdaten, Beispielprofile in `fixture-types/` und die Web-Oberfläche. Nur
+diese Datei (`CLAUDE.md`) bleibt auf Deutsch.
 
 ## Build & Run
 

@@ -1,189 +1,188 @@
-# Szenen & Playback
+# Scenes & playback
 
-Für ein Theaterstück ist die Show eine **geordnete Liste von Szenen**. Die Bedienerin oder der Bediener drückt an den
-richtigen Stellen **GO**, und das Licht blendet in die nächste Szene über.
+For a theatre play the show is an **ordered list of scenes**. The operator presses **GO** at the right moments, and
+the light cross-fades into the next scene.
 
-## Lebenszyklus einer Szene
+## Life cycle of a scene
 
-Jede Szene durchläuft drei Phasen:
+Every scene goes through three phases:
 
-| Phase | Dauer | Was passiert |
+| Phase | Duration | What happens |
 |---|---|---|
-| **Fade-In** | global `fade_in_ms` | Szene blendet von 0 auf 100 % ein |
-| **Stay** | bis zum nächsten GO, oder optional `auto_follow_ms` | Szene steht |
-| **Fade-Out** | global `fade_out_ms` | Szene blendet auf 0 % aus |
+| **Fade-in** | global `fade_in_ms` | the scene fades in from 0 to 100 % |
+| **Stay** | until the next GO, or optionally `auto_follow_ms` | the scene stands |
+| **Fade-out** | global `fade_out_ms` | the scene fades out to 0 % |
 
-Die Fade-Zeiten gelten **projektweit** und werden im Konfigurationsmodus eingestellt (Default jeweils 3 s).
-Einzelne Szenen können sie überschreiben, siehe [Fade-Zeiten pro Szene](#fade-zeiten-pro-szene).
+The fade times apply **project-wide** and are set in setup mode (default 3 s each). Single scenes can override them,
+see [Fade times per scene](#fade-times-per-scene).
 
-### Auto-Follow (optional pro Szene)
+### Auto-follow (optional per scene)
 
-Standardmäßig steht eine Szene, bis jemand GO drückt. Pro Szene kann zusätzlich eine **Stay-Dauer**
-(`auto_follow_ms`) gesetzt werden. Dann löst die Engine das GO zur nächsten Szene selbst aus.
+By default a scene stands until someone presses GO. Per scene a **stay time** (`auto_follow_ms`) can be set as well.
+Then the engine triggers the GO to the next scene by itself.
 
-- Die Stay-Zeit beginnt, **wenn der Fade-In abgeschlossen ist**.
-- Ein manuelles GO vor Ablauf hat Vorrang und bricht den Countdown ab.
-- **Pause** hält auch den Countdown an. **Back** und **Springen** setzen ihn zurück.
-- Ketten sind möglich (Szene 5 → 5.1 → 5.2 automatisch), z.B. für Abläufe wie „Sonnenuntergang in drei Stufen“.
-- Die letzte Szene der Liste kann kein Auto-Follow haben. Ein Ende („Fade to Black“) erfolgt nur per GO.
+- The stay time starts **when the fade-in has finished**.
+- A manual GO before it runs out takes precedence and cancels the countdown.
+- **Pause** also holds the countdown. **Back** and **jump** reset it.
+- Chains are possible (scene 5 → 5.1 → 5.2 automatically), e.g. for sequences like "sunset in three stages".
+- The last scene of the list cannot have auto-follow. An ending ("fade to black") only happens on GO.
 
 ```
-        GO                    automatisch              automatisch
+        GO                    automatic                automatic
         │                     │                        │
-Sz. 5   │▁▂▄▆██████████████████▇▅▃▁                     │
+Sc. 5   │▁▂▄▆██████████████████▇▅▃▁                     │
         │ fade-in │ stay 8 s  │                        │
-Sz. 5.1 │                     │▁▂▄▆█████████████████████▇▅▃▁
+Sc. 5.1 │                     │▁▂▄▆█████████████████████▇▅▃▁
         │                     │ fade-in │ stay 10 s    │
-Sz. 5.2 │                     │                        │▁▂▄▆████████… (bis GO)
+Sc. 5.2 │                     │                        │▁▂▄▆████████… (until GO)
 ```
 
-## Überblendung: Fade-Out und Fade-In laufen parallel
+## Cross-fade: fade-out and fade-in run in parallel
 
-Ein GO startet **gleichzeitig** den Fade-Out der aktuellen und den Fade-In der nächsten Szene:
+A GO starts the fade-out of the current scene and the fade-in of the next one **at the same time**:
 
 ```
                   GO                                        GO
                   │                                         │
-Szene 1  ▁▃▅▇█████│█▇▆▅▄▃▂▁                                  │
+Scene 1  ▁▃▅▇█████│█▇▆▅▄▃▂▁                                  │
          fade-in  │ fade-out (5 s)                          │
                   │                                         │
-Szene 2           │▁▂▄▆█████████████████████████████████████│█▇▆▅▄▃▂▁
-                  │fade-in (3 s)   stay (bis GO)            │ fade-out
+Scene 2           │▁▂▄▆█████████████████████████████████████│█▇▆▅▄▃▂▁
+                  │fade-in (3 s)   stay (until GO)          │ fade-out
                   │                                         │
-Szene 3           │                                         │▁▂▄▆██████…
+Scene 3           │                                         │▁▂▄▆██████…
 ──────────────────┴─────────────────────────────────────────┴──────────▶ t
 ```
 
-Sind die Zeiten unterschiedlich (z.B. In 3 s, Out 5 s), starten beide beim GO und enden zu verschiedenen Zeitpunkten.
+If the times differ (e.g. in 3 s, out 5 s), both start at GO and end at different moments.
 
-## Fade-Kurven
+## Fade curves
 
-Wie schnell es über die Zeit hell oder dunkel wird, legt die **Fade-Kurve** fest – pro Projekt, eine Szene kann eine
-eigene haben (gilt für das GO in diese Szene, das Ausblenden am Ende nutzt die des Projekts):
+How fast it gets bright or dark over time is set by the **fade curve** – per project; a scene can have its own (it
+applies to the GO into this scene, the fade-out at the end uses the project's):
 
-| Kurve | Intensität | Farbe, Position, … | Wirkung |
+| Curve | Intensity | Color, position, … | Effect |
 |---|---|---|---|
-| `linear` (Standard) | gleichmäßig im DMX-Wert | gleichmäßig | wirkt am Anfang eines Fade-Ins schnell, am Ende langsam |
-| `s-curve` | sanft an, schnell in der Mitte, sanft aus (Smoothstep) | ebenso | weiche, „runde“ Übergänge |
-| `square` | Level², weicher im Dunkeln | gleichmäßig | wirkt fürs Auge gleichmäßiger, besonders bei LEDs |
+| `linear` (default) | even in DMX value | even | looks fast at the beginning of a fade-in, slow at the end |
+| `s-curve` | gentle start, fast in the middle, gentle end (smoothstep) | likewise | soft, "round" transitions |
+| `square` | level², softer in the dark | even | looks more even to the eye, especially with LEDs |
 
-Die Kurve formt den Level (`L(t)`) von Fade-In und Fade-Out. Ein Gerät, das in beiden Szenen an ist, geht dabei nie
-durch eine Delle, siehe [Wie die Engine mischt](#wie-die-engine-mischt).
+The curve shapes the level (`L(t)`) of fade-in and fade-out. A fixture that is on in both scenes never goes through a
+dip, see [How the engine mixes](#how-the-engine-mixes).
 
-## Fade-Zeiten pro Szene
+## Fade times per scene
 
-Im Szenen-Editor kann jede Szene unter „Fade times of the GO into this scene“ eigene Zeiten bekommen. Ein leeres
-Feld bedeutet: Projektzeit.
+In the scene editor, every scene can get its own times under "Fade times of the GO into this scene". An empty field
+means: project time.
 
-| Feld | Wirkung |
+| Field | Effect |
 |---|---|
-| **In** | Fade-In dieser Szene |
-| **Out** | Fade-Out des Bildes, das beim GO **in diese Szene** auf der Bühne steht |
-| **Delay** | Der Fade-In startet so lange nach dem GO, der Fade-Out läuft sofort los |
+| **In** | fade-in of this scene |
+| **Out** | fade-out of the picture that is on stage at the GO **into this scene** |
+| **Delay** | the fade-in starts this long after the GO, the fade-out starts right away |
 
-- Die Zeiten gehören zum **Übergang in die Szene**, wie bei üblichen Lichtpulten. Für einen Blitz bekommt die
-  Blitz-Szene In 0 s und Out 0 s. Das GO danach nimmt die Zeiten der Folgeszene, also z.B. die Projektzeiten.
-- **Back** und **Springen** nehmen ebenfalls die Zeiten der Zielszene. Das „Ende“ (Fade to Black) nimmt immer die
-  Projektzeit.
-- Die Zeiten werden beim GO festgehalten: Wird die Szene während des Fades bearbeitet, läuft der Fade unverändert zu Ende.
-- Die Stay-Zeit (Auto-Follow) beginnt nach Delay + Fade-In.
-- Ein **Lichtmarker** im Textbuch blendet mit Fade-In und Fade-Out der Szene, aber **ohne Delay**: Der gehört zum GO
-  in die Szene.
-- Während des Delays behalten diskrete Kanäle (Gobo, Farbrad, …) ihren alten Wert und springen erst, wenn der
-  Fade-In beginnt.
+- The times belong to the **transition into the scene**, as on common lighting desks. For a flash, the flash scene
+  gets in 0 s and out 0 s. The GO after it takes the times of the following scene, e.g. the project times.
+- **Back** and **jump** also take the times of the target scene. The "end" (fade to black) always takes the project
+  time.
+- The times are fixed at the GO: if the scene is edited during the fade, the fade runs to its end unchanged.
+- The stay time (auto-follow) starts after delay + fade-in.
+- A **light marker** in the script fades with the scene's fade-in and fade-out, but **without delay**: that belongs to
+  the GO into the scene.
+- During the delay, discrete channels (gobo, color wheel, …) keep their old value and only snap when the fade-in
+  starts.
 
 ```
             GO
             │ delay 2 s │ fade-in 3 s │
-Szene 4  ███│█▇▆▅▄▃▂▁   (fade-out 4 s, startet beim GO)
-Szene 5     │           │▁▂▄▆█████████████…
+Scene 4  ███│█▇▆▅▄▃▂▁   (fade-out 4 s, starts at GO)
+Scene 5     │           │▁▂▄▆█████████████…
 ```
 
-## Wie die Engine mischt
+## How the engine mixes
 
-Jede laufende Szene hat einen **Level** `L(t)` zwischen 0 und 1, der durch Fade-In/-Out bestimmt wird.
-Pro Fixture und Attribut wird im Render-Loop (~40 Hz) berechnet:
+Every running scene has a **level** `L(t)` between 0 and 1, determined by fade-in/-out. For every fixture and
+attribute the render loop (~40 Hz) computes:
 
-**Intensität (Dimmer, auch virtueller Dimmer): direkt vom alten zum neuen Wert, ohne Delle**
+**Intensity (dimmer, also the virtual dimmer): directly from the old to the new value, without a dip**
 ```
-wird heller:  dimmer = alt + (neu − alt) × L_in(t)          (Fade-In, nach dem Delay)
-wird dunkler: dimmer = neu + (alt − neu) × (1 − L_out(t))   (Fade-Out, ab dem GO)
+getting brighter: dimmer = old + (new − old) × L_in(t)          (fade-in, after the delay)
+getting darker:   dimmer = new + (old − new) × (1 − L_out(t))   (fade-out, from the GO)
 ```
-- Gerät ist in beiden Szenen an → es geht direkt von alt nach neu, z.B. 30 % → 100 % nur aufwärts. Eine
-  HTP-Überblendung (`max(alt × L_out, neu × L_in)`) würde dazwischen abdunkeln – mit Delay oder kurzem Fade-Out fast
-  bis auf 0.
-- Gerät nur in der alten Szene → fadet mit `fade_out_ms` aus.
-- Gerät nur in der neuen Szene → fadet mit `fade_in_ms` ein.
+- Fixture is on in both scenes → it goes directly from old to new, e.g. 30 % → 100 % only upwards. An HTP cross-fade
+  (`max(old × L_out, new × L_in)`) would darken in between – with a delay or a short fade-out almost down to 0.
+- Fixture only in the old scene → fades out with `fade_out_ms`.
+- Fixture only in the new scene → fades in with `fade_in_ms`.
 
-**Farbe, Position, Zoom, … (stufenlos): LTP – Latest Takes Precedence, überblendet**
+**Color, position, zoom, … (continuous): LTP – latest takes precedence, cross-faded**
 ```
-wert = start + (ziel_neu − start) × fortschritt_in(t)
+value = start + (new_target − start) × progress_in(t)
 ```
-- `start` = der tatsächlich ausgegebene Wert im Moment des GO.
-- War das Gerät beim GO dunkel, springt der Wert sofort aufs Ziel (unsichtbar, kein „Farbschmieren“ beim Einblenden).
-- Ist ein Attribut in der neuen Szene nicht gesetzt, bleibt der bisherige Wert stehen.
+- `start` = the value actually output at the moment of the GO.
+- If the fixture was dark at the GO, the value jumps to the target at once (invisible, no "color smearing" while
+  fading in).
+- If an attribute is not set in the new scene, the previous value stays.
 
-**Diskrete Kanäle (Gobo, Farbrad, Prisma, Strobe, …):** springen beim GO auf den neuen Wert.
+**Discrete channels (gobo, color wheel, prism, strobe, …):** snap to the new value at GO.
 
-**Kurven:** standardmäßig linear, wahlweise S-Kurve oder quadratisch, siehe [Fade-Kurven](#fade-kurven).
+**Curves:** linear by default, optionally s-curve or square, see [Fade curves](#fade-curves).
 
-## GO während eines laufenden Fades
+## GO during a running fade
 
-Damit es nie hakt, arbeitet die Engine mit einem **Snapshot**: Beim GO wird der **aktuelle Ausgabezustand
-eingefroren** und als „alte Szene“ mit `fade_out_ms` ausgeblendet. Dadurch laufen immer höchstens zwei Ebenen
-(Snapshot + neue Szene) und ein schnelles Doppel-GO funktioniert ohne Sprünge.
+So that it never stutters, the engine works with a **snapshot**: at the GO the **current output state is frozen** and
+faded out as the "old scene" with `fade_out_ms`. So there are never more than two layers running (snapshot + new
+scene), and a quick double GO works without jumps.
 
-## Bedienbefehle im Betrieb
+## Controls in show mode
 
-| Befehl | Taste | Verhalten |
+| Command | Key | Behaviour |
 |---|---|---|
-| **GO** | `Leertaste` | Nächste Szene in der Liste mit Überblendung starten |
-| **Back** | `←` | Vorherige Szene **in der Liste** (nicht die zuletzt gespielte) mit denselben Fade-Zeiten |
-| **Springen** | Szene antippen (oder `↑`/`↓`) + GO | Beliebige Szene als nächste vormerken |
-| **Pause** | `P` | Laufende Fades einfrieren, erneutes Drücken setzt fort |
-| **Fade abschließen** | `Enter` | Laufenden Fade sofort beenden (Zielzustand) |
-| **Blackout** | `B` | Sofort alles aus (Grand Master 0), erneutes Drücken stellt wieder her |
-| **Grand Master** | Fader | Skaliert alle Intensitäten |
+| **GO** | `Space` | Start the next scene in the list with a cross-fade |
+| **Back** | `←` | Previous scene **in the list** (not the last one played) with the same fade times |
+| **Jump** | tap a scene (or `Shift`+`↑`/`↓`) + GO | Pick any scene as the next one |
+| **Pause** | `P` | Freeze running fades, pressing again continues |
+| **Finish fade** | `Enter` | End the running fade at once (target state) |
+| **Blackout** | `B` | Everything off at once (grand master 0), pressing again restores |
+| **Grand master** | fader | Scales all intensities |
 
-- **Vor der ersten Szene** ist der Zustand „Blackout / Einlass“. Das erste GO blendet Szene 1 ein.
-- **Nach der letzten Szene** blendet ein GO alles mit `fade_out_ms` auf Schwarz („Ende“).
-- Die aktuelle Szene wird in `playback_state` gespeichert. Nach einem Neustart bietet der Betriebsmodus an, dort
-  weiterzumachen (Szene wird direkt ohne Fade gesetzt, ihr Auto-Follow-Countdown beginnt neu). „Start from the
-  beginning“ oder ein GO verwirft das Angebot.
+- **Before the first scene** the state is "blackout / audience entry". The first GO fades in scene 1.
+- **After the last scene** a GO fades everything to black with `fade_out_ms` ("end").
+- The current scene is saved in `playback_state`. After a restart show mode offers to continue there (the scene is set
+  directly without a fade, its auto-follow countdown starts again). "Start from the beginning" or a GO discards the
+  offer.
 
-## Umsetzung
+## Implementation
 
-- `Playback` (Domain) rechnet auf einer **virtuellen Uhr**, die während Pause stillsteht – Fades und Auto-Follow-
-  Countdown frieren dadurch ein und laufen nahtlos weiter.
-- `Crossfade.mix` setzt die Mischregeln oben um; das Fade-Verhalten pro Kanal kommt aus dem Geräteprofil
-  (inkl. `fade: snap|smooth`).
-- Das Playback ist eine Ausgabe-Ebene (Priorität 50) **unter** dem Programmer (100).
-- Doppel-GO-Schutz: Client 300 ms, Server 200 ms.
-- Beim Start des Servers steht das Playback auf „Ready“ (dunkel). Gibt es eine gespeicherte Szene, nennt der Status
-  sie als `resumeSceneId`; `POST /api/playback/resume` setzt sie (`Playback.restore`).
+- `Playback` (domain) computes on a **virtual clock** that stands still during pause – fades and the auto-follow
+  countdown freeze and continue seamlessly.
+- `Crossfade.mix` implements the mixing rules above; the fade behaviour per channel comes from the fixture profile
+  (incl. `fade: snap|smooth`).
+- The playback is an output layer (priority 50) **below** the programmer (100).
+- Double-GO protection: client 300 ms, server 200 ms.
+- When the server starts, the playback is "ready" (dark). If a scene was saved, the status names it as
+  `resumeSceneId`; `POST /api/playback/resume` sets it (`Playback.restore`).
 
-## Programmer vs. Playback
+## Programmer vs. playback
 
-- Im **Konfigurationsmodus** setzt der **Programmer** Werte direkt („Live-Bearbeitung“), daraus werden Szenen
-  gespeichert bzw. aktualisiert.
-- Im **Betriebsmodus** gibt nur das Playback aus. Der Programmer ist gesperrt (der Server lehnt Änderungen mit 409 ab),
-  damit niemand während der Vorstellung versehentlich etwas verstellt.
-- Beim Wechsel Konfiguration → Betrieb wird der Programmer geleert. Der Modus ist Server-Zustand: alle verbundenen
-  Browser wechseln mit. Zurück in den Konfigurationsmodus geht es nur mit Bestätigung bzw. mit der PIN, falls eine
-  gesetzt ist. Auch der Modus überlebt einen Neustart.
+- In **setup mode** the **programmer** sets values directly ("live editing"); scenes are saved or updated from it.
+- In **show mode** only the playback outputs. The programmer is locked (the server rejects changes with 409), so that
+  nobody changes anything by accident during the performance.
+- When switching from setup to show, the programmer is cleared. The mode is server state: all connected browsers
+  follow. Going back to setup mode needs a confirmation, or the PIN if one is set. The mode also survives a restart.
 
-## Fader im Betrieb (z.B. Saallicht)
+## Faders in the show (e.g. house lights)
 
-Bis zu 8 **Fader** pro Projekt spielen je eine **Composition** in der Höhe, auf die sie geschoben werden – unabhängig
-von GO, z.B. Saallicht oder Arbeitslicht. Belegt werden sie in der Szenenliste („Faders“); im Betriebsmodus stehen sie
-unter GO (Schieberegler, dazu „0“ und „Full“). Szenen außerhalb der Cue-Liste gibt es nicht mehr (Flyway `V21`): Ein
-Fader, der vorher eine solche Szene spielte, spielt jetzt deren erste Composition, die Szene selbst ist entfernt.
+Up to 8 **faders** per project each play a **composition** at the level they are pushed to – independent of GO, e.g.
+house lights or work lights. They are assigned in the scene list ("Faders"); in show mode they sit below GO (slider,
+plus "0" and "Full"). Scenes outside the cue list no longer exist (Flyway `V21`): a fader that played such a scene
+before now plays its first composition, and the scene itself was removed.
 
-- Mischung: Intensität HTP (`max(Bühne, Composition × Level)`), andere Attribute werden mit dem Level eingeblendet. Fader liegen über Playback und Extra-Tasten, Grand Master und Blackout wirken auf sie.
-- Der Level gilt im Konfigurations- und im Betriebsmodus und ändert sich nicht durch GO. Er wird nicht gespeichert:
-  nach einem Neustart stehen alle Fader auf 0.
-- Die Composition des Faders läuft ab dem Hochziehen.
+- Mixing: intensity HTP (`max(stage, composition × level)`), other attributes are faded in with the level. Faders lie
+  above playback and keys; grand master and blackout apply to them.
+- The level applies in setup and show mode and does not change on GO. It is not saved: after a restart all faders
+  are at 0.
+- The fader's composition runs from the moment it is pushed up.
 
-## Mögliche Erweiterungen (Backlog)
+## Possible extensions (backlog)
 
-- Externe GO-Taste (USB-Fußschalter / OSC); MIDI-Controller siehe [MIDI.md](MIDI.md)
+- External GO button (USB foot switch / OSC); MIDI controller see [MIDI.md](MIDI.md)

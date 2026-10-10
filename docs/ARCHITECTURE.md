@@ -1,239 +1,243 @@
-# Architektur
+# Architecture
 
-## Überblick: Hexagonal (Ports & Adapters)
+## Overview: hexagonal (ports & adapters)
 
 ```
                     ┌────────────────────────────────────────────────┐
-  Driving Adapters  │                  Application                   │  Driven Adapters
-  (eingehend)       │                                                │  (ausgehend)
-                    │   Inbound Ports           Outbound Ports       │
+  Driving adapters  │                  Application                   │  Driven adapters
+  (inbound)         │                                                │  (outbound)
+                    │   Inbound ports           Outbound ports       │
  ┌──────────────┐   │  ┌────────────────┐     ┌───────────────────┐  │   ┌──────────────────┐
  │ REST API     │──▶│  │ ProjectUseCase │     │ DmxOutputPort     │──│──▶│ Art-Net UDP      │
  └──────────────┘   │  │ PatchUseCase   │     └───────────────────┘  │   └──────────────────┘
  ┌──────────────┐   │  │ Programmer-    │     ┌───────────────────┐  │   ┌──────────────────┐
- │ WebSocket    │──▶│  │  UseCase       │     │ FixtureLibrary    │──│──▶│ YAML-Ordner      │
+ │ WebSocket    │──▶│  │  UseCase       │     │ FixtureLibrary    │──│──▶│ YAML folder      │
  └──────────────┘   │  │ SceneUseCase   │     └───────────────────┘  │   └──────────────────┘
  ┌──────────────┐   │  │ PlaybackUseCase│     ┌───────────────────┐  │   ┌──────────────────┐
- │ MIDI (USB)   │──▶│  │ MidiInput-     │     │ MidiFeedbackPort  │──│──▶│ MIDI-LEDs        │
+ │ MIDI (USB)   │──▶│  │ MidiInput-     │     │ MidiFeedbackPort  │──│──▶│ MIDI LEDs        │
  └──────────────┘   │  │  UseCase       │     └───────────────────┘  │   └──────────────────┘
                     │  │                │     ┌───────────────────┐  │   ┌──────────────────┐
                     │  └───────┬────────┘     │ ProjectRepository │──│──▶│ SQLite           │
                     │          ▼              │ SceneRepository   │  │   │ (Flyway, JDBC)   │
                     │    ┌──────────┐         └───────────────────┘  │   └──────────────────┘
                     │    │  Domain  │         ┌───────────────────┐  │   ┌──────────────────┐
-                    │    └──────────┘         │ StateNotifier     │──│──▶│ WebSocket-Push   │
+                    │    └──────────┘         │ StateNotifier     │──│──▶│ WebSocket push   │
                     │                         └───────────────────┘  │   └──────────────────┘
                     └────────────────────────────────────────────────┘
 ```
 
-**Regel:** Abhängigkeiten zeigen immer nach innen. Die Domain kennt weder Spring noch YAML, SQL oder UDP.
-Das sichern **ArchUnit**-Tests ab.
+**Rule:** dependencies always point inwards. The domain knows neither Spring nor YAML, SQL or UDP.
+**ArchUnit** tests guard this.
 
-## Maven-Module
+## Maven modules
 
 ```
 lumen/
-├── pom.xml                       Parent, Versionen, Java 26
-├── lumen-domain/                 reines Java, keine Abhängigkeiten
-├── lumen-application/            Use Cases + Port-Interfaces, hängt nur von domain ab
+├── pom.xml                       parent, versions, Java 26
+├── lumen-domain/                 plain Java, no dependencies
+├── lumen-application/            use cases + port interfaces, depends on domain only
 ├── lumen-adapter-artnet/         DmxOutputPort → Art-Net UDP
-├── lumen-adapter-library-yaml/   FixtureLibrary → YAML-Ordner
+├── lumen-adapter-library-yaml/   FixtureLibrary → YAML folder
 ├── lumen-adapter-sqlite/         ProjectRepository, SceneRepository → SQLite (Flyway + JdbcClient)
-├── lumen-adapter-web/            REST + WebSocket Controller, DTOs
-├── lumen-adapter-midi/           (optional, später) USB-MIDI-Controller via javax.sound.midi, siehe MIDI.md
-├── lumen-frontend/               Svelte/Vite, Build landet als Static Resources im JAR
-└── lumen-app/                    Spring Boot Main, Verdrahtung, application.yml
+├── lumen-adapter-web/            REST + WebSocket controllers, DTOs
+├── lumen-adapter-midi/           (optional, later) USB MIDI controller via javax.sound.midi, see MIDI.md
+├── lumen-frontend/               Svelte/Vite, the build ends up as static resources in the JAR
+└── lumen-app/                    Spring Boot main, wiring, application.yml
 ```
 
-Adapter- und Frontend-Module werden erst in der Iteration angelegt, in der sie gebraucht werden.
+Adapter and frontend modules are only created in the iteration that needs them.
 
-Nur `lumen-app` und die Adapter kennen Spring. Die Use Cases werden in `lumen-app` als Beans verdrahtet,
-damit `lumen-application` frameworkfrei bleibt.
+Only `lumen-app` and the adapters know Spring. The use cases are wired as beans in `lumen-app`, so that
+`lumen-application` stays free of frameworks.
 
-## Datenquellen
+## Data sources
 
-| Quelle | Inhalt | Doku |
+| Source | Content | Docs |
 |---|---|---|
-| YAML-Ordner `fixture-types/` | Gerätebibliothek (was ein Gerät kann) | [FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md) |
-| SQLite `data/lumen.db` | Projekte: Universen, Patch, Gruppen, Szenen, Fade-Zeiten | [PROJECT-DATA.md](PROJECT-DATA.md) |
-| `application.yml` | Technisches: Pfade, Port, Art-Net-Interface, Render-Rate | – |
+| YAML folder `fixture-types/` | Fixture library (what a fixture can do) | [FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md) |
+| SQLite `data/lumen.db` | Projects: universes, patch, groups, scenes, fade times | [PROJECT-DATA.md](PROJECT-DATA.md) |
+| `application.yml` | Technical settings: paths, port, Art-Net interface, render rate | – |
 
-## Domain-Modell
+## Domain model
 
 ```
-── Bibliothek ───────────────────────────────────────────────────────────
-FixtureType            Gerätemodell (aus YAML)
+── Library ──────────────────────────────────────────────────────────────
+FixtureType            fixture model (from YAML)
  └─ modes: List<Mode>
       └─ channels: List<ChannelDefinition>  (function, resolution 8/16, default, ranges, fadeBehavior)
 
-── Projekt ──────────────────────────────────────────────────────────────
+── Project ──────────────────────────────────────────────────────────────
 Project                name, fadeIn, fadeOut (Duration), universes, fixtures, groups, scenes
-Universe               Nummer, Art-Net-Port-Adresse (net/subnet/universe), Ziel (IP | broadcast)
-PatchedFixture         name, FixtureType + Mode, DmxAddress(universe, 1..512), Position(x, y)
-Group                  Menge von PatchedFixtures
-Scene                  number ("2.5"), name, cueNote, Map<FixtureId, AttributeValues>
-AttributeValues        function → normalisierter Wert (0..1)
+Universe               number, Art-Net port address (net/subnet/universe), target (IP | broadcast)
+PatchedFixture         name, FixtureType + mode, DmxAddress(universe, 1..512), position(x, y)
+Group                  set of PatchedFixtures
+Scene                  number ("2.5"), name, cueNote, compositions, keys (see LOOKS-COMPOSITIONS-SCENES.md)
+AttributeValues        function → normalized value (0..1)
 
-── Laufzeit ─────────────────────────────────────────────────────────────
-OutputLayer            Schnittstelle: liefert pro Tick Attributwerte + Priorität
-LayerMerger            kombiniert alle Layer (HTP/LTP)
-Programmer             Live-Werte im Konfigurationsmodus (ein OutputLayer)
-Playback               Szenenliste, aktuelle/nächste Szene, laufende Überblendung
-Crossfade              Snapshot (alt) + Zielszene (neu), Startzeit, Pause-Status
-OutputState            berechnete Attributwerte aller Fixtures
-DmxFrame               512 Byte pro Universe
+── Runtime ──────────────────────────────────────────────────────────────
+OutputLayer            interface: delivers attribute values + priority on every tick
+LayerMerger            combines all layers (HTP/LTP)
+Programmer             live values in setup mode (an OutputLayer)
+Playback               scene list, current/next scene, running cross-fade
+Crossfade              snapshot (old) + target scene (new), start time, pause state
+OutputState            computed attribute values of all fixtures
+DmxFrame               512 bytes per universe
 ```
 
-Wichtige Domain-Logik (alles unit-testbar ohne Spring, Zeit über eine injizierte `Clock`):
-- **Patch-Validierung:** Überschneidungen, Kanal > 512, fehlender Typ/Modus
-- **Mischen beim Szenenwechsel:** Intensität direkt von alt nach neu (aufwärts mit dem Fade-In, abwärts mit dem
-  Fade-Out), LTP für die übrigen Attribute, siehe [PLAYBACK.md](PLAYBACK.md)
-- **Mapping OutputState → DmxFrame:** Funktionen auf Kanäle/Offsets, 16 Bit, virtueller Dimmer, `invert`
-- **Grand Master & Blackout** als letzte Stufe vor der Ausgabe
+Important domain logic (all unit-testable without Spring, time via an injected `Clock`):
+- **Patch validation:** overlaps, channel > 512, missing type/mode
+- **Mixing on a scene change:** intensity directly from old to new (upwards with the fade-in, downwards with the
+  fade-out), LTP for all other attributes, see [PLAYBACK.md](PLAYBACK.md)
+- **Mapping OutputState → DmxFrame:** functions onto channels/offsets, 16 bit, virtual dimmer, `invert`
+- **Grand master & blackout** as the last stage before output
 
-## DMX-Engine
+## DMX engine
 
-- **Render-Loop** (`ScheduledExecutorService`, ~40 Hz, konfigurierbar; Art-Net max. ~44 Hz).
-- Pro Tick: Alle aktiven **Ausgabe-Ebenen** (`OutputLayer`) liefern Attributwerte → **Layer-Merger**
-  (Intensität HTP, Rest LTP/Priorität) → `OutputState` → Master/Blackout → `DmxFrame`s → `DmxOutputPort`.
-- Ebenen im Theater-Modus: `Programmer` und `Playback` (inkl. Fade-Fortschritt). Der spätere
-  [Party-Modus](PARTY-MODE.md) bringt weitere Ebenen (Executors, Effekte) mit, ohne dass die Engine umgebaut werden muss.
-- Gesendet werden alle Universen des aktiven Projekts, kontinuierlich (viele Nodes erwarten regelmäßige Pakete).
-- Thread-Sicherheit: immutable Zustände, Austausch per `AtomicReference`. Befehle (GO, Wertänderung) kommen
-  über eine Queue in den Loop.
-- **Stabilität geht vor:** Eine Exception im Tick darf den Loop nicht beenden (loggen, letzten gültigen Frame
-  weiter senden).
+- **Render loop** (`ScheduledExecutorService`, ~40 Hz, configurable; Art-Net max. ~44 Hz).
+- On every tick: all active **output layers** (`OutputLayer`) deliver attribute values → **layer merger**
+  (intensity HTP, the rest LTP/priority) → `OutputState` → master/blackout → `DmxFrame`s → `DmxOutputPort`.
+- Layers in theatre mode: `Programmer` and `Playback` (incl. fade progress). The [party mode](PARTY-MODE.md) adds
+  further layers without rebuilding the engine.
+- All universes of the active project are sent continuously (many nodes expect regular packets).
+- Thread safety: immutable state, swapped via `AtomicReference`. Commands (GO, value changes) reach the loop through
+  a queue.
+- **Stability comes first:** an exception in a tick must not end the loop (log it, keep sending the last valid frame).
 
-## Art-Net Adapter
+## Art-Net adapter
 
-- UDP Port **6454**, Paket **ArtDmx** (OpCode `0x5000`, Protokollversion 14), 512 Byte Daten.
-- 15-Bit-Port-Adresse: `Net (7) | SubNet (4) | Universe (4)`.
-- Ziel pro Universe:
-  - **Auto** (Standard): Unicast an alle Nodes, die dieses Universe in ihrem ArtPollReply melden, plus optionale
-    manuelle IPs (für Nodes ohne ArtPoll-Unterstützung)
-  - **Feste IPs**: Unicast nur an die eingetragenen Adressen
-  - **Broadcast**: an alle – jedes Gerät bekommt jedes Universe; im WLAN unzuverlässig
-- Sequence-Nummer pro Universe (1–255).
-- **Discovery:** ArtPoll alle 3 s an die Broadcast-Adresse; Nodes antworten per ArtPollReply an Port **6454**
-  des Controllers. Lumen lauscht dort (mit `SO_REUSEADDR`/`SO_REUSEPORT`, damit z.B. QLC+ parallel laufen kann).
-  Ein Node gilt 10 s nach seiner letzten Antwort als offline und wird nach 5 min vergessen. Lässt sich der Port
-  nicht öffnen, bleibt die Discovery leer und der Rest läuft weiter.
-- Gesendet wird von einem zufälligen lokalen Port; Ziel-Port, Bind-Adresse und Broadcast-Adresse stehen in
-  `application.yml` unter `lumen.artnet.*`. In Tests ist die Ausgabe abgeschaltet (`lumen.artnet.enabled: false`).
+- UDP port **6454**, packet **ArtDmx** (OpCode `0x5000`, protocol version 14), 512 bytes of data.
+- 15-bit port address: `Net (7) | SubNet (4) | Universe (4)`.
+- Target per universe:
+  - **Auto** (default): unicast to all nodes that report this universe in their ArtPollReply, plus optional manual
+    IPs (for nodes without ArtPoll support)
+  - **Fixed IPs**: unicast to the given addresses only
+  - **Broadcast**: to everyone – every device gets every universe; unreliable over Wi-Fi
+- Sequence number per universe (1–255).
+- **Discovery:** ArtPoll every 3 s to the broadcast address; nodes answer with an ArtPollReply to port **6454** of the
+  controller. Lumen listens there (with `SO_REUSEADDR`/`SO_REUSEPORT`, so that e.g. QLC+ can run alongside). A node
+  counts as offline 10 s after its last reply and is forgotten after 5 min. If the port cannot be opened, discovery
+  stays empty and everything else keeps running.
+- Packets are sent from a random local port; target port, bind address and broadcast address are set in
+  `application.yml` under `lumen.artnet.*`. In tests the output is switched off (`lumen.artnet.enabled: false`).
 
-### Testen ohne Hardware
+### Testing without hardware
 
-- **DMX-Werte ansehen:** `GET /api/output/universes/1/dmx` liefert die 512 Kanalwerte des aktiven Projekts.
-- **Art-Net mitschneiden:** Wireshark mit dem Filter `artnet` (Port 6454) zeigt die ArtDmx-Pakete samt Kanalwerten.
-- **Art-Net-Monitor:** QLC+ (Input/Output → Art-Net als Eingang, dann „DMX Monitor“). Läuft QLC+ auf demselben
-  Rechner, das Universe in Lumen auf Unicast `127.0.0.1` stellen.
-- **Schnelltest per curl** (aktives Projekt mit einem gepatchten Gerät vorausgesetzt):
+- **Look at DMX values:** `GET /api/output/universes/1/dmx` returns the 512 channel values of the active project.
+- **Capture Art-Net:** Wireshark with the filter `artnet` (port 6454) shows the ArtDmx packets including channel values.
+- **Art-Net monitor:** QLC+ (Input/Output → Art-Net as input, then "DMX Monitor"). If QLC+ runs on the same computer,
+  set the universe in Lumen to unicast `127.0.0.1`.
+- **Quick test with curl** (requires an active project with a patched fixture):
   ```bash
   curl -X PATCH -H 'Content-Type: application/json' \
        -d '{"dimmer": 1, "red": 1}' http://127.0.0.1:8080/api/programmer/fixtures/1
   ```
 
-## Web-API
+## Web API
 
-**Konfiguration**
+**Setup**
 
-| Endpunkt | Zweck |
+| Endpoint | Purpose |
 |---|---|
-| `GET /api/library/fixture-types`, `GET /api/library/issues` | Gerätebibliothek |
-| `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Projekte verwalten, inkl. globaler Fade-Zeiten (`fadeInMs`, `fadeOutMs`) und Fade-Kurve (`fadeCurve`: `linear`, `s-curve`, `square`) |
-| `GET /api/projects/{id}/export`, `POST /api/projects/import` | Projekt als JSON-Datei (Format siehe [PROJECT-DATA.md](PROJECT-DATA.md)) / als neues Projekt importieren |
-| `GET /api/backups` · `POST /api/backups` | DB-Backups auflisten (inkl. Ordner) · sofort ein Backup anlegen |
-| `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN-Status dieses Browsers, entsperren (403 falsche PIN, 429 nach 5 Fehlversuchen), sperren |
-| `PUT /api/access/pin` `{pin\|null}` · `PUT /api/access/network` `{enabled}` | PIN setzen/ändern/entfernen · Netzwerkzugriff (wirkt nach Neustart) |
-| `CRUD /api/projects/{id}/universes` | Universen & Art-Net-Ziele: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
-| `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Bühnenpositionen (0–1) mehrerer Fixtures auf einmal, `null` = nicht auf der Bühne |
-| `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Grundriss-Bild (PUT mit `Content-Type: image/png\|jpeg\|webp` als Body) |
-| `CRUD /api/projects/{id}/looks` · `POST …/looks/{lid}/record` · `/load` · `/duplicate` · `GET …/revisions` · `POST …/revisions/{rid}/restore` | Looks: aufnehmen aus dem Programmer, in den Programmer laden, Verlauf und Rückgängig, siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md) |
-| `CRUD /api/projects/{id}/compositions` · `POST …/compositions/{cid}/duplicate` · `/record-step` · `/generate` | Compositions aus Look-Schritten, Schritt aus dem Programmer, Schritte per Generator erzeugen |
-| `PUT /api/projects/{id}/scenes/{sid}/compositions` · `/sections` · `/keys` | Compositions und Looks einer Szene, Licht der Abschnitte nach Licht-Markern, Tasten 1–8 (jeweils die ganze Liste) |
-| `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Komposition oder ganze Szene zum Ausprobieren auf der Bühne zeigen (nur Konfigurationsmodus) |
-| `POST /api/library/reload` | Gerätebibliothek neu einlesen (passiert sonst automatisch nach Dateiänderungen) |
-| `POST /api/library/import/ofl?manufacturer=…&replace=false` (Body: OFL-JSON) | Gerät aus der Open Fixture Library als YAML-Profil in die Bibliothek übernehmen, Antwort mit `warnings` (409, wenn die ID schon existiert) |
-| `GET /api/artnet/nodes` | Per ArtPoll gefundene Nodes (IP, Name, gemeldete Universen, online) |
+| `GET /api/library/fixture-types`, `GET /api/library/issues` | Fixture library |
+| `CRUD /api/projects`, `GET /api/projects/active`, `POST /api/projects/{id}/activate` | Manage projects, incl. global fade times (`fadeInMs`, `fadeOutMs`) and fade curve (`fadeCurve`: `linear`, `s-curve`, `square`) |
+| `GET /api/projects/{id}/export`, `POST /api/projects/import` | Project as a JSON file (format see [PROJECT-DATA.md](PROJECT-DATA.md)) / import as a new project |
+| `GET /api/backups` · `POST /api/backups` | List DB backups (incl. folder) · create a backup now |
+| `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN status of this browser, unlock (403 wrong PIN, 429 after 5 failed attempts), lock |
+| `PUT /api/access/pin` `{pin\|null}` · `PUT /api/access/network` `{enabled}` | Set/change/remove the PIN · network access (takes effect after a restart) |
+| `CRUD /api/projects/{id}/universes` | Universes & Art-Net targets: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
+| `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Stage positions (0–1) of several fixtures at once, `null` = not on stage |
+| `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Floor plan image (PUT with `Content-Type: image/png\|jpeg\|webp` as body) |
+| `CRUD /api/projects/{id}/looks` · `POST …/looks/{lid}/record` · `/load` · `/duplicate` · `GET …/revisions` · `POST …/revisions/{rid}/restore` | Looks: record from the programmer, load into the programmer, history and undo, see [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md) |
+| `CRUD /api/projects/{id}/compositions` · `POST …/compositions/{cid}/duplicate` · `/record-step` · `/generate` | Compositions made of look steps, a step from the programmer, generate steps with a generator |
+| `PUT /api/projects/{id}/scenes/{sid}/compositions` · `/sections` · `/keys` | Compositions and looks of a scene, light of the parts after light markers, keys 1–8 (each the whole list) |
+| `POST /api/projects/{id}/compositions/{cid}/stage-preview` · `POST …/scenes/{sid}/stage-preview` · `GET/DELETE /api/stage-preview` | Show a composition or a whole scene on stage to try it out (setup mode only) |
+| `POST /api/library/reload` | Read the fixture library again (otherwise happens automatically after file changes) |
+| `POST /api/library/import/ofl?manufacturer=…&replace=false` (body: OFL JSON) | Take a fixture from the Open Fixture Library into the library as a YAML profile, response with `warnings` (409 if the ID already exists) |
+| `GET /api/artnet/nodes` | Nodes found via ArtPoll (IP, name, reported universes, online) |
 | `CRUD /api/projects/{id}/fixtures`, `GET /api/projects/{id}/patch/issues` | Patch |
-| `CRUD /api/projects/{id}/groups` | Gruppen |
-| `CRUD /api/projects/{id}/scenes` | Szenenliste, sortiert nach Nummer; `POST` mit `"record": true` übernimmt den Programmer, ohne `number` die nächste ganze Zahl |
-| `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Szene mit dem Programmer überschreiben (ohne Body) oder Teile übernehmen (`{merge: true, fixtureIds, groups}`) · Szene in den Programmer laden |
-| `POST …/scenes/{sceneId}/duplicate` `{number}` | Szene samt Bild, Zeiten, Text, Kompositionen und Extra-Tasten kopieren |
-| `GET …/scenes/{sceneId}/revisions` · `POST …/revisions/{rid}/restore` | frühere Bilder der Szene (neueste zuerst, 20 je Szene) · eines zurückholen |
-| `CRUD /api/projects/{id}/figures` · `POST …/figures/{fid}/duplicate` | Figuren für Moves: Punkte in DMX-Werten (`x` = Pan, `y` = Tilt), `closed`; Löschen nur ohne Moves (409), siehe [MOVEMENT.md](MOVEMENT.md) |
-| `CRUD /api/projects/{id}/moves` · `POST …/moves/{mid}/duplicate` · `POST …/moves/{mid}/stage-preview` | Moves: Figur + Geräte (mit eigener Verschiebung, Spiegeln, Rückwärts), Größe in %, Verschiebung in DMX-Werten, `rotation`, `durationMs`, `repeat`, `stepOffset`, `onceStart`; Löschen nur, wenn nichts ihn spielt (409) |
-| `POST /api/projects/{id}/moves/record-position` `{moveId\|null, name, fixtureIds}` | „Record position“: Programmer-Positionen als Move mit einem Punkt (Mitte + Abweichung je Gerät) |
-| `GET /api/projects/{id}/presets` · `POST` `{name, group, fixtureIds}` · `PUT /{pid}` `{name}` · `DELETE /{pid}` | Presets (Farbe, Beam) aus dem Programmer aufnehmen, umbenennen, löschen |
-| `POST …/presets/{pid}/record` · `/apply` `{fixtureIds}` | Preset aus dem Programmer aktualisieren (alle Szenen ziehen mit) · im Programmer anwenden |
-| `GET /api/projects/{id}/faders` · `PUT /{slot}` `{name, sceneId}` · `DELETE /{slot}` | Fader 1–8 (z.B. Saallicht) mit einer Szene belegen |
+| `CRUD /api/projects/{id}/groups` | Groups |
+| `CRUD /api/projects/{id}/scenes` | Scene list, sorted by number; `POST` with `"record": true` takes the programmer, without `number` the next whole number |
+| `POST /api/projects/{id}/scenes/{sceneId}/record` · `/load` | Overwrite the scene with the programmer (no body) or take over parts (`{merge: true, fixtureIds, groups}`) · load the scene into the programmer |
+| `POST …/scenes/{sceneId}/duplicate` `{number}` | Copy a scene with its times, text, compositions and keys |
+| `CRUD /api/projects/{id}/figures` · `POST …/figures/{fid}/duplicate` | Figures for moves: points in DMX values (`x` = pan, `y` = tilt), `closed`; delete only without moves (409), see [MOVEMENT.md](MOVEMENT.md) |
+| `CRUD /api/projects/{id}/moves` · `POST …/moves/{mid}/duplicate` · `POST …/moves/{mid}/stage-preview` | Moves: figure + fixtures (each with its own shift, mirror, reverse), size in %, shift in DMX values, `rotation`, `durationMs`, `repeat`, `stepOffset`, `onceStart`; delete only when nothing plays it (409) |
+| `POST /api/projects/{id}/moves/record-position` `{moveId\|null, name, fixtureIds}` | "Record position": programmer positions as a move with one point (centre + offset per fixture) |
+| `GET /api/projects/{id}/presets` · `POST` `{name, group, fixtureIds}` · `PUT /{pid}` `{name}` · `DELETE /{pid}` | Record presets (color, beam) from the programmer, rename, delete |
+| `POST …/presets/{pid}/record` · `/apply` `{fixtureIds}` | Update a preset from the programmer (all looks using it follow) · apply it in the programmer |
+| `GET /api/projects/{id}/faders` · `PUT /{slot}` `{name, compositionId}` · `DELETE /{slot}` | Assign a composition to fader 1–8 (e.g. house lights) |
 
-Projektbezogene Endpunkte nennen die Projekt-ID immer explizit im Pfad (kein versteckter „aktuelles Projekt“-Zustand).
-`CRUD` = `GET` (Liste), `POST` (anlegen), `PUT /{id}` (ersetzen), `DELETE /{id}`.
-Fehler kommen als Problem Details (RFC 9457): 400 mit `errors`-Liste, 403 mit `"locked": true` (PIN nötig), 404, 409.
-| `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live-Werte (aktives Projekt) |
-| `GET /api/programmer/presets` | aus welchen Presets die Programmer-Werte stammen (`{fixtureId: {color: presetId}}`) |
-| `PATCH /api/programmer/fixtures` `{fixtureIds, values}` · `POST /api/programmer/clear` `{fixtureIds}` | Auswahl setzen/löschen; jedes Gerät bekommt nur seine Attribute |
-| `PATCH /api/programmer/groups/{id}` | Live-Werte für alle Mitglieder einer Gruppe |
+Project endpoints always name the project ID explicitly in the path (no hidden "current project" state).
+`CRUD` = `GET` (list), `POST` (create), `PUT /{id}` (replace), `DELETE /{id}`.
+Errors come as Problem Details (RFC 9457): 400 with an `errors` list, 403 with `"locked": true` (PIN required), 404, 409.
 
-**Betrieb**
+**Programmer**
 
-| Endpunkt | Zweck |
+| Endpoint | Purpose |
 |---|---|
-| `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` | Show steuern, Status |
-| `POST /api/playback/keys/{slot}/press` · `/release` | Extra-Taste 1–8 drücken / loslassen (Toggle bzw. Flash) |
-| `PUT /api/playback/faders/{slot}` `{level}` | Fader (z.B. Saallicht) auf 0–1 stellen, auch im Konfigurationsmodus, ohne PIN |
-| `POST /api/playback/resume` · `DELETE /api/playback/resume` | nach einem Neustart bei `resumeSceneId` weitermachen · Angebot verwerfen |
-| `PUT /api/playback/next` `{ sceneId }` | nächste Szene vormerken (Springen) |
-| `GET/PUT /api/mode` `{ mode: setup\|show }` | Betriebsmodus; `show` leert und sperrt den Programmer, zurück nach `setup` nur entsperrt |
-| `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand Master / Blackout |
-| `GET /api/output/universes/{n}/dmx` | Roh-DMX (Monitor), `n` = Universe-Nummer im aktiven Projekt |
-| `GET /api/output/health` | Render-Loop und Art-Net der letzten Sekunde: `level` (ok/warning/error), `problems`, Raten |
+| `GET /api/programmer` · `PATCH /api/programmer/fixtures/{id}` · `DELETE /api/programmer/fixtures/{id}` · `DELETE /api/programmer` | Live values (active project) |
+| `GET /api/programmer/presets` | which presets the programmer values come from (`{fixtureId: {color: presetId}}`) |
+| `PATCH /api/programmer/fixtures` `{fixtureIds, values}` · `POST /api/programmer/clear` `{fixtureIds}` | Set/clear a selection; each fixture only gets its own attributes |
+| `PATCH /api/programmer/groups/{id}` | Live values for all members of a group |
 
-**Attributwerte** sind normalisiert (0.0–1.0) und werden über die Attribut-ID adressiert, z.B.
-`{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic-Kanäle heißen `generic:<name>`. Köpfe von
-Multi-Pixel-Geräten bekommen `@<kopf>` angehängt (`red@3`); das Attribut ohne Kopf gilt für alle Köpfe ohne eigenen Wert.
+**Show**
 
-**WebSocket `/ws`:** Der Server sammelt Änderungen und schickt sie höchstens alle 33 ms (JSON):
-
-| Richtung | Nachricht |
+| Endpoint | Purpose |
 |---|---|
-| Server → Client | `{"type":"programmer","values":{…},"presets":{…}}` (alle Werte und ihre Presets), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (jede Sekunde), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` / `{"type":"presets"}` / `{"type":"faders"}` (Client lädt per REST neu); nach einem Abo
-`{"type":"output","values":{…}}` (Werte wie gesendet, vor dem Master) und `{"type":"dmx","universe":n,"values":[…512]}`, `{"type":"error","message":…}` |
-| Client → Server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (ebenso `.back`, `.pause`, `.finish`), `{"type":"keys.press","slot":1}` (ebenso `keys.release`), `{"type":"fader.set","slot":1,"level":0.5}`, `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (ersetzt das Abo; Live-Ausgabe höchstens alle 100 ms und nur bei Änderung; `preview:<id>` liefert `{"type":"preview","compositionId":…,"values":{…}}` für den Editor) |
+| `GET /api/playback` · `POST /api/playback/go` · `/back` · `/pause` · `/finish` · `/stop` | Control the show, status |
+| `POST /api/playback/keys/{slot}/press` · `/release` | Press / release key 1–8 (toggle or flash) |
+| `PUT /api/playback/faders/{slot}` `{level}` | Set a fader (e.g. house lights) to 0–1, also in setup mode, without PIN |
+| `PUT /api/playback/script` `{sceneId, line, section}` | Position in the script of the scene on stage; all clients follow, without PIN |
+| `POST /api/playback/resume` · `DELETE /api/playback/resume` | After a restart, continue at `resumeSceneId` · discard the offer |
+| `PUT /api/playback/next` `{ sceneId }` | Pick the next scene (jump) |
+| `GET/PUT /api/mode` `{ mode: setup\|show\|party }` | Operating mode; `show` and `party` clear and lock the programmer, back to `setup` only when unlocked |
+| `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand master / blackout |
+| `GET /api/output/universes/{n}/dmx` | Raw DMX (monitor), `n` = universe number in the active project |
+| `GET /api/output/health` | Render loop and Art-Net of the last second: `level` (ok/warning/error), `problems`, rates |
 
-Beim Verbinden bekommt ein Client sofort Programmer, Master, Playback-Status, Modus und Health. `programmer.set` braucht
-bei gesetzter PIN einen entsperrten Browser; nach dem Entsperren verbindet sich der Client neu. Den Fade-Fortschritt
-interpoliert der Client selbst (der Status enthält die verstrichene Zeit beim Senden). Intern veröffentlicht die Application-Schicht Änderungen über `StateEvents`; der Web-Adapter
-abonniert sie – so bleibt die Abhängigkeitsrichtung nach innen.
+**Attribute values** are normalized (0.0–1.0) and addressed by attribute ID, e.g.
+`{"dimmer": 1, "red": 0.5, "generic:Program speed": 0.2}`. Generic channels are called `generic:<name>`. Heads of
+multi-pixel fixtures get `@<head>` appended (`red@3`); the attribute without a head applies to all heads without a
+value of their own.
 
-## Betriebssicherheit (Theater!)
+**WebSocket `/ws`:** the server collects changes and sends them at most every 33 ms (JSON):
 
-- Die Ausgabe läuft unabhängig vom Browser: Schließt sich der Tab oder fällt das WLAN aus, bleibt das Licht stehen.
-- Die aktuelle Szene wird persistiert (`playback_state`), ebenso der Betriebsmodus (`app_setting`). Nach einem
-  Neustart startet Lumen im selben Modus, das Licht bleibt dunkel und der Betriebsmodus bietet an, bei der
-  gespeicherten Szene weiterzumachen. Gespeichert wird auf einem eigenen Thread, der Render-Loop wartet nie auf die DB.
-- Automatisches DB-Backup (`VACUUM INTO`, konsistent im laufenden Betrieb) beim Start, beim Projektwechsel und beim
-  Start des Betriebsmodus nach `data/backups/`; die neuesten 30 bleiben (`lumen.backup.*`). Wiederherstellen: Lumen
-  beenden und die Datei über `data/lumen.db` kopieren.
-- **Watchdog:** Der Render-Loop fängt jeden Fehler im Tick ab (auch `Error`). Hängt ein Tick länger als 2 s, ersetzt
-  der Watchdog den Render-Thread. Jede Sekunde werden Render-Rate und Art-Net-Pakete/s gemessen und an alle Clients
-  geschickt; die Kopfleiste zeigt den Zustand (z.B. „Art-Net 40/s“, Warnung bei Sendefehlern oder ohne Empfänger).
-- **Durchlauftest:** `ShowSoakTest` spielt 3 h Show (40 Hz, Auto-Follow, GO, Pause, Master, Blackout) mit simulierter
-  Uhr in wenigen Sekunden und prüft, dass der Heap nicht wächst.
+| Direction | Message |
+|---|---|
+| Server → client | `{"type":"programmer","values":{…},"presets":{…}}` (all values and their presets), `{"type":"master","level":…,"blackout":…}`, `{"type":"playback","status":{…}}`, `{"type":"mode","mode":…}`, `{"type":"health","health":{…}}` (every second), `{"type":"patch"}` / `{"type":"scenes"}` / `{"type":"nodes"}` / `{"type":"projects"}` / `{"type":"access"}` / `{"type":"library"}` / `{"type":"presets"}` / `{"type":"faders"}` (client reloads via REST); after subscribing `{"type":"output","values":{…}}` (values as sent, before the master) and `{"type":"dmx","universe":n,"values":[…512]}`, `{"type":"error","message":…}` |
+| Client → server | `{"type":"programmer.set","fixtureIds":[…],"values":{…}}`, `{"type":"master.set","level":…}`, `{"type":"blackout.set","active":…}`, `{"type":"playback.go"}` (likewise `.back`, `.pause`, `.finish`), `{"type":"playback.script","sceneId":…,"line":…,"section":…}`, `{"type":"keys.press","slot":1}` (likewise `keys.release`), `{"type":"fader.set","slot":1,"level":0.5}`, `{"type":"subscribe","topics":["output","dmx:1","preview:7"]}` (replaces the subscription; live output at most every 100 ms and only on change; `preview:<id>` delivers `{"type":"preview","compositionId":…,"values":{…}}` for the editor) |
 
-## Betrieb & Zugriff
+On connecting, a client immediately gets the programmer, master, playback status, mode and health. With a PIN set,
+`programmer.set` needs an unlocked browser; after unlocking, the client reconnects. The client interpolates the fade
+progress itself (the status contains the elapsed time when it was sent). Internally the application layer publishes
+changes through `StateEvents`; the web adapter subscribes to them – so the dependencies keep pointing inwards.
 
-- Zielplattform ist ein **Laptop am Regieplatz**: Server, Browser und MIDI-Controller laufen auf demselben Gerät,
-  der Art-Net-Node hängt per Netzwerkkabel dran.
-- Der HTTP-Server lauscht standardmäßig nur auf **`127.0.0.1`**. Zugriff von Tablet/Handy im Netz wird unter
-  Settings freigeschaltet (wirkt nach einem Neustart, dann lauscht er auf `0.0.0.0`) oder fest per
+## Operational safety (it's theatre!)
+
+- Output runs independently of the browser: if the tab closes or the Wi-Fi drops, the light stays as it is.
+- The current scene is persisted (`playback_state`), as is the operating mode (`app_setting`). After a restart Lumen
+  starts in the same mode, the light stays dark and show mode offers to continue at the saved scene. Saving happens on
+  a thread of its own; the render loop never waits for the DB.
+- Automatic DB backup (`VACUUM INTO`, consistent while running) at start, on a project change and when show mode
+  starts, into `data/backups/`; the newest 30 are kept (`lumen.backup.*`). To restore: quit Lumen and copy the file
+  over `data/lumen.db`.
+- **Watchdog:** the render loop catches every failure in a tick (including `Error`). If a tick hangs for more than
+  2 s, the watchdog replaces the render thread. Render rate and Art-Net packets/s are measured every second and sent
+  to all clients; the header shows the state (e.g. "Art-Net 40/s", a warning on send errors or without receivers).
+- **Soak test:** `ShowSoakTest` plays a 3 h show (40 Hz, auto-follow, GO, pause, master, blackout) on a simulated
+  clock in a few seconds and checks that the heap does not grow.
+
+## Operation & access
+
+- The target platform is a **laptop at the control desk**: server, browser and MIDI controller run on the same
+  machine, the Art-Net node is connected by network cable.
+- By default the HTTP server only listens on **`127.0.0.1`**. Access from tablets/phones on the network is enabled
+  under Settings (takes effect after a restart, then it listens on `0.0.0.0`) or permanently with
   `lumen.network-access=true`.
-- **Konfigurations-PIN** (optional): Lesen und der Betrieb (Playback, Master, Blackout, Wechsel in den Betriebsmodus)
-  gehen immer ohne PIN. Alle anderen schreibenden Endpunkte und `programmer.set` per WebSocket brauchen eine
-  HTTP-Session, die mit der PIN entsperrt wurde. Der Start des Betriebsmodus sperrt alle Browser wieder, also fragt
-  der Weg zurück in die Konfiguration nach der PIN. Die PIN (4–12 Ziffern) liegt als gesalzener PBKDF2-Hash in
-  `app_setting`; nach 5 falschen Eingaben ist das Entsperren 30 s blockiert.
-- Umsetzung ohne Spring Security: ein `HandlerInterceptor` im Web-Adapter prüft die Session, die Logik
-  (`AccessService`) liegt in der Application-Schicht. Eine Sperr-„Epoche“ zählt hoch, wenn alle Browser gesperrt
-  werden; eine Session ist entsperrt, solange ihre Epoche aktuell ist.
+- **Setup PIN** (optional): reading and operating the show (playback, master, blackout, switching to show mode) always
+  work without a PIN. All other writing endpoints and `programmer.set` via WebSocket need an HTTP session that was
+  unlocked with the PIN. Starting show mode locks all browsers again, so the way back to setup asks for the PIN. The
+  PIN (4–12 digits) is stored as a salted PBKDF2 hash in `app_setting`; after 5 wrong entries, unlocking is blocked
+  for 30 s.
+- Implemented without Spring Security: a `HandlerInterceptor` in the web adapter checks the session, the logic
+  (`AccessService`) lives in the application layer. A lock "epoch" counts up when all browsers are locked; a session
+  is unlocked as long as its epoch is current.

@@ -1,106 +1,108 @@
-# Party-Modus
+# Party mode
 
-> **Status: umgesetzt als Party-Matrix (2026-10-06).** Der erste Versuch (Tap-Tempo, Farbpaletten, Intensität pro
-> Gruppe, Party-Buttons aus dem Programmer) ist komplett ersetzt; seine Tabellen sind mit Flyway `V22` entfernt.
-> Ab „Theater vs. Party“ steht die ursprüngliche Ideensammlung, sie ist nicht umgesetzt.
+> **Status: implemented as the party matrix (2026-10-06).** The first attempt (tap tempo, color palettes, intensity
+> per group, party buttons from the programmer) is completely replaced; its tables were removed with Flyway `V22`.
+> From "Theatre vs. party" on, the original collection of ideas follows; it is not implemented.
 
-Der Theater-Modus spielt eine **feste Szenenliste** per GO ab. Der Party-Modus ist das Gegenteil: **Live-Lichtsteuerung**
-ohne Ablauf – man schaltet vorbereitete Szenen und Compositions frei an und aus.
+Theatre mode plays a **fixed scene list** with GO. Party mode is the opposite: **live lighting control** without a
+running order – you switch prepared scenes and compositions on and off freely.
 
-## Die Matrix
+## The matrix
 
-- Pro Projekt eine **Matrix** aus Zeilen × Spalten (je 1–12, Standard 4 × 4), eingerichtet im Setup-Reiter „Party“.
-- Jedes **Feld** ist leer, ein **Text** (nur Beschriftung, z.B. eine Überschrift „Farben“), eine **Szene** (spielt alle
-  ihre Compositions, ohne Fades und Tasten) oder eine **Composition**.
-- Pro Feld: **Beschriftung** (leer = Name dessen, was es spielt), **Füllfarbe**, eigene **Rahmenfarbe**, **Toggle**
-  (an/aus) oder **Flash** (an, solange gedrückt) und optional eine **Gruppe**.
-- **Gruppen:** Von den Feldern einer Gruppe ist höchstens eines an – schaltet man Rot ein, geht Blau aus. Alles ohne
-  Gruppe läuft beliebig parallel.
-- **Kollisionen:** Setzen mehrere Felder dasselbe Attribut eines Fixtures, gewinnt der **höhere Wert** – für alle
-  Attribute, nicht nur die Intensität.
-- **Trennlinien** zwischen Zeilen gliedern die Matrix optisch (im Editor: Klick zwischen zwei Zeilen).
-- Jedes Feld spielt seine Compositions ab dem Moment, in dem es angeht. Grand Master und Blackout wirken wie immer.
+- One **matrix** of rows × columns per project (1–12 each, default 4 × 4), set up in the setup tab "Party".
+- Every **field** is empty, a **text** (just a label, e.g. a heading "Colors"), a **scene** (plays all its
+  compositions, without fades and keys) or a **composition**.
+- Per field: **label** (empty = the name of what it plays), **fill color**, its own **border color**, **toggle**
+  (on/off) or **flash** (on while pressed) and optionally a **group**.
+- **Groups:** of the fields of a group, at most one is on – switch on red and blue goes off. Everything without a group
+  runs in parallel freely.
+- **Collisions:** if several fields set the same attribute of a fixture, the **higher value** wins – for all
+  attributes, not just intensity.
+- **Dividers** between rows structure the matrix visually (in the editor: click between two rows).
+- Every field plays its compositions from the moment it goes on. Grand master and blackout work as always.
 
-## Verhalten
+## Behaviour
 
-- Dritter Betriebsmodus „Party“ wie bisher: Server-Zustand, alle Browser wechseln mit, der Programmer ist gesperrt,
-  das Theater-Playback bleibt stehen und gibt nichts aus. Party-Ebene mit Priorität 60 über dem Playback.
-- Felder bleiben an, wenn man den Modus wechselt; ein anderes Projekt beginnt mit allen Feldern aus. Ändert man die
-  Matrix, bleibt ein Feld an, solange es an derselben Stelle dasselbe spielt.
-- Wird eine Szene oder Composition gelöscht, wird ihr Feld zum Textfeld.
-- „All off“ schaltet alles aus.
+- A third operating mode "Party" as before: server state, all browsers follow, the programmer is locked, the theatre
+  playback stands still and outputs nothing. Party layer with priority 60 above the playback.
+- Fields stay on when you switch modes; another project starts with all fields off. If you change the matrix, a field
+  stays on as long as it plays the same thing in the same place.
+- If a scene or composition is deleted, its field becomes a text field.
+- "All off" switches everything off.
 
-## Umsetzung
+## Implementation
 
-- Domain: `PartyMatrix`, `PartyCell`, `PartySwitchboard` (an/aus, Gruppen, Ausgabe mit Maximum pro Attribut).
-- Anwendung: `PartyService` (Steuerung und Ausgabe-Ebene), `PartyMatrixService` (Einrichten, prüft Verweise).
-- REST: `GET/PUT /api/projects/{id}/party-matrix` (immer die ganze Matrix), `GET /api/party`,
-  `POST /api/party/cells/{row}/{column}/press|release`, `POST /api/party/clear`; WebSocket `party` (welche Felder an
-  sind) und `partyMatrix`. Die Matrix reist im Projekt-Export mit (Version 3; Szenen über ihre Nummer).
+- Domain: `PartyMatrix`, `PartyCell`, `PartySwitchboard` (on/off, groups, output with the maximum per attribute).
+- Application: `PartyService` (control and output layer), `PartyMatrixService` (setup, checks references).
+- REST: `GET/PUT /api/projects/{id}/party-matrix` (always the whole matrix), `GET /api/party`,
+  `POST /api/party/cells/{row}/{column}/press|release`, `POST /api/party/clear`; WebSocket `party` (which fields are
+  on) and `partyMatrix`. The matrix travels with the project export (version 3; scenes by their number).
 - Flyway `V22`: `party_matrix`, `party_cell`.
 
-## Theater vs. Party
+## Theatre vs. party
 
-| | Theater-Modus | Party-Modus |
+| | Theatre mode | Party mode |
 |---|---|---|
-| Ablauf | feste Szenenliste, GO | kein Ablauf, alles live |
-| Zeitgefühl | Fade-Zeiten in Sekunden | Tempo in BPM, Effekte im Takt |
-| Bedienung | ein GO-Button | viele Fader, Buttons, Flash-Tasten gleichzeitig |
-| Inhalte | Szenen | Paletten, Effekte, Chaser |
-| Fehlertoleranz | null, alles gesperrt | hoch, Experimentieren ist erwünscht |
+| Running order | fixed scene list, GO | none, everything live |
+| Sense of time | fade times in seconds | tempo in BPM, effects on the beat |
+| Operation | one GO button | many faders, buttons, flash keys at once |
+| Content | scenes | palettes, effects, chasers |
+| Fault tolerance | zero, everything locked | high, experimenting is welcome |
 
-Ein Projekt kann beides haben: Derselbe Patch wird im Theater- **oder** Party-Modus bespielt.
+A project can have both: the same patch is played in theatre **or** party mode.
 
-## Bausteine
+## Building blocks
 
-### Paletten
-Wiederverwendbare Werte, die man auf beliebige Gruppen „wirft“:
-- **Farbpaletten:** Rot, Amber, Cyan, Magenta, UV, … (ein Tap = ganze Gruppe in der Farbe)
-- **Positionspaletten** für Moving Heads: Publikum, Bühne, Decke, Kreuz
-- **Strahlpaletten:** Gobo, Prisma, Zoom
+### Palettes
+Reusable values that you "throw" onto any group:
+- **Color palettes:** red, amber, cyan, magenta, UV, … (one tap = the whole group in that color)
+- **Position palettes** for moving heads: audience, stage, ceiling, cross
+- **Beam palettes:** gobo, prism, zoom
 
-### Effekte
-Die Effekt-Engine entsteht schon vorher als Kompositionen für dynamische Theater-Szenen (Iteration K, heute
-Generatoren für [Compositions](LOOKS-COMPOSITIONS-SCENES.md#generatoren-statt-vorlagen)). Der Party-Modus ergänzt BPM-Kopplung und die Steuerung über Executors.
+### Effects
+The effect engine is built earlier as compositions for dynamic theatre scenes (iteration K, today generators for
+[compositions](LOOKS-COMPOSITIONS-SCENES.md#generators-instead-of-templates)). Party mode adds BPM coupling and
+control through executors.
 
-Parametrisierbare Bewegungen über eine Gruppe, mit Phasenversatz zwischen den Geräten:
-- **Intensität:** Pulse, Sinus, Sägezahn, Chase (Lauflicht), Random-Flackern, Strobe
-- **Farbe:** Rainbow, Farbwechsel zwischen 2–n Farben, Farb-Chase
-- **Position:** Bewegungsbilder (Kreis, Acht, Fächer, …) mit Offset, Scale, Rotation. Eigenes Konzept, siehe [MOVEMENT.md](MOVEMENT.md)
-- Parameter: Geschwindigkeit (frei oder BPM-gekoppelt mit Teiler ½, 1, 2, 4), Größe, Phase/Spreizung, Richtung
+Parametrizable movements across a group, with a phase offset between the fixtures:
+- **Intensity:** pulse, sine, sawtooth, chase, random flicker, strobe
+- **Color:** rainbow, color change between 2–n colors, color chase
+- **Position:** movement figures (circle, eight, fan, …) with offset, scale, rotation. A concept of its own, see
+  [MOVEMENT.md](MOVEMENT.md)
+- Parameters: speed (free or BPM-coupled with divider ½, 1, 2, 4), size, phase/spread, direction
 
 ### Chaser
-Eine Folge von Schritten (Mini-Szenen), die im Takt abläuft: Loop, Ping-Pong, Random; Überblendung pro Schritt einstellbar.
+A sequence of steps (mini scenes) that runs on the beat: loop, ping-pong, random; cross-fade adjustable per step.
 
-### Executors (Playback-Fader)
-Ein Raster frei belegbarer Slots. Jeder Slot hält eine Palette, einen Effekt oder einen Chaser und hat:
-- einen **Fader** (Intensität/Größe des Effekts)
-- **Flash** (gedrückt halten = 100 %) und **Toggle**
-- optional eine Gruppe als Ziel
+### Executors (playback faders)
+A grid of freely assignable slots. Every slot holds a palette, an effect or a chaser and has:
+- a **fader** (intensity/size of the effect)
+- **flash** (hold = 100 %) and **toggle**
+- optionally a group as target
 
 ### Tempo
-- **Tap-Tempo** (Button oder Taste `T`), BPM-Anzeige, Beat-Indikator
-- später: **Beat-Erkennung** über das Mikrofon (Web Audio API im Browser → BPM/Beats an den Server)
-- später: **MIDI-Clock** / Ableton Link
+- **Tap tempo** (button or key `T`), BPM display, beat indicator
+- later: **beat detection** via the microphone (Web Audio API in the browser → BPM/beats to the server)
+- later: **MIDI clock** / Ableton Link
 
-### Globale Live-Werkzeuge
-- Grand Master, Blackout, **Flash All**, **Strobe All**, **Fog-Taste** (Nebelmaschine solange gedrückt)
-- **Speed-Master** (alle Effekte schneller/langsamer)
-- **Szenen speichern** des aktuellen Looks, um ihn später wieder abzurufen (auch als Theater-Szene nutzbar)
+### Global live tools
+- Grand master, blackout, **flash all**, **strobe all**, **fog key** (fog machine while pressed)
+- **Speed master** (all effects faster/slower)
+- **Save scenes** of the current look to recall it later (also usable as a theatre scene)
 
-## UI-Skizze
+## UI sketch
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
 │ ◉ LUMEN  PARTY   ♩ 128 BPM ● ● ○ ○  [TAP]                Art-Net ● live         │
 ├──────────────────────┬─────────────────────────────────────────────────────────┤
-│ GRUPPEN              │ FARBEN   🔴 🟠 🟡 🟢 🔵 🟣 ⚪  [Rainbow]                     │
-│ [Pars] [Movers]      │ POSITION [Publikum] [Bühne] [Decke] [Kreis] [Acht]       │
-│ [Bars] [Alle]        │ EFFEKTE  [Pulse] [Chase] [Flackern] [Strobe]             │
+│ GROUPS               │ COLORS   🔴 🟠 🟡 🟢 🔵 🟣 ⚪  [Rainbow]                     │
+│ [Pars] [Movers]      │ POSITION [Audience] [Stage] [Ceiling] [Circle] [Eight]   │
+│ [Bars] [All]         │ EFFECTS  [Pulse] [Chase] [Flicker] [Strobe]              │
 ├──────────────────────┴─────────────────────────────────────────────────────────┤
 │ EXECUTORS                                                                       │
 │  ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐ ┌────┐                        │
-│  │Warm│ │Chas│ │Rain│ │Kreis│ │Strb│ │Blnd│ │ —  │ │ —  │                        │
+│  │Warm│ │Chas│ │Rain│ │Circ│ │Strb│ │Blnd│ │ —  │ │ —  │                        │
 │  │ ▮  │ │ ▮  │ │ ▮  │ │ ▮  │ │ ▮  │ │ ▮  │ │    │ │    │                        │
 │  │ ▮  │ │ ▮  │ │    │ │ ▮  │ │    │ │    │ │    │ │    │                        │
 │  │[FL]│ │[FL]│ │[FL]│ │[FL]│ │[FL]│ │[FL]│ │    │ │    │                        │
@@ -110,29 +112,30 @@ Ein Raster frei belegbarer Slots. Jeder Slot hält eine Palette, einen Effekt od
 └─────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-Optik: noch mehr „Club“: Buttons glühen im Takt, Beat-Puls im Hintergrund, Neon-Akzente (Magenta statt Cyan).
+Look: even more "club": buttons glow on the beat, a beat pulse in the background, neon accents (magenta instead of
+cyan).
 
-## Was die Architektur schon jetzt vorbereiten muss
+## What the architecture has to prepare now
 
-Damit der Party-Modus später **ohne Umbau** dazukommt, wird die DMX-Engine von Anfang an mit **Ausgabe-Ebenen
-(Layern)** gebaut (siehe [ARCHITECTURE.md](ARCHITECTURE.md#dmx-engine)):
+So that party mode can be added later **without rebuilding**, the DMX engine is built with **output layers** from
+the start (see [ARCHITECTURE.md](ARCHITECTURE.md#dmx-engine)):
 
 ```
  Programmer ─┐
- Theater-    │      ┌──────────────┐     ┌────────────────┐     ┌──────────┐
- Playback  ──┼────▶ │ Layer-Merger │───▶ │ Master/Blackout│───▶ │ DmxFrame │
- (später)    │      │ HTP / LTP    │     └────────────────┘     └──────────┘
- Party-      │      └──────────────┘
- Executors ──┘
+ Theatre     │      ┌──────────────┐     ┌────────────────┐     ┌──────────┐
+ playback  ──┼────▶ │ Layer merger │───▶ │ Master/blackout│───▶ │ DmxFrame │
+ (later)     │      │ HTP / LTP    │     └────────────────┘     └──────────┘
+ Party       │      └──────────────┘
+ executors ──┘
 ```
 
-- Jede Quelle (Programmer, Theater-Playback, später Executors/Effekte) liefert pro Tick einen
-  `OutputLayer` mit Attributwerten und einer Priorität.
-- Der Merger kombiniert sie: Intensität HTP, übrige Attribute LTP nach Aktivierungszeitpunkt bzw. Priorität.
-- Effekte sind reine Funktionen `f(zeit, beat, fixtureIndex, parameter) → Attributwerte`, also gut testbar.
-- Die Zeitbasis (`Clock`) bekommt später eine **Beat-Clock** dazu.
+- Every source (programmer, theatre playback, later executors/effects) delivers an `OutputLayer` with attribute
+  values and a priority on every tick.
+- The merger combines them: intensity HTP, other attributes LTP by activation time or priority.
+- Effects are pure functions `f(time, beat, fixtureIndex, parameters) → attribute values`, so easy to test.
+- The time base (`Clock`) later gets a **beat clock** in addition.
 
-## Datenmodell (Ausblick)
+## Data model (outlook)
 
-Neue Tabellen pro Projekt, z.B. `palette`, `effect`, `chaser`, `chaser_step`, `executor_slot`.
-Wird erst mit Iteration 11 als Flyway-Migration ergänzt.
+New tables per project, e.g. `palette`, `effect`, `chaser`, `chaser_step`, `executor_slot`.
+Only added as a Flyway migration with iteration 11.

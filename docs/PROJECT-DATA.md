@@ -1,82 +1,81 @@
-# Projektdaten (SQLite)
+# Project data (SQLite)
 
-Ein **Projekt** ist ein konkretes Theaterstück bzw. eine konkrete Spielstätte. Darin steht, welche Geräte
-aus der Bibliothek ([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md)) **tatsächlich verbaut** sind, wie sie gepatcht sind
-und welche Szenen es gibt.
+A **project** is a specific theatre play or a specific venue. It records which fixtures from the library
+([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md)) are **actually rigged**, how they are patched and which scenes there are.
 
-| Wo | Was |
+| Where | What |
 |---|---|
-| YAML (`fixture-types/`) | Gerätebeschreibungen – generisch, wiederverwendbar, versionierbar |
-| SQLite (`data/lumen.db`) | Projekte: Universen/Art-Net, Patch, Gruppen, Bühnenpositionen, Szenen, Fade-Zeiten |
-| `application.yml` | Technisches: Pfade, Server-Port, Art-Net-Bind-Adresse, Render-Rate |
+| YAML (`fixture-types/`) | Fixture descriptions – generic, reusable, versionable |
+| SQLite (`data/lumen.db`) | Projects: universes/Art-Net, patch, groups, stage positions, scenes, fade times |
+| `application.yml` | Technical settings: paths, server port, Art-Net bind address, render rate |
 
-## Entscheidungen
+## Decisions
 
-- **Eine Datenbankdatei** (`data/lumen.db`) mit beliebig vielen Projekten. Genau ein Projekt ist *aktiv*.
-- **Export/Import eines Projekts** als einzelne JSON-Datei (`<Name>.lumen.json`) – als Backup und um eine Show auf
-  einen anderen Rechner mitzunehmen. Zusätzlich sichert Lumen automatisch die ganze Datenbank nach `data/backups/`.
-- **Zugriff:** `sqlite-jdbc` (xerial) + Spring `JdbcClient`, kein JPA (SQLite und Hibernate passen schlecht zusammen,
-  und das Schema ist überschaubar).
-- **Migrationen:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Jede Iteration ergänzt nur die
-  Tabellen, die sie braucht: V1 = Projekte & Patch (Iteration 2), V2 = Szenen (Iteration 6),
-  V3 = `app_setting` und `playback_state` (Iteration 8), V4 = `stage_plan` (Iteration 9), V5 = Kompositionen
-  (Iteration K, mit V19 durch Looks/Compositions ersetzt),
-  V6 = Extra-Tasten (`composition.once`, `composition.key_fade_ms`, Tabelle `scene_extra_key`),
-  V7 = Szenen auf Extra-Tasten (`scene.key_only`, Tabelle `extra_key_scene`), V8 = Fade-Zeiten pro Szene
-  (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, Iteration 10), V9 = Party-Buttons (Iteration 11),
-  V10 = Textbuch pro Szene (`scene.script`, Iteration T), V11 = Netzwerk-Interface pro Universe
-  (`universe.network_interface`, Iteration N), V12 = erwartete Art-Net-Nodes pro Projekt (`expected_node`,
-  Iteration H; reist nicht im Projekt-Export mit, weil die Nodes zum Aufbau vor Ort gehören), …,
-  V18 = Form pro Fixture in der Bühnenansicht (`fixture.stage_shape`, `stage_rotation`, `stage_length`),
-  V19 = Looks, Compositions, Szenen in drei Stufen (Iteration S, siehe
-  [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)); die Tabellen des alten Modells bleiben als `legacy_*`
-  erhalten und werden beim Start einmal umgewandelt (`legacy_conversion` merkt sich die Projekte),
-  V20 = parallele Schritte (`composition_step.parallel`), V21 = Fader spielen Compositions (`fader.composition_id`,
-  `scene.outside_cue_list` entfällt; für noch nicht umgewandelte Projekte bleiben `legacy_fader` und
-  `legacy_outside_cue_list`), V22 = Party-Matrix (`party_matrix`, `party_cell`; `party_button*` entfällt),
-  V23 = Abschnitte nach Licht-Markern und Looks in Szenen (`scene_composition.section`, `scene_look`).
-- **SQLite-Settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
-- Fixture-Typen werden per `fixture_type_id` + `mode_name` aus der Bibliothek referenziert, nicht kopiert.
+- **One database file** (`data/lumen.db`) with any number of projects. Exactly one project is *active*.
+- **Export/import of a project** as a single JSON file (`<name>.lumen.json`) – as a backup and to take a show to
+  another computer. In addition, Lumen automatically backs up the whole database to `data/backups/`.
+- **Access:** `sqlite-jdbc` (xerial) + Spring `JdbcClient`, no JPA (SQLite and Hibernate do not fit well together,
+  and the schema is small).
+- **Migrations:** Flyway (`lumen-adapter-sqlite/src/main/resources/db/migration`). Every iteration only adds the
+  tables it needs: V1 = projects & patch (iteration 2), V2 = scenes (iteration 6),
+  V3 = `app_setting` and `playback_state` (iteration 8), V4 = `stage_plan` (iteration 9), V5 = compositions
+  (iteration K, replaced by looks/compositions with V19),
+  V6 = extra keys (`composition.once`, `composition.key_fade_ms`, table `scene_extra_key`),
+  V7 = scenes on extra keys (`scene.key_only`, table `extra_key_scene`), V8 = fade times per scene
+  (`scene.fade_in_ms`, `fade_out_ms`, `delay_ms`, iteration 10), V9 = party buttons (iteration 11),
+  V10 = script per scene (`scene.script`, iteration T), V11 = network interface per universe
+  (`universe.network_interface`, iteration N), V12 = expected Art-Net nodes per project (`expected_node`,
+  iteration H; not part of the project export, because the nodes belong to the rig on site), …,
+  V18 = shape per fixture in the stage view (`fixture.stage_shape`, `stage_rotation`, `stage_length`),
+  V19 = looks, compositions, scenes in three levels (iteration S, see
+  [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md)); the tables of the old model remain as `legacy_*`
+  and are converted once at start (`legacy_conversion` remembers the projects),
+  V20 = parallel steps (`composition_step.parallel`), V21 = faders play compositions (`fader.composition_id`,
+  `scene.outside_cue_list` is dropped; for projects not yet converted, `legacy_fader` and `legacy_outside_cue_list`
+  remain), V22 = party matrix (`party_matrix`, `party_cell`; `party_button*` is dropped),
+  V23 = parts after light markers and looks in scenes (`scene_composition.section`, `scene_look`).
+- **SQLite settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
+- Fixture types are referenced from the library by `fixture_type_id` + `mode_name`, not copied.
 
-## Schema (Zielbild)
+## Schema (target picture)
 
 ```
 project
   id              INTEGER PK
   name            TEXT NOT NULL
-  venue           TEXT                         -- Spielstätte, optional
-  fade_in_ms      INTEGER NOT NULL DEFAULT 3000   -- globale Fade-Zeiten
+  venue           TEXT                         -- venue, optional
+  fade_in_ms      INTEGER NOT NULL DEFAULT 3000   -- global fade times
   fade_out_ms     INTEGER NOT NULL DEFAULT 3000
-  fade_curve      TEXT NOT NULL DEFAULT 'linear'   -- 'linear', 's-curve' oder 'square'
-  active          INTEGER NOT NULL DEFAULT 0   -- genau eins = 1
+  fade_curve      TEXT NOT NULL DEFAULT 'linear'   -- 'linear', 's-curve' or 'square'
+  active          INTEGER NOT NULL DEFAULT 0   -- exactly one = 1
   created_at, updated_at  TEXT (ISO-8601)
 
-universe                                        -- ersetzt die frühere outputs.yml
+universe                                        -- replaces the former outputs.yml
   id              INTEGER PK
   project_id      FK → project ON DELETE CASCADE
-  number          INTEGER NOT NULL              -- logische Nummer im Projekt (1, 2, …)
+  number          INTEGER NOT NULL              -- logical number in the project (1, 2, …)
   name            TEXT
   artnet_net      INTEGER NOT NULL DEFAULT 0    -- 0–127
   artnet_subnet   INTEGER NOT NULL DEFAULT 0    -- 0–15
   artnet_universe INTEGER NOT NULL DEFAULT 0    -- 0–15
-  target          TEXT NOT NULL                 -- 'auto', 'auto,10.0.0.5', '10.0.0.5,10.0.0.6' oder 'broadcast'
-  network_interface TEXT NULL                   -- z.B. 'en7': nur über dieses Interface senden, NULL = alle Netze
+  target          TEXT NOT NULL                 -- 'auto', 'auto,10.0.0.5', '10.0.0.5,10.0.0.6' or 'broadcast'
+  network_interface TEXT NULL                   -- e.g. 'en7': send only via this interface, NULL = all networks
   UNIQUE(project_id, number)
 
-fixture                                         -- gepatchte Instanz
+fixture                                         -- patched instance
   id              INTEGER PK
   project_id      FK → project ON DELETE CASCADE
-  name            TEXT NOT NULL                 -- z.B. "Front links", "Spot Bühnenmitte"
-  short_name      TEXT                          -- für die Bühnenansicht, z.B. "FL"
-  fixture_type_id TEXT NOT NULL                 -- Referenz in die YAML-Bibliothek
+  name            TEXT NOT NULL                 -- e.g. "Front left", "Spot centre stage"
+  short_name      TEXT                          -- for the stage view, e.g. "FL"
+  fixture_type_id TEXT NOT NULL                 -- reference into the YAML library
   mode_name       TEXT NOT NULL
-  universe_id     FK → universe ON DELETE RESTRICT   -- Universe mit Geräten kann nicht gelöscht werden
+  universe_id     FK → universe ON DELETE RESTRICT   -- a universe with fixtures cannot be deleted
   address         INTEGER NOT NULL              -- 1–512
-  pos_x, pos_y    REAL                          -- 0..1, Bühnenansicht
+  pos_x, pos_y    REAL                          -- 0..1, stage view
   sort_order      INTEGER
-  stage_shape     TEXT NOT NULL DEFAULT 'auto'  -- Form in der Bühnenansicht: auto | spot | bar | strip
-  stage_rotation  INTEGER NOT NULL DEFAULT 0    -- 0–359°, im Uhrzeigersinn, 0 = quer zur Bühne
-  stage_length    REAL NOT NULL DEFAULT 0.15    -- Länge von Bar/Strip als Anteil der Bühnenbreite
+  stage_shape     TEXT NOT NULL DEFAULT 'auto'  -- shape in the stage view: auto | spot | bar | strip
+  stage_rotation  INTEGER NOT NULL DEFAULT 0    -- 0–359°, clockwise, 0 = across the stage
+  stage_length    REAL NOT NULL DEFAULT 0.15    -- length of bar/strip as a share of the stage width
 
 fixture_group
   id, project_id, name, color, sort_order
@@ -84,169 +83,169 @@ fixture_group
 fixture_group_member
   group_id        FK → fixture_group ON DELETE CASCADE
   fixture_id      FK → fixture ON DELETE CASCADE
-  position        INTEGER NOT NULL              -- Reihenfolge der Mitglieder
+  position        INTEGER NOT NULL              -- order of the members
   PRIMARY KEY(group_id, fixture_id)
 
 scene
   id              INTEGER PK
   project_id      FK → project ON DELETE CASCADE
-  number          TEXT NOT NULL                 -- "1", "2", "2.5" – normalisiert, bestimmt die Reihenfolge
-  name            TEXT NOT NULL                 -- "Akt 1 – Morgendämmerung"
-  cue_note        TEXT                          -- Regiehinweis: "GO bei: '…und dann ging die Sonne auf'"
-  auto_follow_ms  INTEGER NULL                  -- NULL = Stay bis GO; sonst automatisches GO nach Ablauf
-  fade_in_ms      INTEGER NULL                  -- Fade-In beim GO in diese Szene, NULL = Projektzeit
-  fade_out_ms     INTEGER NULL                  -- Fade-Out des Bildes davor beim GO in diese Szene, NULL = Projektzeit
-  delay_ms        INTEGER NOT NULL DEFAULT 0    -- Fade-In startet so lange nach dem GO
-  fade_curve      TEXT NULL                     -- eigene Fade-Kurve, NULL = die des Projekts
-  script          TEXT NOT NULL DEFAULT ''      -- gesprochener Text der Szene, **…** = Regieanweisung
+  number          TEXT NOT NULL                 -- "1", "2", "2.5" – normalized, defines the order
+  name            TEXT NOT NULL                 -- "Act 1 – Dawn"
+  cue_note        TEXT                          -- cue note: "GO on: '…and then the sun rose'"
+  auto_follow_ms  INTEGER NULL                  -- NULL = stay until GO; otherwise automatic GO when it runs out
+  fade_in_ms      INTEGER NULL                  -- fade-in at the GO into this scene, NULL = project time
+  fade_out_ms     INTEGER NULL                  -- fade-out of the picture before, at the GO into this scene, NULL = project time
+  delay_ms        INTEGER NOT NULL DEFAULT 0    -- the fade-in starts this long after the GO
+  fade_curve      TEXT NULL                     -- own fade curve, NULL = the project's
+  script          TEXT NOT NULL DEFAULT ''      -- spoken text of the scene, **…** = stage direction
   UNIQUE(project_id, number)
 
-scene_composition                               -- Compositions einer Szene, Reihenfolge = Priorität
+scene_composition                               -- compositions of a scene, order = priority
   scene_id        FK → scene ON DELETE CASCADE
-  section         TEXT NOT NULL DEFAULT ''      -- '' = Start der Szene, sonst Name des Licht-Markers (V23)
-  composition_id  FK → composition              -- eine gespielte Composition kann nicht gelöscht werden
+  section         TEXT NOT NULL DEFAULT ''      -- '' = start of the scene, otherwise name of the light marker (V23)
+  composition_id  FK → composition              -- a composition that is played cannot be deleted
   position        INTEGER NOT NULL
   level           REAL NOT NULL                 -- 0..1
   speed_factor    REAL NOT NULL
-  restart         INTEGER NOT NULL              -- 1 = beim GO neu starten statt weiterlaufen
+  restart         INTEGER NOT NULL              -- 1 = restart at GO instead of continuing
   PRIMARY KEY(scene_id, section, composition_id)
 
-scene_look                                      -- Looks, die eine Szene direkt spielt, unter den Compositions (V23)
+scene_look                                      -- looks a scene plays directly, below the compositions (V23)
   scene_id        FK → scene ON DELETE CASCADE
-  section         TEXT NOT NULL DEFAULT ''      -- wie bei scene_composition
-  look_id         FK → look                     -- ein so verwendeter Look kann nicht gelöscht werden
+  section         TEXT NOT NULL DEFAULT ''      -- as for scene_composition
+  look_id         FK → look                     -- a look used like this cannot be deleted
   position, level
 
-scene_key                                       -- Extra-Tasten einer Szene
+scene_key                                       -- extra keys of a scene
   scene_id, slot (1–8), composition_id, key_mode ('toggle' | 'flash'), fade_ms   PRIMARY KEY(scene_id, slot)
 
-composition                                     -- Schritte, die Looks spielen
+composition                                     -- steps that play looks
   id, project_id, name
-  fade_ms, hold_ms                              -- Standardzeiten der Schritte
+  fade_ms, hold_ms                              -- default times of the steps
   play_mode       TEXT NOT NULL                 -- 'loop' | 'ping_pong' | 'once'
   intensity_mode  TEXT NOT NULL                 -- 'absolute' | 'relative'
-  generator_kind, generator (JSON), generator_group_id, generator_per_head   -- nur für „Regenerate“
-composition_generator_fixture                   -- feste Fixture-Liste als Ziel des Generators
-composition_step                                -- composition_id, step_index, look_id, fade_ms/hold_ms (NULL = Standard),
-                                                --   parallel (1 = startet mit dem Schritt davor, gleiche Zeile)
+  generator_kind, generator (JSON), generator_group_id, generator_per_head   -- only for "Regenerate"
+composition_generator_fixture                   -- fixed fixture list as the generator's target
+composition_step                                -- composition_id, step_index, look_id, fade_ms/hold_ms (NULL = default),
+                                                --   parallel (1 = starts with the step before, same row)
 
-look                                            -- feste Werte, normalisiert 0..1
+look                                            -- fixed values, normalized 0..1
   id, project_id, name
-  owner_composition_id FK → composition ON DELETE CASCADE NULL   -- gesetzt = eigener Look einer Composition
+  owner_composition_id FK → composition ON DELETE CASCADE NULL   -- set = a composition's own look
 look_value                                      -- look_id, fixture_id, attribute, value
-  attribute       TEXT NOT NULL                 -- Attribut-ID: 'dimmer', 'red', 'pan', 'generic:Program speed', …
+  attribute       TEXT NOT NULL                 -- attribute ID: 'dimmer', 'red', 'pan', 'generic:Program speed', …
 
-preset                                          -- benannte Werte einer Attributgruppe pro Fixture
+preset                                          -- named values of an attribute group per fixture
   id              INTEGER PK
   project_id      FK → project ON DELETE CASCADE
-  name            TEXT NOT NULL                 -- "Warm", "Stuhl"
-  attribute_group TEXT NOT NULL                 -- 'color', 'position' oder 'beam'
+  name            TEXT NOT NULL                 -- "Warm", "Chair"
+  attribute_group TEXT NOT NULL                 -- 'color', 'position' or 'beam'
 
-preset_value                                    -- wie look_value, nur Attribute der Gruppe
+preset_value                                    -- like look_value, only attributes of the group
   preset_id, fixture_id, attribute, value       PRIMARY KEY(preset_id, fixture_id, attribute)
 
-look_preset                                     -- aus welchem Preset die Werte eines Looks stammen
+look_preset                                     -- which preset the values of a look come from
   look_id         FK → look ON DELETE CASCADE
   fixture_id      FK → fixture ON DELETE CASCADE
   attribute_group TEXT NOT NULL
-  preset_id       FK → preset ON DELETE CASCADE -- gelöschtes Preset: die Werte bleiben, der Verweis geht
+  preset_id       FK → preset ON DELETE CASCADE -- deleted preset: the values stay, the reference goes
   PRIMARY KEY(look_id, fixture_id, attribute_group)
 
-look_revision                                   -- frühere Inhalte eines Looks (Rückgängig), die neuesten 20
+look_revision                                   -- earlier contents of a look (undo), the newest 20
   id, look_id (FK ON DELETE CASCADE), created_at, reason
-look_revision_value / look_revision_preset      -- Werte und Preset-Verweise des früheren Inhalts
+look_revision_value / look_revision_preset      -- values and preset references of the earlier content
 
-fader                                           -- Fader im Betrieb, z.B. Saallicht
+fader                                           -- faders in the show, e.g. house lights
   project_id      FK → project ON DELETE CASCADE
   slot            INTEGER NOT NULL              -- 1–8
-  name            TEXT                          -- NULL = Name der Composition
+  name            TEXT                          -- NULL = name of the composition
   composition_id  FK → composition ON DELETE CASCADE
   PRIMARY KEY(project_id, slot)
 
-party_matrix                                    -- Größe der Party-Matrix (fehlt = 4 × 4, leer)
+party_matrix                                    -- size of the party matrix (missing = 4 × 4, empty)
   project_id      PK, FK → project ON DELETE CASCADE
   rows, columns   INTEGER 1–12
-  separators      TEXT                          -- Zeilen mit Trennlinie darüber, z.B. '2,4'
+  separators      TEXT                          -- rows with a divider above them, e.g. '2,4'
 
-party_cell                                      -- ein Feld; ohne Szene und Composition nur Text
+party_cell                                      -- a field; without scene and composition just text
   project_id, row_index, column_index           -- PK
-  label           TEXT NULL                     -- NULL = Name dessen, was es spielt
+  label           TEXT NULL                     -- NULL = name of what it plays
   scene_id        FK → scene ON DELETE SET NULL
   composition_id  FK → composition ON DELETE SET NULL
   color, border_color TEXT                      -- '#rrggbb'
   key_mode        TEXT                          -- 'toggle' | 'flash'
-  group_name      TEXT NULL                     -- Felder einer Gruppe schließen sich aus
+  group_name      TEXT NULL                     -- fields of a group exclude each other
 
-app_setting                                     -- projektübergreifende Einstellungen
+app_setting                                     -- settings across projects
   key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
   value           TEXT NOT NULL
 
-stage_plan                                      -- optionaler Grundriss hinter der Bühnenansicht
+stage_plan                                      -- optional floor plan behind the stage view
   project_id      PK, FK → project ON DELETE CASCADE
-  content_type    TEXT NOT NULL                 -- image/png, image/jpeg oder image/webp (kein SVG)
-  data            BLOB NOT NULL                 -- höchstens 5 MB
+  content_type    TEXT NOT NULL                 -- image/png, image/jpeg or image/webp (no SVG)
+  data            BLOB NOT NULL                 -- at most 5 MB
 
-playback_state                                  -- für Wiederaufnahme nach Absturz/Neustart
+playback_state                                  -- for resuming after a crash/restart
   project_id      PK, FK → project ON DELETE CASCADE
-  current_scene_id FK → scene ON DELETE SET NULL   -- NULL = dunkel (vor Szene 1 oder nach dem Ende)
+  current_scene_id FK → scene ON DELETE SET NULL   -- NULL = dark (before scene 1 or after the end)
   updated_at      TEXT NOT NULL
 ```
 
-### Projektdatei (Export/Import)
+### Project file (export/import)
 
 ```json
 {
   "format": "lumen-project", "version": 3, "exportedAt": "2026-10-06T19:30:00Z",
-  "project":   { "name": "Der Sturm", "venue": "Stadttheater", "fadeInMs": 3000, "fadeOutMs": 3000 },
-  "universes": [ { "id": 1, "number": 1, "name": "Bühne", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
+  "project":   { "name": "The Tempest", "venue": "City Theatre", "fadeInMs": 3000, "fadeOutMs": 3000 },
+  "universes": [ { "id": 1, "number": 1, "name": "Stage", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
                    "mode": "auto", "ipAddresses": [] } ],
-  "fixtures":  [ { "id": 7, "name": "Front links", "shortName": "FL", "fixtureTypeId": "generic-rgbw-par",
+  "fixtures":  [ { "id": 7, "name": "Front left", "shortName": "FL", "fixtureTypeId": "generic-rgbw-par",
                    "mode": "8ch", "universeId": 1, "address": 1, "position": null, "sortOrder": 0 } ],
   "groups":    [ { "id": 2, "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],
-  "looks":     [ { "id": 11, "name": "Sturm", "owner": 4,
+  "looks":     [ { "id": 11, "name": "Storm", "owner": 4,
                    "values": { "7": { "dimmer": 1.0, "blue": 0.8 } }, "presets": { "7": { "color": 3 } } } ],
-  "compositions": [ { "id": 4, "name": "Sturm", "fadeMs": 1000, "holdMs": 2000, "playMode": "loop",
+  "compositions": [ { "id": 4, "name": "Storm", "fadeMs": 1000, "holdMs": 2000, "playMode": "loop",
                       "intensityMode": "absolute", "generator": null,
                       "steps": [ { "lookId": 11, "fadeMs": null, "holdMs": null, "parallel": false } ] } ],
-  "scenes":    [ { "number": "2.5", "name": "Sturm", "cueNote": "GO bei Donner", "autoFollowMs": null,
+  "scenes":    [ { "number": "2.5", "name": "Storm", "cueNote": "GO on thunder", "autoFollowMs": null,
                    "compositions": [ { "compositionId": 4, "level": 1, "speedFactor": 1, "restart": false } ],
                    "keys": [ { "slot": 1, "compositionId": 4, "mode": "flash", "fadeMs": 0 } ] } ],
   "stagePlan": { "contentType": "image/png", "data": "<Base64>" },
   "presets":   [ { "id": 3, "name": "Warm", "group": "color", "values": { "7": { "red": 1.0, "green": 0.6 } } } ],
-  "faders":    [ { "slot": 1, "name": "Saallicht", "compositionId": 4 } ],
+  "faders":    [ { "slot": 1, "name": "House lights", "compositionId": 4 } ],
   "partyMatrix": { "rows": 2, "columns": 4, "separators": [1],
-                   "cells": [ { "row": 0, "column": 0, "label": "Rot", "compositionId": 4, "color": "#c01020",
-                                "borderColor": "#ff4060", "mode": "toggle", "group": "Farben" },
+                   "cells": [ { "row": 0, "column": 0, "label": "Red", "compositionId": 4, "color": "#c01020",
+                                "borderColor": "#ff4060", "mode": "toggle", "group": "Colors" },
                               { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" } ] }
 }
 ```
 
-Die IDs verbinden nur die Teile der Datei. Dateien der Version 1 (vor Iteration S: Werte direkt in den Szenen,
-Kompositions-Kopien, projektweite Extra-Tasten) werden beim Import wie eine alte Datenbank umgewandelt. In Version 2
-spielten Fader eine Szene (per Nummer) und Szenen konnten außerhalb der Cue-Liste stehen: Der Fader spielt dann die
-erste Composition der Szene, solche Szenen fallen weg. Party-Buttons älterer Dateien werden ignoriert. Beim Import
-entsteht ein **neues Projekt** mit neuen IDs; heißt schon ein
-Projekt so, bekommt es den Zusatz „(imported)“. Verweise auf unbekannte Universen/Fixtures werden abgelehnt, ohne
-ein halbes Projekt zu hinterlassen. Fehlende Gerätetypen sind erlaubt und erscheinen als Patch-Problem.
+The IDs only connect the parts of the file. Files of version 1 (before iteration S: values directly in the scenes,
+composition copies, project-wide extra keys) are converted on import like an old database. In version 2, faders
+played a scene (by number) and scenes could be outside the cue list: the fader then plays the scene's first
+composition, and such scenes are dropped. Party buttons of older files are ignored. An import always creates a
+**new project** with new IDs; if a project of that name exists, it gets the suffix "(imported)". References to unknown
+universes/fixtures are rejected without leaving half a project behind. Missing fixture types are allowed and show up
+as a patch problem.
 
-**Reihenfolge = Szenennummer** (numerisch: 1 < 2 < 2.5 < 10). Einfügen geht über Dezimalnummern, eine separate
-Sortierspalte gibt es nicht – so kann Szene 5 nie vor Szene 3 stehen. Köpfe von Multi-Pixel-Geräten haben eigene
-Attribut-IDs (z.B. `red@2`), dafür war keine Schemaänderung nötig.
+**Order = scene number** (numeric: 1 < 2 < 2.5 < 10). Inserting works through decimal numbers; there is no separate
+sort column – so scene 5 can never come before scene 3. Heads of multi-pixel fixtures have their own attribute IDs
+(e.g. `red@2`), which needed no schema change.
 
-**Presets werden in die Looks geschrieben:** Ein Look speichert die Werte immer vollständig, `look_preset` merkt
-sich nur, aus welchem Preset sie stammen. Wird ein Preset aktualisiert, schreibt Lumen die neuen Werte in alle Looks,
-die darauf verweisen. Playback, Export und alle anderen Leser sehen deshalb nur fertige Werte.
+**Presets are written into the looks:** a look always stores its values completely, `look_preset` only remembers
+which preset they come from. When a preset is updated, Lumen writes the new values into all looks that refer to it.
+Playback, export and all other readers therefore only see finished values.
 
-**Werte werden pro Attribut gespeichert, nicht als rohe DMX-Bytes.** Wird ein Gerät umgepatcht (andere Adresse,
-anderer Modus), bleiben die Looks gültig.
+**Values are stored per attribute, not as raw DMX bytes.** If a fixture is re-patched (different address, different
+mode), the looks stay valid.
 
-**Fixtures, die keine Composition einer Szene setzt,** sind in dieser Szene **aus** (Intensität 0). Sie werden also beim
-Wechsel ausgefadet. Ihre übrigen Attribute (Farbe, Position) bleiben, wie sie sind. Innerhalb einer Composition ist ein
-Fixture, das in einem Schritt fehlt oder dort keine Intensität hat, in diesem Schritt dunkel.
+**Fixtures that no composition of a scene sets** are **off** in that scene (intensity 0). So they are faded out on
+the change. Their other attributes (color, position) stay as they are. Within a composition, a fixture that is
+missing in a step or has no intensity there is dark in that step.
 
-## Validierung im Patch
+## Validation in the patch
 
-- Adresse + Kanalanzahl − 1 ≤ 512
-- keine Überschneidung im selben Universe (mit Namen beider Fixtures)
-- Typ und Modus existieren in der Bibliothek
-- eindeutige Art-Net-Port-Adresse pro Universe im Projekt
+- address + channel count − 1 ≤ 512
+- no overlap in the same universe (with the names of both fixtures)
+- type and mode exist in the library
+- unique Art-Net port address per universe in the project

@@ -1,102 +1,103 @@
-# MIDI-Controller
+# MIDI controller
 
-Ein USB-MIDI-Controller mit Fadern, Drehreglern und Buttons (z.B. Akai APC mini, Korg nanoKONTROL2,
-Behringer X-Touch Mini, Novation Launch Control) ergänzt das Touch-UI um **echte Hardware**: Fader zum Anfassen
-und ein GO-Button, den man blind trifft.
+A USB MIDI controller with faders, knobs and buttons (e.g. Akai APC mini, Korg nanoKONTROL2, Behringer X-Touch Mini,
+Novation Launch Control) adds **real hardware** to the touch UI: faders you can grab and a GO button you can hit
+without looking.
 
-> **Status:** geplant als **optionale Iteration**, unabhängig von den anderen. Sinnvoll ab Iteration 7, wenn der
-> Betriebsmodus existiert (siehe [ROADMAP.md](ROADMAP.md)).
+> **Status:** planned as an **optional iteration**, independent of the others. Useful from iteration 7 on, once show
+> mode exists (see [ROADMAP.md](ROADMAP.md)).
 
-## Wo wird der Controller angeschlossen?
+## Where is the controller connected?
 
-| Variante | Controller hängt an … | Technik | Wann sinnvoll |
+| Variant | Controller is plugged into … | Technology | When it makes sense |
 |---|---|---|---|
-| **A – Server-seitig** (Start) | dem Rechner, auf dem Lumen läuft | `javax.sound.midi` (im JDK, keine Abhängigkeit) | Laptop am Regieplatz = Server |
-| **B – Browser-seitig** (später) | dem Tablet/Laptop mit dem UI | Web MIDI API (Chrome/Edge) | Server steht woanders (z.B. Pi im Rack) |
+| **A – server side** (start) | the computer running Lumen | `javax.sound.midi` (in the JDK, no dependency) | laptop at the control desk = server |
+| **B – browser side** (later) | the tablet/laptop with the UI | Web MIDI API (Chrome/Edge) | server is somewhere else (e.g. a Pi in the rack) |
 
-**Entscheidung:** Wir starten mit **A**. Das ist ein klassischer eingehender Adapter im Hexagon
-(`lumen-adapter-midi`) und funktioniert auch, wenn kein Browser offen ist. Beide Varianten nutzen dieselbe
-Mapping-Logik in der Application-Schicht. Variante B schickt die MIDI-Events nur über den WebSocket an den Server.
+**Decision:** we start with **A**. It is a classic inbound adapter in the hexagon (`lumen-adapter-midi`) and works
+even when no browser is open. Both variants use the same mapping logic in the application layer. Variant B only sends
+the MIDI events to the server over the WebSocket.
 
 ```
- USB-MIDI ─▶ lumen-adapter-midi ─▶ MidiInputUseCase ─▶ Mapping ─▶ PlaybackUseCase / ProgrammerUseCase / …
+ USB MIDI ─▶ lumen-adapter-midi ─▶ MidiInputUseCase ─▶ mapping ─▶ PlaybackUseCase / ProgrammerUseCase / …
                      ▲                                    │
-                     └──── MidiFeedbackPort ◀─────────────┘   (LEDs, Motorfader)
+                     └──── MidiFeedbackPort ◀─────────────┘   (LEDs, motor faders)
 ```
 
-## Controller-Profile vs. Mapping
+## Controller profiles vs. mapping
 
-Wie bei den Fixtures trennen wir **was die Hardware ist** von **was sie im Projekt tut**:
+As with fixtures, we separate **what the hardware is** from **what it does in the project**:
 
-**Controller-Profil (YAML, `midi-controllers/`)** beschreibt die Bedienelemente eines Geräts:
+**Controller profile (YAML, `midi-controllers/`)** describes the controls of a device:
 
 ```yaml
 id: akai-apc-mini-mk2
 name: Akai APC mini mk2
-match: "APC mini mk2"            # Teilstring des MIDI-Gerätenamens zur automatischen Erkennung
+match: "APC mini mk2"            # substring of the MIDI device name for automatic detection
 controls:
   - { id: fader-1, type: fader, message: cc, channel: 1, number: 48 }
   - { id: fader-9, type: fader, message: cc, channel: 1, number: 56 }
   - { id: pad-1,   type: button, message: note, channel: 1, number: 0,
-      feedback: { off: 0, on: 5, blink: 2 } }       # Velocity-Werte für LED-Farben
+      feedback: { off: 0, on: 5, blink: 2 } }       # velocity values for LED colors
   - { id: shift,   type: button, message: note, channel: 1, number: 122 }
 ```
 
-Ohne Profil funktioniert ein Controller auch, nur ohne Namen und ohne LED-Feedback (generisches MIDI).
+A controller also works without a profile, just without names and without LED feedback (generic MIDI).
 
-**Mapping (SQLite, pro Projekt)** legt fest, welche Aktion ein Bedienelement auslöst:
+**Mapping (SQLite, per project)** defines which action a control triggers:
 
 ```
 midi_mapping
   id, project_id
-  controller_profile_id   TEXT            -- oder 'generic'
-  control_id              TEXT            -- 'fader-1' bzw. 'cc:1:48'
-  mode                    TEXT            -- 'betrieb' | 'konfiguration' | 'party' | 'alle'
-  action                  TEXT            -- siehe unten
-  target_id               INTEGER NULL    -- z.B. Gruppe oder Szene
-  options_json            TEXT            -- Kurve, Invertierung, Bereich
+  controller_profile_id   TEXT            -- or 'generic'
+  control_id              TEXT            -- 'fader-1' or 'cc:1:48'
+  mode                    TEXT            -- 'show' | 'setup' | 'party' | 'all'
+  action                  TEXT            -- see below
+  target_id               INTEGER NULL    -- e.g. group or scene
+  options_json            TEXT            -- curve, inversion, range
 ```
 
-## Aktionen
+## Actions
 
-| Aktion | Element | Modus |
+| Action | Control | Mode |
 |---|---|---|
-| `playback.go` / `back` / `pause` / `finish` | Button | Betrieb |
-| `output.grand-master` | Fader | alle |
-| `output.blackout` (Toggle) · `output.flash-all` (gedrückt halten) | Button | alle |
-| `programmer.group-dimmer` (Gruppe) | Fader | Konfiguration |
-| `programmer.fixture-dimmer` (Fixture) | Fader | Konfiguration |
-| `programmer.select-group` | Button | Konfiguration |
-| `programmer.attribute` (z.B. Pan, Tilt, Farbe) der Auswahl | Drehregler | Konfiguration |
-| `scene.preview` / `scene.record` | Button | Konfiguration |
-| `party.executor-fader` / `-flash` / `-toggle`, `party.tap-tempo` | Fader/Button | Party (Zukunft) |
+| `playback.go` / `back` / `pause` / `finish` | button | show |
+| `output.grand-master` | fader | all |
+| `output.blackout` (toggle) · `output.flash-all` (hold) | button | all |
+| `programmer.group-dimmer` (group) | fader | setup |
+| `programmer.fixture-dimmer` (fixture) | fader | setup |
+| `programmer.select-group` | button | setup |
+| `programmer.attribute` (e.g. pan, tilt, color) of the selection | knob | setup |
+| `scene.preview` / `scene.record` | button | setup |
+| `party.field` (toggle/flash a field of the party matrix) | button | party |
 
-Im Betriebsmodus sind nur die Aktionen dieses Modus aktiv. Ein Programmer-Fader kann während der Vorstellung
-also nichts verstellen.
+In show mode only the actions of that mode are active. A programmer fader therefore cannot change anything during a
+performance.
 
-## Wichtige Details
+## Important details
 
-- **MIDI-Learn:** Im UI eine Aktion anklicken, dann am Controller das Element bewegen. Fertig ist die Zuordnung.
-- **Soft-Takeover / Pickup:** Normale Fader stehen nach einem Szenenwechsel nicht mehr dort, wo der Wert ist.
-  Ein Fader übernimmt erst, wenn er den aktuellen Wert „eingeholt“ hat, damit nichts springt. Das UI zeigt das an
-  (z.B. Pfeil ↑/↓ am Fader).
-- **Feedback:** Button-LEDs zeigen den Zustand (GO bereit, Blackout aktiv, ausgewählte Gruppe, laufende Szene blinkt).
-  Motorfader werden nachgeführt, falls vorhanden.
-- **Auflösung:** CC ist 7 Bit (0–127). Das reicht für Dimmer; 14-Bit-CC/Pitch-Bend wird unterstützt, wenn das
-  Profil es angibt.
-- **Hotplug:** Controller ab- und wieder anstecken, ohne Neustart (Geräteliste periodisch prüfen). Status im UI.
-- **Entprellen / Doppel-GO-Schutz:** dieselbe Sperrzeit wie der GO-Button im UI.
-- **macOS/Linux:** `javax.sound.midi` erkennt class-compliant USB-Geräte. Auf Linux/Pi ggf. ALSA-Rechte prüfen.
+- **MIDI learn:** click an action in the UI, then move the control on the controller. The mapping is done.
+- **Soft takeover / pickup:** after a scene change, ordinary faders are no longer where the value is. A fader only
+  takes over once it has "caught up" with the current value, so nothing jumps. The UI shows this (e.g. an arrow ↑/↓
+  at the fader).
+- **Feedback:** button LEDs show the state (GO ready, blackout active, selected group, running scene blinks). Motor
+  faders follow, if present.
+- **Resolution:** CC is 7 bit (0–127). That is enough for dimmers; 14-bit CC/pitch bend is supported when the
+  profile says so.
+- **Hotplug:** unplug and replug controllers without a restart (check the device list periodically). Status in the UI.
+- **Debounce / double-GO protection:** the same lock time as the GO button in the UI.
+- **macOS/Linux:** `javax.sound.midi` detects class-compliant USB devices. On Linux/Pi check the ALSA permissions if
+  needed.
 
 ## UI
 
-- **Einstellungen → MIDI:** erkannte Geräte, Profil-Zuordnung, Mapping-Tabelle, MIDI-Learn, Monitor der eingehenden
-  Nachrichten (zum Debuggen)
-- Kleines MIDI-Symbol in der Statusleiste: blinkt bei eingehenden Nachrichten
+- **Settings → MIDI:** detected devices, profile assignment, mapping table, MIDI learn, monitor of incoming messages
+  (for debugging)
+- Small MIDI icon in the status bar: blinks on incoming messages
 
-## Später
+## Later
 
-- Variante B (Web MIDI im Browser)
-- MIDI-Clock als Tempo-Quelle für den [Party-Modus](PARTY-MODE.md)
-- MIDI Show Control / Notes von einer Ton-Software (z.B. QLab) als GO-Trigger
-- Fertige Mappings je Profil als Vorlage („APC mini → Party-Executors“)
+- Variant B (Web MIDI in the browser)
+- MIDI clock as a tempo source for the [party mode](PARTY-MODE.md)
+- MIDI Show Control / notes from sound software (e.g. QLab) as a GO trigger
+- Ready-made mappings per profile as templates ("APC mini → party matrix")

@@ -1,243 +1,245 @@
-# Web-Oberfläche – Konzept
+# Web interface – concept
 
-> **Sprache der Oberfläche: Englisch.** Die Skizzen unten verwenden zur Beschreibung noch deutsche Begriffe.
-> In der App heißen die Modi **Setup** (Konfiguration), **Show** (Betrieb) und später **Party**. Weitere Beispiele:
-> Szenen → *Scenes*, Programmer → *Programmer*, Aufnehmen → *Record*, Regiehinweis → *Cue note*.
+The interface has two clearly separated modes, **Setup** and **Show**:
 
-Die Oberfläche hat zwei klar getrennte Modi:
-
-| | **Konfiguration** (Einrichten & Proben) | **Betrieb** (Vorstellung) |
+| | **Setup** (setting up & rehearsals) | **Show** (performance) |
 |---|---|---|
-| Wer/Wann | Technik bei Einrichtung und Proben | Bedienung während der Vorstellung |
-| Ziel | Projekt einrichten, Szenen bauen | Sicher und fehlerfrei GO drücken |
-| Bearbeiten | alles | nichts. Nur Playback, Master, Blackout |
-| Look | informationsreich | reduziert, große Elemente, extrem dunkel |
+| Who/when | crew during setup and rehearsals | operator during the performance |
+| Goal | set up the project, build scenes | press GO safely and without mistakes |
+| Editing | everything | nothing. Only playback, master, blackout |
+| Look | information-rich | reduced, large elements, extremely dark |
 
-Später kommt als dritter Modus der **Party-Modus** (Live-Steuerung mit Effekten, BPM und Executors) dazu,
-siehe [PARTY-MODE.md](PARTY-MODE.md). Die App-Shell sollte den Moduswechsel daher von Anfang an für mehr als zwei
-Modi auslegen.
+The third mode is **Party** (live control from a matrix of fields), see [PARTY-MODE.md](PARTY-MODE.md). The app shell
+was therefore designed for more than two modes from the start.
 
-Der Wechsel erfolgt über einen Schalter oben rechts. **Betrieb → Konfiguration** erfordert die
-**Konfigurations-PIN**, damit es nicht versehentlich während der Vorstellung passiert. Ist keine PIN gesetzt,
-genügt eine Bestätigung. Mit PIN zeigt die Kopfleiste im Konfigurationsmodus „🔒 Locked“ bzw. „🔓 Unlocked“; eine
-gesperrte Änderung öffnet das PIN-Feld (mit Ziffernblock für Touch).
+The mode is switched with a switch at the top right. **Show → Setup** requires the **setup PIN**, so that it cannot
+happen by accident during the performance. If no PIN is set, a confirmation is enough. With a PIN, the header shows
+"🔒 Locked" or "🔓 Unlocked" in setup mode; a locked change opens the PIN field (with a number pad for touch).
 
-## Look & Feel
+## Look & feel
 
-**Leitidee: „Das UI leuchtet wie das Licht.“**
+**Guiding idea: "The UI glows like the light."**
 
-- **Dark Mode first** (`#0b0d12`). Im Betrieb noch dunkler, damit der Bildschirm im Saal nicht stört.
-- **Glow statt Flächen:** Fixtures und Szenen-Kacheln strahlen in ihrer Farbe/Helligkeit.
-- **Glassmorphism** für Panels, feine 1px-Ränder, Akzentfarbe Neon-Cyan `#3cf0ff`.
-- **Modusfarbe:** Konfiguration = Cyan-Akzent, Betrieb = Bernstein/Rot-Akzent. Der Modus ist auf einen Blick erkennbar.
-- **Typografie:** `Inter` für Text, `JetBrains Mono` für Adressen, Szenennummern und Zeiten.
-- **Touch-first:** große Fader und Buttons, Tablet im Querformat als Pult.
+- **Dark mode first** (`#0b0d12`). Even darker in show mode, so that the screen does not disturb in the auditorium.
+- **Glow instead of areas:** fixtures and scene tiles shine in their color/brightness.
+- **Glassmorphism** for panels, fine 1px borders, accent color neon cyan `#3cf0ff`.
+- **Mode color:** setup = cyan accent, show = amber/red accent. The mode is recognizable at a glance.
+- **Typography:** `Inter` for text, `JetBrains Mono` for addresses, scene numbers and times.
+- **Touch-first:** large faders and buttons, a tablet in landscape as the desk.
 
 ---
 
-## Modus 1: Konfiguration
+## Mode 1: Setup
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│ ◉ LUMEN  „Der Sturm“ ▾   [Patch] [Bühne] [Looks] [Compositions] [Szenen] [Universen] [⚙]  KONFIG ◐ BETRIEB │
+│ ◉ LUMEN  "The Tempest" ▾   [Patch] [Stage] [Looks] [Compositions] [Scenes] [Universes] [⚙]  SETUP ◐ SHOW │
 ├────────────┬──────────────────────────────────────────────────┬────────────────┤
-│ GRUPPEN    │                                                  │ PROGRAMMER     │
-│ ▣ Alle     │         BÜHNENANSICHT / LISTE                    │ Front links    │
+│ GROUPS     │                                                  │ PROGRAMMER     │
+│ ▣ All      │         STAGE VIEW / LIST                        │ Front left     │
 │ ▣ Front    │                                                  │ ────────────── │
-│ ▣ Seiten   │      ◯ Spot M (Lichtkegel)                       │   ( Farbrad )  │
-│ ▣ Hinter-  │                                                  │ Dimmer ▮▮▮▮▯   │
-│   grund    │   ◉ FL      ◉ FM       ◉ FR                      │ Pan/Tilt [XY]  │
-│            │  (warm)    (aus)     (warm)                      │ Rohkanäle ▸    │
+│ ▣ Sides    │      ◯ Spot M (light cone)                       │  (color wheel) │
+│ ▣ Back-    │                                                  │ Dimmer ▮▮▮▮▯   │
+│   ground   │   ◉ FL      ◉ FM       ◉ FR                      │ Pan/Tilt [XY]  │
+│            │  (warm)    (off)     (warm)                      │ Raw channels ▸ │
 ├────────────┴──────────────────────────────────────────────────┴────────────────┤
-│ Szene 4 „Sturm zieht auf“   [Aufnehmen ⏺] [Aktualisieren] [Programmer leeren]   │
+│ Scene 4 "Storm rising"   [Record ⏺] [Update] [Clear programmer]                 │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ### Tabs
-- **Projekt-Auswahl** (oben links): Projekt wechseln. Im Tab **Projects** anlegen, bearbeiten, exportieren
-  (Download als `.lumen.json`) und importieren.
-- **Universen:** Art-Net-Ziele anlegen (IP/Broadcast, Net/SubNet/Universe), später Node-Discovery.
+- **Project selection** (top left): switch projects. In the tab **Projects**: create, edit, export (download as
+  `.lumen.json`) and import.
+- **Universes:** create Art-Net targets (IP/broadcast, net/subnet/universe), node discovery.
 - **Patch:**
-  - Gerätebibliothek links durchsuchen, Gerät per „+“ oder Drag & Drop hinzufügen (Name, Modus, Universe, Adresse,
-    Anzahl). Die nächste freie Adresse wird vorgeschlagen.
-  - **Adress-Raster** (512 Zellen pro Universe) zeigt belegte Bereiche farbig, Überschneidungen rot.
-  - Gruppen zuweisen.
-  - „⇣ Import from Open Fixture Library“ unter der Bibliothek übernimmt ein Gerät von open-fixture-library.org
-    ([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md#import-aus-der-open-fixture-library)), Warnungen erscheinen im Dialog.
-- **Stage:** Fixtures per Drag & Drop auf einem Bühnengrundriss platzieren (optional Hintergrundbild). Oben ist die
-  Hinterbühne, unten das Publikum. Die Fixtures leuchten wie die echte Ausgabe; nicht platzierte stehen links.
-  Jedes Fixture hat eine **Form**: Spot (rund mit Lichtfleck), Bar (LED-Bar, ein Segment pro Kopf) oder Strip
-  (LED-Band als dünne Pixel-Linie). „Auto“ zeichnet Geräte der Kategorie `bar` und Multi-Pixel-Geräte als Bar, alle
-  anderen als Spot. Für das ausgewählte Fixture lassen sich links Form, Drehung und Länge einstellen; `R` dreht um 15°.
-  Rechts über der Bühne erscheint dazu das Steuer-Panel des Programmers als Overlay (dieselbe Komponente wie im Reiter
-  Programmer, einspaltig); ✕ blendet es aus, „🎛 Controls“ wieder ein, ein anderes Fixture öffnet es erneut.
-- **Looks:** feste Werte aus dem Programmer („⏺ Record look“), mit Farbvorschau, „Load into programmer“, „Update from
-  programmer“ (ersetzen oder mergen), Verlauf mit „↶ Undo“/„Restore“, Duplizieren und Löschen (nicht, solange eine
-  Composition den Look spielt). Links stehen die gemeinsamen Looks; „Show the looks of compositions“ zeigt dazu die
-  eigenen Looks der Compositions (aufgenommene oder erzeugte Schritte), „◆ Make shared“ macht einen davon gemeinsam.
-- **Compositions:** Schritte, die Looks spielen. Editor mit Standardzeiten (Fade, Hold), Ablauf (Loop, Ping-Pong, Once),
-  Intensität (setzt / skaliert das Licht darunter), Schrittliste (Look wählen, eigene Zeiten mit der Standardzeit als
-  Platzhalter, Load/Update des Looks, wiederholen, umsortieren), „⏺ Record step“, gemeinsame Looks hinzufügen und
-  „✦ Generate from an effect…“ (Lauflicht, Farbwechsel, Regenbogen, Welle, Flackern). Dazu Live-Vorschau, „Show on stage“
-  und „In scenes …“. Läuft eine Composition per „Show on stage“, trägt sie in der Liste links „ON STAGE“. Die Schritte stehen in **Zeilen**: Schritte einer Zeile laufen parallel und stehen nebeneinander,
-  Fade/Hold gelten für die ganze Zeile. „Start“ pro Schritt: „Begin“ (erste Zeile), „with …“ (parallel zu einer Zeile)
-  oder „after …“ (neue Zeile danach); „⏺ ∥“ nimmt den Programmer als parallelen Schritt in eine Zeile auf.
-  Siehe [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md#parallele-schritte).
-- **Party:** Editor der Party-Matrix (siehe [PARTY-MODE.md](PARTY-MODE.md)): Zeilen und Spalten (je bis 12), Feld
-  anklicken und als Text, Szene oder Composition einrichten, Beschriftung, Füll- und Rahmenfarbe, Toggle/Flash und
-  Gruppe; ein Klick zwischen zwei Zeilen zieht eine Trennlinie.
-- **DMX:** Monitor aller 512 Kanäle eines Universes, live.
-- **Szenen:** Die Szenenliste bearbeiten (Nummer, Name, Regiehinweis, Auto-Follow; sortiert nach Nummer) und Szenen
-  aufnehmen. Umsortieren per Drag & Drop am Griff ⋮⋮ (oder Alt+↑/↓): Die Reihenfolge bleibt die Nummer, die gezogene
-  Szene bekommt eine freie Nummer zwischen ihren neuen Nachbarn (zwischen 2 und 3 → 2.5, sonst die nächste ganze
-  Zahl); die anderen behalten ihre Nummern. „+ Empty scene“ fügt nach der markierten Szene ein (ebenso mit einer Nummer
-  dazwischen), ohne Markierung am Ende. Jede Szene gehört zur Cue-Liste. Darunter belegt „Faders“ bis zu 8 Fader mit
-  einer Composition (z.B. Saallicht), Name optional. Die Liste nimmt 30 % der Breite ein, der Editor 70 %; „Save“
-  steht unten im Editor und bleibt beim Scrollen sichtbar.
-  Das **Textbuch** wird formatiert bearbeitet: Sprechernamen in ihrer Farbe aus dem Betrieb, Regieanweisungen violett,
-  Licht-Marker orange, Steuerzeichen (`**`, `:`, `//##`) abgeschwächt. Gespeichert bleibt reiner Text; eine
-  Werkzeugleiste setzt den Sprecher der aktuellen Zeile, macht die Markierung zur Regieanweisung und fügt einen
-  Licht-Marker ein. „👁 Preview“ zeigt den Text wie im Betrieb.
-  Im Editor: Abschnitt **Compositions** (vorhandene hinzufügen, „⏺ From programmer“, „✦ Effect“; pro Einsatz Level,
-  Tempo und „Restart at GO“; umsortieren; ein Klick auf den Namen öffnet die Composition – Änderungen gelten in allen
-  Szenen) und **Keys** 1–8 (Composition, Toggle/Flash, Fade). Eine neue Szene übernimmt die Tasten der Szene davor.
-  „Update from programmer“ und „↶ Undo“ wirken auf den Look der ersten Composition, wenn diese einen Schritt hat (der
-  Schnellweg für einfache Szenen). „⧉ Duplicate“ kopiert die Szene direkt dahinter mit denselben Compositions und
-  Tasten. Bei den Fade-Zeiten gibt es zusätzlich die Kurve (Linear, S-curve, Square law; leer = die des Projekts).
-  „▶ Show on stage“ spielt die Szene samt Compositions auf der echten Bühne
-  (über dem Playback, unter dem Programmer), „■ Stop showing“ bzw. „■ Stop“ in der Kopfleiste beendet das.
-- **Settings:** Konfigurations-PIN, Netzwerkzugriff für Tablet/Handy (mit Adressen), Liste der DB-Backups und
-  „Back up now“. Die globalen Fade-Zeiten stehen beim Projekt. Später Tastenkürzel und MIDI-Mapping mit MIDI-Learn
+  - Browse the fixture library on the left, add a fixture with "+" or drag & drop (name, mode, universe, address,
+    count). The next free address is suggested.
+  - **Address grid** (512 cells per universe) shows used ranges in color, overlaps in red.
+  - Assign groups.
+  - "⇣ Import from Open Fixture Library" below the library takes a fixture from open-fixture-library.org
+    ([FIXTURE-LIBRARY.md](FIXTURE-LIBRARY.md#import-from-the-open-fixture-library)); warnings appear in the dialog.
+- **Stage:** place fixtures on a stage floor plan by drag & drop (optional background image). Upstage is at the top,
+  the audience at the bottom. The fixtures glow like the real output; those not placed are listed on the left.
+  Every fixture has a **shape**: spot (round with light spot), bar (LED bar, one segment per head) or strip (LED tape
+  as a thin pixel line). "Auto" draws fixtures of category `bar` and multi-pixel fixtures as a bar, all others as a
+  spot. For the selected fixture, shape, rotation and length can be set on the left; `R` rotates by 15°. On the right
+  above the stage, the control panel of the programmer appears as an overlay (the same component as in the Programmer
+  tab, one column); ✕ hides it, "🎛 Controls" shows it again, another fixture opens it again.
+- **Looks:** fixed values from the programmer ("⏺ Record look"), with color preview, "Load into programmer", "Update
+  from programmer" (replace or merge), history with "↶ Undo"/"Restore", duplicate and delete (not while a composition
+  plays the look). The shared looks are on the left; "Show the looks of compositions" additionally shows the
+  compositions' own looks (recorded or generated steps), "◆ Make shared" makes one of them shared.
+- **Compositions:** steps that play looks. Editor with default times (fade, hold), play mode (loop, ping-pong, once),
+  intensity (sets / scales the light below), step list (pick a look, own times with the default time as placeholder,
+  load/update the look, repeat, reorder), "⏺ Record step", add shared looks and "✦ Generate from an effect…" (chase,
+  color change, rainbow, wave, flicker). Plus live preview, "Show on stage" and "In scenes …". While a composition runs
+  via "Show on stage", it carries "ON STAGE" in the list on the left. The steps stand in **rows**: steps of a row run in
+  parallel and stand next to each other, fade/hold apply to the whole row. "Start" per step: "Begin" (first row),
+  "with …" (parallel to a row) or "after …" (new row after it); "⏺ ∥" records the programmer as a parallel step into
+  a row. See [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md#parallel-steps).
+- **Moves:** figures and moves for pan/tilt fixtures, see [MOVEMENT.md](MOVEMENT.md).
+- **Party:** editor of the party matrix (see [PARTY-MODE.md](PARTY-MODE.md)): rows and columns (up to 12 each), click a
+  field and set it up as text, scene or composition, label, fill and border color, toggle/flash and group; a click
+  between two rows draws a divider.
+- **DMX:** monitor of all 512 channels of a universe, live.
+- **Scenes:** edit the scene list (number, name, cue note, auto-follow; sorted by number) and record scenes. Reorder by
+  drag & drop at the handle ⋮⋮ (or Alt+↑/↓): the order stays the number; the dragged scene gets a free number between
+  its new neighbours (between 2 and 3 → 2.5, otherwise the next whole number); the others keep their numbers. "+ Empty
+  scene" inserts after the selected scene (also with a number in between), without a selection at the end. Every
+  scene belongs to the cue list. Below, "Faders" assigns a composition to up to 8 faders (e.g. house lights), name
+  optional. The list takes 30 % of the width, the editor 70 %; "Save" sits at the bottom of the editor and stays
+  visible while scrolling.
+  The **script** is edited with formatting: speaker names in their show-mode color, stage directions purple, light
+  markers orange, control characters (`**`, `:`, `//##`) dimmed. Plain text is what is saved; a toolbar sets the
+  speaker of the current line, turns the selection into a stage direction and inserts a light marker. "👁 Preview"
+  shows the text as in show mode.
+  In the editor: section **Compositions** (add existing, "⏺ From programmer", "✦ Effect"; per use level, tempo and
+  "Restart at GO"; reorder; a click on the name opens the composition – changes apply in all scenes) and **Keys** 1–8
+  (composition, toggle/flash, fade). A new scene takes over the keys of the scene before it. "Update from programmer"
+  and "↶ Undo" act on the look of the first composition if it has one step (the shortcut for simple scenes).
+  "⧉ Duplicate" copies the scene directly after it with the same compositions and keys. With the fade times there is
+  also the curve (linear, s-curve, square law; empty = the project's). "▶ Show on stage" plays the scene with its
+  compositions on the real stage (above the playback, below the programmer); "■ Stop showing" or "■ Stop" in the
+  header ends it.
+- **Settings:** setup PIN, network access for tablet/phone (with addresses), list of DB backups and "Back up now". The
+  global fade times are set with the project. Later keyboard shortcuts and MIDI mapping with MIDI learn
   ([MIDI.md](MIDI.md)).
 
-### Programmer (rechts)
-Die Fixtures stehen in der Mitte als **Liste** (Leuchtpunkt, voller Name – lange Namen brechen um –, Gerätetyp und
-Modus, Adresse, Level, bei Multi-Pixel-Geräten die Köpfe). Das Panel rechts bekommt den größten Teil der Breite
-(Gruppen : Liste : Panel ≈ 200 px : 2 : 3); seine Abschnitte stehen nebeneinander in Spalten, sobald Platz ist.
-Wird **dynamisch aus dem Gerätetyp** aufgebaut, daher genügt für neue Geräte eine neue YAML:
-- RGB/RGBW → **Farbrad** + Presets + Weißanteil · `color-wheel` → **Farbknöpfe** aus den YAML-`ranges`
-- `pan`/`tilt` → **XY-Pad** · `strobe`/`shutter` → segmentierter Fader · `generic` → Fader mit Name
-- Mehrfachauswahl (Gruppe, Shift-Klick, Lasso): Änderungen wirken auf alle ausgewählten Fixtures
-- **Presets** oben im Panel, je Gruppe Color / Position / Beam: Antippen setzt das Preset auf die Auswahl, „+“ nimmt
-  die Werte der Auswahl als neues Preset auf, „✎ Edit“ zum Umbenennen, Aktualisieren (aus dem Programmer) und Löschen.
-  Eine Szene merkt sich, welches Preset ein Gerät nutzt – wird das Preset aktualisiert, ändern sich alle Szenen mit.
-  Ein Wert von Hand löst das Gerät für diese Gruppe vom Preset. Die Szenen-Ansicht zeigt die Presets pro Gerät an.
-- **Heads** bei Multi-Pixel-Geräten: „All“ oder ein einzelner Kopf, alle Regler wirken dann auf diesen Kopf; die
-  Gerätekarte zeigt die Köpfe als kleine Leiste
-- „Rohkanäle“ zeigt Adresse + DMX-Wert jedes Kanals
+### Programmer (right)
+The fixtures are in the middle as a **list** (glowing dot, full name – long names wrap –, fixture type and mode,
+address, level, the heads for multi-pixel fixtures). The panel on the right gets most of the width (groups : list :
+panel ≈ 200 px : 2 : 3); its sections stand next to each other in columns as soon as there is room.
+It is built **dynamically from the fixture type**, so a new YAML is enough for new fixtures:
+- RGB/RGBW → **color wheel** + presets + white share · `color-wheel` → **color buttons** from the YAML `ranges`
+- `pan`/`tilt` → **XY pad** · `strobe`/`shutter` → segmented fader · `generic` → fader with name
+- Multi-selection (group, Shift-click, lasso): changes apply to all selected fixtures
+- **Presets** at the top of the panel, per group color / beam: tapping applies the preset to the selection, "+"
+  records the values of the selection as a new preset, "✎ Edit" to rename, update (from the programmer) and delete.
+  A look remembers which preset a fixture uses – when the preset is updated, all looks change with it. A value set by
+  hand detaches the fixture from the preset for that group. The look view shows the presets per fixture.
+- **Heads** for multi-pixel fixtures: "All" or a single head; all controls then act on that head; the fixture card
+  shows the heads as a small bar
+- "Raw channels" shows address + DMX value of every channel
 
-### Szenen bauen
-1. Szene auswählen oder neu anlegen
-2. **Vorschau:** Die Szene wird in den Programmer geladen und ist live sichtbar
-3. Im Programmer anpassen
-4. **Aufnehmen** (neue Szene) bzw. **Aktualisieren**: „Replace“ ersetzt das ganze Bild, „Merge“ übernimmt nur, was
-   der Programmer setzt – wahlweise nur bestimmte Attributgruppen (Intensity, Color, Position, Beam, Other) und/oder
-   nur die im Programmer ausgewählten Geräte. Das vorige Bild bleibt in der History
-5. Optional **Probe-Überblendung** („⇢ Rehearse fade“ im Szenen-Editor): spielt das GO in die Szene auf der Bühne –
-   von der Szene davor in der Cue-Liste (bei der ersten Szene von dunkel) mit den echten Fade-Zeiten inkl. Delay und
-   Kompositionen. Fortschritt im Editor, danach bleibt die Szene stehen, bis die Vorschau gestoppt wird
-6. **Druckbare Cue-Liste** („🖨 Cue list“): eigene Seite ohne App-Rahmen, auch als PDF über den Druckdialog
+### Building scenes
+1. Select a scene or create a new one
+2. **Preview:** the scene is loaded into the programmer and is visible live
+3. Adjust in the programmer
+4. **Record** (new scene) or **Update**: "Replace" replaces the whole picture, "Merge" only takes what the programmer
+   sets – optionally only certain attribute groups (intensity, color, position, beam, other) and/or only the fixtures
+   selected in the programmer. The previous picture stays in the history
+5. Optional **rehearsal cross-fade** ("⇢ Rehearse fade" in the scene editor): plays the GO into the scene on stage –
+   from the scene before it in the cue list (for the first scene from dark) with the real fade times incl. delay and
+   compositions. Progress in the editor; afterwards the scene stays until the preview is stopped
+6. **Printable cue list** ("🖨 Cue list"): a page of its own without the app frame, also as PDF via the print dialog
 
 ---
 
-## Modus 2: Betrieb
+## Mode 2: Show
 
-Optimiert für eine Aufgabe: zur richtigen Zeit GO drücken, ohne Fehler.
+Optimized for one task: press GO at the right time, without mistakes.
 
 ```
 ┌────────────────────────────────────────────────────────────────────────────────┐
-│ ● BETRIEB   „Der Sturm“                  Art-Net ● live      21:14:03   🔒 Konfig │
+│ ● SHOW   "The Tempest"                   Art-Net ● live      21:14:03   🔒 Setup │
 ├──────────────────────────────────────────────┬─────────────────────────────────┤
-│ SZENEN                                       │  JETZT                          │
-│   1    Einlass                       ✓       │  ┃ 4  Sturm zieht auf           │
-│   2    Akt 1 – Morgendämmerung       ✓       │  ┃ ████████████▒▒▒▒  Fade-In 2.1s │
-│   3    Am Strand                     ✓       │                                 │
-│ ▶ 4    Sturm zieht auf          ◀ JETZT      │  AUSBLENDEND                    │
-│   5    Blitz                    ◀ NÄCHSTE    │    3  Am Strand  ▒▒▒░░░  1.4s   │
-│   6    Nach dem Sturm                        │                                 │
-│   6.5  Prospero allein                       │  NÄCHSTE                        │
-│   7    Finale                                │  ┃ 5  Blitz                     │
-│                                              │  ┃ „GO bei: Donnerschlag (Ton)“ │
+│ SCENES                                       │  NOW                            │
+│   1    Audience entry                ✓       │  ┃ 4  Storm rising              │
+│   2    Act 1 – Dawn                  ✓       │  ┃ ████████████▒▒▒▒  fade-in 2.1s │
+│   3    On the beach                  ✓       │                                 │
+│ ▶ 4    Storm rising             ◀ NOW        │  FADING OUT                     │
+│   5    Lightning                ◀ NEXT       │    3  On the beach ▒▒▒░░░ 1.4s  │
+│   6    After the storm                       │                                 │
+│   6.5  Prospero alone                        │  NEXT                           │
+│   7    Finale                                │  ┃ 5  Lightning                 │
+│                                              │  ┃ "GO on: thunderclap (sound)" │
 │                                              │                                 │
 │                                              │  ┌───────────────────────────┐  │
 │                                              │  │           G O             │  │
-│                                              │  │        (Leertaste)        │  │
+│                                              │  │         (space)           │  │
 │                                              │  └───────────────────────────┘  │
-│                                              │  [◀ Back] [⏸ Pause] [⏭ Fertig]  │
+│                                              │  [◀ Back] [⏸ Pause] [⏭ Finish]  │
 ├──────────────────────────────────────────────┴─────────────────────────────────┤
 │ MASTER ▮▮▮▮▮▮▮▮▮▮▯ 92 %                                           [ BLACKOUT ]  │
 └────────────────────────────────────────────────────────────────────────────────┘
 ```
 
-- **Szenenliste** links: erledigte Szenen gedimmt, aktuelle hervorgehoben, nächste markiert.
-  Antippen merkt eine Szene als *nächste* vor (Sprung), ausgelöst wird sie erst mit GO.
-- **Fortschritt als Stapel** rechts: die Szene davor (klein, eingerückt; während des Fades „Fading out“ mit Balken),
-  **Jetzt** groß, **Next** etwas kleiner, „Then“ (die übernächste) noch kleiner und „+ n more scenes“; eine Linie mit
-  Punkten verbindet sie. Hat die Szene Licht-Marker, listet die „Now“-Box ihre Abschnitte (Start und jeder Marker
-  mit Infotext), der laufende ist hervorgehoben. Ein Marker-Wechsel blendet nur innerhalb der Szene: ein kleiner
-  Balken unter dem Marker zeigt den Fortschritt, der Stapel und der große Balken bleiben dem Szenenwechsel vorbehalten
-  (`fade.withinScene` im Playback-Status).
-- **Regiehinweis** der nächsten Szene groß sichtbar (das Stichwort für GO).
-- **GO-Button** riesig, auf Touch reagiert er sofort (pointerdown). Doppel-GO-Schutz über eine kurze Sperrzeit
-  (konfigurierbar, z.B. 300 ms).
-- Kleine **Farbvorschau** pro Szene in der Liste (Gradient der enthaltenen Farben).
-- **Auto-Follow:** Szenen mit Stay-Dauer tragen ein ⟳-Symbol in der Liste. Während der Stay-Zeit zeigt „Jetzt“
-  einen Countdown („weiter in 6 s“). Ein Tipp auf GO löst sofort aus.
-- Nach Neustart: Banner „Show bei Szene 4 fortsetzen?“
-- Kein Programmer, kein Patch, keine Szenenbearbeitung. Nur Master und Blackout.
+- **Scene list** on the left: finished scenes dimmed, the current one highlighted, the next one marked. Tapping picks
+  a scene as the *next* one (jump); it is only triggered with GO.
+- **Progress as a stack** on the right: the scene before (small, indented; during the fade "Fading out" with a bar),
+  **Now** large, **Next** a bit smaller, "Then" (the one after) smaller still and "+ n more scenes"; a line with dots
+  connects them. If the scene has light markers, the "Now" box lists its parts (start and every marker with info
+  text), the running one is highlighted. A marker change only fades within the scene: a small bar below the marker
+  shows the progress, the stack and the large bar stay reserved for the scene change (`fade.withinScene` in the
+  playback status).
+- **Cue note** of the next scene clearly visible (the cue for GO).
+- **GO button** huge; on touch it reacts at once (pointerdown). Double-GO protection through a short lock time
+  (configurable, e.g. 300 ms).
+- Small **color preview** per scene in the list (gradient of the contained colors).
+- **Auto-follow:** scenes with a stay time carry a ⟳ symbol in the list. During the stay time "Now" shows a countdown
+  ("next in 6 s"). A tap on GO triggers at once.
+- After a restart: banner "Resume the show at scene 4?"
+- No programmer, no patch, no scene editing. Only master and blackout.
 
-### Tastatur (Betrieb)
-`Leertaste` GO · `←` Back · `P` Pause · `Enter` Fade abschließen · `B` Blackout · `↑/↓` nächste Szene wählen ·
-`1`–`8` Extra-Tasten (Flash: solange gedrückt)
+### Keyboard (show)
+`Space` GO · `←` back · `P` pause · `Enter` finish fade · `B` blackout · `↑/↓` previous/next speech in the script ·
+`Shift`+`↑/↓` choose the next scene · `1`–`8` extra keys (flash: while pressed)
 
-### Show abbrechen
-„■ Stop“ neben Back, Pause und „Finish fade“ bricht die Show ab: Szene, Tasten und Fader gehen sofort ohne Überblendung
-auf 0, die Show steht wieder vor Szene 1 (das nächste GO beginnt von vorn, es gibt nichts fortzusetzen). Gegen
-versehentliches Auslösen fragt der erste Klick „Really stop?“, erst ein zweiter Klick innerhalb von 3 s stoppt.
-Anders als Blackout bleibt dabei nicht die Position erhalten. `POST /api/playback/stop`.
+### Stopping the show
+"■ Stop" next to Back, Pause and "Finish fade" aborts the show: scene, keys and faders go to 0 at once without a
+cross-fade, and the show stands before scene 1 again (the next GO starts from the beginning, there is nothing to
+resume). Against accidental triggering, the first click asks "Really stop?"; only a second click within 3 s stops.
+Unlike blackout, the position is not kept. `POST /api/playback/stop`.
 
-### Bühne im Betrieb
-Der Reiter **Stage** neben Scenes, Script und DMX zeigt die Bühnenansicht nur lesend: Die Fixtures leuchten wie die
-echte Ausgabe, verschieben, Formen ändern und Tastenkürzel der Bühnenansicht gibt es hier nicht.
+### Script in the show
+The tab **Script** next to Scenes, Stage and DMX shows the script of the scene on stage. `↑`/`↓` (on a tablet ▲/▼)
+move from speech to speech, the current one is highlighted and kept in the middle; stage directions are skipped. The
+position is server state, so all browsers show the same speech. Passing a light marker fades to the light of that
+part of the scene.
 
-### Nur zuschauen (`#/view`)
+### Stage in the show
+The tab **Stage** next to Scenes, Script and DMX shows the stage view read-only: the fixtures glow like the real
+output; moving, changing shapes and the keyboard shortcuts of the stage view are not available here.
 
-Für Handy oder Tablet: Der Link **👁 View** in der Kopfleiste (oder direkt `http://<Rechner>:8080/#/view`) öffnet nur
-die Bühne, live leuchtend wie die Ausgabe, darüber Projekt, Modus, die Szene auf der Bühne und der aktive Lichtmarker
-sowie ein Hinweis bei Blackout. Es gibt keine Bedienelemente und keine Tastenkürzel, die Seite folgt nicht dem
-Betriebsmodus und fragt nicht nach der PIN. ✕ führt zurück in die App.
+### View only (`#/view`)
 
-### Textbuch nur mitlesen (`#/view/script`)
+For phone or tablet: the link **👁 View** in the header (or directly `http://<computer>:8080/#/view`) opens only the
+stage, glowing live like the output, with project, mode, the scene on stage and the active light marker above it, plus
+a hint on blackout. There are no controls and no keyboard shortcuts; the page does not follow the operating mode and
+does not ask for the PIN. ✕ leads back into the app.
 
-Für Tablet oder Handy, z.B. für Souffleuse, Inspizienz oder Regie: Der Link **📜 Script** in der Kopfleiste (oder
-`http://<Rechner>:8080/#/view/script`, auch per „📜 Script“ aus `#/view`) zeigt nur das Textbuch der Szene auf der
-Bühne. Die Rede, bei der der Betrieb gerade steht, ist hervorgehoben und wird mittig gehalten – die Seite folgt der
-Textposition des Servers (↑/↓ im Betrieb), kann sie aber nicht ändern. Darüber Szene, aktiver Lichtmarker, Blackout
-und die nächste Szene am Textende. Schriftgröße per A−/A+ (merkt sich der Browser). Wer von Hand scrollt (z.B. zum
-Vorauslesen), hält das Mitlaufen an; „↧ Follow the show“ oder die nächste Szene nimmt es wieder auf. Der Bildschirm
-bleibt an. Wie `#/view`: keine Bedienelemente, keine Tastenkürzel, keine PIN, folgt nicht dem Betriebsmodus.
+### Follow the script, view only (`#/view/script`)
 
-### DMX im Betrieb
-Links lässt sich zwischen **Scenes** (Szenenliste) und **DMX** umschalten: Der DMX-Monitor zeigt nur die belegten
-Kanäle, nach Fixture gruppiert und alle Universen untereinander, live, während GO, Back, Pause und die Extra-Tasten rechts bedienbar bleiben (auch per Tastatur). Die Wahl merkt sich
-der Browser.
+For tablet or phone, e.g. for the prompter, stage management or the director: the link **📜 Script** in the header
+(or `http://<computer>:8080/#/view/script`, also via "📜 Script" from `#/view`) shows only the script of the scene on
+stage. The speech the show is at is highlighted and kept in the middle – the page follows the script position of the
+server (↑/↓ in show mode) but cannot change it. Above it scene, active light marker, blackout, and the next scene at
+the end of the text. Text size via A−/A+ (remembered by the browser). Scrolling by hand (e.g. to read ahead) pauses
+following; "↧ Follow the show" or the next scene resumes it. The screen stays on. Like `#/view`: no controls, no
+keyboard shortcuts, no PIN, does not follow the operating mode.
 
-### Fader (Betrieb)
-Unter den Extra-Tasten liegen die belegten Fader (z.B. Saallicht) mit Schieberegler und „0“/„Full“. Sie wirken
-sofort, unabhängig von GO; auf dem Handy sind sie ausgeblendet. Siehe [PLAYBACK.md](PLAYBACK.md#fader-im-betrieb-zb-saallicht).
+### DMX in the show
+On the left you can switch between **Scenes** (scene list) and **DMX**: the DMX monitor shows only the used channels,
+grouped by fixture and all universes one below the other, live, while GO, Back, Pause and the extra keys on the right
+stay usable (also by keyboard). The browser remembers the choice.
 
-### Extra-Tasten (Betrieb)
-Unter GO liegt die Tastenleiste mit den Tasten der aktuellen Szene (Name der Composition, an/aus). Sie leuchten beim
-Ein- und Ausblenden mit. Alle 8 Plätze sind immer da (unbelegte gestrichelt), damit GO und die Tasten nie springen. Auf dem Handy ist die Leiste ausgeblendet.
+### Faders (show)
+Below the extra keys are the assigned faders (e.g. house lights) with slider and "0"/"Full". They act at once,
+independent of GO; on a phone they are hidden. See [PLAYBACK.md](PLAYBACK.md#faders-in-the-show-eg-house-lights).
+
+### Extra keys (show)
+Below GO is the key bar with the keys of the current scene (name of the composition, on/off). They glow along while
+fading in and out. All 8 places are always there (unassigned ones dashed), so that GO and the keys never jump. On a
+phone the bar is hidden.
 
 ---
 
-## Technik
-- Svelte 5 + TypeScript + Vite, Styling mit CSS-Variablen (Design Tokens), kein schweres UI-Framework.
-- Farbrad, Fader und XY-Pad als eigene Komponenten (Pointer Events für Touch und Maus).
-- Zentraler Store, gespeist aus WebSocket-Updates. Fortschrittsbalken werden clientseitig interpoliert
-  (Server sendet Startzeit + Dauer), damit sie flüssig laufen.
-- Bildschirm bleibt in der Show-Ansicht an (`lib/wakeLock.svelte.ts`): Wake Lock API, wo der Browser sie erlaubt
-  (HTTPS oder localhost), sonst NoSleep.js mit unsichtbarem Video – das funktioniert auch auf Tablets über HTTP,
-  startet dort aber erst nach einem Tippen (Hinweis „Tap to keep the screen on“). Später PWA im Vollbild.
-- Der Rechner selbst schläft nicht ein, solange Lumen über `run.sh` läuft (`caffeinate` auf macOS).
+## Technology
+- Svelte 5 + TypeScript + Vite, styling with CSS variables (design tokens), no heavy UI framework.
+- Color wheel, fader and XY pad as components of their own (pointer events for touch and mouse).
+- Central store fed by WebSocket updates. Progress bars are interpolated on the client (the server sends start time +
+  duration), so that they run smoothly.
+- The screen stays on in the show view (`lib/wakeLock.svelte.ts`): Wake Lock API where the browser allows it (HTTPS or
+  localhost), otherwise NoSleep.js with an invisible video – that also works on tablets over HTTP, but only starts
+  there after a tap (hint "Tap to keep the screen on"). Later a full-screen PWA.
+- The computer itself does not go to sleep while Lumen runs via `run.sh` (`caffeinate` on macOS).

@@ -1,277 +1,276 @@
-# Looks, Compositions, Scenes – drei Stufen
+# Looks, compositions, scenes – three levels
 
-> **Status:** umgesetzt (Iteration S, siehe [ROADMAP.md](ROADMAP.md)). Ersetzt das Modell aus Iteration K
-> (Szene = Basis + Kopien von Kompositionen, Szenen auf Extra-Tasten).
-> Abweichungen vom Plan stehen unter [Umsetzung](#umsetzung).
+> **Status:** implemented (iteration S, see [ROADMAP.md](ROADMAP.md)). Replaces the model from iteration K
+> (scene = base + copies of compositions, scenes on extra keys).
+> Deviations from the plan are listed under [Implementation](#implementation).
 
-## Warum
+## Why
 
-Heute gibt es zu viele Wege zum selben Ziel: feste Werte in der Szene, Kopien von Kompositionen in der Szene,
-Bibliotheks-Kompositionen, Vorlagen mit Parametern, Szenen auf Extra-Tasten und Szenen nur für Tasten (Szenen in
-Szenen). Das neue Modell hat genau drei Stufen, jede baut auf der darunter auf:
+There used to be too many ways to the same goal: fixed values in the scene, copies of compositions in the scene,
+library compositions, templates with parameters, scenes on extra keys and scenes only for keys (scenes in scenes).
+The new model has exactly three levels, each building on the one below:
 
 ```
-Scene 4 „Jahrmarkt"   (GO-Liste: Nummer, Regiehinweis, Fades, Delay, Auto-Follow, Textbuch)
-├── Compositions  (jede läuft für sich, Reihenfolge = Priorität)
-│   ├── „Grundlicht warm"    1 Schritt   → Look „Spielfläche warm"
-│   ├── „Buden bunt"         3 Schritte  → Looks Rot / Gelb / Grün · Fade 2 s, Hold 4 s (Schritt 2: Hold 8 s)
-│   └── „Kirmes-Lauflicht"   8 Schritte, erzeugt vom Generator „Lauflicht“ auf Gruppe „Rampe“
-└── Tasten 1–8
-    ├── 1 „Gewitter"   Flash
-    └── 2 „Polizei"    Toggle, Fade 0,5 s
+Scene 4 "Fair"   (GO list: number, cue note, fades, delay, auto-follow, script)
+├── Compositions  (each runs on its own, order = priority)
+│   ├── "Base light warm"    1 step    → look "Acting area warm"
+│   ├── "Colorful stalls"    3 steps   → looks red / yellow / green · fade 2 s, hold 4 s (step 2: hold 8 s)
+│   └── "Fairground chase"   8 steps, created by the generator "Chase" on group "Footlights"
+└── Keys 1–8
+    ├── 1 "Thunderstorm"   flash
+    └── 2 "Police"         toggle, fade 0.5 s
 ```
 
-## Stufe 1 – Look
+## Level 1 – look
 
-Ein **Look** ist eine einfache Einstellung: feste Werte pro Fixture und Attribut (0–1), dazu die Presets, aus denen
-sie stammen (wie heute bei Szenen).
+A **look** is a simple setting: fixed values per fixture and attribute (0–1), plus the presets they come from (as
+scenes had before).
 
-- Aufnehmen mit „Record look“ im Programmer; „Load“ holt ihn in den Programmer, „Update“ speichert zurück.
-- Der **Verlauf** (Revisions, Rückgängig) hängt am Look statt an der Szene.
-- **Gemeinsame Looks** stehen im Reiter „Looks“ und können in mehreren Compositions stecken. Eine Änderung wirkt
-  überall, die Liste zeigt „used in 3 compositions“. Ein verwendeter Look lässt sich nicht löschen.
-- **Eigene Looks einer Composition:** Looks, die per „Record step“ oder vom Generator entstehen, gehören zu ihrer
-  Composition (`owner`). Sie erscheinen nur dort, nicht im Reiter „Looks“ – sonst würde ein Lauflicht über 8 Geräte
-  die Liste mit 8 Looks füllen. „Make shared“ macht einen eigenen Look zu einem gemeinsamen. Wird die Composition
-  gelöscht, verschwinden ihre eigenen Looks mit.
+- Record with "Record look" in the programmer; "Load" brings it into the programmer, "Update" saves back.
+- The **history** (revisions, undo) belongs to the look instead of the scene.
+- **Shared looks** are listed in the "Looks" tab and can be part of several compositions. A change applies
+  everywhere, the list shows "used in 3 compositions". A look in use cannot be deleted.
+- **A composition's own looks:** looks created by "Record step" or by a generator belong to their composition
+  (`owner`). They only appear there, not in the "Looks" tab – otherwise a chase over 8 fixtures would fill the list
+  with 8 looks. "Make shared" turns an own look into a shared one. When the composition is deleted, its own looks go
+  with it.
 
-## Stufe 2 – Composition
+## Level 2 – composition
 
-Eine **Composition** ist eine Folge von 1–n Schritten. Jeder Schritt verweist auf einen Look.
+A **composition** is a sequence of 1–n steps. Every step refers to a look.
 
-- **Standardzeiten der Composition:** Fade und Hold, dazu der Ablauf **Loop**, **Ping-Pong** oder **Once** (läuft
-  einmal durch und bleibt beim letzten Schritt stehen, z.B. ein Sonnenaufgang).
-- **Pro Schritt überschreibbar:** Fade und/oder Hold. Leer = Standardzeit (der Editor zeigt sie als Platzhalter).
-- Eine Composition mit einem Schritt ist ein statisches Licht.
-- **Intensität absolut oder relativ:** absolut (Standard) setzt die Helligkeit, mit anderen Compositions gilt HTP.
-  Relativ skaliert die Helligkeit dessen, was in der Szene darunter liegt (Kerzenflackern um ein Grundlicht herum).
-- **Geteilt:** Eine Composition kann in beliebig vielen Szenen stecken. Eine Änderung wirkt in allen Szenen. Für
-  eine Variante gibt es „Duplicate“. Es gibt keine Kopien und keine Unterscheidung Bibliothek/Szene mehr.
-- **Pro Kopf** bei Multi-Pixel-Geräten bleibt erhalten (Werte wie `red@3` in den Looks).
+- **Default times of the composition:** fade and hold, plus the play mode **loop**, **ping-pong** or **once** (runs
+  through once and stays at the last step, e.g. a sunrise).
+- **Overridable per step:** fade and/or hold. Empty = default time (the editor shows it as a placeholder).
+- A composition with one step is a static light.
+- **Intensity absolute or relative:** absolute (default) sets the brightness, HTP applies with other compositions.
+  Relative scales the brightness of what lies below it in the scene (candle flicker around a base light).
+- **Shared:** a composition can be part of any number of scenes. A change applies in all scenes. For a variant there
+  is "Duplicate". There are no copies and no distinction between library and scene any more.
+- **Per head** for multi-pixel fixtures stays (values like `red@3` in the looks).
 
-### Parallele Schritte
+### Parallel steps
 
-Schritte können **gleichzeitig** laufen (Change Request vom 2026-10-06): Jeder Schritt hat ein „Start“ – nach dem
-Schritt davor (Standard), „Begin“ oder zusammen mit einer anderen Zeile. Gleichzeitig startende Schritte bilden eine
-**Zeile** und stehen im Editor nebeneinander. Entschieden: Eine Zeile hat **eine** Fade- und Hold-Zeit (die ihres
-ersten Schritts), damit „Start after“ eindeutig bleibt; Loop, Ping-Pong und Once laufen über die Zeilen. Gespeichert
-wird nur `composition_step.parallel` (startet mit dem Schritt davor, Flyway `V20`). Treffen sich zwei Looks einer
-Zeile auf einem Fixture, gilt für die Intensität HTP, für alles andere der spätere Schritt.
+Steps can run **at the same time** (change request of 2026-10-06): every step has a "Start" – after the step before
+(default), "Begin" or together with another row. Steps starting at the same time form a **row** and stand next to
+each other in the editor. Decided: a row has **one** fade and hold time (that of its first step), so that "Start
+after" stays unambiguous; loop, ping-pong and once run across the rows. Only `composition_step.parallel` is stored
+(starts with the step before, Flyway `V20`). If two looks of a row meet on a fixture, HTP applies for intensity and the
+later step for everything else.
 
-Regeln innerhalb der Schritte (wie heute bei Schrittfolgen): Ein Fixture der Composition, das in einem Schritt nicht
-vorkommt oder dort keine Intensität hat, liefert in diesem Schritt Intensität 0. Mit HTP bleibt so das Grundlicht
-anderer Compositions stehen. Übrige Attribute behalten ihren letzten Wert.
+Rules within the steps (as for step sequences before): a fixture of the composition that does not appear in a step or
+has no intensity there delivers intensity 0 in that step. With HTP the base light of other compositions stays. Other
+attributes keep their last value.
 
-### Generatoren statt Vorlagen
+### Generators instead of templates
 
-Lauflicht, Farbwechsel, Regenbogen, Welle und Flackern sind keine eigene Art von Composition mehr, sondern
-**Generatoren**: Sie erzeugen die Schritte (und deren eigene Looks) einer ganz normalen Composition. Danach lässt sich
-jeder Schritt wie jeder andere bearbeiten.
+Chase, color change, rainbow, wave and flicker are no longer a kind of composition of their own, but **generators**:
+they create the steps (and their own looks) of a perfectly normal composition. Afterwards every step can be edited
+like any other.
 
-| Generator | Einstellungen | erzeugt |
+| Generator | Settings | Creates |
 |---|---|---|
-| Lauflicht | Tempo (s pro Schritt), Breite, Richtung (vor / zurück / Ping-Pong / zufällig), weich ↔ hart, Min/Max | ein Schritt pro Gerät/Kopf (bzw. pro Position bei Breite > 1), Hold/Fade aus Tempo und „weich“ |
-| Farbwechsel | 2–n Farben mit Hold und Fade, Spreizung (0 = alle gleich, 100 % = Farb-Lauflicht) | ein Schritt pro Farbe mit deren Hold und Fade; mit Spreizung pro Schritt versetzte Farben je Gerät |
-| Regenbogen | Tempo (s pro Umlauf), Sättigung, Spreizung | 12 Farbtöne mit Fades, Spreizung über die Geräte |
-| Welle | Form (Sinus, Dreieck, Sägezahn, Rechteck), Tempo, Min/Max, Spreizung | 16 Stützpunkte einer Periode mit Fades (Sinus wird zu einem geglätteten Vieleck) |
-| Flackern | Charakter (Kerze, Feuer, defekte Röhre), Stärke, Tempo, fester Zufalls-Seed | ca. 40 zufällige Helligkeiten mit kurzen, unregelmäßigen Zeiten, Intensität relativ |
+| Chase | tempo (s per step), width, direction (forward / backward / ping-pong / random), soft ↔ hard, min/max | one step per fixture/head (or per position when width > 1), hold/fade from tempo and "soft" |
+| Color change | 2–n colors with hold and fade, spread (0 = all the same, 100 % = color chase) | one step per color with its hold and fade; with spread, colors offset per fixture in every step |
+| Rainbow | tempo (s per cycle), saturation, spread | 12 hues with fades, spread across the fixtures |
+| Wave | shape (sine, triangle, sawtooth, square), tempo, min/max, spread | 16 points of one period with fades (a sine becomes a smoothed polygon) |
+| Flicker | character (candle, fire, broken tube), strength, tempo, fixed random seed | about 40 random brightnesses with short, irregular times, intensity relative |
 
-Ziel eines Generators ist eine Gruppe oder eine feste Liste von Fixtures; die Reihenfolge bestimmt Richtung und
-Spreizung. Ein Generator setzt nur Attribute, die die Geräte haben – ein Farbwechsel auf einem reinen Dimmer wird im
-Editor als Hinweis gemeldet, statt still nichts zu tun.
+The target of a generator is a group or a fixed list of fixtures; the order defines direction and spread. A generator
+only sets attributes the fixtures have – a color change on a plain dimmer is reported as a hint in the editor instead
+of silently doing nothing.
 
-Folgen, die man kennen sollte:
-- **Gruppen sind nicht mehr dynamisch:** Die Schritte enthalten feste Geräte. Ändert sich die Gruppe, muss man neu
-  erzeugen. Damit das bequem bleibt, merkt sich die Composition die **Generator-Einstellungen** (`generator`, nur
-  zum erneuten Erzeugen, ohne Einfluss auf das Abspielen): „Regenerate“ erzeugt die Schritte mit geänderten
-  Einstellungen neu. Von Hand geänderte Schritte gehen dabei verloren, der Editor warnt.
-- **Flackern wiederholt sich** nach seinen ~40 Schritten (wenige Sekunden). Durch unregelmäßige Zeiten fällt das
-  kaum auf; bei Bedarf mehr Schritte erzeugen.
-- Weiche Übergänge werden linear überblendet statt als Kurve gerechnet. Für Bühnenlicht reicht das.
+Consequences worth knowing:
+- **Groups are no longer dynamic:** the steps contain fixed fixtures. If the group changes, you have to generate
+  again. To keep that convenient, the composition remembers the **generator settings** (`generator`, only for
+  generating again, without influence on playing): "Regenerate" creates the steps again with changed settings. Steps
+  changed by hand are lost then; the editor warns.
+- **Flicker repeats** after its ~40 steps (a few seconds). Thanks to the irregular times this is hardly noticeable;
+  generate more steps if needed.
+- Soft transitions are cross-faded linearly instead of computed as a curve. That is good enough for stage lighting.
 
-## Stufe 3 – Scene
+## Level 3 – scene
 
-Eine **Szene** ist eine Menge von Compositions, dazu wie bisher Nummer, Name, Regiehinweis, Fade-In/-Out, Delay,
-Fade-Kurve, Auto-Follow und Textbuch.
+A **scene** is a set of compositions, plus, as before, number, name, cue note, fade-in/-out, delay, fade curve,
+auto-follow and script.
 
-- **Pro Einsatz** einer Composition in der Szene: **Level** (0–100 %), **Tempo-Faktor** und **„Restart at GO“**.
-  Die Reihenfolge ist die Priorität: Bei Farbe und übrigen Attributen gewinnt die spätere (LTP), Intensität mischt HTP.
-- **Unabhängig:** Jede Composition hat ihre eigene Uhr ab dem GO der Szene.
-- **Keine feste Basis mehr:** Das Grundlicht ist eine Composition mit einem Schritt.
-- **Weiterlaufen:** Steckt dieselbe Composition auch in der nächsten Szene, läuft sie nahtlos weiter (ohne
-  Phasensprung, Level gleitet über die Fade-Zeit), außer „Restart at GO“ ist gesetzt. Grundlage ist jetzt einfach
-  die Composition selbst statt der Herkunft einer Kopie.
-- **Schnellweg „Record scene“** im Programmer: legt Look, Composition (1 Schritt) und Szene in einem Klick an. Einfache
-  Szenen sind damit so schnell gebaut wie heute. „Update“ in der Szene aktualisiert den Look ihrer ersten
-  Composition, wenn diese nur einen Schritt hat.
-- **Keine Szenen in Szenen:** Szenen auf Extra-Tasten gibt es nicht mehr.
-- **Fader** (Saallicht, Arbeitslicht) spielen eine **Composition**. Szenen außerhalb der GO-Liste gibt es nicht mehr
-  (Change Request 2026-10-06, Flyway `V21`): Ein Fader, der eine solche Szene spielte, spielt deren erste Composition,
-  die Szene wurde entfernt.
+- **Per use** of a composition in the scene: **level** (0–100 %), **tempo factor** and **"Restart at GO"**.
+  The order is the priority: for color and other attributes the later one wins (LTP), intensity mixes HTP.
+- **Independent:** every composition has its own clock from the GO of the scene.
+- **No fixed base any more:** the base light is a composition with one step.
+- **Continuing:** if the same composition is also part of the next scene, it continues seamlessly (no phase jump,
+  the level glides over the fade time), unless "Restart at GO" is set. The basis is now simply the composition itself
+  instead of the origin of a copy.
+- **Shortcut "Record scene"** in the programmer: creates look, composition (1 step) and scene in one click. Simple
+  scenes are as quick to build as before. "Update" in the scene updates the look of its first composition if that has
+  only one step.
+- **No scenes in scenes:** scenes on extra keys no longer exist.
+- **Faders** (house lights, work lights) play a **composition**. Scenes outside the GO list no longer exist (change
+  request 2026-10-06, Flyway `V21`): a fader that played such a scene plays its first composition, and the scene was
+  removed.
 
-### Licht-Marker und Looks (2026-10-06)
+### Light markers and looks (2026-10-06)
 
-Eine Zeile `//## Name (Infotext)##` im Textbuch teilt die Szene in **Abschnitte**: Start (vor dem ersten Marker) und je
-einer nach jedem Marker. Jeder Abschnitt hat eigene Compositions und Looks und steht für sich. Überschreitet die
-Textposition im Betrieb einen Marker (auch rückwärts), blendet `Playback.goToSection` mit den Fade-Zeiten der Szene um;
-was in beiden Abschnitten steckt, läuft weiter und bewegt sich nicht. Abschnitte sind über den Marker-Namen
-gespeichert (`scene_composition.section`, `scene_look`), gleichnamige Marker teilen sich ihr Licht. Szenen können
-außerdem gemeinsame **Looks** direkt spielen (`SceneLook`, mit Level), unter den Compositions.
+A line `//## Name (info text)##` in the script divides the scene into **parts**: the start (before the first marker)
+and one after every marker. Every part has its own compositions and looks and stands on its own. When the script
+position in the show passes a marker (also backwards), `Playback.goToSection` cross-fades with the fade times of the
+scene; what is in both parts keeps running and does not move. Parts are stored by the marker name
+(`scene_composition.section`, `scene_look`); markers with the same name share their light. Scenes can also play
+shared **looks** directly (`SceneLook`, with level), below the compositions.
 
-### Tasten
+### Keys
 
-- Jede Szene hat eigene **Tasten 1–8**. Jede Taste spielt eine Composition, **Toggle** oder **Flash**, mit eigener
-  Fade-Zeit. Eine neue Szene übernimmt die Tasten der Szene davor.
-- **GO:** Eine eingeschaltete Taste bleibt an, wenn dieselbe Composition in der neuen Szene auf einer Taste liegt
-  (auch auf einer anderen Nummer); sonst blendet sie aus. Am Ende der Show gehen alle Tasten aus.
-- Mischung wie heute: Tasten liegen über der Szene, Intensität HTP bzw. relativ, Farbe LTP mit Level × Fade; bei
-  mehreren Tasten gewinnt die höhere Nummer. Blackout und Grand Master wirken auch auf sie. Tasten laufen auf der
-  echten Uhr, Pause hält sie nicht an.
+- Every scene has its own **keys 1–8**. Every key plays a composition, **toggle** or **flash**, with its own fade
+  time. A new scene takes over the keys of the scene before it.
+- **GO:** a key that is on stays on if the same composition lies on a key in the new scene (also on another number);
+  otherwise it fades out. At the end of the show all keys go off.
+- Mixing as before: keys lie above the scene, intensity HTP or relative, color LTP with level × fade; with several keys
+  the higher number wins. Blackout and grand master apply to them too. Keys run on the real clock; pause does not stop
+  them.
 
-## Mischung und Zeit
+## Mixing and time
 
-Diese Regeln stammen aus Iteration K und gelten unverändert für Compositions in Szenen, auf Tasten und Fadern.
+These rules come from iteration K and apply unchanged to compositions in scenes, on keys and on faders.
 
-**Mischung pro Fixture und Attribut** (vor dem Layer-Merger und der Crossfade-Logik):
-- **Intensität absolut:** HTP, `max(darunter, composition × level)` – ein Grundlicht bleibt stehen, ein Lauflicht
-  „blitzt darüber“.
-- **Intensität relativ** (Flackern): moduliert, was darunter liegt, `darunter × faktor(t)` – die Kerze flackert um
-  die programmierte Helligkeit herum.
-- **Farbe und übrige Attribute (LTP):** `darunter + (composition − darunter) × level`. Bei Level 50 % liegt ein
-  Farbwechsel „halb“ über der Grundfarbe. Wirken mehrere Compositions auf dasselbe Attribut, gewinnt die spätere;
-  der Szenen-Editor zeigt solche Überschneidungen an.
+**Mixing per fixture and attribute** (before the layer merger and the cross-fade logic):
+- **Intensity absolute:** HTP, `max(below, composition × level)` – a base light stays, a chase "flashes over it".
+- **Intensity relative** (flicker): modulates what lies below, `below × factor(t)` – the candle flickers around the
+  programmed brightness.
+- **Color and other attributes (LTP):** `below + (composition − below) × level`. At level 50 % a color change lies
+  "half" over the base color. If several compositions act on the same attribute, the later one wins; the scene editor
+  shows such overlaps.
 
-**Zeit, Überblendung und Playback:**
-- Compositions der Szene laufen auf der **virtuellen Playback-Uhr**: **Pause** friert auch Lauflichter und
-  Farbwechsel ein, „Finish fade“ betrifft nur den Szenenübergang, nicht den Ablauf.
-- **Fade-In:** Die Composition läuft ab dem GO (bzw. ab dem Ende des Delays) und wird mit dem Szenenlevel eingeblendet.
-- **Fade-Out:** Die Compositions der alten Szene **laufen beim Ausblenden weiter** und werden dunkler, statt
-  einzufrieren. Bei einem Doppel-GO werden ältere ausblendende Compositions in den Snapshot übernommen, damit
-  höchstens zwei Ebenen laufen.
-- Für den Crossfade sind die Werte einer Composition „LTP-Ziele, die sich bewegen“: `Crossfade.mix` bekommt pro Tick
-  die **aktuellen** Zielwerte. Die Regel „War das Gerät beim GO dunkel, springt die Farbe sofort“ bleibt.
+**Time, cross-fade and playback:**
+- Compositions of the scene run on the **virtual playback clock**: **pause** also freezes chases and color changes,
+  "Finish fade" only affects the scene transition, not the sequence.
+- **Fade-in:** the composition runs from the GO (or from the end of the delay) and is faded in with the scene level.
+- **Fade-out:** the compositions of the old scene **keep running while fading out** and get darker instead of
+  freezing. On a double GO, older compositions still fading out are taken into the snapshot, so that at most two
+  layers run.
+- For the cross-fade the values of a composition are "LTP targets that move": `Crossfade.mix` gets the **current**
+  target values on every tick. The rule "if the fixture was dark at GO, the color jumps at once" stays.
 
 ```
-            GO (Sz. 4)                                  GO (Sz. 5)
+            GO (sc. 4)                                  GO (sc. 5)
             │                                           │
-Grundlicht  │▁▂▄▆██████████████████████████████████████│█▇▅▃▁
-Lauflicht   │▁▂▄▆█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█│▇▁▅▁▃▁▁       läuft beim Ausblenden weiter
-Farbwechsel │▁▂▄▆ rot → gelb → grün → rot → gelb → grün│→ rot → …    in Sz. 5 auch enthalten: läuft nahtlos weiter
+Base light  │▁▂▄▆██████████████████████████████████████│█▇▅▃▁
+Chase       │▁▂▄▆█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█▁█│▇▁▅▁▃▁▁       keeps running while fading out
+Color change│▁▂▄▆ red → yellow → green → red → yellow →│→ red → …    also in sc. 5: continues seamlessly
 ```
 
-## Was gleich bleibt
+## What stays the same
 
-Programmer, Presets (verweisen jetzt aus Looks statt aus Szenen), Fader (spielen heute Compositions), Party-Modus (heute eine Matrix, siehe [PARTY-MODE.md](PARTY-MODE.md)), Fade-Logik
-und Crossfade, „Show on stage“ (für Look, Composition und Szene), Probe-Überblendung, Cue-Liste zum Drucken.
+Programmer, presets (now referenced from looks instead of scenes), faders (today they play compositions), party mode
+(today a matrix, see [PARTY-MODE.md](PARTY-MODE.md)), fade logic and cross-fade, "Show on stage" (for look,
+composition and scene), rehearsal cross-fade, printable cue list.
 
-## Datenmodell (Flyway V19)
+## Data model (Flyway V19)
 
 ```
 look
   id, project_id, name
-  owner_composition_id  FK → composition ON DELETE CASCADE NULL   -- gesetzt = eigener Look einer Composition
-look_value(look_id, fixture_id, attribute, value)                  -- ersetzt scene_value
-look_preset(look_id, fixture_id, attribute_group, preset_id)       -- ersetzt scene_preset
-look_revision, look_revision_value, look_revision_preset           -- ersetzt scene_revision*
+  owner_composition_id  FK → composition ON DELETE CASCADE NULL   -- set = a composition's own look
+look_value(look_id, fixture_id, attribute, value)                  -- replaces scene_value
+look_preset(look_id, fixture_id, attribute_group, preset_id)       -- replaces scene_preset
+look_revision, look_revision_value, look_revision_preset           -- replace scene_revision*
 
 composition
   id, project_id, name
-  fade_ms, hold_ms                         -- Standardzeiten
+  fade_ms, hold_ms                         -- default times
   play_mode   'loop' | 'ping_pong' | 'once'
   intensity   'absolute' | 'relative'
   per_head
-  generator   TEXT NULL                    -- JSON: Generator-Einstellungen, nur für „Regenerate“
+  generator   TEXT NULL                    -- JSON: generator settings, only for "Regenerate"
 composition_step(composition_id, step_index, look_id, fade_ms NULL, hold_ms NULL)
 
-scene                                       -- wie bisher, key_only → in_cue_list (umgekehrt)
+scene                                       -- as before, key_only → in_cue_list (inverted)
 scene_composition(scene_id, composition_id, position, level, speed_factor, restart)
 scene_key(scene_id, slot 1–8, composition_id, key_mode, fade_ms)
 
-entfällt: scene_value, scene_preset, scene_revision*, composition.scene_id/key_slot/source_id/kind/params/target/
-          group_id/level/speed_factor/restart/once/key_mode/key_fade_ms, composition_target,
-          composition_step_value, scene_extra_key, extra_key_scene
+dropped: scene_value, scene_preset, scene_revision*, composition.scene_id/key_slot/source_id/kind/params/target/
+         group_id/level/speed_factor/restart/once/key_mode/key_fade_ms, composition_target,
+         composition_step_value, scene_extra_key, extra_key_scene
 ```
 
-## Bestehende Projekte umwandeln
+## Converting existing projects
 
-Einmalig beim ersten Start mit der neuen Version, vorher legt Lumen automatisch ein Backup an. Derselbe Umwandler
-liest auch alte Export-Dateien.
+Once, at the first start with the new version; Lumen creates a backup automatically before. The same converter also
+reads old export files.
 
-1. **Feste Werte einer Szene** → Composition „4 Jahrmarkt“ (1 Schritt) mit eigenem Look an erster Stelle der
-   Szene. Presets und Verlauf kommen mit.
-2. **Kopien von Kompositionen in Szenen** → Kopien mit gleicher Herkunft und gleichem Inhalt werden zu **einer**
-   Composition (so läuft sie weiter nahtlos von Szene zu Szene). Abweichende Kopien werden eigene Compositions
-   („Kirmes-Lauflicht (4)“). Level, Tempo und „Neu starten“ wandern in `scene_composition`.
-3. **Schrittfolgen** → ihre Schritte werden eigene Looks der Composition.
-4. **Vorlagen** (Lauflicht usw.) → mit dem passenden Generator in Schritte umgewandelt, die Einstellungen bleiben für
-   „Regenerate“ erhalten. Bei Gruppen-Zielen gelten die Mitglieder zum Zeitpunkt der Umwandlung.
-5. **Bibliotheks-Kompositionen** → Compositions (in keiner Szene).
-6. **Extra-Tasten mit Komposition** → Taste in jeder Szene, in der sie freigeschaltet war.
-7. **Szenen auf Tasten** und Szenen nur für Tasten: Besteht die Szene aus einer Composition, kommt diese auf die
-   Taste. Besteht sie aus mehreren, verteilt Lumen sie auf freie Tasten derselben Szenen; reicht der Platz nicht,
-   bleibt die Taste leer. Was umgebaut oder weggelassen wurde, steht als Warnung im **Log** des Starts.
-8. **Szenen nur für Tasten**, die ein Fader spielt, bleiben als Szenen „not in cue list“. Die übrigen werden nach der
-   Umwandlung nicht mehr gebraucht und ebenfalls als „not in cue list“ behalten – löschen kann man sie von Hand.
+1. **Fixed values of a scene** → composition "4 Fair" (1 step) with its own look in first place of the scene. Presets
+   and history come along.
+2. **Copies of compositions in scenes** → copies with the same origin and the same content become **one** composition
+   (so it keeps continuing seamlessly from scene to scene). Differing copies become compositions of their own
+   ("Fairground chase (4)"). Level, tempo and "restart" move into `scene_composition`.
+3. **Step sequences** → their steps become the composition's own looks.
+4. **Templates** (chase etc.) → converted into steps with the matching generator; the settings stay for "Regenerate".
+   For group targets, the members at the time of conversion apply.
+5. **Library compositions** → compositions (in no scene).
+6. **Extra keys with a composition** → a key in every scene in which it was enabled.
+7. **Scenes on keys** and scenes only for keys: if the scene consists of one composition, it goes onto the key. If it
+   consists of several, Lumen spreads them over free keys of the same scenes; if there is not enough room, the key
+   stays empty. What was rebuilt or left out is logged as a warning at **start**.
+8. **Scenes only for keys** that a fader plays stay as scenes "not in cue list". The others are no longer needed
+   after the conversion and are also kept as "not in cue list" – they can be deleted by hand.
 
 ## UI
 
-- **Reiter (Setup):** Programmer · **Looks** (neu) · Compositions · Scenes
-- **Programmer:** „Record look“, „Record scene“ (Schnellweg), „Record step“ (in die offene Composition)
-- **Looks:** Liste mit Farbvorschau und „used in …“; Load, Update, Umbenennen, Duplizieren, Löschen, Verlauf
-- **Compositions:** Liste mit animierter Vorschau. Editor: Standardzeiten und Ablauf; Schrittliste, pro Schritt Look
-  wählen (gemeinsam oder eigen), „Record step“, Fade/Hold mit Platzhalter; „Generate…“ öffnet den Generator
-  „Regenerate“; Live-Vorschau und „Show on stage“; „used in scenes …“
-- **Scenes:** Szenen-Editor mit Compositions (vorhandene hinzufügen, neu aus dem Programmer, neu per Generator),
-  Reihenfolge per Drag & Drop, Level, Tempo, Restart; Abschnitt „Keys 1–8“; Zeiten und Textbuch wie bisher
-- **Show-Modus:** unverändert; die Tastenleiste zeigt die Tasten der aktuellen Szene mit Namen
+- **Tabs (setup):** Programmer · **Looks** (new) · Compositions · Scenes
+- **Programmer:** "Record look", "Record scene" (shortcut), "Record step" (into the open composition)
+- **Looks:** list with color preview and "used in …"; load, update, rename, duplicate, delete, history
+- **Compositions:** list with animated preview. Editor: default times and play mode; step list, a look per step
+  (shared or own), "Record step", fade/hold with placeholder; "Generate…" opens the generator, "Regenerate"; live
+  preview and "Show on stage"; "used in scenes …"
+- **Scenes:** scene editor with compositions (add existing, new from the programmer, new by generator), order by drag
+  & drop, level, tempo, restart; section "Keys 1–8"; times and script as before
+- **Show mode:** unchanged; the key bar shows the keys of the current scene with names
 
-## Umsetzung (Iteration S)
+## Implementation plan (iteration S)
 
-Auf einem eigenen Branch, jeder Schritt mit grünem `./build.sh`.
+On a branch of its own, every step with a green `./build.sh`.
 
-1. **S1 – Domain & Engine:** Look, Composition mit Look-Schritten und Standardzeiten, Szene mit Compositions und
-   Tasten; Generatoren als reine Funktionen (Tabellen-Tests); `Playback` und Tasten auf dem neuen Modell (mit `Clock`
-   getestet). Die bestehende Engine bleibt: Szenen haben keine Basis mehr, alles läuft über Compositions.
-2. **S2 – Datenbank & Umwandlung:** Flyway `V19` mit Java-Umwandler, Tests gegen eine Datenbank im alten Format;
-   Export Version 2, Import alter Dateien über denselben Umwandler.
-3. **S3 – REST & WebSocket** für Looks, Compositions, Szenen und Tasten; alte Endpunkte entfallen.
-4. **S4 – UI:** Looks, Compositions-Editor mit Generator, Szenen-Editor mit Tasten, Show-Modus; alte Wege entfernen.
-5. **S5 – Doku:** PLAYBACK.md, UI.md, PROJECT-DATA.md nachziehen; das alte Konzept (COMPOSITIONS.md) ist
-   inzwischen in diesem Dokument aufgegangen.
+1. **S1 – domain & engine:** look, composition with look steps and default times, scene with compositions and keys;
+   generators as pure functions (table tests); `Playback` and keys on the new model (tested with `Clock`). The
+   existing engine stays: scenes no longer have a base, everything runs through compositions.
+2. **S2 – database & conversion:** Flyway `V19` with a Java converter, tests against a database in the old format;
+   export version 2, import of old files through the same converter.
+3. **S3 – REST & WebSocket** for looks, compositions, scenes and keys; old endpoints are dropped.
+4. **S4 – UI:** looks, composition editor with generator, scene editor with keys, show mode; remove old ways.
+5. **S5 – docs:** update PLAYBACK.md, UI.md, PROJECT-DATA.md; the old concept (COMPOSITIONS.md) has since been merged
+   into this document.
 
-## Entscheidungen (2026-10-06)
+## Decisions (2026-10-06)
 
-| Thema | Entscheidung |
+| Topic | Decision |
 |---|---|
-| Vorlagen (Lauflicht, Regenbogen, …) | **Generatoren**, die Schritte einer normalen Composition erzeugen; keine eigene Art |
-| Composition in mehreren Szenen | **geteilt**: eine Änderung wirkt in allen Szenen; pro Einsatz nur Level, Tempo, Restart |
-| Taste beim GO | bleibt an, wenn dieselbe Composition in der neuen Szene auf einer Taste liegt |
-| Fader | spielen eine **Composition** (seit 2026-10-06; vorher eine Szene „not in cue list“) |
+| Templates (chase, rainbow, …) | **generators** that create the steps of a normal composition; no kind of their own |
+| Composition in several scenes | **shared**: a change applies in all scenes; per use only level, tempo, restart |
+| Key at GO | stays on if the same composition lies on a key in the new scene |
+| Fader | plays a **composition** (since 2026-10-06; before a scene "not in cue list") |
 
-## Umsetzung
+## Implementation
 
-- **Domain:** `NamedLook` (Look mit Name und optionalem Besitzer) und `LookRevision` im Paket `look`; `Composition`,
-  `CompositionStep`, `CompositionSpec` (Standardzeiten, `PlayMode`, `IntensityMode`, `GeneratorSettings`); `Scene`
-  mit `SceneComposition` und `SceneKey`. Die Engine blieb: Eine Composition wird zur `StepSequence` ihrer Looks
-  (`Composition.sequence`), `Playback` spielt Szenen ohne eigene Werte, nur mit Compositions. Weiterlaufen bei
-  gleicher Composition-ID. `ExtraKeys` nimmt pro Szene die Tasten und führt eine eingeschaltete Taste weiter, wenn
-  ihre Composition in der neuen Szene auf irgendeiner Taste liegt; sonst blendet sie mit ihrer Fade-Zeit aus.
-- **Generatoren** (`Generator`) tasten die bisherigen Effekte ab: Ein hartes Lauflicht spielt exakt wie vorher, weiche
-  Übergänge werden linear überblendet. Sehr schnelle Effekte bekommen weniger Schritte, damit kein Schritt kürzer als
-  20 ms ist.
-- **Eigene Looks:** Auch der Schnellweg „Record scene“ und die Umwandlung legen den Look als eigenen Look der neuen
-  Composition an (nicht als gemeinsamen) – sonst würde der Reiter „Looks“ mit einem Look pro Szene volllaufen.
-  „◆ Make shared“ macht ihn bei Bedarf gemeinsam.
-- **Umwandlung:** Flyway `V19` benennt die alten Tabellen in `legacy_*` um, `LegacyMigrationService` wandelt beim
-  Start jedes Projekt einmal um (vorher ein Backup `…-before-looks.db`) und merkt es sich in `legacy_conversion`.
-  Alte Export-Dateien (Version 1) gehen durch denselben `LegacyConverter`. Farbeffekte bekommen ihre eigene Intensität
-  nur noch, wenn keine der Szenen, in denen sie laufen, den Geräten eine Intensität gibt (früher galt sie nur ohne
-  Basis-Intensität). Level und Tempo einer Taste gibt es nicht mehr; abweichende Werte stehen im Log.
-  Geprüft mit einer echten Datenbank (Schema V12): Szenen, Kompositionen, Tasten und die Resume-Szene kamen richtig an.
+- **Domain:** `NamedLook` (look with name and optional owner) and `LookRevision` in the package `look`;
+  `Composition`, `CompositionStep`, `CompositionSpec` (default times, `PlayMode`, `IntensityMode`,
+  `GeneratorSettings`); `Scene` with `SceneComposition` and `SceneKey`. The engine stayed: a composition becomes the
+  `StepSequence` of its looks (`Composition.sequence`), `Playback` plays scenes without values of their own, only with
+  compositions. Continuing on the same composition ID. `ExtraKeys` takes the keys per scene and carries a key that is
+  on over if its composition lies on any key in the new scene; otherwise it fades out with its fade time.
+- **Generators** (`Generator`) sample the former effects: a hard chase plays exactly as before, soft transitions are
+  cross-faded linearly. Very fast effects get fewer steps, so that no step is shorter than 20 ms.
+- **Own looks:** the shortcut "Record scene" and the conversion also create the look as the new composition's own look
+  (not as a shared one) – otherwise the "Looks" tab would fill up with one look per scene. "◆ Make shared" makes it
+  shared when needed.
+- **Conversion:** Flyway `V19` renames the old tables to `legacy_*`, `LegacyMigrationService` converts every project
+  once at start (with a backup `…-before-looks.db` before) and remembers it in `legacy_conversion`. Old export files
+  (version 1) go through the same `LegacyConverter`. Color effects only get their own intensity if none of the scenes
+  they run in gives the fixtures an intensity (before, it applied only without a base intensity). Level and tempo of
+  a key no longer exist; differing values are logged. Checked with a real database (schema V12): scenes,
+  compositions, keys and the resume scene arrived correctly.
 - **REST:** `/looks` (CRUD, `record`, `revisions`, `restore`, `load`, `duplicate`), `/compositions` (CRUD,
-  `duplicate`, `record-step`, `generate`), `/scenes/{id}/compositions` und `/scenes/{id}/keys` (PUT, ganze Liste).
-  Weggefallen: `/extra-keys`, `/scenes/{id}/revisions`, `reload-from-library`, `save-to-library`. WebSocket-Thema
-  `looks`. Export Version 2.
-- **UI:** neuer Reiter „Looks“, Composition-Editor mit Schritten aus Looks und Generator (`EffectForm`), Szenen-Editor
-  mit Compositions und Tasten. Einen Vorschau-Schritt vor dem Erzeugen gibt es nicht: Erzeugen ersetzt die Schritte
-  sofort, die Live-Vorschau zeigt das Ergebnis, „Generate steps again“ ändert es.
+  `duplicate`, `record-step`, `generate`), `/scenes/{id}/compositions` and `/scenes/{id}/keys` (PUT, whole list).
+  Dropped: `/extra-keys`, `/scenes/{id}/revisions`, `reload-from-library`, `save-to-library`. WebSocket topic
+  `looks`. Export version 2.
+- **UI:** new tab "Looks", composition editor with steps from looks and generator (`EffectForm`), scene editor with
+  compositions and keys. There is no preview step before generating: generating replaces the steps at once, the live
+  preview shows the result, "Generate steps again" changes it.
