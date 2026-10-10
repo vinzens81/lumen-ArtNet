@@ -1,0 +1,1012 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lumen User Guide</title>
+<meta name="description" content="How to set up and run a theatre show with Lumen, the DMX/Art-Net lighting control in your browser.">
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #12161e;
+    --panel-raised: #181d27;
+    --border: #232a36;
+    --text: #e6eaf2;
+    --text-dim: #9aa4b5;
+    --accent: #3cf0ff;
+    --accent-soft: rgba(60, 240, 255, 0.12);
+    --show: #ffb347;
+    --party: #ff4fd8;
+    --warning: #ffb347;
+    --warning-soft: rgba(255, 179, 71, 0.1);
+    --danger: #ff5a6e;
+    --code-bg: #0f131a;
+    --shadow: 0 10px 40px rgba(0, 0, 0, 0.45);
+    --radius: 12px;
+  }
+
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f6f7fa;
+      --panel: #ffffff;
+      --panel-raised: #f0f2f6;
+      --border: #dde1e8;
+      --text: #161a22;
+      --text-dim: #5a6372;
+      --accent: #007a8a;
+      --accent-soft: rgba(0, 122, 138, 0.1);
+      --show: #b36b00;
+      --party: #b0289a;
+      --warning: #a35f00;
+      --warning-soft: rgba(255, 179, 71, 0.16);
+      --danger: #c62839;
+      --code-bg: #eef0f4;
+      --shadow: 0 10px 30px rgba(20, 30, 50, 0.12);
+    }
+  }
+
+  * { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; scroll-padding-top: 20px; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 16px/1.65 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+  }
+
+  a { color: var(--accent); }
+
+  code, kbd {
+    font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.88em;
+  }
+
+  code {
+    padding: 1px 6px;
+    border-radius: 5px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+  }
+
+  pre {
+    overflow-x: auto;
+    padding: 14px 16px;
+    border-radius: 10px;
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  pre code { padding: 0; border: 0; background: none; }
+
+  kbd {
+    display: inline-block;
+    min-width: 1.6em;
+    padding: 1px 6px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    border-bottom-width: 2px;
+    background: var(--panel-raised);
+    text-align: center;
+  }
+
+  /* layout */
+  .layout {
+    display: grid;
+    grid-template-columns: 270px minmax(0, 1fr);
+    max-width: 1280px;
+    margin: 0 auto;
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+    padding: 28px 18px 28px 24px;
+    border-right: 1px solid var(--border);
+  }
+
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 22px;
+    font-weight: 700;
+    letter-spacing: 0.28em;
+    font-size: 14px;
+    text-decoration: none;
+    color: var(--text);
+  }
+
+  .orb {
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0 25%, var(--accent) 60%);
+    box-shadow: 0 0 14px var(--accent), 0 0 30px rgba(60, 240, 255, 0.4);
+  }
+
+  nav.toc ol {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  nav.toc li a {
+    display: block;
+    padding: 5px 10px;
+    border-radius: 8px;
+    color: var(--text-dim);
+    text-decoration: none;
+    font-size: 14px;
+  }
+
+  nav.toc li a:hover { color: var(--text); background: var(--panel-raised); }
+
+  nav.toc li a.active {
+    color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  nav.toc .group {
+    margin: 16px 10px 4px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  main {
+    padding: 40px 48px 120px;
+    max-width: 960px;
+  }
+
+  header.hero {
+    padding: 8px 0 28px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 12px;
+  }
+
+  .hero h1 {
+    margin: 0 0 10px;
+    font-size: 40px;
+    line-height: 1.15;
+    letter-spacing: -0.01em;
+  }
+
+  .hero p.lead {
+    margin: 0 0 18px;
+    font-size: 19px;
+    color: var(--text-dim);
+    max-width: 680px;
+  }
+
+  .buttons { display: flex; flex-wrap: wrap; gap: 10px; }
+
+  .button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 9px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: var(--panel);
+    color: var(--text);
+    text-decoration: none;
+    font-weight: 600;
+    font-size: 15px;
+  }
+
+  .button.primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #04161a;
+  }
+
+  h2 {
+    margin: 64px 0 12px;
+    font-size: 28px;
+    letter-spacing: -0.005em;
+  }
+
+  h2 .num {
+    color: var(--accent);
+    font-family: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    font-size: 0.8em;
+    margin-right: 10px;
+  }
+
+  h3 { margin: 32px 0 8px; font-size: 19px; }
+
+  p, li { max-width: 760px; }
+
+  ul, ol { padding-left: 1.3em; }
+
+  li + li { margin-top: 4px; }
+
+  figure {
+    margin: 22px 0 26px;
+  }
+
+  figure img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    box-shadow: var(--shadow);
+    cursor: zoom-in;
+    background: #0b0d12;
+  }
+
+  figure.narrow img { max-width: 420px; }
+
+  figure.medium img { max-width: 720px; }
+
+  figcaption {
+    margin-top: 8px;
+    font-size: 14px;
+    color: var(--text-dim);
+  }
+
+  .pair {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .callout {
+    margin: 18px 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .callout.warn {
+    border-left-color: var(--warning);
+    background: var(--warning-soft);
+  }
+
+  .callout strong:first-child { display: block; margin-bottom: 2px; }
+
+  .callout p { margin: 4px 0; }
+
+  table {
+    width: 100%;
+    max-width: 760px;
+    border-collapse: collapse;
+    margin: 14px 0 22px;
+    font-size: 15px;
+  }
+
+  th, td {
+    text-align: left;
+    vertical-align: top;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  th {
+    font-size: 12px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-dim);
+  }
+
+  .levels {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 12px;
+    margin: 20px 0;
+  }
+
+  .level {
+    padding: 14px 16px;
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+    background: var(--panel);
+  }
+
+  .level .tag {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  .level h4 { margin: 4px 0 6px; font-size: 18px; }
+
+  .level p { margin: 0; font-size: 14px; color: var(--text-dim); }
+
+  .steps {
+    counter-reset: step;
+    list-style: none;
+    padding-left: 0;
+  }
+
+  .steps > li {
+    counter-increment: step;
+    position: relative;
+    padding-left: 40px;
+    margin-top: 12px;
+  }
+
+  .steps > li::before {
+    content: counter(step);
+    position: absolute;
+    left: 0;
+    top: 1px;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 14px;
+    display: grid;
+    place-items: center;
+  }
+
+  .mode-show { color: var(--show); font-weight: 700; }
+  .mode-party { color: var(--party); font-weight: 700; }
+  .mode-setup { color: var(--accent); font-weight: 700; }
+
+  footer {
+    margin-top: 80px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 14px;
+  }
+
+  /* lightbox */
+  dialog.lightbox {
+    padding: 0;
+    border: 0;
+    background: transparent;
+    max-width: 96vw;
+    max-height: 94vh;
+  }
+
+  dialog.lightbox::backdrop { background: rgba(0, 0, 0, 0.82); }
+
+  dialog.lightbox img {
+    display: block;
+    max-width: 96vw;
+    max-height: 90vh;
+    border-radius: 10px;
+    cursor: zoom-out;
+  }
+
+  dialog.lightbox p {
+    margin: 8px 0 0;
+    color: #cfd6e2;
+    text-align: center;
+    font-size: 14px;
+  }
+
+  .menu-toggle { display: none; }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: minmax(0, 1fr); }
+
+    table { display: block; overflow-x: auto; }
+
+    p, li { overflow-wrap: anywhere; }
+
+    nav.toc {
+      position: static;
+      height: auto;
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 16px;
+    }
+
+    nav.toc ol { display: none; }
+
+    nav.toc.open ol { display: block; }
+
+    nav.toc .group { display: none; }
+
+    nav.toc.open .group { display: block; }
+
+    .menu-toggle {
+      display: inline-flex;
+      margin-left: auto;
+      padding: 6px 12px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      font: inherit;
+      font-size: 14px;
+    }
+
+    .toc-head { display: flex; align-items: center; }
+
+    .brand { margin-bottom: 0; }
+
+    main { padding: 24px 16px 80px; }
+
+    .hero h1 { font-size: 30px; }
+
+    .pair, .levels { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="layout">
+  <nav class="toc" aria-label="Contents">
+    <div class="toc-head">
+      <a class="brand" href="#top"><span class="orb" aria-hidden="true"></span>LUMEN</a>
+      <button class="menu-toggle" type="button" aria-expanded="false">Contents</button>
+    </div>
+    <div class="group">Start</div>
+    <ol>
+      <li><a href="#install">Install &amp; start</a></li>
+      <li><a href="#tour">A tour of the screen</a></li>
+      <li><a href="#concept">How a show is built</a></li>
+    </ol>
+    <div class="group">Setup</div>
+    <ol>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#universes">Universes &amp; Art-Net</a></li>
+      <li><a href="#patch">Patch</a></li>
+      <li><a href="#stage">Stage</a></li>
+      <li><a href="#programmer">Programmer</a></li>
+      <li><a href="#looks">Looks</a></li>
+      <li><a href="#compositions">Compositions</a></li>
+      <li><a href="#moves">Moves</a></li>
+      <li><a href="#scenes">Scenes &amp; script</a></li>
+    </ol>
+    <div class="group">Performance</div>
+    <ol>
+      <li><a href="#show">Running the show</a></li>
+      <li><a href="#view">Phones &amp; tablets</a></li>
+      <li><a href="#party">Party mode</a></li>
+    </ol>
+    <div class="group">Reference</div>
+    <ol>
+      <li><a href="#settings">Settings &amp; safety</a></li>
+      <li><a href="#keys">Keyboard shortcuts</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+    </ol>
+  </nav>
+
+  <main id="top">
+    <header class="hero">
+      <h1>Lumen user guide</h1>
+      <p class="lead">Lumen is a lighting control for theatre that runs in your browser. You patch your fixtures, build
+        scenes, write the script next to them – and during the performance you just press <strong>GO</strong>.
+        Lumen sends DMX over Art-Net to your nodes.</p>
+      <div class="buttons">
+        <a class="button primary" href="#install">Get started</a>
+        <a class="button" href="downloads/midsummer-demo.lumen.json" download>⇣ Demo project</a>
+        <a class="button" href="https://github.com/vinzens81/lumen-ArtNet">Source on GitHub</a>
+      </div>
+    </header>
+
+    <p>This guide walks through a complete example: <em>A Midsummer Night's Dream</em> in a small community theatre,
+      with four LED PARs at the front, two dimmer channels at the sides, an LED pixel bar on the cyclorama and two
+      moving heads. All screenshots show that project – you can <a href="#demo">import it</a> and follow along
+      without any hardware.</p>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="install"><span class="num">01</span>Install &amp; start</h2>
+
+    <h3>On a Mac (recommended)</h3>
+    <ol class="steps">
+      <li>Download <code>Lumen-&lt;version&gt;.dmg</code> from the
+        <a href="https://github.com/vinzens81/lumen-ArtNet/releases">releases page</a>, open it and drag
+        <strong>Lumen</strong> into <em>Applications</em>. The app brings its own Java runtime – nothing else to
+        install. It runs on Apple Silicon Macs.</li>
+      <li>Start Lumen from Launchpad, Spotlight or the Dock. The app is not signed with an Apple developer ID, so the
+        very first time macOS may refuse to open it: <strong>right-click Lumen → Open</strong>, then confirm.</li>
+      <li>When macOS asks whether Lumen may accept incoming network connections, click <strong>Allow</strong>. Lumen
+        needs this to find Art-Net nodes (UDP port 6454) and – if you want – to be reached from a tablet.</li>
+      <li>A small Lumen window shows the server status. Click <strong>Open in browser</strong>. The interface lives at
+        <code>http://127.0.0.1:8080</code>.</li>
+    </ol>
+    <p>Closing the window only hides it – Lumen keeps running and the light stays on. Quit with <strong>Quit</strong>
+      or <kbd>⌘</kbd><kbd>Q</kbd>. Your data is stored in <code>~/Library/Application Support/Lumen</code>, the log
+      in <code>~/Library/Logs/Lumen</code>.</p>
+
+    <h3>From source (any OS with Java 26)</h3>
+    <pre><code>git clone git@github.com:vinzens81/lumen-ArtNet.git
+cd lumen-ArtNet
+./build.sh          # build with all tests (--fast skips them)
+./run.sh            # start, then open http://127.0.0.1:8080
+./run.sh --test     # try-out mode: Art-Net off, separate database data/test.db</code></pre>
+    <p>With <code>run.sh</code> the data lives in <code>data/</code> in the project folder.</p>
+
+    <div class="callout" id="demo">
+      <strong>Try it without hardware</strong>
+      <p>Download the <a href="downloads/midsummer-demo.lumen.json" download>demo project</a>, open the
+        <strong>Projects</strong> tab and click <strong>Import…</strong>. If no Art-Net node is connected nothing
+        breaks – the stage view still glows like the real light would. To be sure no DMX reaches real fixtures, start
+        with <code>./run.sh --test</code>.</p>
+    </div>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="tour"><span class="num">02</span>A tour of the screen</h2>
+    <figure>
+      <img src="images/projects.jpg" width="1568" height="760" alt="Lumen header with project selector, setup tabs, status indicators and mode switch" loading="lazy">
+      <figcaption>The header is always there; below it the page of the selected tab.</figcaption>
+    </figure>
+    <table>
+      <tr><th>Element</th><th>What it does</th></tr>
+      <tr><td>Project selector</td><td>Switches the active project – the one that drives the light.</td></tr>
+      <tr><td>Tabs</td><td>Projects · Universes · Patch · Programmer · Stage · Looks · Compositions · Moves · Scenes · Party · DMX · Settings. Only visible in setup mode.</td></tr>
+      <tr><td>Art-Net</td><td>Packets per second sent right now. Grey "Art-Net off" in try-out mode, yellow/red on send problems.</td></tr>
+      <tr><td>Nodes</td><td>"Nodes 2/2" – how many expected Art-Net nodes answer. Red when one is missing; click for details.</td></tr>
+      <tr><td>On stage</td><td>Appears while a look, composition, move or scene is shown on stage for trying out. <strong>Stop</strong> ends it.</td></tr>
+      <tr><td>👁 View · 📜 Script</td><td>The <a href="#view">view-only pages</a> for phones and tablets.</td></tr>
+      <tr><td>Setup · Show · Party</td><td>The operating mode. It is server state: every connected browser follows.</td></tr>
+      <tr><td>Master bar</td><td>Grand master for all intensities and <strong>Blackout</strong> (key <kbd>B</kbd>).</td></tr>
+    </table>
+    <p>The three modes have their own colors so you always know where you are: <span class="mode-setup">setup</span>
+      is cyan, <span class="mode-show">show</span> amber, <span class="mode-party">party</span> pink.</p>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="concept"><span class="num">03</span>How a show is built</h2>
+    <p>Lumen separates <em>what the light looks like</em> from <em>when it happens</em>. Three levels build on each
+      other:</p>
+    <div class="levels">
+      <div class="level"><div class="tag">Level 1</div><h4>Look</h4>
+        <p>A fixed setting: intensity and color per fixture, recorded from the programmer. "Warm wash", "Night blue".</p></div>
+      <div class="level"><div class="tag">Level 2</div><h4>Composition</h4>
+        <p>1–n steps, each playing a look, with fade and hold times. One step is static light; several steps are a
+          color change, a chase, a sunrise.</p></div>
+      <div class="level"><div class="tag">Level 3</div><h4>Scene</h4>
+        <p>An entry in the cue list: a set of compositions (and moves), cue note, fade times, script and keys 1–8.</p></div>
+    </div>
+    <p><strong>Moves</strong> sit next to looks: looks say what the light looks like, moves say where moving heads
+      point. Compositions and looks are <em>shared</em> – change one and every scene that uses it changes too.</p>
+    <div class="callout">
+      <strong>The quick way</strong>
+      <p>For a simple scene you do not need to think about levels: set the light in the programmer and click
+        <strong>Record scene</strong>. Lumen creates the look, a one-step composition and the scene in one go.</p>
+    </div>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="projects"><span class="num">04</span>Projects</h2>
+    <p>A project is one show: its universes, patch, looks, compositions and scenes. Exactly one project is active.
+      In the <strong>Projects</strong> tab you create, edit, export and import projects.</p>
+    <ul>
+      <li><strong>+ New project</strong> – name, venue and the default fade times (fade-in, fade-out, fade curve).
+        Scenes can override them later.</li>
+      <li><strong>Export</strong> downloads the whole project as a <code>.lumen.json</code> file – perfect as a
+        backup or to take the show to another computer.</li>
+      <li><strong>Import…</strong> always creates a new project; nothing existing is overwritten.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="universes"><span class="num">05</span>Universes &amp; Art-Net</h2>
+    <figure>
+      <img src="images/universes.jpg" width="1568" height="760" alt="Universes tab with universe 1 Stage in auto mode and the list of Art-Net nodes" loading="lazy">
+      <figcaption>Universe 1 in <strong>Auto</strong> mode. The hint says no node reports this universe yet.</figcaption>
+    </figure>
+    <p>A universe carries 512 DMX channels. Create one per DMX line of your nodes and set its <strong>Art-Net
+      universe</strong> (net:subnet:universe) to match the node.</p>
+    <ul>
+      <li><strong>Auto</strong> (default): Lumen asks the network every few seconds which nodes exist (ArtPoll) and
+        sends each universe by unicast to exactly the nodes that report it. Usually you enter no IP at all.</li>
+      <li><strong>Manual IPs</strong> for nodes that do not answer ArtPoll – they can be combined with Auto.</li>
+      <li><strong>Broadcast</strong> sends to everybody. It works, but is unreliable over Wi-Fi.</li>
+      <li><strong>Network interface</strong>: with several networks (e.g. Wi-Fi and a USB Ethernet adapter) pick the
+        one the nodes are in.</li>
+    </ul>
+    <p>Below the universes, Lumen lists every node it found with name, IP and the universes it reports. Once a node
+      has answered, Lumen <em>expects</em> it: if it disappears – even before the show starts – the header turns
+      red and show mode shows a warning.</p>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="patch"><span class="num">06</span>Patch</h2>
+    <figure>
+      <img src="images/patch.jpg" width="1568" height="760" alt="Patch tab with fixture library, colored address grid and fixture list" loading="lazy">
+      <figcaption>Fixture library on the left, the 512 addresses of the universe in the middle, the patched fixtures on the right.</figcaption>
+    </figure>
+    <ol class="steps">
+      <li>Pick a fixture type in the <strong>library</strong> (search helps) and choose the mode your fixture is set
+        to – the channel count must match the fixture's menu.</li>
+      <li>Give it a name and a short name (shown on the stage view), set universe and start address. Lumen suggests the
+        next free address; with <strong>count</strong> you patch several identical fixtures in a row.</li>
+      <li>The <strong>address grid</strong> shows every fixture in its own color. Overlaps turn red and are listed as
+        patch problems – click one to fix it.</li>
+      <li>Create <strong>groups</strong> (e.g. Front, Sides, Movers) – they make selecting in the programmer fast.</li>
+    </ol>
+    <p>Every fixture card has a <strong>Locate</strong> button that makes it light up brightly so you can find it on
+      stage. Moving heads can get <strong>pan/tilt limits</strong> here so the show never points them into the
+      audience.</p>
+    <div class="callout">
+      <strong>Your fixture is not in the library?</strong>
+      <p>Use <strong>⇣ Import from Open Fixture Library</strong> below the library: download the fixture from
+        <a href="https://open-fixture-library.org">open-fixture-library.org</a> as <em>Open Fixture Library JSON</em>
+        and import the file. Or write a small YAML profile yourself – see
+        <a href="https://github.com/vinzens81/lumen-ArtNet/blob/main/docs/FIXTURE-LIBRARY.md">the profile format</a>.
+        Profiles are picked up while Lumen is running.</p>
+    </div>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="stage"><span class="num">07</span>Stage</h2>
+    <figure>
+      <img src="images/stage.jpg" width="1568" height="760" alt="Stage view with glowing front PARs, side lights and a rainbow pixel bar upstage" loading="lazy">
+      <figcaption>The stage view glows like the real output – here the epilogue scene with the rainbow on the cyc bar.</figcaption>
+    </figure>
+    <p>Drag your fixtures to where they hang: upstage at the top, the audience at the bottom. Drag one off the stage
+      to remove it, <strong>Place all</strong> distributes the rest. With <strong>Floor plan…</strong> you can put a
+      picture of your stage behind it (PNG, JPEG or WebP).</p>
+    <ul>
+      <li>Every fixture has a shape: <strong>spot</strong>, <strong>bar</strong> (one segment per head) or
+        <strong>strip</strong>; rotate the selected one with <kbd>R</kbd>.</li>
+      <li>Click a fixture to open the programmer controls right on the stage.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="programmer"><span class="num">08</span>Programmer</h2>
+    <figure>
+      <img src="images/programmer.jpg" width="1568" height="760" alt="Programmer with the four front PARs selected, amber preset, dimmer at 75 percent and the color wheel" loading="lazy">
+      <figcaption>The group "Front" is selected; the preset "Amber" and 75 % dimmer are applied to all four PARs.</figcaption>
+    </figure>
+    <p>The programmer is where you set light by hand. It only works in setup mode – in show mode it is locked so
+      nobody changes the light by accident.</p>
+    <ul>
+      <li><strong>Select</strong> fixtures in the list or a whole group on the left. <kbd>Shift</kbd>/<kbd>⌘</kbd>-click
+        adds more, <kbd>Esc</kbd> clears the selection.</li>
+      <li>The panel on the right is built from the fixture type: dimmer, color wheel and color buttons for RGB(W)
+        fixtures, an XY pad for pan/tilt, segmented faders for strobe, raw channels.</li>
+      <li><strong>Presets</strong> are named colors or beam settings ("Amber", "Deep blue"). Tap one to apply it,
+        <strong>+</strong> records the current selection as a new preset. Update a preset later and every look using
+        it changes too.</li>
+      <li><strong>Record scene</strong> turns what you see into a new scene; <strong>Record position</strong> stores where
+        moving heads point as a move. <strong>Clear all</strong> empties the programmer.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="looks"><span class="num">09</span>Looks</h2>
+    <figure>
+      <img src="images/looks.jpg" width="1568" height="760" alt="Looks tab with the shared looks and the Warm wash look opened" loading="lazy">
+      <figcaption>"Warm wash" – values for seven fixtures, played by the composition "Base warm".</figcaption>
+    </figure>
+    <p>A look stores fixed values. Record it from the programmer (<strong>⏺ Record look</strong>), bring it back with
+      <strong>Load into programmer</strong>, adjust and save with <strong>Update from programmer</strong> – either
+      replacing everything or merging only what you changed.</p>
+    <ul>
+      <li>Every update keeps the previous version: <strong>History</strong> and <strong>↶ Undo</strong> bring it back.</li>
+      <li>A look in use cannot be deleted; "Played by …" tells you where it is used.</li>
+      <li>Looks never contain pan/tilt – positions belong to <a href="#moves">moves</a>.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="compositions"><span class="num">10</span>Compositions</h2>
+    <figure>
+      <img src="images/compositions.jpg" width="1568" height="760" alt="Composition editor for Sunrise with three steps red, orange and gold" loading="lazy">
+      <figcaption>"Sunrise": three steps, each fading in over 5 s and holding 2 s, played once.</figcaption>
+    </figure>
+    <p>A composition plays its steps one after another. Each step plays a look.</p>
+    <ul>
+      <li><strong>Timing</strong>: fade into each step and hold it; single steps can have their own times.</li>
+      <li><strong>Play</strong>: <em>Loop</em>, <em>Ping-pong</em> or <em>Once</em> (stops at the last step – a
+        sunrise).</li>
+      <li><strong>Intensity</strong>: <em>sets</em> the intensity, or <em>scales</em> the light below it (for a
+        candle flickering around the base light).</li>
+      <li><strong>Record step</strong> adds the programmer as a new step. Steps can also start <em>with</em> another
+        step and run in parallel.</li>
+      <li><strong>✦ Generate from an effect…</strong> creates the steps for you: <em>chase</em>, <em>color
+        change</em>, <em>rainbow</em>, <em>wave</em> or <em>flicker</em> on a group – the "Fairy sparkle" rainbow in
+        the demo was generated on the cyc bar, one step per pixel.</li>
+      <li><strong>Show on stage</strong> plays it on the real fixtures to try it out.</li>
+    </ul>
+    <p>When the same composition is in two scenes in a row, it keeps running across the GO without a jump – the base
+      light does not flicker and a chase does not restart. Tick <strong>Restart at GO</strong> in the scene if you want
+      it to start over.</p>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="moves"><span class="num">11</span>Moves</h2>
+    <figure>
+      <img src="images/moves.jpg" width="1568" height="760" alt="Move editor with an eight-point circle figure and two moving heads ML and MR on it" loading="lazy">
+      <figcaption>The move "Fairy circle": the figure "Circle" laid onto both movers, the right one mirrored.</figcaption>
+    </figure>
+    <p>Moves tell moving heads where to point. A <strong>figure</strong> is a drawn shape in the pan/tilt grid; a
+      <strong>move</strong> lays it onto fixtures with size, shift, rotation, time per round and an offset between the
+      heads.</p>
+    <ul>
+      <li>Draw figures by clicking points, or start from a template (circle, eight, lines, triangle, rectangle, random).</li>
+      <li>A figure with <strong>one point</strong> is simply a fixed position – "Spot centre" in the demo. Easiest:
+        aim the heads with the programmer and click <strong>Record position</strong>.</li>
+      <li>Each head can have its own shift, mirror and reverse, so heads hanging in different places hit the same spot.</li>
+      <li>A head without a move in the next scene stays where it is – changing only the color does not send it home.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="scenes"><span class="num">12</span>Scenes &amp; script</h2>
+    <figure>
+      <img src="images/scenes.jpg" width="1568" height="760" alt="Scenes tab: cue list on the left, scene 3 The forest at night with its script on the right" loading="lazy">
+      <figcaption>The cue list on the left; scene 3 open in the editor with cue note and script.</figcaption>
+    </figure>
+
+    <h3>The cue list</h3>
+    <ul>
+      <li>Scenes are ordered by their <strong>number</strong>. Need something between 3 and 4? Call it 3.5 – or drag a
+        scene by its ⋮⋮ handle and Lumen gives it a number between its new neighbours.</li>
+      <li>The colored dots preview each scene; small badges show keys, script, effects and the scene's own fade times.</li>
+      <li><strong>+ Empty scene</strong> inserts after the selected scene, <strong>⧉ Duplicate</strong> copies it,
+        <strong>🖨 Cue list</strong> opens a printable list.</li>
+    </ul>
+
+    <h3>Cue note and script</h3>
+    <p>The <strong>cue note</strong> is your GO cue ("GO on Puck's entrance") – show mode shows it large for the next
+      scene. The <strong>script</strong> is the spoken text of the scene. Write it as plain text; the editor colors it
+      as you type:</p>
+    <table>
+      <tr><th>You write</th><th>Meaning</th></tr>
+      <tr><td><code>Puck: How now, spirit!</code></td><td>A speech. A name with a colon at the start of a line (1–4 capitalized words) marks the speaker; every person keeps their own color.</td></tr>
+      <tr><td><code>**Thunder. Enter Oberon.**</code></td><td>A stage direction – shown differently and skipped by the arrow keys.</td></tr>
+      <tr><td><code>//## Moonrise (the moon comes up)##</code></td><td>A <strong>light marker</strong>: the scene changes its light here (see below).</td></tr>
+    </table>
+
+    <h3>Times</h3>
+    <figure>
+      <img src="images/scene-timing.jpg" width="1568" height="760" alt="Scene editor with auto-follow, fade times of the GO into the scene, move in dark and the on stage buttons" loading="lazy">
+      <figcaption>Fade times belong to the GO <em>into</em> the scene; empty fields use the project times.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>In / Out / Delay</strong>: fade-in of this scene, fade-out of the scene before, and a delay before
+        the fade-in starts. In 0 and Out 0 make a flash.</li>
+      <li><strong>Curve</strong>: linear, S-curve (soft start and end) or square law (smoother in the dark).</li>
+      <li><strong>Continue automatically after</strong> (auto-follow): the next GO happens by itself, counted from the
+        end of the fade-in – for chains like "sunset in three stages".</li>
+      <li><strong>Move in dark</strong>: moving heads that point somewhere else dim out, move while dark and dim in at
+        their new position, instead of sweeping across the stage lit.</li>
+      <li><strong>⇢ Rehearse fade</strong> plays the GO from the scene before into this one with the real times – on
+        the stage, in setup mode.</li>
+    </ul>
+
+    <h3>Light: compositions, looks, moves, light markers and keys</h3>
+    <figure>
+      <img src="images/scene-compositions.jpg" width="1568" height="760" alt="Scene editor showing the compositions of the start part and the Moonrise light marker section" loading="lazy">
+      <figcaption>The start of scene 3 plays "Night" and the move "Fairy circle"; the part after the marker "Moonrise" has light of its own.</figcaption>
+    </figure>
+    <ul>
+      <li>Add <strong>compositions</strong>, <strong>looks</strong> and <strong>moves</strong> to the scene. Per
+        composition you set level, tempo and "Restart at GO". Order is priority: for colors the later one wins,
+        intensity takes the highest.</li>
+      <li>Every <strong>light marker</strong> in the script gets its own section. When the operator steps past the
+        marker during the show, the light of that part fades in with the scene's times. What is in both parts keeps
+        running and does not move.</li>
+      <li><strong>Keys 1–8</strong>: compositions or moves the operator can switch on during this scene – toggle or
+        flash (e.g. "Thunder" on key 1). A new scene inherits the keys of the scene before.</li>
+      <li><strong>Faders</strong> (below the cue list) play a composition at the level they are pushed to, independent
+        of GO – house lights, work lights.</li>
+    </ul>
+
+    <h3>Printable cue list</h3>
+    <figure class="medium">
+      <img src="images/cue-list.jpg" width="960" height="430" alt="Printable cue list with number, scene, GO cue, fade times and running compositions" loading="lazy">
+      <figcaption>"🖨 Cue list" – print it or save it as PDF from the print dialog.</figcaption>
+    </figure>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="show"><span class="num">13</span>Running the show</h2>
+    <p>Switch the mode at the top right to <strong class="mode-show">Show</strong>. The programmer is cleared and
+      locked, every browser switches along, and – if a PIN is set – every browser is locked again.</p>
+    <figure>
+      <img src="images/show.jpg" width="1568" height="760" alt="Show mode: cue list on the left, now and next on the right, big GO button, keys and house lights fader" loading="lazy">
+      <figcaption>Show mode during scene 3: the stack on the right shows before, now (with its light markers) and next.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>GO</strong> (<kbd>Space</kbd>) fades into the next scene: fade-out and fade-in run in parallel. A
+        double press does not skip a scene.</li>
+      <li><strong>Back</strong> (<kbd>←</kbd>) goes to the previous scene in the list. To jump, tap a scene (or
+        <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd>) – it becomes <em>next</em> and plays on the next GO.</li>
+      <li><strong>Pause</strong> (<kbd>P</kbd>) freezes fades and effects, <strong>Finish fade</strong>
+        (<kbd>Enter</kbd>) completes the running fade at once.</li>
+      <li><strong>Stop</strong> aborts the show: everything goes dark immediately and the next GO starts from scene 1.
+        It asks once ("Really stop?") – click again within 3 seconds.</li>
+      <li><strong>Keys</strong> (<kbd>1</kbd>–<kbd>8</kbd>) and <strong>faders</strong> sit below GO. Flash keys are on
+        while held.</li>
+      <li><strong>Master</strong> and <strong>Blackout</strong> (<kbd>B</kbd>) at the bottom work in every mode.</li>
+    </ul>
+
+    <h3>Following the script</h3>
+    <figure>
+      <img src="images/show-script.jpg" width="1568" height="760" alt="Show mode with the Script tab: the Fairy's speech is highlighted, the light marker Moonrise below" loading="lazy">
+      <figcaption>The <strong>Script</strong> tab: the current speech is highlighted and kept in the middle.</figcaption>
+    </figure>
+    <p>Open the <strong>Script</strong> tab to follow the text. <kbd>↑</kbd>/<kbd>↓</kbd> (on a tablet ▲/▼) step from
+      speech to speech; stage directions are skipped. Stepping past a <strong>light marker</strong> changes the light
+      of the scene. The position is shared: a second browser shows the same speech. On GO the next scene starts at its
+      first speech.</p>
+    <p>Next to <em>Scenes</em> and <em>Script</em> there are <strong>Stage</strong> (the glowing stage view, read-only)
+      and <strong>DMX</strong> (the live values of all used channels).</p>
+
+    <div class="callout warn">
+      <strong>If the computer crashes</strong>
+      <p>Lumen remembers the scene on stage. After a restart it comes back in show mode with the light dark and offers
+        <strong>Resume the show?</strong> – one click and the scene is back, without a fade.</p>
+    </div>
+    <p>While show mode is open the screen stays on. On a tablet over plain HTTP the browser only allows that after a
+      tap – the hint "Tap to keep the screen on" disappears with your first touch.</p>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="view"><span class="num">14</span>Phones &amp; tablets: view only</h2>
+    <p>Two pages show what is happening without being able to change anything – no controls, no shortcuts, no PIN.
+      They are meant for the prompter, stage management or the director.</p>
+    <div class="pair">
+      <figure>
+        <img src="images/view-script.jpg" width="1568" height="760" alt="View-only script page with the current speech highlighted" loading="lazy">
+        <figcaption><code>#/view/script</code> – the script, following the operator.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/view-stage.jpg" width="1568" height="760" alt="View-only stage page with the stage glowing blue" loading="lazy">
+        <figcaption><code>#/view</code> – the stage, glowing live.</figcaption>
+      </figure>
+    </div>
+    <ul>
+      <li><strong>📜 Script</strong> (<code>http://&lt;computer&gt;:8080/#/view/script</code>): the script of the scene
+        on stage, the speech the operator is at highlighted and kept in the middle. <strong>A−/A+</strong> change the
+        text size. Scroll by hand to read ahead – following pauses until you tap <strong>↧ Follow the show</strong> or
+        the next scene starts.</li>
+      <li><strong>👁 View</strong> (<code>http://&lt;computer&gt;:8080/#/view</code>): the stage view with the scene and
+        light marker on stage.</li>
+    </ul>
+    <figure class="narrow">
+      <img src="images/view-script-phone.jpg" width="500" height="723" alt="The view-only script on a phone" loading="lazy">
+      <figcaption>The script view on a phone.</figcaption>
+    </figure>
+    <div class="callout">
+      <strong>Connecting a tablet or phone</strong>
+      <p>By default only the computer running Lumen can open it. Go to <strong>Settings → Network access</strong>,
+        tick <em>Allow other devices in the network</em> and restart Lumen. Settings then shows the address to type on
+        the tablet, e.g. <code>http://192.168.1.20:8080</code>. Both devices must be in the same network.</p>
+    </div>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="party"><span class="num">15</span>Party mode</h2>
+    <p>For the party after the premiere: no cue list, just a matrix of buttons that switch light on and off.</p>
+    <div class="pair">
+      <figure>
+        <img src="images/party-setup.jpg" width="1568" height="760" alt="Party tab in setup mode with a matrix of colored fields" loading="lazy">
+        <figcaption>Set up the matrix in the <strong>Party</strong> tab.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/party.jpg" width="1568" height="760" alt="Party mode with Warm, Sparkle and Circle switched on" loading="lazy">
+        <figcaption>In party mode tap fields to switch them.</figcaption>
+      </figure>
+    </div>
+    <ul>
+      <li>A field plays a <strong>scene</strong>, a <strong>composition</strong> or a <strong>move</strong>, or is just
+        a text label. Each has a label, fill and border color and is <strong>toggle</strong> or <strong>flash</strong>.</li>
+      <li>Fields in the same <strong>group</strong> exclude each other – switch on "Night" and "Warm" goes off.</li>
+      <li>Where fields collide, the higher value wins. <strong>All off</strong> switches everything off.</li>
+      <li>Switch to <strong class="mode-party">Party</strong> from setup mode (not directly from show mode).</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="settings"><span class="num">16</span>Settings &amp; safety</h2>
+    <figure>
+      <img src="images/settings.jpg" width="1568" height="760" alt="Settings with configuration PIN, network access and backups" loading="lazy">
+      <figcaption>PIN, network access and backups.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>Configuration PIN</strong> (4–12 digits): with a PIN, setup can only be changed after entering it.
+        Starting show mode locks every browser again, so nobody leaves the show by accident. GO, master and blackout
+        always work without the PIN.</li>
+      <li><strong>Network access</strong>: see <a href="#view">phones &amp; tablets</a>.</li>
+      <li><strong>Backups</strong>: Lumen copies the whole database when it starts, when show mode starts and when
+        another project is activated; the newest 30 are kept. To restore one, quit Lumen and copy the backup file over
+        <code>lumen.db</code> in the data folder.</li>
+      <li>The light does not depend on the browser: close the tab or lose Wi-Fi and the light stays as it is.</li>
+    </ul>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="keys"><span class="num">17</span>Keyboard shortcuts</h2>
+    <table>
+      <tr><th>Key</th><th>Where</th><th>Action</th></tr>
+      <tr><td><kbd>Space</kbd></td><td>Show</td><td>GO</td></tr>
+      <tr><td><kbd>←</kbd></td><td>Show</td><td>Back</td></tr>
+      <tr><td><kbd>↑</kbd> / <kbd>↓</kbd></td><td>Show</td><td>Previous / next speech in the script</td></tr>
+      <tr><td><kbd>Shift</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Show</td><td>Choose the next scene</td></tr>
+      <tr><td><kbd>P</kbd></td><td>Show</td><td>Pause / continue</td></tr>
+      <tr><td><kbd>Enter</kbd></td><td>Show</td><td>Finish the running fade</td></tr>
+      <tr><td><kbd>1</kbd>–<kbd>8</kbd></td><td>Show</td><td>Keys of the scene (flash: while held)</td></tr>
+      <tr><td><kbd>B</kbd></td><td>Everywhere</td><td>Blackout on / off</td></tr>
+      <tr><td><kbd>Esc</kbd></td><td>Programmer</td><td>Clear the selection</td></tr>
+      <tr><td><kbd>R</kbd></td><td>Stage</td><td>Rotate the selected fixture by 15°</td></tr>
+      <tr><td><kbd>Delete</kbd></td><td>Stage</td><td>Take the selected fixture off the stage</td></tr>
+      <tr><td><kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd></td><td>Scenes</td><td>Move the selected scene in the cue list</td></tr>
+    </table>
+
+    <!-- ───────────────────────────────────────────── -->
+    <h2 id="trouble"><span class="num">18</span>Troubleshooting</h2>
+
+    <h3>The stage view glows but the real light stays dark</h3>
+    <ul>
+      <li>Does the header say <strong>Art-Net off</strong>? Then Lumen runs in try-out mode (<code>run.sh --test</code>).</li>
+      <li>Open <strong>Universes</strong>: is your node listed, and does it report the same Art-Net universe? A yellow
+        hint under the universe tells you when no node receives it.</li>
+      <li>Nodes that do not answer ArtPoll need their IP entered on the universe.</li>
+      <li>With several networks, pick the right <strong>network interface</strong> on the universe.</li>
+      <li>Check the fixture's DMX address and mode against the patch, and that master is up and blackout is off.</li>
+    </ul>
+
+    <h3>The tablet cannot open Lumen</h3>
+    <ul>
+      <li>Enable <strong>Settings → Network access</strong> and restart Lumen.</li>
+      <li>Allow incoming connections for Lumen in the macOS firewall.</li>
+      <li>Tablet and computer must be in the same network; use the address shown in Settings.</li>
+    </ul>
+
+    <h3>The tablet screen goes dark during the show</h3>
+    <p>Tap the screen once after opening show mode or the script view – the browser only keeps the screen on after a
+      touch when the page is served over plain HTTP.</p>
+
+    <h3>macOS says Lumen cannot be opened</h3>
+    <p>Right-click Lumen in <em>Applications</em> → <strong>Open</strong> and confirm. This is only needed the first time.</p>
+
+    <h3>A fixture profile does not show up</h3>
+    <p>Broken profiles are skipped and reported as library issues instead of stopping Lumen. Check the log
+      (<code>~/Library/Logs/Lumen</code> for the Mac app) or the patch view for the message.</p>
+
+    <footer>
+      Lumen is open source: <a href="https://github.com/vinzens81/lumen-ArtNet">github.com/vinzens81/lumen-ArtNet</a>.
+      Technical documentation (architecture, data model, playback rules) lives in the
+      <a href="https://github.com/vinzens81/lumen-ArtNet/tree/main/docs">docs folder</a>. The demo uses lines from
+      Shakespeare's <em>A Midsummer Night's Dream</em> (public domain).
+    </footer>
+  </main>
+</div>
+
+<dialog class="lightbox" aria-label="Screenshot">
+  <img alt="">
+  <p></p>
+</dialog>
+
+<script>
+  // click a screenshot to see it large; click again or press Esc to close
+  const box = document.querySelector('dialog.lightbox');
+  const boxImg = box.querySelector('img');
+  const boxText = box.querySelector('p');
+  document.querySelectorAll('figure img').forEach((img) => {
+    img.addEventListener('click', () => {
+      boxImg.src = img.src;
+      boxImg.alt = img.alt;
+      boxText.textContent = img.closest('figure').querySelector('figcaption')?.textContent ?? '';
+      box.showModal();
+    });
+  });
+  box.addEventListener('click', () => box.close());
+
+  // contents on small screens
+  const toc = document.querySelector('nav.toc');
+  const toggle = toc.querySelector('.menu-toggle');
+  toggle.addEventListener('click', () => {
+    const open = toc.classList.toggle('open');
+    toggle.setAttribute('aria-expanded', String(open));
+  });
+  toc.querySelectorAll('ol a').forEach((a) => a.addEventListener('click', () => {
+    toc.classList.remove('open');
+    toggle.setAttribute('aria-expanded', 'false');
+  }));
+
+  // highlight the section in view
+  const links = new Map([...toc.querySelectorAll('ol a')].map((a) => [a.getAttribute('href').slice(1), a]));
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      links.forEach((a) => a.classList.remove('active'));
+      links.get(entry.target.id)?.classList.add('active');
+    }
+  }, { rootMargin: '0px 0px -75% 0px' });
+  document.querySelectorAll('h2[id]').forEach((h) => observer.observe(h));
+</script>
+</body>
+</html>
