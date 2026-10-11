@@ -830,8 +830,10 @@ cd lumen-ArtNet
 
     <div class="callout warn">
       <strong>If the computer crashes</strong>
-      <p>Lumen remembers the scene on stage. After a restart it comes back in show mode with the light dark and offers
-        <strong>Resume the show?</strong> – one click and the scene is back, without a fade.</p>
+      <p>Lumen remembers the scene on stage. After a restart in show mode the show continues at once at that scene,
+        without a fade – Lumen sends no dark frame first, so Art-Net nodes that hold their last values stay lit. The
+        grand master starts at 100 % again. After a restart in setup mode Lumen stays dark and offers
+        <strong>Resume the show?</strong> – one click and the scene is back.</p>
     </div>
     <p>While show mode is open the screen stays on. On a tablet over plain HTTP the browser only allows that after a
       tap – the hint "Tap to keep the screen on" disappears with your first touch.</p>
