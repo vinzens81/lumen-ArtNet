@@ -800,7 +800,7 @@ cd lumen-ArtNet
       locked, every browser switches along, and – if a PIN is set – every browser is locked again.</p>
     <figure>
       <img src="images/show.jpg" width="1568" height="760" alt="Show mode: cue list on the left, now and next on the right, big GO button, keys and house lights fader" loading="lazy">
-      <figcaption>Show mode during scene 3: the stack on the right shows before, now (with its light markers) and next.</figcaption>
+      <figcaption>Show mode during scene 3: the stack on the right shows before, now (with its light markers) and next; ⏱ above the list is the show time.</figcaption>
     </figure>
     <ul>
       <li><strong>GO</strong> (<kbd>Space</kbd>) fades into the next scene: fade-out and fade-in run in parallel. A
@@ -814,6 +814,9 @@ cd lumen-ArtNet
       <li><strong>Keys</strong> (<kbd>1</kbd>–<kbd>8</kbd>) and <strong>faders</strong> sit below GO. Flash keys are on
         while held.</li>
       <li><strong>Master</strong> and <strong>Blackout</strong> (<kbd>B</kbd>) at the bottom work in every mode.</li>
+      <li><strong>⏱ Show time</strong> above the list: how long the show has been running since the GO into the first
+        scene, e.g. <code>1:02:05</code>. A pause does not stop it; at the end of the show it stands still (grey), and
+        <strong>Stop</strong> resets it. Every browser shows the same time.</li>
     </ul>
 
     <h3>Following the script</h3>
@@ -839,7 +842,33 @@ cd lumen-ArtNet
       tap – the hint "Tap to keep the screen on" disappears with your first touch.</p>
 
     <!-- ───────────────────────────────────────────── -->
-    <h2 id="view"><span class="num">14</span>Phones &amp; tablets: view only</h2>
+    <h2 id="view"><span class="num">14</span>Phones &amp; tablets</h2>
+
+    <h3 id="remote">Running the show from a tablet</h3>
+    <figure>
+      <img src="images/remote.jpg" width="1568" height="1089" alt="The show remote on an iPad in landscape: now and next, keys and house lights on the left, GO, playback buttons and the script with a big down button on the right" loading="lazy">
+      <figcaption><code>#/remote</code> on an iPad: the Fairy's speech at the top of the script, the light marker Moonrise below it.</figcaption>
+    </figure>
+    <p>The <strong>🎛 Remote</strong> (<code>http://&lt;computer&gt;:8080/#/remote</code>) is the show on a tablet, with
+      only what the performance needs – no scene list, stage or DMX:</p>
+    <ul>
+      <li><strong>Now</strong> with the fade bar, <strong>Next</strong> with its cue note – ▲/▼ choose another scene
+        as next.</li>
+      <li><strong>GO</strong>, <strong>Back</strong>, <strong>Pause</strong>, <strong>Finish fade</strong> and
+        <strong>Stop</strong> (asks once, like in show mode).</li>
+      <li>The <strong>script</strong> of the scene with all stage directions and light markers. The current speech
+        stands at the top, what comes next below it. The big <strong>▼</strong> goes to the next speech (and past a
+        light marker changes the light), ▲ goes back. The position is shared with the laptop and the script view.</li>
+      <li>The <strong>keys</strong> of the scene and the <strong>faders</strong> (e.g. house lights) on the left,
+        <strong>master</strong> and <strong>blackout</strong> at the bottom, the <strong>⏱ show time</strong> at the
+        top.</li>
+    </ul>
+    <p>Every part of the page has a fixed size: long names are cut and the script scrolls inside its box, so no button
+      ever moves under your finger. The remote works in show mode only – outside it says so and the buttons are
+      greyed out; it cannot start show mode itself. Like show mode it needs no PIN, and the screen stays on. In portrait
+      everything stands in one column. Tip: in Safari use <em>Share → Add to Home Screen</em> to open it like an app.</p>
+
+    <h3>View only</h3>
     <p>Two pages show what is happening without being able to change anything – no controls, no shortcuts, no PIN.
       They are meant for the prompter, stage management or the director.</p>
     <div class="pair">
@@ -948,7 +977,7 @@ cd lumen-ArtNet
     </ul>
 
     <h3>The tablet screen goes dark during the show</h3>
-    <p>Tap the screen once after opening show mode or the script view – the browser only keeps the screen on after a
+    <p>Tap the screen once after opening show mode, the remote or the script view – the browser only keeps the screen on after a
       touch when the page is served over plain HTTP.</p>
 
     <h3>macOS says Lumen cannot be opened</h3>
