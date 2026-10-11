@@ -3,6 +3,13 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.98 · 2026-10-11
+
+### Changed
+- A server that restarts in show mode continues the show at once at the scene that was on stage, without waiting for
+  "Resume". Lumen no longer sends a dark frame first, so Art-Net nodes that hold their last values stay lit through
+  the restart. In setup mode the scene is still only offered.
+
 ## 1.0.95 – 1.0.96 · 2026-10-10
 
 ### Added

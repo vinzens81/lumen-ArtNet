@@ -147,9 +147,10 @@ scene), and a quick double GO works without jumps.
 
 - **Before the first scene** the state is "blackout / audience entry". The first GO fades in scene 1.
 - **After the last scene** a GO fades everything to black with `fade_out_ms` ("end").
-- The current scene is saved in `playback_state`. After a restart show mode offers to continue there (the scene is set
-  directly without a fade, its auto-follow countdown starts again). "Start from the beginning" or a GO discards the
-  offer.
+- The current scene is saved in `playback_state` as soon as a GO starts its fade. A server that restarts in show mode
+  continues there at once, before the first Art-Net frame, so nodes holding their last values never see a dark frame
+  (the scene is set directly without a fade, its auto-follow countdown starts again). In setup mode the scene is only
+  offered: "Start from the beginning" or a GO discards the offer.
 
 ## Implementation
 
@@ -159,7 +160,8 @@ scene), and a quick double GO works without jumps.
   (incl. `fade: snap|smooth`).
 - The playback is an output layer (priority 50) **below** the programmer (100).
 - Double-GO protection: client 300 ms, server 200 ms.
-- When the server starts, the playback is "ready" (dark). If a scene was saved, the status names it as
+- When the server starts, the playback is "ready" (dark). If a scene was saved and the server comes back in show mode,
+  it is restored before the render loop starts (`OutputConfiguration`). Otherwise the status names it as
   `resumeSceneId`; `POST /api/playback/resume` sets it (`Playback.restore`).
 
 ## Programmer vs. playback

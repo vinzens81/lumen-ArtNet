@@ -21,6 +21,7 @@ import de.vinzens.lumen.application.output.port.out.DmxOutputPort;
 import de.vinzens.lumen.application.output.port.out.LocalNetworks;
 import de.vinzens.lumen.application.party.PartyService;
 import de.vinzens.lumen.application.playback.PlaybackService;
+import de.vinzens.lumen.domain.output.OperatingMode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
@@ -110,14 +111,25 @@ class OutputConfiguration {
 		});
 	}
 
+	/**
+	 * A server that restarts in show mode puts the saved scene back on stage before the render loop sends its first
+	 * frame, so the light never goes dark. In setup mode the scene is only offered.
+	 */
 	@Bean
 	PlaybackService playbackService(SqliteRepositories repositories, CompositionResolver compositionResolver,
-			ExecutorService playbackStateWriter, Clock clock, StateEvents stateEvents, OutputEngine outputEngine) {
+			ExecutorService playbackStateWriter, Clock clock, StateEvents stateEvents, OutputEngine outputEngine,
+			OperatingModeKeeper operatingModeKeeper) {
 		var playback = new PlaybackService(repositories.projects(), repositories.scenes(), compositionResolver,
 				repositories.playbackStates(), repositories.faders(), playbackStateWriter, clock, stateEvents);
 		outputEngine.addLayerSource(playback);
-		playback.status().resumeSceneId().ifPresent(sceneId ->
-				log.info("Show can be resumed at scene id {}", sceneId));
+		playback.status().resumeSceneId().ifPresent(sceneId -> {
+			if (outputEngine.mode() == OperatingMode.SHOW) {
+				playback.resume();
+				log.info("Show resumed at scene id {} after the restart", sceneId);
+			} else {
+				log.info("Show can be resumed at scene id {}", sceneId);
+			}
+		});
 		return playback;
 	}
 

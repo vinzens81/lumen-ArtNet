@@ -187,7 +187,7 @@ Errors come as Problem Details (RFC 9457): 400 with an `errors` list, 403 with `
 | `POST /api/playback/keys/{slot}/press` · `/release` | Press / release key 1–8 (toggle or flash) |
 | `PUT /api/playback/faders/{slot}` `{level}` | Set a fader (e.g. house lights) to 0–1, also in setup mode, without PIN |
 | `PUT /api/playback/script` `{sceneId, line, section}` | Position in the script of the scene on stage; all clients follow, without PIN |
-| `POST /api/playback/resume` · `DELETE /api/playback/resume` | After a restart, continue at `resumeSceneId` · discard the offer |
+| `POST /api/playback/resume` · `DELETE /api/playback/resume` | After a restart in setup mode, continue at `resumeSceneId` · discard the offer (show mode continues by itself) |
 | `PUT /api/playback/next` `{ sceneId }` | Pick the next scene (jump) |
 | `GET/PUT /api/mode` `{ mode: setup\|show\|party }` | Operating mode; `show` and `party` clear and lock the programmer, back to `setup` only when unlocked |
 | `GET/PUT /api/output/master` `{level}` · `PUT /api/output/blackout` `{active}` | Grand master / blackout |

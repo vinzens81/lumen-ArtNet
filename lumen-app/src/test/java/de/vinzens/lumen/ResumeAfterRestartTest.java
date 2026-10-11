@@ -14,8 +14,8 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Definition of done of iteration 8: the server stops during scene 4 and starts again; after confirming, the
- * light is back in scene 4.
+ * Definition of done of iteration 8: the server stops during scene 4 and starts again. In show mode the light is
+ * back in scene 4 at once; in setup mode only after confirming.
  */
 class ResumeAfterRestartTest {
 
@@ -51,7 +51,17 @@ class ResumeAfterRestartTest {
 		try (var context = start(database)) {
 			var http = client(context);
 			assertThat(get(http, "/api/mode", "$.mode")).as("still in show mode").isEqualTo("show");
-			assertThat(get(http, "/api/playback", "$.position")).isEqualTo(-1);
+			assertThat(get(http, "/api/playback", "$.currentSceneId")).as("resumed without confirming")
+					.isEqualTo((int) scenes[3]);
+			assertThat(get(http, "/api/playback", "$.resumeSceneId")).isNull();
+			assertThat(dmx(http)).isEqualTo(102);
+
+			http.put().uri("/api/mode").body("{\"mode\": \"setup\"}").retrieve().toBodilessEntity();
+		}
+
+		try (var context = start(database)) {
+			var http = client(context);
+			assertThat(get(http, "/api/playback", "$.position")).as("setup mode only offers").isEqualTo(-1);
 			assertThat(get(http, "/api/playback", "$.resumeSceneId")).isEqualTo((int) scenes[3]);
 			assertThat(dmx(http)).as("dark until confirmed").isZero();
 

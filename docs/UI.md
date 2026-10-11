@@ -178,7 +178,8 @@ Optimized for one task: press GO at the right time, without mistakes.
 - Small **color preview** per scene in the list (gradient of the contained colors).
 - **Auto-follow:** scenes with a stay time carry a ⟳ symbol in the list. During the stay time "Now" shows a countdown
   ("next in 6 s"). A tap on GO triggers at once.
-- After a restart: banner "Resume the show at scene 4?"
+- After a restart in show mode the show continues at once at the scene that was on stage; after a restart in setup
+  mode a banner asks "Resume the show at scene 4?"
 - No programmer, no patch, no scene editing. Only master and blackout.
 
 ### Keyboard (show)
