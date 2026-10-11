@@ -32,3 +32,18 @@ export function shortTime(date: Date, now: Date = new Date()): string {
     && date.getDate() === now.getDate();
   return sameDay ? time : `${date.getDate()} ${MONTHS[date.getMonth()]} ${time}`;
 }
+
+/**
+ * The show time as a clock: "12:05" below an hour, "1:02:05" from an hour on; "–:––" before the show started.
+ * `sinceStatusMs` is the time since the status arrived, counted on while the show time runs.
+ */
+export function showClock(status: { showTimeMs: number | null; showTimeRunning: boolean } | null,
+  sinceStatusMs: number): string {
+  if (status?.showTimeMs == null) return '–:––';
+  const ms = status.showTimeMs + (status.showTimeRunning ? Math.max(0, sinceStatusMs) : 0);
+  const total = Math.floor(ms / 1000);
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, '0');
+  return hours > 0 ? `${hours}:${String(minutes).padStart(2, '0')}:${seconds}` : `${minutes}:${seconds}`;
+}

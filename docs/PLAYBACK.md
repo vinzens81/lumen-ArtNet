@@ -145,6 +145,10 @@ scene), and a quick double GO works without jumps.
 | **Blackout** | `B` | Everything off at once (grand master 0), pressing again restores |
 | **Grand master** | fader | Scales all intensities |
 
+- **Show time:** the GO into the first scene starts a clock of how long the show has been running (real time, a
+  pause does not stop it). It stops at the end of the show (and counts on after Back from the end), ■ Stop resets
+  it. It is part of the playback status (`showTimeMs`, `showTimeRunning`) and not saved: after a server restart it
+  starts again with the next show.
 - **Before the first scene** the state is "blackout / audience entry". The first GO fades in scene 1.
 - **After the last scene** a GO fades everything to black with `fade_out_ms` ("end").
 - The current scene is saved in `playback_state` as soon as a GO starts its fade. A server that restarts in show mode

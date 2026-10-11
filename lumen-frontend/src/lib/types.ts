@@ -414,6 +414,10 @@ export interface PlaybackStatus {
   scriptLine: number;
   /** part of the current scene whose light is on stage: 0 = the start, n = after the n-th light marker */
   section: number;
+  /** how long the show has been running since the GO into its first scene, null before it */
+  showTimeMs: number | null;
+  /** the show time still counts (count on from showTimeMs); false after the end of the show */
+  showTimeRunning: boolean;
 }
 
 export type KeyMode = 'toggle' | 'flash';

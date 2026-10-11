@@ -9,6 +9,7 @@
   import { api } from '../lib/api';
   import { modesOf, swatchesOf, type Swatch } from '../lib/color';
   import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
+  import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
   import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
@@ -280,6 +281,10 @@
           Tap to keep the screen on
         </span>
       {/if}
+      <span class="show-clock mono" class:stopped={!status?.showTimeRunning}
+        title="Show time since the GO into the first scene; ■ Stop resets it">
+        ⏱ {showClock(status, now - live.playbackReceivedAt)}
+      </span>
       <span class="dim small">{app.active?.name}</span>
     </header>
     {#if tab === 'script'}{@render scriptHead()}{/if}
@@ -574,6 +579,18 @@
 
   .pad {
     padding: 0 10px;
+  }
+
+  .show-clock {
+    margin-left: auto;
+    margin-right: 14px;
+    font-size: 18px;
+    font-weight: 700;
+    color: var(--accent);
+  }
+
+  .show-clock.stopped {
+    color: var(--text-dim);
   }
 
   .small {

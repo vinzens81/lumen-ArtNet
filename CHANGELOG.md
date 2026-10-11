@@ -3,7 +3,15 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.98 · 2026-10-11
+## 1.0.98 – 1.0.99 · 2026-10-11
+
+### Added
+- Show remote for a tablet (link "🎛 Remote" in the header, or `#/remote`): now and next, a big GO, Back, Pause,
+  Finish fade, Stop, the keys of the scene, faders, master and blackout – nothing else. Choose the next scene with
+  ▲/▼; the whole script of the scene with a big ▼ to the next speech (highlighted and kept in the middle). Works in
+  show mode only, needs no PIN, the screen stays on; landscape and portrait.
+- Show time: ⏱ how long the show has been running since the GO into the first scene, in the show view and on the
+  remote. It stands still at the end of the show, ■ Stop resets it.
 
 ### Changed
 - A server that restarts in show mode continues the show at once at the scene that was on stage, without waiting for

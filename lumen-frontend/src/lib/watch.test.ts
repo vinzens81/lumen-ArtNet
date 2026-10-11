@@ -11,6 +11,7 @@ function status(extra: Partial<PlaybackStatus>): PlaybackStatus {
   return {
     available: true, position: 0, sceneCount: 2, currentSceneId: 1, nextSceneId: 2, nextIsEnd: false, fade: null,
     paused: false, autoFollowInMs: null, resumeSceneId: null, keys: [], faders: [], scriptLine: 0, section: 0,
+    showTimeMs: null, showTimeRunning: false,
     ...extra,
   };
 }

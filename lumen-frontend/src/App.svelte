@@ -26,6 +26,7 @@
   import ShowView from './views/ShowView.svelte';
   import StageView from './views/StageView.svelte';
   import UniversesView from './views/UniversesView.svelte';
+  import RemoteView from './views/RemoteView.svelte';
   import ScriptWatchView from './views/ScriptWatchView.svelte';
   import WatchView from './views/WatchView.svelte';
   import { notify, showError } from './lib/toasts.svelte';
@@ -184,6 +185,8 @@
   <WatchView />
 {:else if router.route === '/view/script'}
   <ScriptWatchView />
+{:else if router.route === '/remote'}
+  <RemoteView />
 {:else}
 <div class="shell">
   <header class="topbar glass">
@@ -267,6 +270,7 @@
 
     <a class="watch-link" href="#/view" title="The stage as it glows, view only – e.g. on a phone">👁 View</a>
     <a class="watch-link" href="#/view/script" title="Follow the script during the show, view only – e.g. on a tablet">📜 Script</a>
+    <a class="watch-link" href="#/remote" title="Run the show from a tablet: GO, keys, faders and master only">🎛 Remote</a>
 
     <div class="status" class:tone-error={!app.online} title={app.online ? 'Server connected' : 'Server not reachable'}>
       <span class="dot"></span>{app.online ? 'Online' : 'Offline'}

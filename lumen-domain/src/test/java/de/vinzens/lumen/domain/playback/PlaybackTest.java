@@ -57,6 +57,49 @@ class PlaybackTest {
 	}
 
 	@Test
+	void countsTheShowTimeFromTheFirstGoUntilTheEnd() {
+		assertThat(playback.showTime(now)).isEmpty();
+		assertThat(playback.showTimeRunning()).isFalse();
+
+		go();
+		advance(60_000);
+		assertThat(playback.showTime(now)).contains(Duration.ofMinutes(1));
+		assertThat(playback.showTimeRunning()).isTrue();
+
+		// a pause freezes fades, not the show time
+		playback.togglePause(now);
+		advance(30_000);
+		assertThat(playback.showTime(now)).contains(Duration.ofSeconds(90));
+		playback.togglePause(now);
+
+		playback.go(now, B);
+		playback.go(now, B);
+		playback.go(now, B); // the end: fade to black
+		advance(10_000);
+		assertThat(playback.showTime(now)).contains(Duration.ofSeconds(90));
+		assertThat(playback.showTimeRunning()).isFalse();
+
+		// back from the end into the last scene: the show goes on, the time counts again
+		playback.back(now, B);
+		advance(10_000);
+		assertThat(playback.showTime(now)).contains(Duration.ofSeconds(110));
+		assertThat(playback.showTimeRunning()).isTrue();
+	}
+
+	@Test
+	void stopResetsTheShowTimeAndTheNextGoStartsItAgain() {
+		go();
+		advance(60_000);
+		playback.stop(now);
+		assertThat(playback.showTime(now)).isEmpty();
+
+		advance(5_000);
+		go();
+		advance(2_000);
+		assertThat(playback.showTime(now)).contains(Duration.ofSeconds(2));
+	}
+
+	@Test
 	void goAfterTheLastSceneFadesToBlackAndThenDoesNothing() {
 		go();
 		go();

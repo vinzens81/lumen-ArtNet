@@ -73,15 +73,17 @@ public interface ControlPlaybackUseCase {
 	 * @param section         part of the current scene whose light is on stage: 0 = the start, n = after the n-th
 	 *                        light marker of the script
 	 * @param faders          assigned faders with their level
+	 * @param showTime        how long the show has been running since the GO into its first scene, empty before it
+	 * @param showTimeRunning the show time still counts (false before the show and after its end)
 	 */
 	record PlaybackStatus(boolean available, int position, int sceneCount, Optional<Long> currentSceneId,
 			Optional<Long> nextSceneId, boolean nextIsEnd, Optional<Fade> fade, boolean paused,
 			Optional<Duration> autoFollowIn, Optional<Long> resumeSceneId, List<KeyStatus> keys, int scriptLine,
-			int section, List<FaderStatus> faders) {
+			int section, List<FaderStatus> faders, Optional<Duration> showTime, boolean showTimeRunning) {
 
 		public static final PlaybackStatus UNAVAILABLE = new PlaybackStatus(false, -1, 0, Optional.empty(),
 				Optional.empty(), false, Optional.empty(), false, Optional.empty(), Optional.empty(), List.of(), 0,
-				0, List.of());
+				0, List.of(), Optional.empty(), false);
 
 		public PlaybackStatus {
 			keys = List.copyOf(keys);

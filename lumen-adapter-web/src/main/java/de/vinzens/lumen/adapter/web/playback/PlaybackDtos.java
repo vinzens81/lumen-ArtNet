@@ -25,10 +25,13 @@ public final class PlaybackDtos {
 	 * @param scriptLine     highlighted sentence of the script of the current scene (stage directions not counted)
 	 * @param section        part of the current scene on stage: 0 = start, n = after the n-th light marker
 	 * @param faders         assigned faders with their level
+	 * @param showTimeMs     how long the show has been running since the GO into its first scene, null before it
+	 * @param showTimeRunning the show time still counts (clients count on from showTimeMs), false after the end
 	 */
 	public record PlaybackResponse(boolean available, int position, int sceneCount, Long currentSceneId,
 			Long nextSceneId, boolean nextIsEnd, FadeResponse fade, boolean paused, Long autoFollowInMs,
-			Long resumeSceneId, List<KeyResponse> keys, int scriptLine, int section, List<FaderResponse> faders) {
+			Long resumeSceneId, List<KeyResponse> keys, int scriptLine, int section, List<FaderResponse> faders,
+			Long showTimeMs, boolean showTimeRunning) {
 
 		public static PlaybackResponse from(PlaybackStatus status) {
 			return new PlaybackResponse(status.available(), status.position(), status.sceneCount(),
@@ -38,7 +41,8 @@ public final class PlaybackDtos {
 							.orElse(null),
 					status.paused(), status.autoFollowIn().map(Duration::toMillis).orElse(null),
 					status.resumeSceneId().orElse(null), status.keys().stream().map(KeyResponse::from).toList(),
-					status.scriptLine(), status.section(), status.faders().stream().map(FaderResponse::from).toList());
+					status.scriptLine(), status.section(), status.faders().stream().map(FaderResponse::from).toList(),
+					status.showTime().map(Duration::toMillis).orElse(null), status.showTimeRunning());
 		}
 	}
 

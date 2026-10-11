@@ -186,6 +186,11 @@ Optimized for one task: press GO at the right time, without mistakes.
 `Space` GO · `←` back · `P` pause · `Enter` finish fade · `B` blackout · `↑/↓` previous/next speech in the script ·
 `Shift`+`↑/↓` choose the next scene · `1`–`8` extra keys (flash: while pressed)
 
+### Show time
+At the top of the show view (next to the project name) and on the show remote: ⏱ how long the show has been running
+since the GO into the first scene, as `12:05` or `1:02:05`. Before the show `–:––`; at the end of the show it stands
+still (grey). ■ Stop resets it. See [PLAYBACK.md](PLAYBACK.md#controls-in-show-mode).
+
 ### Stopping the show
 "■ Stop" next to Back, Pause and "Finish fade" aborts the show: scene, keys and faders go to 0 at once without a
 cross-fade, and the show stands before scene 1 again (the next GO starts from the beginning, there is nothing to
@@ -218,6 +223,29 @@ server (↑/↓ in show mode) but cannot change it. Above it scene, active light
 the end of the text. Text size via A−/A+ (remembered by the browser). Scrolling by hand (e.g. to read ahead) pauses
 following; "↧ Follow the show" or the next scene resumes it. The screen stays on. Like `#/view`: no controls, no
 keyboard shortcuts, no PIN, does not follow the operating mode.
+
+### Show remote for a tablet (`#/remote`)
+
+For running the show from a tablet (e.g. an iPad in landscape) next to or instead of the laptop: the link
+**🎛 Remote** in the header (or `http://<computer>:8080/#/remote`) shows only what the show needs – now (with the
+fade or auto-follow bar) and next (with its cue note, ▲/▼ choose another next scene), a big GO, Back, Pause,
+Finish fade and Stop (asks first, like in the show view), the whole script of the scene on stage with ▲/▼ through its
+speeches (like `↑`/`↓` in the show view: the current speech is highlighted and kept in the middle, "3 / 12" counts
+them; passing a light marker fades to its light), the keys of the scene, the faders, master and blackout. No scene
+list, stage or DMX.
+
+Layout in landscape: now, next and the 8 keys on the left; a smaller GO, the playback buttons and the script below
+them on the right – the script panel takes the remaining height and has a big ▼ (next speech) at the bottom, the
+button pressed most during a play, ▲ goes back. Faders (if the project has any) and master below. Every panel has a
+fixed size – long names and cue notes are cut, the script scrolls inside its panel, the panel stays (empty) for a
+scene without text, and the "show mode is off" hint lies over the panels – so nothing on the page ever moves. In
+portrait one column: now, next, GO, buttons, script, keys.
+
+The remote wears the show colors (amber) and shows the show time (⏱) in its header. It only runs the show: outside
+show mode it says so and GO, the playback buttons and the keys are disabled;
+it cannot start show mode itself. Like the show view it needs no PIN; like the view-only pages it does not follow the
+operating mode, so the tablet stays on the remote. The screen stays on. ✕ leads to the show view. Tablets need
+network access (Settings).
 
 ### DMX in the show
 On the left you can switch between **Scenes** (scene list) and **DMX**: the DMX monitor shows only the used channels,

@@ -350,7 +350,8 @@ public class PlaybackService implements ControlPlaybackUseCase, OutputLayerSourc
 				playback.currentScene().map(Scene::id), playback.nextScene().map(Scene::id), playback.nextIsEnd(),
 				fade, playback.isPaused(), playback.autoFollowRemaining(now),
 				resumeSceneId.filter(id -> playback.position() == Playback.READY), keys.status(now),
-				scriptLine.of(playback.currentScene()), playback.section(), faders.status());
+				scriptLine.of(playback.currentScene()), playback.section(), faders.status(), playback.showTime(now),
+				playback.showTimeRunning());
 	}
 
 	/** A highlighted sentence; reset by every GO, Back and auto-follow, so a scene always starts at its first one. */

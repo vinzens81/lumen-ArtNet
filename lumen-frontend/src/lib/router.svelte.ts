@@ -19,6 +19,7 @@ export type Route =
   | '/party'
   | '/view'
   | '/view/script'
+  | '/remote'
   | '/print/cues';
 
 const ROUTES: Route[] = [
@@ -38,6 +39,7 @@ const ROUTES: Route[] = [
   '/party',
   '/view',
   '/view/script',
+  '/remote',
   '/print/cues',
 ];
 
@@ -56,9 +58,12 @@ export function navigate(route: Route) {
   location.hash = route;
 }
 
-/** The operating mode a page belongs to: show and party have one page each, everything else is setup. */
+/**
+ * The operating mode a page belongs to (and whose colors it wears): show and party have one page each, the show
+ * remote belongs to the show, everything else is setup.
+ */
 export function modeOfRoute(route: Route): OperatingMode {
-  if (route === '/show') return 'show';
+  if (route === '/show' || route === '/remote') return 'show';
   if (route === '/party') return 'party';
   return 'setup';
 }
@@ -70,9 +75,9 @@ export function isPrintPage(route: Route): boolean {
 
 /**
  * Pages standing on their own, outside setup, show and party: the print pages, the view-only stage (#/view) and the
- * view-only script (#/view/script) for phones and tablets. They do not follow the operating mode and have no controls
- * of the app.
+ * view-only script (#/view/script) for phones and tablets, and the show remote for a tablet (#/remote). They do not follow the operating
+ * mode and have no controls of the app around them.
  */
 export function isStandalonePage(route: Route): boolean {
-  return isPrintPage(route) || route === '/view' || route === '/view/script';
+  return isPrintPage(route) || route === '/view' || route === '/view/script' || route === '/remote';
 }

@@ -86,6 +86,10 @@ public final class Playback {
 	private Duration stayStart = Duration.ZERO;
 
 	private Instant pausedAt;
+	/** real time (not the virtual clock) of the GO into the first scene of the show; null before it */
+	private Instant showStart;
+	/** real time the show reached its end (the fade to black after the last scene); null while it runs */
+	private Instant showEnd;
 	private Duration pausedTotal = Duration.ZERO;
 
 	public Playback(List<Scene> scenes, Duration fadeIn, Duration fadeOut) {
@@ -250,6 +254,8 @@ public final class Playback {
 		running = List.of();
 		held = Map.of();
 		stayStart = virtualNow(now);
+		showStart = null;
+		showEnd = null;
 		dropDeletedScene();
 	}
 
@@ -434,6 +440,19 @@ public final class Playback {
 	}
 
 	/** Time left until auto-follow fires, if the current scene has one. */
+	/**
+	 * How long the show has been running: from the GO into its first scene until it reaches its end, in real time
+	 * (pauses count). Empty before that GO; {@link #stop} resets it.
+	 */
+	public Optional<Duration> showTime(Instant now) {
+		return Optional.ofNullable(showStart).map(start -> Duration.between(start, showEnd != null ? showEnd : now));
+	}
+
+	/** The show time still counts: the show has started and not reached its end. */
+	public boolean showTimeRunning() {
+		return showStart != null && showEnd == null;
+	}
+
 	public Optional<Duration> autoFollowRemaining(Instant now) {
 		return autoFollowAt().map(at -> {
 			var remaining = at.minus(virtualNow(now));
@@ -517,6 +536,10 @@ public final class Playback {
 		section = targetSection;
 		pendingNext = null;
 		stayStart = v.plus(transition.inEnd());
+		if (showStart == null && isScene(target)) {
+			showStart = now;
+		}
+		showEnd = showStart != null && target == scenes.size() ? now : null;
 		dropDeletedScene();
 	}
 
