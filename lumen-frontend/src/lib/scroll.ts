@@ -36,5 +36,6 @@ export function topIn(container: HTMLElement | undefined, selector: string, marg
   const element = speech?.querySelector('[data-line]') === line ? speech : line;
   const top = topScrollTop(container.scrollTop, container.getBoundingClientRect(), element.getBoundingClientRect(),
     margin);
-  container.scrollTo({ top, behavior: 'smooth' });
+  // a hidden page (e.g. the tablet's screen is off) does not animate: jump, so the speech is in place when it shows
+  container.scrollTo({ top, behavior: document.hidden ? 'auto' : 'smooth' });
 }

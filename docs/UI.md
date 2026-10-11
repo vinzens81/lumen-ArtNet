@@ -234,12 +234,13 @@ speeches (like `↑`/`↓` in the show view: the current speech is highlighted a
 them; passing a light marker fades to its light), the keys of the scene, the faders, master and blackout. No scene
 list, stage or DMX.
 
-Layout in landscape: now, next and the 8 keys on the left; a smaller GO, the playback buttons and the script below
-them on the right – the script panel takes the remaining height and has a big ▼ (next speech) at the bottom, the
-button pressed most during a play, ▲ goes back. Faders (if the project has any) and master below. Every panel has a
+Layout in landscape: now, next, the 8 keys and the faders (if the project has any) on the left; a smaller GO, the
+playback buttons and the script below them on the right – the script panel takes the remaining height (the current
+speech at its top, what comes next below) and has a big ▼ (next speech) at the bottom, the button pressed most
+during a play, ▲ goes back. Master below. Every panel has a
 fixed size – long names and cue notes are cut, the script scrolls inside its panel, the panel stays (empty) for a
 scene without text, and the "show mode is off" hint lies over the panels – so nothing on the page ever moves. In
-portrait one column: now, next, GO, buttons, script, keys.
+portrait one column: now, next, GO, buttons, script, keys, faders.
 
 The remote wears the show colors (amber) and shows the show time (⏱) in its header. It only runs the show: outside
 show mode it says so and GO, the playback buttons and the keys are disabled;

@@ -45,8 +45,11 @@
   // the current speech at the top of the script panel, what comes next below it
   $effect(() => {
     const line = scriptLine;
+    const element = scriptElement;
     void current;
-    topIn(scriptElement, `[data-line="${line}"]`);
+    // after the layout, so it also works when the page opens in the middle of a scene
+    const frame = requestAnimationFrame(() => topIn(element, `[data-line="${line}"]`));
+    return () => cancelAnimationFrame(frame);
   });
   const stoppable = $derived(status !== null && status.available && (status.position >= 0
     || status.keys.some((k) => k.level > 0) || status.faders.some((f) => f.level > 0)));
@@ -165,6 +168,10 @@
       </article>
 
       <div class="keys glass"><KeyBar keys={status?.keys ?? []} /></div>
+      <!-- on the left too, so the script on the right keeps its full height -->
+      {#if (status?.faders.length ?? 0) > 0}
+        <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
+      {/if}
     </div>
 
     <div class="right" inert={blocked !== null}>
@@ -208,17 +215,13 @@
     </div>
   </div>
 
-  {#if (status?.faders.length ?? 0) > 0}
-    <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
-  {/if}
-
   <MasterBar />
 </section>
 
 <style>
   /*
-   * A tablet in landscape: now, next and the keys on the left; GO, the playback buttons and the text on the right;
-   * faders and master below. The page fills the screen exactly and every panel has a size that does not depend on
+   * A tablet in landscape: now, next, the keys and the faders on the left; GO, the playback buttons and the script on
+   * the right; master below. The page fills the screen exactly and every panel has a size that does not depend on
    * what it shows.
    */
   .remote {
@@ -614,6 +617,10 @@
 
     .keys {
       order: 6;
+    }
+
+    .faders {
+      order: 7;
     }
   }
 </style>
