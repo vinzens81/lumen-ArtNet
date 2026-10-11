@@ -80,7 +80,7 @@ iconutil -c icns "$iconset" -o "$work/Lumen.icns"
 dmg="dist/Lumen-$version.dmg"
 rm -f "$dmg"
 jpackage \
-	--type dmg \
+	--type app-image \
 	--name Lumen \
 	--app-version "$version" \
 	--vendor "Lumen" \
@@ -93,6 +93,19 @@ jpackage \
 	--mac-package-identifier de.vinzens.lumen \
 	--mac-package-name Lumen \
 	--mac-app-category public.app-category.utilities \
+	--dest "$work/image"
+
+# no App Nap: macOS would otherwise throttle the render loop while Lumen is in the background
+app="$work/image/Lumen.app"
+/usr/libexec/PlistBuddy -c "Add :NSAppSleepDisabled bool true" "$app/Contents/Info.plist"
+codesign --force --deep --sign - "$app"
+
+jpackage \
+	--type dmg \
+	--app-image "$app" \
+	--name Lumen \
+	--app-version "$version" \
+	--vendor "Lumen" \
 	--dest dist
 
 echo "✔ $dmg ($(du -h "$dmg" | cut -f1))"

@@ -14,6 +14,7 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
   remote. It stands still at the end of the show, ■ Stop resets it.
 
 ### Changed
+- The Mac app turns off App Nap, so macOS cannot slow down the light output while Lumen is in the background.
 - A server that restarts in show mode continues the show at once at the scene that was on stage, without waiting for
   "Resume". Lumen no longer sends a dark frame first, so Art-Net nodes that hold their last values stay lit through
   the restart. In setup mode the scene is still only offered.
