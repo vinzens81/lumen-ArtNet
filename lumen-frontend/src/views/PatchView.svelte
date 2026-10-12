@@ -510,8 +510,8 @@
         {#if view === 'channels'}
           <AddressGrid fixtures={universeFixtures} selectedIds={ticked} {preview} onSelectFixture={pick} {onSelectAddress} />
           <p class="legend dim">
-            {#if panel === 'add' || panel === 'edit'}Click a free channel to place the fixture there. {/if}Click a
-            fixture to edit it, shift-click to select several.
+            {#if panel === 'add' || panel === 'edit'}Click a free channel to place the fixture there.{/if}
+            Click a fixture to edit it, shift-click to select several.
           </p>
         {:else}
           <table class="fixture-table">

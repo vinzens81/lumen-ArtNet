@@ -410,7 +410,7 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    max-height: calc(100vh - 220px);
+    max-height: calc(100vh - 240px);
     overflow: auto;
   }
 

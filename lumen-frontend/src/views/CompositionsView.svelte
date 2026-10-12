@@ -250,7 +250,7 @@
   .list {
     position: sticky;
     top: 84px;
-    max-height: calc(100vh - 200px);
+    max-height: calc(100vh - 240px);
     overflow-y: auto;
     display: flex;
     flex-direction: column;
