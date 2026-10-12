@@ -410,7 +410,8 @@
     flex-direction: column;
     gap: 2px;
     padding: 8px;
-    max-height: calc(100vh - 240px);
+    /* room for the header, the explanation below and the master bar: the whole page fits the window */
+    max-height: calc(100vh - 300px);
     overflow: auto;
   }
 
