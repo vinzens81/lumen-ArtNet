@@ -274,7 +274,7 @@
     background: var(--warning-soft);
   }
 
-  .callout strong:first-child { display: block; margin-bottom: 2px; }
+  .callout > strong:first-child { display: block; margin-bottom: 2px; }
 
   .callout p { margin: 4px 0; }
 
@@ -626,6 +626,7 @@ cd lumen-ArtNet
     <p>Every fixture card has a <strong>Locate</strong> button that makes it light up brightly so you can find it on
       stage. Moving heads can get <strong>pan/tilt limits</strong> here so the show never points them into the
       audience.</p>
+
     <div class="callout">
       <strong>Your fixture is not in the library?</strong>
       <p>Use <strong>⇣ Import from Open Fixture Library</strong> below the library: download the fixture from
@@ -634,6 +635,42 @@ cd lumen-ArtNet
         <a href="https://github.com/vinzens81/lumen-ArtNet/blob/main/docs/FIXTURE-LIBRARY.md">the profile format</a>.
         Profiles are picked up while Lumen is running.</p>
     </div>
+
+    <h3 id="quick-setup">Quick setup</h3>
+    <div class="pair">
+      <figure>
+        <img src="images/patch-quick-setup.jpg" width="1440" height="698" alt="Add fixture form for four uplights with the Quick setup box ticked: intensity looks, color looks, party row and party gradients" loading="lazy">
+        <figcaption>Tick <strong>Quick setup</strong> while patching …</figcaption>
+      </figure>
+      <figure>
+        <img src="images/quick-setup-dialog.jpg" width="1440" height="698" alt="Quick setup dialog with both movers chosen, named Movers, with intensity looks, moves and a party row" loading="lazy">
+        <figcaption>… or use <strong>Quick setup…</strong> for fixtures that are already patched.</figcaption>
+      </figure>
+    </div>
+    <p>Optional help so new fixtures can be played right away. For the chosen fixtures <em>together</em> Lumen makes:</p>
+    <ul>
+      <li><strong>Intensity looks</strong> 0 / 50 / 100 % and <strong>color looks</strong> red, orange, green, blue,
+        violet, each with a composition of its own. LED fixtures mix the color; moving heads with
+        <strong>CMY</strong> subtract it; a <strong>color wheel</strong> takes the slot closest to it – a color the
+        wheel has nothing close to is left out for that fixture.</li>
+      <li>A <strong>color palette</strong>: the colors become presets, and the looks refer to them. Pick another wheel
+        slot for "Red" in the programmer, update the preset, and every look follows. The other slots of a wheel
+        (e.g. yellow, white) are added to the palette too.</li>
+      <li><strong>Moves</strong> line, circle and eight for fixtures with pan and tilt. They start around the middle –
+        adjust size and position in the <a href="#moves">Moves</a> tab for your stage.</li>
+      <li>A <strong>party row</strong> with a button for each look and move, and a row of <strong>gradients</strong> to
+        pick intensity and color by touch – see <a href="#party">party mode</a>. One button switches all the fixtures,
+        e.g. all four uplights.</li>
+    </ul>
+    <figure>
+      <img src="images/patch-several.jpg" width="1440" height="698" alt="Patch in the list view with Front 1 to 4 ticked; the side panel shows the four fixtures, their type and the quick setup for all of them, named Front" loading="lazy">
+      <figcaption>Several fixtures of one type ticked in the list: one quick setup for all of them.</figcaption>
+    </figure>
+    <p><strong>Several fixtures at once:</strong> shift-click fixtures in the channel grid, or switch the patch to
+      <strong>List</strong> and tick them (shift-click ticks a whole range). If they are all of one type, the side panel
+      offers quick setup for all of them together – handy for fixtures patched one by one.</p>
+    <p>Lumen remembers on each computer whether the box was ticked. Everything it makes is ordinary – rename, change or
+      delete it like anything you built yourself. If the party matrix is full, nothing is made and Lumen says so.</p>
 
     <!-- ───────────────────────────────────────────── -->
     <h2 id="stage"><span class="num">07</span>Stage</h2>
@@ -905,18 +942,24 @@ cd lumen-ArtNet
     <p>For the party after the premiere: no cue list, just a matrix of buttons that switch light on and off.</p>
     <div class="pair">
       <figure>
-        <img src="images/party-setup.jpg" width="1568" height="760" alt="Party tab in setup mode with a matrix of colored fields" loading="lazy">
+        <img src="images/party-setup.jpg" width="1440" height="698" alt="Party tab in setup mode: the matrix with rows for the uplights and movers made by quick setup, the color gradient selected and its settings on the right" loading="lazy">
         <figcaption>Set up the matrix in the <strong>Party</strong> tab.</figcaption>
       </figure>
       <figure>
-        <img src="images/party.jpg" width="1568" height="760" alt="Party mode with Warm, Sparkle and Circle switched on" loading="lazy">
-        <figcaption>In party mode tap fields to switch them.</figcaption>
+        <img src="images/party.jpg" width="1440" height="698" alt="Party mode with Warm, the uplight intensity and color gradients, Movers 100 % and Circle switched on" loading="lazy">
+        <figcaption>In party mode tap fields to switch them, touch or drag along a gradient.</figcaption>
       </figure>
     </div>
     <ul>
       <li>A field plays a <strong>scene</strong>, a <strong>composition</strong> or a <strong>move</strong>, or is just
-        a text label. Each has a label, fill and border color and is <strong>toggle</strong> or <strong>flash</strong>.</li>
-      <li>Fields in the same <strong>group</strong> exclude each other – switch on "Night" and "Warm" goes off.</li>
+        a text label. Each has a label, fill and border color and is <strong>toggle</strong> or <strong>flash</strong>.
+        A field can be several columns wide.</li>
+      <li>A <strong>gradient</strong> field sets the intensity (dark to full) or the color (red over orange, yellow,
+        green, cyan and blue to violet) of its fixtures: touch a point or drag along it, the marker shows where it is.
+        <strong>✕</strong> switches it off; it remembers the point.</li>
+      <li>Fields in the same <strong>group</strong> exclude each other – switch on "Night" and "Warm" goes off. Quick
+        setup puts the buttons and the gradient of the same kind into one group, so the color gradient replaces the
+        color button that was on.</li>
       <li>Where fields collide, the higher value wins. <strong>All off</strong> switches everything off.</li>
       <li>Switch to <strong class="mode-party">Party</strong> from setup mode (not directly from show mode).</li>
     </ul>
