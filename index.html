@@ -639,7 +639,7 @@ cd lumen-ArtNet
     <h3 id="quick-setup">Quick setup</h3>
     <div class="pair">
       <figure>
-        <img src="images/patch-quick-setup.jpg" width="1440" height="698" alt="Add fixture form for four uplights with the Quick setup box ticked: intensity looks, color looks, party row and party gradients" loading="lazy">
+        <img src="images/patch-quick-setup.jpg" width="1440" height="698" alt="Add fixture form for four backlights with the Quick setup box ticked: intensity looks, color looks with palette, party row, party gradients and a new party page" loading="lazy">
         <figcaption>Tick <strong>Quick setup</strong> while patching …</figcaption>
       </figure>
       <figure>
@@ -659,9 +659,12 @@ cd lumen-ArtNet
       <li><strong>Moves</strong> line, circle and eight for fixtures with pan and tilt. They start around the middle –
         adjust size and position in the <a href="#moves">Moves</a> tab for your stage.</li>
       <li>A <strong>party row</strong> with a button for each look and move, and a row of <strong>gradients</strong> to
-        pick intensity and color by touch – see <a href="#party">party mode</a>. One button switches all the fixtures,
-        e.g. all four uplights.</li>
+        pick intensity and color by touch – moving heads also get a <strong>pan/tilt pad</strong> there. See
+        <a href="#party">party mode</a>. One button switches all the fixtures, e.g. all four uplights.</li>
     </ul>
+    <p><strong>Party page</strong> chooses the tab the rows go on: a page of your choice, a <em>new page</em> named
+      after the setup, or the first page with room. The looks and compositions go into the folder
+      <strong>Auto generated</strong>, so they do not mix with the ones you build by hand.</p>
     <figure>
       <img src="images/patch-several.jpg" width="1440" height="698" alt="Patch in the list view with Front 1 to 4 ticked; the side panel shows the four fixtures, their type and the quick setup for all of them, named Front" loading="lazy">
       <figcaption>Several fixtures of one type ticked in the list: one quick setup for all of them.</figcaption>
@@ -670,7 +673,7 @@ cd lumen-ArtNet
       <strong>List</strong> and tick them (shift-click ticks a whole range). If they are all of one type, the side panel
       offers quick setup for all of them together – handy for fixtures patched one by one.</p>
     <p>Lumen remembers on each computer whether the box was ticked. Everything it makes is ordinary – rename, change or
-      delete it like anything you built yourself. If the party matrix is full, nothing is made and Lumen says so.</p>
+      delete it like anything you built yourself. If the chosen page is full, nothing is made and Lumen says so.</p>
 
     <!-- ───────────────────────────────────────────── -->
     <h2 id="stage"><span class="num">07</span>Stage</h2>
@@ -711,7 +714,8 @@ cd lumen-ArtNet
     <h2 id="looks"><span class="num">09</span>Looks</h2>
     <figure>
       <img src="images/looks.jpg" width="1568" height="760" alt="Looks tab with the shared looks and the Warm wash look opened" loading="lazy">
-      <figcaption>"Warm wash" – values for seven fixtures, played by the composition "Base warm".</figcaption>
+      <figcaption>"Warm wash" – values for seven fixtures, played by the composition "Base warm". Quick setup's looks
+        wait in their own folder.</figcaption>
     </figure>
     <p>A look stores fixed values. Record it from the programmer (<strong>⏺ Record look</strong>), bring it back with
       <strong>Load into programmer</strong>, adjust and save with <strong>Update from programmer</strong> – either
@@ -720,13 +724,17 @@ cd lumen-ArtNet
       <li>Every update keeps the previous version: <strong>History</strong> and <strong>↶ Undo</strong> bring it back.</li>
       <li>A look in use cannot be deleted; "Played by …" tells you where it is used.</li>
       <li>Looks never contain pan/tilt – positions belong to <a href="#moves">moves</a>.</li>
+      <li><strong>Folders</strong> sort the list: <em>Manual</em> for your own looks, <em>Auto generated</em> for
+        what quick setup made, or any name you type in <strong>Folder</strong> next to the name. Click a folder to
+        close it.</li>
     </ul>
 
     <!-- ───────────────────────────────────────────── -->
     <h2 id="compositions"><span class="num">10</span>Compositions</h2>
     <figure>
       <img src="images/compositions.jpg" width="1568" height="760" alt="Composition editor for Sunrise with three steps red, orange and gold" loading="lazy">
-      <figcaption>"Sunrise": three steps, each fading in over 5 s and holding 2 s, played once.</figcaption>
+      <figcaption>"Sunrise": three steps, each fading in over 5 s and holding 2 s, played once. The list on the left
+        scrolls on its own and is sorted into folders.</figcaption>
     </figure>
     <p>A composition plays its steps one after another. Each step plays a look.</p>
     <ul>
@@ -741,6 +749,8 @@ cd lumen-ArtNet
         change</em>, <em>rainbow</em>, <em>wave</em> or <em>flicker</em> on a group – the "Fairy sparkle" rainbow in
         the demo was generated on the cyc bar, one step per pixel.</li>
       <li><strong>Show on stage</strong> plays it on the real fixtures to try it out.</li>
+      <li><strong>📁 Folder</strong> next to the name sorts the composition into a folder of the list – like the
+        looks: <em>Manual</em>, <em>Auto generated</em> (quick setup) or your own.</li>
     </ul>
     <p>When the same composition is in two scenes in a row, it keeps running across the GO without a jump – the base
       light does not flicker and a chase does not restart. Tick <strong>Restart at GO</strong> in the scene if you want
@@ -939,25 +949,32 @@ cd lumen-ArtNet
 
     <!-- ───────────────────────────────────────────── -->
     <h2 id="party"><span class="num">15</span>Party mode</h2>
-    <p>For the party after the premiere: no cue list, just a matrix of buttons that switch light on and off.</p>
+    <p>For the party after the premiere: no cue list, just pages of buttons that switch light on and off – filling the
+      whole screen of a tablet, without scrolling.</p>
     <div class="pair">
       <figure>
-        <img src="images/party-setup.jpg" width="1440" height="698" alt="Party tab in setup mode: the matrix with rows for the uplights and movers made by quick setup, the color gradient selected and its settings on the right" loading="lazy">
-        <figcaption>Set up the matrix in the <strong>Party</strong> tab.</figcaption>
+        <img src="images/party-setup.jpg" width="1440" height="698" alt="Party tab in setup mode: the page Movers with buttons, an intensity gradient and a pan/tilt pad two rows high; the pad is selected, its settings on the right" loading="lazy">
+        <figcaption>Set up the pages in the <strong>Party</strong> tab – here the page "Movers" with its pad.</figcaption>
       </figure>
       <figure>
-        <img src="images/party.jpg" width="1440" height="698" alt="Party mode with Warm, the uplight intensity and color gradients, Movers 100 % and Circle switched on" loading="lazy">
-        <figcaption>In party mode tap fields to switch them, touch or drag along a gradient.</figcaption>
+        <img src="images/party.jpg" width="1440" height="698" alt="Party mode on the page Movers: tabs Party and Movers with two fields on each, the intensity gradient and the pan/tilt pad switched on" loading="lazy">
+        <figcaption>In party mode tap fields, drag along a gradient or over the pad; the tabs switch pages.</figcaption>
       </figure>
     </div>
     <ul>
+      <li><strong>Pages</strong>: up to 12, shown as tabs – e.g. one for the room and one for the movers. Add, rename,
+        move and remove them above the matrix. The tabs in party mode show how many fields of a page are on.</li>
       <li>A field plays a <strong>scene</strong>, a <strong>composition</strong> or a <strong>move</strong>, or is just
         a text label. Each has a label, fill and border color and is <strong>toggle</strong> or <strong>flash</strong>.
-        A field can be several columns wide.</li>
+        A field can be several columns wide and several rows high. <strong>Reset field</strong> empties it.</li>
       <li>A <strong>gradient</strong> field sets the intensity (dark to full) or the color (red over orange, yellow,
         green, cyan and blue to violet) of its fixtures: touch a point or drag along it, the marker shows where it is.
         <strong>✕</strong> switches it off; it remembers the point.</li>
-      <li>Fields in the same <strong>group</strong> exclude each other – switch on "Night" and "Warm" goes off. Quick
+      <li>A <strong>pan/tilt pad</strong> points its moving heads where you touch it: left to right is pan, bottom to
+        top is tilt – within the limits set in the patch. Put it in the group of the moves so a move and the pad do
+        not fight over the heads (quick setup does).</li>
+      <li>Fields in the same <strong>group</strong> exclude each other, also across pages – switch on "Night" and
+        "Warm" goes off. Quick
         setup puts the buttons and the gradient of the same kind into one group, so the color gradient replaces the
         color button that was on.</li>
       <li>Where fields collide, the higher value wins. <strong>All off</strong> switches everything off.</li>
