@@ -39,6 +39,8 @@ import type {
   SceneRequest,
   PartyMatrix,
   PartyStatus,
+  QuickSetupRequest,
+  QuickSetupResult,
   Preset,
   PresetGroup,
   PresetRefs,
@@ -226,8 +228,12 @@ export const api = {
     status: () => get<PartyStatus>('/api/party'),
     press: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/press`),
     release: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/release`),
+    slide: (row: number, column: number, point: number) =>
+      post<PartyStatus>(`/api/party/cells/${row}/${column}/slide`, { point }),
     clear: () => post<PartyStatus>('/api/party/clear'),
   },
+  quickSetup: (projectId: number, request: QuickSetupRequest) =>
+    post<QuickSetupResult>(`/api/projects/${projectId}/quick-setup`, request),
   partyMatrix: {
     get: (projectId: number) => get<PartyMatrix>(`/api/projects/${projectId}/party-matrix`),
     save: (projectId: number, matrix: PartyMatrix) =>

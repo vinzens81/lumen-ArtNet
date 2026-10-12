@@ -36,6 +36,7 @@ import de.vinzens.lumen.domain.move.Figure;
 import de.vinzens.lumen.domain.move.Move;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.party.PartyCell;
+import de.vinzens.lumen.domain.party.PartyFader;
 import de.vinzens.lumen.domain.party.PartyMatrix;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.preset.PresetSpec;
@@ -287,16 +288,19 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param scene         number of the scene it plays
 	 * @param compositionId the composition it plays
 	 * @param mode          toggle or flash
+	 * @param span          columns the field covers, missing = 1
+	 * @param fader         the gradient it shows, missing = none
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record PartyCellEntry(int row, int column, String label, String scene, Long compositionId, Long moveId,
-			String color, String borderColor, String mode, String group) {
+			String color, String borderColor, String mode, String group, Integer span, GradientEntry fader) {
 
 		static PartyCellEntry from(PartyCell cell, Map<Long, String> sceneNumbers) {
 			return new PartyCellEntry(cell.row(), cell.column(), cell.label().orElse(null),
 					cell.sceneId().map(sceneNumbers::get).orElse(null), cell.compositionId().orElse(null),
 					cell.moveId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
-					cell.group().orElse(null));
+					cell.group().orElse(null), cell.span() == 1 ? null : cell.span(),
+					cell.fader().map(fader -> new GradientEntry(fader.kind().id(), fader.fixtureIds())).orElse(null));
 		}
 
 		PartyCell toCell(Map<String, Long> sceneIds) {
@@ -311,7 +315,21 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			return new PartyCell(row, column, Optional.ofNullable(label), sceneId, Optional.ofNullable(compositionId),
 					Optional.ofNullable(moveId), Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
 					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
-					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group));
+					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group),
+					Objects.requireNonNullElse(span, 1), Optional.ofNullable(fader).map(GradientEntry::toFader));
+		}
+	}
+
+	/**
+	 * A gradient on a party field.
+	 *
+	 * @param kind       {@code dimmer} or {@code color}
+	 * @param fixtureIds the fixtures it sets
+	 */
+	record GradientEntry(String kind, List<Long> fixtureIds) {
+
+		PartyFader toFader() {
+			return new PartyFader(PartyFader.Kind.parse(kind), list(fixtureIds));
 		}
 	}
 

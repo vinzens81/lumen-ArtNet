@@ -1,17 +1,38 @@
+<script lang="ts" module>
+  const VIEW_KEY = 'lumen.patchView';
+
+  /** The view last chosen on this device: the channel grid or the list. */
+  function rememberedView(): 'channels' | 'list' {
+    try {
+      return localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'channels';
+    } catch {
+      return 'channels';
+    }
+  }
+</script>
+
 <script lang="ts">
   import AddressGrid from '../components/AddressGrid.svelte';
   import FixtureIcon from '../components/FixtureIcon.svelte';
   import OflImportModal from '../components/OflImportModal.svelte';
+  import QuickSetupModal from '../components/QuickSetupModal.svelte';
+  import QuickSetupOptions from '../components/QuickSetupOptions.svelte';
   import { api } from '../lib/api';
-  import { fixtureHue, footprint, locateValues, nextFreeAddress, plannedFixtures } from '../lib/patch';
+  import {
+    commonType, fixtureHue, footprint, locateValues, nextFreeAddress, plannedFixtures, rangeToggled, toggled,
+  } from '../lib/patch';
   import { navigate } from '../lib/router.svelte';
   import { live } from '../lib/live.svelte';
   import { canMove } from '../lib/moves';
+  import {
+    abilitiesOf, fitting, makesSomething, quickSetupRequest, rememberChoice, rememberedChoice, resultSummary,
+  } from '../lib/quickSetup';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
   import type { Fixture, FixtureType, PatchIssue, Universe } from '../lib/types';
 
-  type Panel = 'list' | 'add' | 'edit';
+  type Panel = 'list' | 'add' | 'edit' | 'several';
+  type View = 'channels' | 'list';
 
   let universes = $state<Universe[]>([]);
   let fixtures = $state<Fixture[]>([]);
@@ -19,6 +40,11 @@
   let universeId = $state<number | null>(null);
   let panel = $state<Panel>('list');
   let selectedId = $state<number | null>(null);
+  /** the fixtures picked: the one being edited, or several to set up together */
+  let selection = $state<number[]>([]);
+  /** the fixture whose checkbox was clicked last, for shift clicks */
+  let anchor: number | null = null;
+  let view = $state<View>(rememberedView());
   let search = $state('');
   let expandedType = $state<string | null>(null);
   let located = $state<number[]>([]);
@@ -29,6 +55,14 @@
   let form = $state({ typeId: '', mode: '', name: '', shortName: '', universeId: 0, address: 1, count: 1,
     limited: false, panMin: 0, panMax: 255, tiltMin: 0, tiltMax: 255 });
   let addressTouched = $state(false);
+  // quick setup while patching: off unless chosen on this device before
+  const remembered = rememberedChoice();
+  let setUp = $state(remembered.enabled);
+  let setUpOptions = $state(remembered.options);
+  let quickSetupOpen = $state(false);
+  let quickSetupFixtures = $state<number[]>([]);
+  let severalName = $state('');
+  let severalRunning = $state(false);
 
   const project = $derived(app.active);
   let oflOpen = $state(false);
@@ -41,6 +75,24 @@
   const formType = $derived(app.fixtureType(form.typeId));
   const formMode = $derived(formType?.modes.find((m) => m.name === form.mode));
   const formChannels = $derived(formMode?.dmxChannelCount ?? 1);
+  const formAbilities = $derived(abilitiesOf([formMode]));
+  /** every fixture in patch order, for quick setup of existing fixtures */
+  const patchOrder = $derived(
+    [...fixtures].sort((a, b) => (universeNumber.get(a.universeId) ?? 0) - (universeNumber.get(b.universeId) ?? 0)
+      || a.address - b.address || a.id - b.id),
+  );
+  /** what the checkboxes and the grid show as picked */
+  const ticked = $derived(panel === 'edit' || panel === 'several' ? selection : []);
+  const tickedHere = $derived(universeFixtures.filter((f) => ticked.includes(f.id)).length);
+  const selectedFixtures = $derived(patchOrder.filter((f) => selection.includes(f.id)));
+  const selectionType = $derived.by(() => {
+    const typeId = commonType(selectedFixtures);
+    return typeId === null ? null : (app.fixtureType(typeId) ?? null);
+  });
+  const selectionModes = $derived([...new Set(selectedFixtures.map((f) => f.mode))]);
+  const selectionAbilities = $derived(abilitiesOf(selectedFixtures.map(modeOf)));
+  const selectionOptions = $derived(fitting(setUpOptions, selectionAbilities));
+  const universeNumber = $derived(new Map(universes.map((u) => [u.id, u.number])));
   const preview = $derived(
     panel === 'add' && form.universeId === universeId
       ? { address: form.address, count: formChannels * Math.max(1, form.count) }
@@ -83,8 +135,11 @@
       issues = i;
       if (resetSelection || !u.some((x) => x.id === universeId)) {
         universeId = u[0]?.id ?? null;
-        panel = 'list';
-        selectedId = null;
+        closePanel();
+      } else if (panel === 'several') {
+        // fixtures removed meanwhile (here or by another client) leave the selection
+        const left = selection.filter((id) => f.some((x) => x.id === id));
+        if (left.length !== selection.length) setSelection(left);
       }
     } catch (e) {
       showError(e);
@@ -107,6 +162,7 @@
     };
     addressTouched = false;
     selectedId = null;
+    selection = [];
     panel = 'add';
     suggestAddress();
   }
@@ -146,14 +202,24 @@
       formChannels,
       form.count,
     );
+    const options = fitting(setUpOptions, formAbilities);
+    const quickSetup = setUp && makesSomething(options);
+    const name = form.name;
+    rememberChoice(setUp, setUpOptions);
     adding = true;
     try {
+      const created = [];
       for (const fixture of planned) {
-        await api.fixtures.create(projectId, fixture);
+        created.push(await api.fixtures.create(projectId, fixture));
       }
       notify(planned.length === 1 ? `Patched "${planned[0].name}"` : `Patched ${planned.length} fixtures`);
       panel = 'list';
       universeId = targetUniverse;
+      if (quickSetup) {
+        const result = await api.quickSetup(projectId, quickSetupRequest(created.map((f) => f.id), name, options));
+        notify(resultSummary(result));
+        result.notes.forEach((note) => notify(note));
+      }
     } catch (e) {
       showError(e);
     } finally {
@@ -168,6 +234,7 @@
     const fixture = fixtures.find((f) => f.id === id);
     if (!fixture) return;
     selectedId = id;
+    selection = [id];
     universeId = fixture.universeId;
     form = {
       typeId: fixture.fixtureTypeId,
@@ -185,6 +252,47 @@
     };
     confirmDelete = false;
     panel = 'edit';
+  }
+
+  /** A click on a fixture; with shift (or cmd/ctrl) it joins the selection or leaves it. */
+  function pick(id: number, additive: boolean) {
+    if (additive) setSelection(toggled(ticked, id));
+    else select(id);
+  }
+
+  /** A click on a checkbox of the list; with shift every fixture from the one clicked before follows. */
+  function tick(event: MouseEvent, id: number) {
+    const order = universeFixtures.map((f) => f.id);
+    setSelection(event.shiftKey ? rangeToggled(ticked, order, anchor, id) : toggled(ticked, id));
+    anchor = id;
+  }
+
+  /** The checkbox above the list: all fixtures of this universe, or none of them. */
+  function tickAll() {
+    const here = universeFixtures.map((f) => f.id);
+    const all = here.every((id) => ticked.includes(id));
+    setSelection(all ? ticked.filter((id) => !here.includes(id)) : [...ticked, ...here.filter((id) => !ticked.includes(id))]);
+  }
+
+  /** One fixture opens its form, several the panel to set them up together. */
+  function setSelection(ids: number[]) {
+    if (ids.length === 0) {
+      closePanel();
+    } else if (ids.length === 1) {
+      select(ids[0]);
+    } else {
+      if (panel !== 'several') severalName = '';
+      selection = ids;
+      selectedId = null;
+      confirmDelete = false;
+      panel = 'several';
+    }
+  }
+
+  function closePanel() {
+    panel = 'list';
+    selectedId = null;
+    selection = [];
   }
 
   function onSelectAddress(address: number) {
@@ -231,11 +339,46 @@
       await api.fixtures.remove(project.id, fixture.id);
       located = located.filter((id) => id !== fixture.id);
       notify(`Removed "${fixture.name}"`);
-      panel = 'list';
-      selectedId = null;
+      closePanel();
       await loadAll(project.id);
     } catch (e) {
       showError(e);
+    }
+  }
+
+  // --- several fixtures --------------------------------------------------------------------------------------
+
+  async function setUpSeveral() {
+    if (projectId === null) return;
+    severalRunning = true;
+    try {
+      const ids = selectedFixtures.map((f) => f.id);
+      const result = await api.quickSetup(projectId, quickSetupRequest(ids, severalName, selectionOptions));
+      notify(resultSummary(result));
+      result.notes.forEach((note) => notify(note));
+      rememberChoice(setUp, setUpOptions);
+    } catch (e) {
+      showError(e);
+    } finally {
+      severalRunning = false;
+    }
+  }
+
+  const allLocated = $derived(selectedFixtures.length > 0 && selectedFixtures.every((f) => located.includes(f.id)));
+
+  async function locateSeveral() {
+    const lit = allLocated;
+    for (const fixture of selectedFixtures) {
+      if (located.includes(fixture.id) === lit) await toggleLocate(fixture);
+    }
+  }
+
+  function setView(next: View) {
+    view = next;
+    try {
+      localStorage.setItem(VIEW_KEY, next);
+    } catch {
+      // only a convenience
     }
   }
 
@@ -257,6 +400,10 @@
     }
   }
 
+  function modeOf(fixture: Fixture) {
+    return app.fixtureType(fixture.fixtureTypeId)?.modes.find((m) => m.name === fixture.mode);
+  }
+
   function typeLabel(fixture: Fixture): string {
     const type = app.fixtureType(fixture.fixtureTypeId);
     return type ? `${type.model} · ${fixture.mode}` : `${fixture.fixtureTypeId} (missing)`;
@@ -267,6 +414,13 @@
       ? `${fixture.address}–${fixture.lastAddress}`
       : `${fixture.address}`;
   }
+
+  /** The address with the universe in front when there are several, e.g. "2 · 17–20". */
+  function where(fixture: Fixture): string {
+    return universes.length > 1 ? `${universeNumber.get(fixture.universeId) ?? '?'} · ${range(fixture)}` : range(fixture);
+  }
+
+  const additive = (e: MouseEvent) => e.shiftKey || e.metaKey || e.ctrlKey;
 </script>
 
 {#if !project}
@@ -321,19 +475,72 @@
     <!-- Address grid ------------------------------------------------------------------------------------ -->
     <section class="center">
       <div class="glass grid-panel">
-        <div class="tabs" role="tablist">
-          {#each universes as universe (universe.id)}
-            <button type="button" role="tab" aria-selected={universe.id === universeId}
-              class:active={universe.id === universeId} onclick={() => (universeId = universe.id)}>
-              <span class="mono">{universe.number}</span> {universe.name ?? 'Universe'}
-              <span class="count">{fixtures.filter((f) => f.universeId === universe.id).length}</span>
-            </button>
-          {/each}
+        <div class="grid-head">
+          <div class="tabs" role="tablist">
+            {#each universes as universe (universe.id)}
+              <button type="button" role="tab" aria-selected={universe.id === universeId}
+                class:active={universe.id === universeId} onclick={() => (universeId = universe.id)}>
+                <span class="mono">{universe.number}</span> {universe.name ?? 'Universe'}
+                <span class="count">{fixtures.filter((f) => f.universeId === universe.id).length}</span>
+              </button>
+            {/each}
+          </div>
+          <div class="views" role="group" aria-label="View">
+            <button type="button" class:active={view === 'channels'} aria-pressed={view === 'channels'}
+              onclick={() => setView('channels')}>Channels</button>
+            <button type="button" class:active={view === 'list'} aria-pressed={view === 'list'}
+              onclick={() => setView('list')}>List</button>
+          </div>
         </div>
-        <AddressGrid fixtures={universeFixtures} {selectedId} {preview} onSelectFixture={select} {onSelectAddress} />
-        <p class="legend dim">
-          {#if panel === 'add' || panel === 'edit'}Click a free channel to place the fixture there.{:else}Click a fixture to edit it, or pick a fixture type from the library to add one.{/if}
-        </p>
+        {#if view === 'channels'}
+          <AddressGrid fixtures={universeFixtures} selectedIds={ticked} {preview} onSelectFixture={pick} {onSelectAddress} />
+          <p class="legend dim">
+            {#if panel === 'add' || panel === 'edit'}Click a free channel to place the fixture there. {/if}Click a
+            fixture to edit it, shift-click to select several.
+          </p>
+        {:else}
+          <table class="fixture-table">
+            <thead>
+              <tr>
+                <th class="tick">
+                  <input type="checkbox" aria-label="Select all fixtures in this universe"
+                    disabled={universeFixtures.length === 0}
+                    checked={universeFixtures.length > 0 && tickedHere === universeFixtures.length}
+                    {@attach (box: HTMLInputElement) => { box.indeterminate = tickedHere > 0 && tickedHere < universeFixtures.length; }}
+                    onclick={tickAll} />
+                </th>
+                <th>Name</th>
+                <th>Type · mode</th>
+                <th class="num">Address</th>
+              </tr>
+            </thead>
+            <tbody>
+              {#each universeFixtures as fixture (fixture.id)}
+                <tr class:picked={ticked.includes(fixture.id)} style="--hue: {fixtureHue(fixture.id)}">
+                  <td class="tick">
+                    <input type="checkbox" aria-label="Select {fixture.name}" checked={ticked.includes(fixture.id)}
+                      onclick={(e) => tick(e, fixture.id)} />
+                  </td>
+                  <td>
+                    <button type="button" class="row-name" onclick={(e) => pick(fixture.id, additive(e))}>
+                      <span class="swatch" class:lit={located.includes(fixture.id)}></span>
+                      {fixture.name}
+                      {#if fixture.shortName}<span class="dim mono">{fixture.shortName}</span>{/if}
+                      {#if issuesByFixture.has(fixture.id)}<span class="badge error">!</span>{/if}
+                    </button>
+                  </td>
+                  <td class="dim">{typeLabel(fixture)}</td>
+                  <td class="num mono">{range(fixture)}</td>
+                </tr>
+              {:else}
+                <tr><td colspan="4" class="dim">Nothing patched here yet.</td></tr>
+              {/each}
+            </tbody>
+          </table>
+          <p class="legend dim">
+            Click a name to edit the fixture. Tick several to set them up together – shift-click ticks a whole range.
+          </p>
+        {/if}
       </div>
 
       {#if issues.length > 0}
@@ -352,22 +559,93 @@
     <!-- Side panel -------------------------------------------------------------------------------------- -->
     <aside class="side glass">
       {#if panel === 'list'}
-        <h3>Fixtures in this universe</h3>
-        {#if universeFixtures.length === 0}
+        <div class="list-head">
+          <h3>Fixtures in this universe</h3>
+          <button type="button" class="btn small" disabled={fixtures.length === 0}
+            title="Looks, moves and party fields for fixtures that are already patched"
+            onclick={() => { quickSetupFixtures = []; quickSetupOpen = true; }}>
+            Quick setup…</button>
+        </div>
+        {#if view === 'list'}
+          <p class="dim hint-text">
+            Tick fixtures of one type in the list to set them up together: looks, moves and party fields that switch
+            all of them at once.
+          </p>
+        {:else if universeFixtures.length === 0}
           <p class="dim">Nothing patched here yet.</p>
+        {:else}
+          <ul class="fixtures">
+            {#each universeFixtures as fixture (fixture.id)}
+              <li>
+                <button type="button" class="fixture" onclick={(e) => pick(fixture.id, additive(e))}
+                  style="--hue: {fixtureHue(fixture.id)}">
+                  <span class="swatch" class:lit={located.includes(fixture.id)}></span>
+                  <span class="fx-name">{fixture.name}</span>
+                  <span class="mono dim">{range(fixture)}</span>
+                  {#if issuesByFixture.has(fixture.id)}<span class="badge error">!</span>{/if}
+                </button>
+              </li>
+            {/each}
+          </ul>
         {/if}
-        <ul class="fixtures">
-          {#each universeFixtures as fixture (fixture.id)}
-            <li>
-              <button type="button" class="fixture" onclick={() => select(fixture.id)} style="--hue: {fixtureHue(fixture.id)}">
+      {:else if panel === 'several'}
+        <div class="several">
+          <div class="list-head">
+            <h3>{selectedFixtures.length} fixtures selected</h3>
+            <button type="button" class="btn small ghost" onclick={closePanel}>Clear</button>
+          </div>
+          <ul class="chosen">
+            {#each selectedFixtures as fixture (fixture.id)}
+              <li style="--hue: {fixtureHue(fixture.id)}">
                 <span class="swatch" class:lit={located.includes(fixture.id)}></span>
                 <span class="fx-name">{fixture.name}</span>
-                <span class="mono dim">{range(fixture)}</span>
-                {#if issuesByFixture.has(fixture.id)}<span class="badge error">!</span>{/if}
-              </button>
-            </li>
-          {/each}
-        </ul>
+                <span class="mono dim">{where(fixture)}</span>
+                <button type="button" class="unpick" title="Take out of the selection"
+                  aria-label="Take {fixture.name} out of the selection"
+                  onclick={() => setSelection(selection.filter((id) => id !== fixture.id))}>✕</button>
+              </li>
+            {/each}
+          </ul>
+
+          {#if selectionType}
+            <div class="form-head">
+              <FixtureIcon category={selectionType.category} size={28} />
+              <div>
+                <h2>{selectionType.model}</h2>
+                <span class="dim small">{selectionType.manufacturer} · {selectionModes.join(', ')}</span>
+              </div>
+            </div>
+            <fieldset class="limits">
+              <legend>Quick setup</legend>
+              <label class="field">Name<input bind:value={severalName} placeholder="From the fixture names"
+                maxlength="60" /></label>
+              <QuickSetupOptions bind:options={setUpOptions} abilities={selectionAbilities} />
+              <p class="hint dim">
+                For all {selectedFixtures.length} fixtures together: each look sets all of them, and one party button
+                switches them all.
+              </p>
+              <div>
+                <button class="btn primary" type="button" onclick={setUpSeveral}
+                  disabled={severalRunning || !makesSomething(selectionOptions)}>
+                  Set up {selectedFixtures.length} fixtures</button>
+              </div>
+            </fieldset>
+          {:else}
+            <p class="hint-text">
+              These are different fixture types, so there is no quick setup here. The quick setup dialog can still put
+              them together.
+            </p>
+          {/if}
+
+          <div class="form-actions">
+            <button class="btn" type="button" class:locating={allLocated} onclick={locateSeveral}>
+              {allLocated ? 'Stop locate' : 'Locate all'}</button>
+            {#if !selectionType}
+              <button class="btn" type="button"
+                onclick={() => { quickSetupFixtures = [...selection]; quickSetupOpen = true; }}>Quick setup…</button>
+            {/if}
+          </div>
+        </div>
       {:else}
         <form onsubmit={(e) => { e.preventDefault(); if (panel === 'add') add(); else save(); }}>
           <div class="form-head">
@@ -411,6 +689,23 @@
             </span>
           </p>
 
+          {#if panel === 'add'}
+            <fieldset class="limits">
+              <legend>
+                <label class="check"><input type="checkbox" bind:checked={setUp} /> Quick setup</label>
+              </legend>
+              {#if setUp}
+                <QuickSetupOptions bind:options={setUpOptions} abilities={formAbilities} />
+                <p class="hint dim">
+                  For all {form.count > 1 ? `${form.count} fixtures together` : 'of them'}: looks, a composition for
+                  each, and the party fields that switch them.
+                </p>
+              {:else}
+                <p class="hint dim">Ready-made looks, moves and party fields for the new fixtures – or set them up by hand.</p>
+              {/if}
+            </fieldset>
+          {/if}
+
           {#if panel === 'edit' && canMove(formMode)}
             <fieldset class="limits">
               <legend>
@@ -444,9 +739,12 @@
                 <button class="btn" type="button" class:locating={located.includes(selected.id)} onclick={() => selected && toggleLocate(selected)}>
                   {located.includes(selected.id) ? 'Stop locate' : 'Locate'}
                 </button>
+                <button class="btn" type="button"
+                  onclick={() => { quickSetupFixtures = selected ? [selected.id] : []; quickSetupOpen = true; }}>
+                  Quick setup…</button>
               {/if}
             {/if}
-            <button class="btn ghost" type="button" onclick={() => { panel = 'list'; selectedId = null; }}>Cancel</button>
+            <button class="btn ghost" type="button" onclick={closePanel}>Cancel</button>
           </div>
 
           {#if panel === 'edit' && selected}
@@ -462,6 +760,9 @@
 {/if}
 
 <OflImportModal bind:open={oflOpen} />
+{#if projectId !== null}
+  <QuickSetupModal bind:open={quickSetupOpen} {projectId} fixtures={patchOrder} preselected={quickSetupFixtures} />
+{/if}
 
 <style>
   .limits {
@@ -472,6 +773,140 @@
     padding: 8px 12px 12px;
     border: 1px solid var(--border);
     border-radius: var(--radius-sm);
+  }
+
+  .grid-head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .views {
+    display: flex;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    overflow: hidden;
+  }
+
+  .views button {
+    min-height: 30px;
+    padding: 0 14px;
+    border: 0;
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+  }
+
+  .views button.active {
+    background: var(--accent-soft);
+    color: var(--accent);
+  }
+
+  .fixture-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+
+  .fixture-table th {
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border-strong);
+    color: var(--text-faint);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .fixture-table td {
+    padding: 2px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .fixture-table .tick {
+    width: 28px;
+  }
+
+  .fixture-table .num {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .fixture-table tr.picked td {
+    background: var(--accent-soft);
+  }
+
+  .row-name {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 6px 0;
+    border: 0;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+  }
+
+  .row-name:hover {
+    color: var(--accent);
+  }
+
+  .hint-text {
+    margin: 0;
+    font-size: 13px;
+  }
+
+  .several {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .chosen {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    max-height: 220px;
+    margin: 0;
+    padding: 0;
+    overflow-y: auto;
+    list-style: none;
+  }
+
+  .chosen li {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 4px 4px 4px 10px;
+    font-size: 13px;
+  }
+
+  .unpick {
+    padding: 2px 6px;
+    border: 0;
+    background: transparent;
+    color: var(--text-faint);
+    font: inherit;
+    cursor: pointer;
+  }
+
+  .unpick:hover {
+    color: var(--danger);
+  }
+
+  .list-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
   }
 
   .limits .hint {

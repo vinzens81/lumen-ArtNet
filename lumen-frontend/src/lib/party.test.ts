@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  cellLabel, emptyCell, groupNames, isOn, matrixGrid, resized, textColorFor, toggledSeparator, withCell, withoutCell,
+  cellCovering, cellLabel, emptyCell, faderBackground, faderPoint, groupNames, isOn, matrixRows, maxSpan, pointAt,
+  resized, textColorFor, toggledSeparator, withCell, withoutCell, withSlide,
 } from './party';
 import type { Composition, PartyMatrix, Scene } from './types';
 
@@ -15,12 +16,40 @@ const matrix: PartyMatrix = {
 };
 
 describe('party matrix', () => {
-  it('lays the fields out as a grid', () => {
-    const grid = matrixGrid(matrix);
-    expect(grid).toHaveLength(2);
-    expect(grid[0][0]?.compositionId).toBe(7);
-    expect(grid[0][1]).toBeNull();
-    expect(grid[1][2]?.label).toBe('Strobe');
+  it('lays the fields out row by row', () => {
+    const rows = matrixRows(matrix);
+    expect(rows).toHaveLength(2);
+    expect(rows[0][0].cell?.compositionId).toBe(7);
+    expect(rows[0][1]).toEqual({ column: 1, span: 1, cell: null });
+    expect(rows[1][2].cell?.label).toBe('Strobe');
+  });
+
+  it('lets a field cover several columns', () => {
+    const wide: PartyMatrix = { ...matrix, cells: [{ ...emptyCell(0, 0), span: 2, fader: { kind: 'dimmer', fixtureIds: [1] } }] };
+    expect(matrixRows(wide)[0].map((p) => [p.column, p.span])).toEqual([[0, 2], [2, 1]]);
+    expect(cellCovering(wide, 0, 1)?.column).toBe(0);
+    expect(cellCovering(wide, 0, 2)).toBeNull();
+    expect(maxSpan(matrix, 1, 0)).toBe(2);
+    expect(maxSpan(matrix, 0, 1)).toBe(2);
+
+    const widened = withCell(matrix, { ...emptyCell(1, 0), span: 3, label: 'Wide' });
+    expect(widened.cells.filter((c) => c.row === 1).map((c) => c.label)).toEqual(['Wide']);
+    expect(resized(widened, 2, 2).cells.find((c) => c.row === 1)?.span).toBe(2);
+  });
+
+  it('follows gradients', () => {
+    const status = { on: [], points: [] };
+    const touched = withSlide(status, 1, 0, 0.3);
+    expect(isOn(touched, 1, 0)).toBe(true);
+    expect(faderPoint(touched, 1, 0)).toBe(0.3);
+    expect(faderPoint(withSlide(touched, 1, 0, 0.8), 1, 0)).toBe(0.8);
+    expect(faderPoint(status, 1, 0)).toBeNull();
+    expect(pointAt(150, 100, 200)).toBe(0.25);
+    expect(pointAt(50, 100, 200)).toBe(0);
+    expect(pointAt(400, 100, 200)).toBe(1);
+    expect(faderBackground('color')).toContain('hsl(300 100% 50%) 100%');
+    expect(cellLabel({ ...emptyCell(0, 0), fader: { kind: 'color', fixtureIds: [1] } }, new Map(), new Map()))
+      .toBe('Color');
   });
 
   it('puts, removes and keeps fields inside when resizing', () => {
@@ -51,7 +80,7 @@ describe('party matrix', () => {
   });
 
   it('knows the fields that are on and the groups', () => {
-    expect(isOn({ on: [{ row: 1, column: 2 }] }, 1, 2)).toBe(true);
+    expect(isOn({ on: [{ row: 1, column: 2 }], points: [] }, 1, 2)).toBe(true);
     expect(isOn(null, 1, 2)).toBe(false);
     expect(groupNames(matrix)).toEqual(['Colors', 'FX']);
   });

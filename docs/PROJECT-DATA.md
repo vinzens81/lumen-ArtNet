@@ -33,7 +33,8 @@ A **project** is a specific theatre play or a specific venue. It records which f
   V20 = parallel steps (`composition_step.parallel`), V21 = faders play compositions (`fader.composition_id`,
   `scene.outside_cue_list` is dropped; for projects not yet converted, `legacy_fader` and `legacy_outside_cue_list`
   remain), V22 = party matrix (`party_matrix`, `party_cell`; `party_button*` is dropped),
-  V23 = parts after light markers and looks in scenes (`scene_composition.section`, `scene_look`).
+  V23 = parts after light markers and looks in scenes (`scene_composition.section`, `scene_look`), …,
+  V28 = wide party fields and gradients (`party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`).
 - **SQLite settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture types are referenced from the library by `fixture_type_id` + `mode_name`, not copied.
 
@@ -173,6 +174,12 @@ party_cell                                      -- a field; without scene and co
   scene_id        FK → scene ON DELETE SET NULL
   composition_id  FK → composition ON DELETE SET NULL
   color, border_color TEXT                      -- '#rrggbb'
+  span            INTEGER 1–12                  -- columns the field covers (V28)
+  fader_kind      TEXT NULL                     -- 'dimmer' | 'color': a gradient (V28)
+
+party_cell_fixture                              -- fixtures of a gradient, in order (V28)
+  project_id, row_index, column_index, position -- PK; FK → party_cell ON DELETE CASCADE
+  fixture_id      FK → fixture ON DELETE CASCADE
   key_mode        TEXT                          -- 'toggle' | 'flash'
   group_name      TEXT NULL                     -- fields of a group exclude each other
 
@@ -216,7 +223,8 @@ playback_state                                  -- for resuming after a crash/re
   "partyMatrix": { "rows": 2, "columns": 4, "separators": [1],
                    "cells": [ { "row": 0, "column": 0, "label": "Red", "compositionId": 4, "color": "#c01020",
                                 "borderColor": "#ff4060", "mode": "toggle", "group": "Colors" },
-                              { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" } ] }
+                              { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" },
+                              { "row": 1, "column": 1, "span": 3, "fader": { "kind": "color", "fixtureIds": [7] } } ] }
 }
 ```
 

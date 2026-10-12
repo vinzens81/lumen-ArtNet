@@ -94,7 +94,7 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 
 	@Override
 	public synchronized PartyStatus status() {
-		return new PartyStatus(board.onPositions());
+		return new PartyStatus(board.onPositions(), board.faderPoints());
 	}
 
 	@Override
@@ -110,6 +110,15 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 	public void release(int row, int column) {
 		synchronized (this) {
 			board.release(row, column);
+		}
+		events.publish(StateTopic.PARTY);
+	}
+
+	@Override
+	public void slide(int row, int column, double point) {
+		synchronized (this) {
+			requirePartyMode();
+			board.slide(row, column, point, clock.instant());
 		}
 		events.publish(StateTopic.PARTY);
 	}

@@ -11,7 +11,7 @@ import java.util.TreeSet;
 
 /**
  * The party mode of a project: a grid of {@link PartyCell fields} that switch scenes and compositions on and off.
- * Fields left out are empty. Lines can separate the rows.
+ * Fields left out are empty. A field can cover several columns of its row. Lines can separate the rows.
  *
  * @param separators rows a line is drawn above (1 … rows − 1)
  */
@@ -34,15 +34,25 @@ public record PartyMatrix(int rows, int columns, Set<Integer> separators, List<P
 		}
 		var used = new HashSet<PartyCell.Position>();
 		for (var cell : cells) {
-			validation.require(cell.row() < rows && cell.column() < columns,
-					"field " + (cell.row() + 1) + "/" + (cell.column() + 1) + " is outside the matrix");
-			validation.require(used.add(cell.position()),
-					"field " + (cell.row() + 1) + "/" + (cell.column() + 1) + " is used twice");
+			var name = "field " + (cell.row() + 1) + "/" + (cell.column() + 1);
+			validation.require(cell.row() < rows && cell.column() + cell.span() <= columns, name
+					+ " is outside the matrix");
+			var free = true;
+			for (int column = cell.column(); column < cell.column() + cell.span(); column++) {
+				free &= used.add(new PartyCell.Position(cell.row(), column));
+			}
+			validation.require(free, name + " overlaps another field");
 		}
 		validation.throwIfInvalid();
 	}
 
+	/** The field starting at the place. */
 	public Optional<PartyCell> cell(int row, int column) {
 		return cells.stream().filter(cell -> cell.row() == row && cell.column() == column).findFirst();
+	}
+
+	/** Whether a row has no field. */
+	public boolean isRowEmpty(int row) {
+		return cells.stream().noneMatch(cell -> cell.row() == row);
 	}
 }

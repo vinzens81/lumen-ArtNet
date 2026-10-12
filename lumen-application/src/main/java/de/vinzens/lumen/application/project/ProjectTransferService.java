@@ -56,6 +56,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 public class ProjectTransferService implements TransferProjectUseCase {
@@ -211,7 +212,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				}
 			}
 			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds(),
-					ids.moves));
+					ids.moves, ids.fixtures));
 		}
 	}
 
@@ -245,14 +246,20 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	}
 
 	/**
-	 * The matrix with the new ids; a field whose scene, composition or move is not in the export shows only its text.
+	 * The matrix with the new ids; a field whose scene, composition or move is not in the export shows only its text,
+	 * and so does a gradient none of whose fixtures is in it.
 	 */
 	private static PartyMatrix partyMatrix(PartyMatrix matrix, Map<Long, Long> sceneIds,
-			Map<Long, Long> compositionIds, Map<Long, Long> moveIds) {
+			Map<Long, Long> compositionIds, Map<Long, Long> moveIds, Map<Long, Long> fixtureIds) {
 		var cells = matrix.cells().stream()
 				.map(cell -> new PartyCell(cell.row(), cell.column(), cell.label(),
 						cell.sceneId().map(sceneIds::get), cell.compositionId().map(compositionIds::get),
-						cell.moveId().map(moveIds::get), cell.color(), cell.borderColor(), cell.mode(), cell.group()))
+						cell.moveId().map(moveIds::get), cell.color(), cell.borderColor(), cell.mode(), cell.group(),
+						cell.span(), cell.fader().flatMap(fader -> {
+							var mapped = fader.fixtureIds().stream().filter(fixtureIds::containsKey)
+									.map(fixtureIds::get).toList();
+							return mapped.isEmpty() ? Optional.empty() : Optional.of(fader.withFixtureIds(mapped));
+						})))
 				.toList();
 		return new PartyMatrix(matrix.rows(), matrix.columns(), matrix.separators(), cells);
 	}

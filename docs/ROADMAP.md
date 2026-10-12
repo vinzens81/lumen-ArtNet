@@ -467,6 +467,24 @@ the patch with a frame in the XY pad. Details and deviations in [MOVEMENT.md](MO
 is; with "Move in dark" it travels invisibly to its new position. Checked with domain, repository and API tests and via
 REST on the running server (Art-Net off); the UI is checked with svelte-check and Vitest, in the browser only looked at.
 
+## ✅ Iteration Q – quick setup & party gradients ⚡ (2026-10-12)
+- **Quick setup** in the patch (optional, while adding fixtures or for patched ones): intensity looks 0/50/100 %,
+  color looks red/orange/green/blue/violet (mixed, CMY or the closest color wheel slot) with a color palette of
+  presets they refer to (other wheel slots as further presets), moves line/circle/eight for pan/tilt fixtures, each
+  look with a composition, plus a party row of buttons and a row of gradients – one button for all the chosen
+  fixtures
+- **Several fixtures selected in the patch**: shift-click in the channel grid or checkboxes in a new list view (shift
+  for a range); for one fixture type the side panel offers quick setup for all of them and "Locate all"
+- **Party fields over several columns** and **gradient fields** (intensity or color) to pick by touch; dragging goes
+  over the WebSocket (`party.slide`). Flyway `V28`, project export with `span`/`fader`
+- Details: [PARTY-MODE.md](PARTY-MODE.md#quick-setup-2026-10-12)
+
+**DoD:** four PARs patched with quick setup give eight looks and two party rows; a gradient sets the intensity or the
+color of all four. Checked with domain, application, repository and API tests (DMX output, export/import) and via REST
+on the running server (Art-Net off); the UI with svelte-check, Vitest and in Chrome (patching with quick setup, the
+dialog for patched fixtures, selecting several fixtures in the grid and the list and setting them up together, the matrix editor, touching and dragging gradients in party mode, checked on the DMX
+output).
+
 ---
 
 ## Way of working

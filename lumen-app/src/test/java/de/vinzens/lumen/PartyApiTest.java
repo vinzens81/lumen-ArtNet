@@ -86,6 +86,46 @@ class PartyApiTest {
 	}
 
 	@Test
+	void quickSetupMakesButtonsAndGradientsThatSetTheLight() throws Exception {
+		assertThat(post(base + "/quick-setup", """
+				{"fixtureIds": [%d], "intensity": true, "colors": true, "moves": true, "partyButtons": true,
+				 "gradients": true}""".formatted(par)))
+				.hasStatusOk().bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.looks.length()").isEqualTo(8);
+					assertThat(json).extractingPath("$.compositions.length()").isEqualTo(8);
+					assertThat(json).extractingPath("$.partyRows.length()").isEqualTo(2);
+					assertThat(json).extractingPath("$.notes[0]").asString().contains("No moves");
+				});
+		var matrix = body(base + "/party-matrix");
+		assertThat(JsonPath.<Integer>read(matrix, "$.columns")).isEqualTo(9);
+		assertThat(JsonPath.<List<String>>read(matrix, "$.cells[?(@.row == 1 && @.column == 4)].fader.kind"))
+				.containsExactly("color");
+
+		assertThat(put("/api/mode", "{\"mode\": \"party\"}")).hasStatusOk();
+		assertThat(post("/api/party/cells/1/1/slide", "{\"point\": 0.5}")).hasStatusOk().bodyJson()
+				.extractingPath("$.points[0].point").isEqualTo(0.5);
+		post("/api/party/cells/0/4/press", "");
+		Thread.sleep(100);
+		var halfRed = dmx(5);
+		assertThat(halfRed[0]).as("dimmer from the gradient").isBetween(127, 128);
+		assertThat(halfRed).endsWith(255, 0, 0, 0);
+
+		assertThat(post("/api/party/cells/1/4/slide", "{\"point\": 0.8}")).as("blue on the color gradient")
+				.hasStatusOk().bodyJson().extractingPath("$.on.length()").isEqualTo(2);
+		Thread.sleep(100);
+		assertThat(dmx(4)).as("the red button went off").endsWith(0, 0, 255);
+		assertThat(post("/api/party/cells/0/1/slide", "{\"point\": 0.5}")).as("a button").hasStatus(400);
+
+		var copy = "/api/projects/" + id(post("/api/projects/import", body(base + "/export")));
+		var newPar = JsonPath.<Integer>read(body(copy + "/fixtures"), "$[0].id");
+		var copied = body(copy + "/party-matrix");
+		assertThat(JsonPath.<List<Integer>>read(copied, "$.cells[?(@.row == 1 && @.column == 1)].fader.fixtureIds[0]"))
+				.containsExactly(newPar);
+		assertThat(JsonPath.<List<Integer>>read(copied, "$.cells[?(@.row == 1 && @.column == 1)].span"))
+				.containsExactly(3);
+	}
+
+	@Test
 	void theMatrixRefusesFieldsOutsideAndUnknownCompositions() {
 		assertThat(put(base + "/party-matrix", "{\"rows\": 1, \"columns\": 1, \"cells\": [{\"row\": 1, \"column\": 0}]}"))
 				.hasStatus(400);

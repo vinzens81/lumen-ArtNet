@@ -21,6 +21,7 @@ import de.vinzens.lumen.application.project.StageService;
 import de.vinzens.lumen.application.party.PartyMatrixService;
 import de.vinzens.lumen.application.playback.FaderService;
 import de.vinzens.lumen.application.preset.PresetService;
+import de.vinzens.lumen.application.quicksetup.QuickSetupService;
 import de.vinzens.lumen.application.scene.SceneService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,7 +167,7 @@ class PersistenceConfiguration {
 	@Bean
 	PartyMatrixService partyMatrixService(SqliteRepositories repositories, StateEvents stateEvents) {
 		return new PartyMatrixService(repositories.projects(), repositories.scenes(), repositories.compositions(),
-				repositories.moves(), repositories.partyMatrices(), stateEvents);
+				repositories.moves(), repositories.fixtures(), repositories.partyMatrices(), stateEvents);
 	}
 
 	@Bean
@@ -179,6 +180,15 @@ class PersistenceConfiguration {
 			OutputEngine outputEngine, StateEvents stateEvents) {
 		return new MoveService(repositories.projects(), repositories.moves(), repositories.figures(),
 				repositories.fixtures(), repositories.scenes(), repositories.partyMatrices(), library, outputEngine,
+				stateEvents);
+	}
+
+	@Bean
+	QuickSetupService quickSetupService(SqliteRepositories repositories, QueryFixtureLibraryUseCase library,
+			CompositionService compositionService, MoveService moveService, PartyMatrixService partyMatrixService,
+			StateEvents stateEvents) {
+		return new QuickSetupService(repositories.projects(), repositories.fixtures(), library, repositories.looks(),
+				compositionService, repositories.figures(), moveService, partyMatrixService, repositories.presets(),
 				stateEvents);
 	}
 }

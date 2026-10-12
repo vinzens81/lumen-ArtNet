@@ -3,6 +3,30 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.102 · 2026-10-12
+
+### Added
+- Quick setup in the patch: tick "Quick setup" while adding fixtures (or use "Quick setup…" for fixtures already
+  patched) and Lumen makes intensity looks (0 / 50 / 100 %), color looks (red, orange, green, blue, violet), moves
+  (line, circle, eight) for moving heads, a composition for each look, and a party row with a button for each – one
+  button switches all the fixtures together. Optional, everything can be changed afterwards.
+- Quick setup also works for moving heads with a color wheel or CMY: each color uses the closest wheel slot (from the
+  slot colors in the fixture profile) or cyan/magenta/yellow. The colors become a palette of presets the looks refer
+  to – change "Red" for the spot once and every look follows; the other wheel slots (e.g. yellow, white) are added to
+  the palette as well.
+- Party gradients: a party field can span several columns and show an intensity or color gradient; touch or drag along
+  it to pick the brightness or color at once. Quick setup adds a row of them under the buttons.
+- Several fixtures at once in the patch: shift-click (or cmd-click) fixtures in the channel grid, or tick them in the
+  new list view (shift-click ticks a range; the choice of view is remembered on the device). For fixtures of one type
+  the side panel offers quick setup for all of them together, plus "Locate all".
+
+### Fixed
+- Password managers such as 1Password no longer put their icon into Lumen's fields (e.g. a fixture's name) or open
+  their menu while typing – Lumen has nothing for them to fill in.
+- Party fields in a wide matrix keep words whole and shorten long group names instead of wrapping them.
+- The header fits again: since the Remote link it ran off the right edge in setup mode on every screen below
+  about 2000 px (mode switch cut off). The setup tabs now get a row of their own on screens narrower than 1900 px.
+
 ## 1.0.98 – 1.0.99 · 2026-10-11
 
 ### Added

@@ -54,7 +54,8 @@ import java.util.concurrent.TimeUnit;
  * {@code faders} (the last ten ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
  * {@code sceneId} and {@code line}), {@code keys.press/release} (with {@code slot}) and {@code fader.set} (with
- * {@code slot} and {@code level}) for low latency.
+ * {@code slot} and {@code level}) and {@code party.slide} (a gradient field: {@code row}, {@code column} and
+ * {@code point} 0–1) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -290,6 +291,13 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					}
 					playback.setFader(requireSlot(command), command.level());
 				}
+				case "party.slide" -> {
+					if (command.row() == null || command.column() == null || command.point() == null) {
+						throw new DomainValidationException(List.of("row, column and point are required"));
+					}
+					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
+					party.slide(command.row(), command.column(), command.point());
+				}
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();
 				case "playback.pause" -> playback.togglePause();
@@ -345,7 +353,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	}
 
 	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
-			List<String> topics, Integer slot, Long sceneId, Integer line, Integer section) {
+			List<String> topics, Integer slot, Long sceneId, Integer line, Integer section, Integer row,
+			Integer column, Double point) {
 	}
 
 	/** @param lastSent topic → message last sent to this client */

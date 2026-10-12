@@ -3,19 +3,21 @@
   import { api } from '../lib/api';
   import { live } from '../lib/live.svelte';
   import {
-    cellAt, cellLabel, emptyCell, groupNames, MAX_MATRIX_SIZE, resized, toggledSeparator, withCell, withoutCell,
+    cellAt, cellLabel, emptyCell, groupNames, MAX_MATRIX_SIZE, maxSpan, resized, toggledSeparator, withCell,
+    withoutCell,
   } from '../lib/party';
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import type { Composition, KeyMode, Move, PartyCell, PartyMatrix, Scene } from '../lib/types';
+  import type { Composition, Fixture, KeyMode, Move, PartyCell, PartyFader, PartyMatrix, Scene } from '../lib/types';
 
-  type Kind = 'empty' | 'text' | 'scene' | 'composition' | 'move';
+  type Kind = 'empty' | 'text' | 'scene' | 'composition' | 'move' | 'gradient';
 
   let matrix = $state<PartyMatrix>({ rows: 4, columns: 4, separators: [], cells: [] });
   let scenes = $state<Scene[]>([]);
   let compositions = $state<Composition[]>([]);
   let moves = $state<Move[]>([]);
+  let fixtures = $state<Fixture[]>([]);
   let selected = $state<{ row: number; column: number } | null>(null);
 
   const projectId = $derived(app.active?.id ?? null);
@@ -24,7 +26,9 @@
   const movesById = $derived(new Map(moves.map((m) => [m.id, m])));
   const cell = $derived(selected ? cellAt(matrix, selected.row, selected.column) : null);
   const kind = $derived<Kind>(!cell ? 'empty' : cell.sceneId !== null ? 'scene'
-    : cell.compositionId !== null ? 'composition' : cell.moveId !== null ? 'move' : 'text');
+    : cell.compositionId !== null ? 'composition' : cell.moveId !== null ? 'move' : cell.fader !== null ? 'gradient'
+      : 'text');
+  const widest = $derived(selected ? maxSpan(matrix, selected.row, selected.column) : 1);
   const groups = $derived(groupNames(matrix));
   const sortedCompositions = $derived([...compositions].sort((a, b) => a.name.localeCompare(b.name)));
 
@@ -33,13 +37,14 @@
     void live.scenesRevision;
     void live.compositionsRevision;
     void live.movesRevision;
+    void live.patchRevision;
     if (projectId !== null) load(projectId);
   });
 
   async function load(id: number) {
     try {
-      [matrix, scenes, compositions, moves] = await Promise.all([api.partyMatrix.get(id), api.scenes.list(id),
-        api.compositions.list(id), api.moves.list(id)]);
+      [matrix, scenes, compositions, moves, fixtures] = await Promise.all([api.partyMatrix.get(id),
+        api.scenes.list(id), api.compositions.list(id), api.moves.list(id), api.fixtures.list(id)]);
     } catch (e) {
       showError(e);
     }
@@ -69,14 +74,29 @@
     if (next === 'empty') {
       save(withoutCell(matrix, selected.row, selected.column));
     } else if (next === 'text') {
-      update({ sceneId: null, compositionId: null, moveId: null, label: cell?.label ?? 'Text' });
+      update({ sceneId: null, compositionId: null, moveId: null, fader: null, label: cell?.label ?? 'Text' });
     } else if (next === 'scene') {
-      update({ sceneId: scenes[0]?.id ?? null, compositionId: null, moveId: null });
+      update({ sceneId: scenes[0]?.id ?? null, compositionId: null, moveId: null, fader: null });
     } else if (next === 'move') {
-      update({ moveId: moves[0]?.id ?? null, sceneId: null, compositionId: null });
+      update({ moveId: moves[0]?.id ?? null, sceneId: null, compositionId: null, fader: null });
+    } else if (next === 'gradient') {
+      update({ fader: { kind: 'dimmer', fixtureIds: fixtures.map((f) => f.id) }, sceneId: null, compositionId: null,
+        moveId: null, mode: 'toggle', span: Math.max(cell?.span ?? 1, Math.min(3, widest)) });
     } else {
-      update({ compositionId: sortedCompositions[0]?.id ?? null, sceneId: null, moveId: null });
+      update({ compositionId: sortedCompositions[0]?.id ?? null, sceneId: null, moveId: null, fader: null });
     }
+  }
+
+  function updateFader(changes: Partial<PartyFader>) {
+    if (!cell?.fader) return;
+    const fader = { ...cell.fader, ...changes };
+    if (fader.fixtureIds.length > 0) update({ fader });
+  }
+
+  function toggleFixture(fixtureId: number) {
+    if (!cell?.fader) return;
+    const ids = cell.fader.fixtureIds;
+    updateFader({ fixtureIds: ids.includes(fixtureId) ? ids.filter((id) => id !== fixtureId) : [...ids, fixtureId] });
   }
 
   function resize(rows: number, columns: number) {
@@ -97,8 +117,9 @@
       <div>
         <h1>Party</h1>
         <p class="dim">
-          A matrix of fields for party mode. Each field switches a scene, a composition or a move on and off – or just
-          shows a text. Any number can be on at once; where they collide, the higher value wins. Fields of the same group
+          A matrix of fields for party mode. Each field switches a scene, a composition or a move on and off, shows a
+          gradient to pick an intensity or a color by touch – or just shows a text. A field can be several columns
+          wide. Any number can be on at once; where they collide, the higher value wins. Fields of the same group
           exclude each other (e.g. colors: blue goes off when red goes on). Click between two rows for a line.
         </p>
       </div>
@@ -124,12 +145,13 @@
           <h3>Field {selected.row + 1} / {selected.column + 1}</h3>
           <div class="kinds" role="radiogroup" aria-label="What the field does">
             {#each [['empty', 'Empty'], ['text', 'Text'], ['scene', 'Scene'], ['composition', 'Composition'],
-              ['move', 'Move']] as [value, text] (value)}
+              ['move', 'Move'], ['gradient', 'Gradient']] as [value, text] (value)}
               <button type="button" class="btn small" class:active={kind === value} role="radio"
                 aria-checked={kind === value} onclick={() => setKind(value as Kind)}
                 disabled={(value === 'scene' && scenes.length === 0)
                   || (value === 'composition' && compositions.length === 0)
-                  || (value === 'move' && moves.length === 0)}>{text}</button>
+                  || (value === 'move' && moves.length === 0)
+                  || (value === 'gradient' && fixtures.length === 0)}>{text}</button>
             {/each}
           </div>
 
@@ -160,7 +182,35 @@
                 </select>
               </label>
               <p class="hint dim">Where the heads point while the field is on.</p>
+            {:else if kind === 'gradient' && cell.fader}
+              <label class="field">Sets
+                <select value={cell.fader.kind}
+                  onchange={(e) => updateFader({ kind: e.currentTarget.value as PartyFader['kind'] })}>
+                  <option value="dimmer">Intensity – dark to full</option>
+                  <option value="color">Color – red to violet</option>
+                </select>
+              </label>
+              <fieldset class="fixtures">
+                <legend>Fixtures</legend>
+                {#each fixtures as fixture (fixture.id)}
+                  <label class="check"><input type="checkbox" checked={cell.fader.fixtureIds.includes(fixture.id)}
+                    disabled={cell.fader.fixtureIds.length === 1 && cell.fader.fixtureIds.includes(fixture.id)}
+                    onchange={() => toggleFixture(fixture.id)} /> {fixture.name}</label>
+                {/each}
+              </fieldset>
+              <p class="hint dim">
+                Touch or drag along the field in party mode. Colors need red, green and blue; other fixtures are left
+                alone.
+              </p>
             {/if}
+
+            <label class="field">Width
+              <select value={cell.span} onchange={(e) => update({ span: Number(e.currentTarget.value) })}>
+                {#each Array.from({ length: Math.max(widest, cell.span) }, (_, i) => i + 1) as span (span)}
+                  <option value={span}>{span === 1 ? '1 column' : `${span} columns`}</option>
+                {/each}
+              </select>
+            </label>
 
             <label class="field">Label
               <input value={cell.label ?? ''} maxlength="60"
@@ -176,12 +226,14 @@
             </div>
 
             {#if kind !== 'text'}
+              {#if kind !== 'gradient'}
               <label class="field">Mode
                 <select value={cell.mode} onchange={(e) => update({ mode: e.currentTarget.value as KeyMode })}>
                   <option value="toggle">Toggle – press on, press off</option>
                   <option value="flash">Flash – on while held</option>
                 </select>
               </label>
+              {/if}
               <label class="field">Group
                 <input list="party-groups" value={cell.group ?? ''} placeholder="None – runs alongside everything"
                   onchange={(e) => update({ group: e.currentTarget.value.trim() || null })} />
@@ -286,6 +338,30 @@
   .colors {
     display: flex;
     gap: 12px;
+  }
+
+  .fixtures {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    max-height: 220px;
+    overflow-y: auto;
+    margin: 0;
+    padding: 8px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+  }
+
+  .fixtures legend {
+    padding: 0 4px;
+    color: var(--text-dim);
+    font-size: 12px;
+  }
+
+  .check {
+    display: flex;
+    align-items: center;
+    gap: 8px;
   }
 
   .colors .field {

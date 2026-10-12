@@ -128,3 +128,31 @@ export function patchedChannels(fixtures: Fixture[], modes: Map<number, Mode>): 
   });
   return [...byFixture.values()].sort((a, b) => a.fixture.address - b.fixture.address);
 }
+
+/** The selection with the fixture added, or taken out if it was in it. */
+export function toggled(selection: number[], id: number): number[] {
+  return selection.includes(id) ? selection.filter((s) => s !== id) : [...selection, id];
+}
+
+/**
+ * The selection after a shift click on a checkbox: every fixture from the one clicked before ({@code anchor}) to
+ * {@code id} in list order is ticked or unticked like {@code id} now is. Without an anchor in the list, only
+ * {@code id} toggles.
+ */
+export function rangeToggled(selection: number[], order: number[], anchor: number | null, id: number): number[] {
+  const from = anchor === null ? -1 : order.indexOf(anchor);
+  const to = order.indexOf(id);
+  if (from < 0 || to < 0) {
+    return toggled(selection, id);
+  }
+  const range = order.slice(Math.min(from, to), Math.max(from, to) + 1);
+  return selection.includes(id)
+    ? selection.filter((s) => !range.includes(s))
+    : [...selection, ...range.filter((r) => !selection.includes(r))];
+}
+
+/** The fixture type all the fixtures share, or null if they are of different types (or none). */
+export function commonType(fixtures: Pick<Fixture, 'fixtureTypeId'>[]): string | null {
+  const types = new Set(fixtures.map((f) => f.fixtureTypeId));
+  return types.size === 1 ? [...types][0] : null;
+}

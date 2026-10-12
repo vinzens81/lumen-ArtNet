@@ -1,5 +1,6 @@
 import { api } from './api';
 import { groupByValues } from './liveCommands';
+import { withSlide } from './party';
 import { showError } from './toasts.svelte';
 import type {
   AttributeValues, MasterState, OperatingMode, OutputHealth, PartyStatus, PlaybackStatus, PresetRefs,
@@ -61,6 +62,8 @@ class LiveState {
   private pendingMaster: number | null = null;
   /** fader slot → level not sent yet */
   private pendingFaders = new Map<number, number>();
+  /** gradient fields touched since the last flush: "row/column" → point */
+  private pendingSlides = new Map<string, number>();
   /** fader levels set here, shown instead of the server's until it caught up */
   private localFaders = new Map<number, { level: number; until: number }>();
   fadersRevision = $state(0);
@@ -345,6 +348,13 @@ class LiveState {
     this.party = status;
   }
 
+  /** Touches a gradient field in party mode; shown at once, sent at most every few milliseconds. */
+  slideParty(row: number, column: number, point: number) {
+    if (this.party) this.party = withSlide(this.party, row, column, point);
+    this.pendingSlides.set(`${row}/${column}`, point);
+    this.scheduleFlush();
+  }
+
   async setMode(mode: OperatingMode) {
     try {
       this.mode = (await api.mode.set(mode)).mode;
@@ -374,9 +384,11 @@ class LiveState {
     const commands = groupByValues(this.pending);
     const masterLevel = this.pendingMaster;
     const faders = [...this.pendingFaders];
+    const slides = [...this.pendingSlides];
     this.pending.clear();
     this.pendingMaster = null;
     this.pendingFaders.clear();
+    this.pendingSlides.clear();
     const open = this.socket?.readyState === WebSocket.OPEN;
 
     for (const command of commands) {
@@ -393,6 +405,11 @@ class LiveState {
     for (const [slot, level] of faders) {
       if (open) this.socket!.send(JSON.stringify({ type: 'fader.set', slot, level }));
       else api.playback.setFader(slot, level).catch(showError);
+    }
+    for (const [key, point] of slides) {
+      const [row, column] = key.split('/').map(Number);
+      if (open) this.socket!.send(JSON.stringify({ type: 'party.slide', row, column, point }));
+      else api.party.slide(row, column, point).then((status) => this.updateParty(status)).catch(showError);
     }
   }
 }

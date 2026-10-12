@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { channelOwners, locateValues, patchedChannels, nextFreeAddress, numberedNames, occupancy, plannedFixtures } from './patch';
+import {
+  channelOwners, commonType, locateValues, patchedChannels, nextFreeAddress, numberedNames, occupancy, plannedFixtures,
+  rangeToggled, toggled,
+} from './patch';
 import type { Channel, Fixture, Mode } from './types';
 
 function fixture(id: number, address: number, channelCount: number | null): Fixture {
@@ -128,5 +131,31 @@ describe('plannedFixtures', () => {
       'LED PAR 6', 'LED PAR 7', 'LED PAR 8']);
     expect(planned.every((f) => f.shortName === null)).toBe(true);
     expect(plannedFixtures(base, 1, 4, 1)).toEqual([{ ...base, address: 1 }]);
+  });
+});
+
+describe('selection', () => {
+  it('toggles a fixture in and out', () => {
+    expect(toggled([1, 2], 3)).toEqual([1, 2, 3]);
+    expect(toggled([1, 2, 3], 2)).toEqual([1, 3]);
+  });
+
+  it('ticks or unticks the range from the last clicked fixture', () => {
+    const order = [10, 11, 12, 13, 14];
+
+    expect(rangeToggled([10], order, 10, 13)).toEqual([10, 11, 12, 13]);
+    expect(rangeToggled([10, 11, 12, 13], order, 13, 11)).toEqual([10]);
+    expect(rangeToggled([14], order, 14, 12)).toEqual([14, 12, 13]);
+  });
+
+  it('toggles only the fixture without an anchor in the list', () => {
+    expect(rangeToggled([1], [10, 11], null, 11)).toEqual([1, 11]);
+    expect(rangeToggled([1], [10, 11], 99, 11)).toEqual([1, 11]);
+  });
+
+  it('finds the type all fixtures share', () => {
+    expect(commonType([fixture(1, 1, 4), fixture(2, 5, 4)])).toBe('par');
+    expect(commonType([fixture(1, 1, 4), { ...fixture(2, 5, 4), fixtureTypeId: 'spot' }])).toBeNull();
+    expect(commonType([])).toBeNull();
   });
 });

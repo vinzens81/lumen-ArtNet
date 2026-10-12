@@ -98,11 +98,87 @@ class PartySwitchboardTest {
 		assertThatThrownBy(() -> new PartyMatrix(2, 2, Set.of(), List.of(PartyCell.text(2, 0, "x"))))
 				.hasMessageContaining("outside");
 		assertThatThrownBy(() -> new PartyMatrix(2, 2, Set.of(), List.of(PartyCell.text(0, 0, "x"),
-				PartyCell.composition(0, 0, 1)))).hasMessageContaining("twice");
+				PartyCell.composition(0, 0, 1)))).hasMessageContaining("overlaps another field");
 		assertThatThrownBy(() -> new PartyMatrix(2, 2, Set.of(2), List.of())).hasMessageContaining("line");
 		assertThatThrownBy(() -> new PartyCell(0, 0, Optional.empty(), Optional.of(1L), Optional.of(2L), "#000000",
 				"#ffffff", KeyMode.TOGGLE, Optional.empty())).hasMessageContaining("not several");
 		assertThat(new PartyMatrix(3, 2, Set.of(1, 2), List.of()).separators()).containsExactlyInAnyOrder(1, 2);
+	}
+
+	@Test
+	void aGradientSetsTheValuesOfThePointTouchedAndEndsTheOthersOfItsGroup() {
+		var red = playable(PartyCell.composition(0, 0, 1).inGroup("Color"), 1, Map.of(RED, 1.0));
+		var gradient = new PlayableCell(PartyCell.fader(1, 0, 3,
+				new PartyFader(PartyFader.Kind.DIMMER, List.of(5L, 6L))).inGroup("Color"), List.of());
+		board.configure(List.of(red, gradient));
+		board.press(0, 0, NOW);
+
+		board.slide(1, 0, 0.25, NOW);
+
+		assertThat(board.onPositions()).containsExactly(new PartyCell.Position(1, 0));
+		var output = board.output(NOW, FixtureAttributes.ALL);
+		assertThat(output.get(5L).values()).isEqualTo(Map.of(DIMMER, 0.25));
+		assertThat(output.get(6L).values()).isEqualTo(Map.of(DIMMER, 0.25));
+		board.slide(1, 0, 0.75, NOW);
+		assertThat(board.output(NOW, FixtureAttributes.ALL).get(5L).get(DIMMER)).contains(0.75);
+
+		board.press(1, 0, NOW);
+		assertThat(board.isOn(1, 0)).isFalse();
+		assertThat(board.faderPoints()).as("the point is kept").containsEntry(new PartyCell.Position(1, 0), 0.75);
+		board.press(1, 0, NOW);
+		assertThat(board.output(NOW, FixtureAttributes.ALL).get(5L).get(DIMMER)).contains(0.75);
+	}
+
+	@Test
+	void aColorGradientRunsFromRedToVioletAndSetsOnlyWhatAFixtureHas() {
+		board.configure(List.of(new PlayableCell(PartyCell.fader(0, 0, 5,
+				new PartyFader(PartyFader.Kind.COLOR, List.of(5L))), List.of())));
+		FixtureAttributes noGreen = (fixtureId, attribute) -> attribute.function() != ChannelFunction.GREEN;
+
+		board.slide(0, 0, 0, NOW);
+		assertThat(board.output(NOW, noGreen).get(5L).values()).isEqualTo(Map.of(RED, 1.0, BLUE, 0.0));
+		board.slide(0, 0, 1, NOW);
+		var violet = board.output(NOW, noGreen).get(5L);
+		assertThat(violet.get(BLUE)).contains(1.0);
+		assertThat(violet.get(RED).orElseThrow()).isCloseTo(1.0, org.assertj.core.data.Offset.offset(1e-9));
+	}
+
+	@Test
+	void aColorGradientSubtractsOnFixturesWithCyanMagentaAndYellow() {
+		board.configure(List.of(new PlayableCell(PartyCell.fader(0, 0, 5,
+				new PartyFader(PartyFader.Kind.COLOR, List.of(5L))), List.of())));
+		FixtureAttributes cmy = (fixtureId, attribute) -> switch (attribute.function()) {
+			case CYAN, MAGENTA, YELLOW -> true;
+			default -> false;
+		};
+
+		board.slide(0, 0, 0, NOW);
+
+		assertThat(board.output(NOW, cmy).get(5L).values()).isEqualTo(Map.of(
+				Attribute.of(ChannelFunction.CYAN), 0.0, Attribute.of(ChannelFunction.MAGENTA), 1.0,
+				Attribute.of(ChannelFunction.YELLOW), 1.0));
+	}
+
+	@Test
+	void onlyAGradientCanBeSlidAndOnlyWithinItsEnds() {
+		board.configure(List.of(playable(PartyCell.composition(0, 0, 1), 1, Map.of(DIMMER, 1.0)),
+				new PlayableCell(PartyCell.fader(1, 0, 2, new PartyFader(PartyFader.Kind.DIMMER, List.of(5L))),
+						List.of())));
+
+		assertThatThrownBy(() -> board.slide(0, 0, 0.5, NOW)).hasMessageContaining("has no gradient");
+		assertThatThrownBy(() -> board.slide(1, 0, 1.5, NOW)).hasMessageContaining("between 0 and 1");
+	}
+
+	@Test
+	void aGradientGoesOffWhenItsFixturesChange() {
+		var before = PartyCell.fader(0, 0, 2, new PartyFader(PartyFader.Kind.DIMMER, List.of(5L)));
+		board.configure(List.of(new PlayableCell(before, List.of())));
+		board.slide(0, 0, 0.5, NOW);
+
+		board.configure(List.of(new PlayableCell(PartyCell.fader(0, 0, 2,
+				new PartyFader(PartyFader.Kind.DIMMER, List.of(5L, 6L))), List.of())));
+
+		assertThat(board.isOn(0, 0)).isFalse();
 	}
 
 	private static PlayableCell playable(PartyCell cell, long compositionId, Map<Attribute, Double> values) {

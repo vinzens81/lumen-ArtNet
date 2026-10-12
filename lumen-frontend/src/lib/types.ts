@@ -601,9 +601,15 @@ export interface StagePreviewStatus {
   fade: RehearsedFade | null;
 }
 
+/** A gradient on a party field: touching it sets the intensity or the color of its fixtures. */
+export interface PartyFader {
+  kind: 'dimmer' | 'color';
+  fixtureIds: number[];
+}
+
 /**
- * A field of the party matrix (rows and columns from 0): plays a scene, a composition or a move, or – with none –
- * only shows its label.
+ * A field of the party matrix (rows and columns from 0): plays a scene, a composition or a move, shows a gradient, or
+ * – with none – only shows its label. It covers `span` columns from `column` to the right.
  */
 export interface PartyCell {
   row: number;
@@ -620,6 +626,10 @@ export interface PartyCell {
   mode: KeyMode;
   /** fields of the same group exclude each other */
   group: string | null;
+  /** columns the field covers */
+  span: number;
+  /** the gradient it shows instead of playing something */
+  fader: PartyFader | null;
 }
 
 /** The party mode of a project: a grid of fields, lines above the rows in `separators`. */
@@ -634,6 +644,34 @@ export interface PartyMatrix {
 /** Live state of party mode, pushed as 'party': the fields that are on. */
 export interface PartyStatus {
   on: { row: number; column: number }[];
+  /** the point last touched on each gradient field (0–1), also of those that are off */
+  points: { row: number; column: number; point: number }[];
+}
+
+/** What quick setup should make for fixtures; switches left out count as off. */
+export interface QuickSetupRequest {
+  fixtureIds: number[];
+  /** null = from the names of the fixtures */
+  name: string | null;
+  intensity: boolean;
+  colors: boolean;
+  moves: boolean;
+  partyButtons: boolean;
+  gradients: boolean;
+}
+
+/** What quick setup made. */
+export interface QuickSetupResult {
+  name: string;
+  looks: { id: number; name: string }[];
+  compositions: { id: number; name: string }[];
+  moves: { id: number; name: string }[];
+  /** the color palette (presets) */
+  presets: { id: number; name: string }[];
+  /** rows of the party matrix that were filled (0-based) */
+  partyRows: number[];
+  /** what was left out and why */
+  notes: string[];
 }
 
 /** A point of a figure in DMX values: x = pan, y = tilt, 0–255 (decimals for a finer position). */

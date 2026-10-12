@@ -4,16 +4,17 @@
 
   let {
     fixtures,
-    selectedId = null,
+    selectedIds = [],
     preview = null,
     onSelectFixture,
     onSelectAddress,
   }: {
     fixtures: Fixture[];
-    selectedId?: number | null;
+    selectedIds?: number[];
     /** Channels a fixture being added would occupy. */
     preview?: { address: number; count: number } | null;
-    onSelectFixture: (id: number) => void;
+    /** additive: shift (or cmd/ctrl) held – add the fixture to the selection or take it out */
+    onSelectFixture: (id: number, additive: boolean) => void;
     onSelectAddress: (address: number) => void;
   } = $props();
 
@@ -48,14 +49,15 @@
       class="cell"
       class:used={ids.length === 1}
       class:overlap={ids.length > 1}
-      class:selected={selectedId !== null && ids.includes(selectedId)}
+      class:selected={ids.some((id) => selectedIds.includes(id))}
       class:start={isStart(channel, ids)}
       class:preview={inPreview(channel)}
       class:preview-conflict={inPreview(channel) && ids.length > 0}
       style={cellStyle(ids)}
       title={cellLabel(channel, ids)}
       aria-label={cellLabel(channel, ids)}
-      onclick={() => (ids.length > 0 ? onSelectFixture(ids[0]) : onSelectAddress(channel))}
+      onclick={(e) => (ids.length > 0 ? onSelectFixture(ids[0], e.shiftKey || e.metaKey || e.ctrlKey)
+        : onSelectAddress(channel))}
     >
       {#if isStart(channel, ids) || channel % 32 === 1}
         <span class="mono">{channel}</span>
@@ -69,6 +71,7 @@
     display: grid;
     grid-template-columns: repeat(32, minmax(0, 1fr));
     gap: 3px;
+    user-select: none;
   }
 
   .cell {

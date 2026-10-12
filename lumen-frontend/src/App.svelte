@@ -358,8 +358,9 @@
     top: 12px;
     z-index: 10;
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 18px;
+    gap: 12px;
     padding: 10px 14px;
   }
 
@@ -385,7 +386,8 @@
 
   .project select {
     min-height: 34px;
-    max-width: 240px;
+    max-width: 200px;
+    text-overflow: ellipsis;
     padding: 0 10px;
     border-radius: var(--radius-sm);
     border: 1px solid var(--border-strong);
@@ -402,7 +404,7 @@
   }
 
   nav a {
-    padding: 7px 12px;
+    padding: 7px 9px;
     border-radius: var(--radius-sm);
     color: var(--text-dim);
     text-decoration: none;
@@ -651,11 +653,8 @@
     clip: rect(0 0 0 0);
   }
 
-  @media (max-width: 900px) {
-    .topbar {
-      flex-wrap: wrap;
-    }
-
+  /* the setup tabs need a row of their own unless the window is wide */
+  @media (max-width: 1899px) {
     nav {
       order: 10;
       flex-basis: 100%;

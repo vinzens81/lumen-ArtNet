@@ -86,7 +86,8 @@
     {#if matrix && matrix.cells.length > 0}
       <div class="grid glass">
         <PartyGrid {matrix} scenes={scenesById} compositions={compositionsById} moves={movesById} status={live.party}
-          onpress={press} onrelease={release} />
+          onpress={press} onrelease={release}
+          onslide={(cell, point) => live.slideParty(cell.row, cell.column, point)} />
       </div>
     {:else}
       <div class="glass empty">
