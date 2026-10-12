@@ -27,6 +27,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -99,9 +100,9 @@ public class MoveService implements ManageMovesUseCase {
 		scenes.findByProject(projectId).stream()
 				.filter(scene -> scene.containsMove(moveId))
 				.forEach(scene -> users.add("scene " + scene.spec().number()));
-		partyMatrices.find(projectId).cells().stream()
-				.filter(cell -> cell.moveId().equals(Optional.of(moveId)))
-				.forEach(cell -> users.add("party field " + (cell.row() + 1) + "/" + (cell.column() + 1)));
+		partyMatrices.find(projectId).placedCells()
+				.filter(placed -> placed.cell().moveId().equals(Optional.of(moveId)))
+				.forEach(placed -> users.add("party " + placed.describe().toLowerCase(Locale.ROOT)));
 		if (!users.isEmpty()) {
 			throw new ConflictException("The move is played by " + String.join(", ", users)
 					+ " – remove it from there first");

@@ -14,6 +14,9 @@ import de.vinzens.lumen.domain.composition.FixtureAttributes;
 import de.vinzens.lumen.domain.library.Mode;
 import de.vinzens.lumen.domain.output.LayerOutput;
 import de.vinzens.lumen.domain.output.OperatingMode;
+import de.vinzens.lumen.domain.party.PartyCell;
+import de.vinzens.lumen.domain.party.PartyPlace;
+import de.vinzens.lumen.domain.party.PartyPoint;
 import de.vinzens.lumen.domain.party.PartySwitchboard;
 import de.vinzens.lumen.domain.party.PartySwitchboard.PlayableCell;
 import de.vinzens.lumen.domain.project.Project;
@@ -80,12 +83,18 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 		var scenes = resolver.scenes(projectId);
 		var compositions = resolver.compositions(projectId);
 		var moves = resolver.moves(projectId);
-		return matrices.find(projectId).cells().stream()
-				.map(cell -> new PlayableCell(cell, cell.sceneId().map(id -> scenes.getOrDefault(id, List.of()))
-						.or(() -> cell.compositionId().map(id -> compositionList(compositions.get(id))))
-						.or(() -> cell.moveId().map(id -> compositionList(moves.get(id))))
-						.orElse(List.of())))
+		return matrices.find(projectId).placedCells()
+				.map(placed -> new PlayableCell(placed.page(), placed.cell(), compositionsOf(placed.cell(), scenes,
+						compositions, moves)))
 				.toList();
+	}
+
+	private static List<ActiveComposition> compositionsOf(PartyCell cell, Map<Long, List<ActiveComposition>> scenes,
+			Map<Long, ActiveComposition> compositions, Map<Long, ActiveComposition> moves) {
+		return cell.sceneId().map(id -> scenes.getOrDefault(id, List.of()))
+				.or(() -> cell.compositionId().map(id -> compositionList(compositions.get(id))))
+				.or(() -> cell.moveId().map(id -> compositionList(moves.get(id))))
+				.orElse(List.of());
 	}
 
 	private static List<ActiveComposition> compositionList(ActiveComposition composition) {
@@ -94,31 +103,31 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 
 	@Override
 	public synchronized PartyStatus status() {
-		return new PartyStatus(board.onPositions(), board.faderPoints());
+		return new PartyStatus(board.onPlaces(), board.faderPoints());
 	}
 
 	@Override
-	public void press(int row, int column) {
+	public void press(PartyPlace place) {
 		synchronized (this) {
 			requirePartyMode();
-			board.press(row, column, clock.instant());
+			board.press(place, clock.instant());
 		}
 		events.publish(StateTopic.PARTY);
 	}
 
 	@Override
-	public void release(int row, int column) {
+	public void release(PartyPlace place) {
 		synchronized (this) {
-			board.release(row, column);
+			board.release(place);
 		}
 		events.publish(StateTopic.PARTY);
 	}
 
 	@Override
-	public void slide(int row, int column, double point) {
+	public void slide(PartyPlace place, PartyPoint point) {
 		synchronized (this) {
 			requirePartyMode();
-			board.slide(row, column, point, clock.instant());
+			board.slide(place, point, clock.instant());
 		}
 		events.publish(StateTopic.PARTY);
 	}

@@ -257,3 +257,47 @@ export function scenesUsing(compositionId: number, scenes: Scene[]): Scene[] {
 export function compositionsPlaying(lookId: number, compositions: Composition[]): Composition[] {
   return compositions.filter((c) => c.steps.some((s) => s.lookId === lookId));
 }
+
+export const DEFAULT_FOLDER = 'Manual';
+export const GENERATED_FOLDER = 'Auto generated';
+
+/**
+ * Compositions or looks by folder, each sorted by name: "Manual" first, "Auto generated" (quick setup) last, the
+ * others in between by name.
+ */
+export function byFolder<T extends { name: string; folder: string }>(items: T[]): { folder: string; items: T[] }[] {
+  const folders = new Map<string, T[]>();
+  for (const item of items) {
+    const folder = item.folder || DEFAULT_FOLDER;
+    folders.set(folder, [...(folders.get(folder) ?? []), item]);
+  }
+  const rank = (folder: string) => (folder === DEFAULT_FOLDER ? 0 : folder === GENERATED_FOLDER ? 2 : 1);
+  return [...folders.entries()]
+    .sort(([a], [b]) => rank(a) - rank(b) || a.localeCompare(b))
+    .map(([folder, list]) => ({ folder, items: [...list].sort((a, b) => a.name.localeCompare(b.name)) }));
+}
+
+/** Folder names to offer when choosing one: those in use and the two usual ones. */
+export function folderNames(items: { name: string; folder: string }[]): string[] {
+  return byFolder(items).map((f) => f.folder)
+    .concat([DEFAULT_FOLDER, GENERATED_FOLDER])
+    .filter((folder, i, all) => all.indexOf(folder) === i);
+}
+
+/** Folders closed on this device, per list (e.g. 'compositions', 'looks'). */
+export function closedFolders(list: string): string[] {
+  try {
+    const stored = JSON.parse(localStorage.getItem(`lumen.closedFolders.${list}`) ?? '[]');
+    return Array.isArray(stored) ? stored.filter((f) => typeof f === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
+export function rememberClosedFolders(list: string, folders: string[]) {
+  try {
+    localStorage.setItem(`lumen.closedFolders.${list}`, JSON.stringify(folders));
+  } catch {
+    // only a convenience
+  }
+}

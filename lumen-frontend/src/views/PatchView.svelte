@@ -62,6 +62,8 @@
   let quickSetupOpen = $state(false);
   let quickSetupFixtures = $state<number[]>([]);
   let severalName = $state('');
+  /** names of the party pages, to choose where quick setup puts its rows */
+  let partyPages = $state<string[]>([]);
   let severalRunning = $state(false);
 
   const project = $derived(app.active);
@@ -91,7 +93,7 @@
   });
   const selectionModes = $derived([...new Set(selectedFixtures.map((f) => f.mode))]);
   const selectionAbilities = $derived(abilitiesOf(selectedFixtures.map(modeOf)));
-  const selectionOptions = $derived(fitting(setUpOptions, selectionAbilities));
+  const selectionOptions = $derived(fitting(setUpOptions, selectionAbilities, partyPages.length));
   const universeNumber = $derived(new Map(universes.map((u) => [u.id, u.number])));
   const preview = $derived(
     panel === 'add' && form.universeId === universeId
@@ -122,6 +124,19 @@
   $effect(() => {
     if (live.patchRevision > 0 && projectId !== null) loadAll(projectId);
   });
+
+  $effect(() => {
+    void live.partyMatrixRevision;
+    if (projectId !== null) loadPartyPages(projectId);
+  });
+
+  async function loadPartyPages(projectId: number) {
+    try {
+      partyPages = (await api.partyMatrix.get(projectId)).pages.map((p) => p.name);
+    } catch (e) {
+      showError(e);
+    }
+  }
 
   async function loadAll(projectId: number, resetSelection = false) {
     try {
@@ -202,7 +217,7 @@
       formChannels,
       form.count,
     );
-    const options = fitting(setUpOptions, formAbilities);
+    const options = fitting(setUpOptions, formAbilities, partyPages.length);
     const quickSetup = setUp && makesSomething(options);
     const name = form.name;
     rememberChoice(setUp, setUpOptions);
@@ -619,7 +634,7 @@
               <legend>Quick setup</legend>
               <label class="field">Name<input bind:value={severalName} placeholder="From the fixture names"
                 maxlength="60" /></label>
-              <QuickSetupOptions bind:options={setUpOptions} abilities={selectionAbilities} />
+              <QuickSetupOptions bind:options={setUpOptions} abilities={selectionAbilities} pages={partyPages} />
               <p class="hint dim">
                 For all {selectedFixtures.length} fixtures together: each look sets all of them, and one party button
                 switches them all.
@@ -695,7 +710,7 @@
                 <label class="check"><input type="checkbox" bind:checked={setUp} /> Quick setup</label>
               </legend>
               {#if setUp}
-                <QuickSetupOptions bind:options={setUpOptions} abilities={formAbilities} />
+                <QuickSetupOptions bind:options={setUpOptions} abilities={formAbilities} pages={partyPages} />
                 <p class="hint dim">
                   For all {form.count > 1 ? `${form.count} fixtures together` : 'of them'}: looks, a composition for
                   each, and the party fields that switch them.
@@ -761,7 +776,8 @@
 
 <OflImportModal bind:open={oflOpen} />
 {#if projectId !== null}
-  <QuickSetupModal bind:open={quickSetupOpen} {projectId} fixtures={patchOrder} preselected={quickSetupFixtures} />
+  <QuickSetupModal bind:open={quickSetupOpen} {projectId} fixtures={patchOrder} preselected={quickSetupFixtures}
+    pages={partyPages} />
 {/if}
 
 <style>

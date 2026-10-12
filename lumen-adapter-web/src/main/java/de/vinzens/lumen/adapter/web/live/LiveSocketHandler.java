@@ -18,6 +18,8 @@ import de.vinzens.lumen.application.output.port.in.QueryOutputUseCase;
 import de.vinzens.lumen.application.party.port.in.ControlPartyUseCase;
 import de.vinzens.lumen.application.playback.port.in.ControlPlaybackUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
+import de.vinzens.lumen.domain.party.PartyPlace;
+import de.vinzens.lumen.domain.party.PartyPoint;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -37,6 +39,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,8 +57,8 @@ import java.util.concurrent.TimeUnit;
  * {@code faders} (the last ten ask the client to reload via REST). Client → server: {@code programmer.set},
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
  * {@code sceneId} and {@code line}), {@code keys.press/release} (with {@code slot}) and {@code fader.set} (with
- * {@code slot} and {@code level}) and {@code party.slide} (a gradient field: {@code row}, {@code column} and
- * {@code point} 0–1) for low latency.
+ * {@code slot} and {@code level}) and {@code party.slide} (a gradient or pad field: {@code page}, {@code row},
+ * {@code column}, {@code x} and – on a pad – {@code y}, both 0–1) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -292,11 +295,13 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					playback.setFader(requireSlot(command), command.level());
 				}
 				case "party.slide" -> {
-					if (command.row() == null || command.column() == null || command.point() == null) {
-						throw new DomainValidationException(List.of("row, column and point are required"));
+					if (command.page() == null || command.row() == null || command.column() == null
+							|| command.x() == null) {
+						throw new DomainValidationException(List.of("page, row, column and x are required"));
 					}
 					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
-					party.slide(command.row(), command.column(), command.point());
+					party.slide(new PartyPlace(command.page(), command.row(), command.column()),
+							new PartyPoint(command.x(), Objects.requireNonNullElse(command.y(), 0.5)));
 				}
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();
@@ -353,8 +358,8 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 	}
 
 	record Command(String type, List<Long> fixtureIds, Map<String, Double> values, Double level, Boolean active,
-			List<String> topics, Integer slot, Long sceneId, Integer line, Integer section, Integer row,
-			Integer column, Double point) {
+			List<String> topics, Integer slot, Long sceneId, Integer line, Integer section, Integer page,
+			Integer row, Integer column, Double x, Double y) {
 	}
 
 	/** @param lastSent topic → message last sent to this client */

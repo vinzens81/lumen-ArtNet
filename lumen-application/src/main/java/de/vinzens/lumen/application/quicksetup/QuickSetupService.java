@@ -23,6 +23,7 @@ import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
 import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase;
 import de.vinzens.lumen.domain.DomainValidationException;
+import de.vinzens.lumen.domain.Folders;
 import de.vinzens.lumen.domain.composition.Composition;
 import de.vinzens.lumen.domain.composition.CompositionSpec;
 import de.vinzens.lumen.domain.composition.CompositionStep;
@@ -44,6 +45,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyFader;
 import de.vinzens.lumen.domain.party.PartyMatrix;
+import de.vinzens.lumen.domain.party.PartyPage;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 
 import java.util.ArrayList;
@@ -55,9 +57,11 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 public class QuickSetupService implements QuickSetupUseCase {
 
@@ -67,6 +71,8 @@ public class QuickSetupService implements QuickSetupUseCase {
 	private static final int MAX_LABEL = 60;
 	/** Points of the circle and the eight. */
 	private static final int ROUND_POINTS = 24;
+	/** A pan/tilt pad is two columns wide and two rows high. */
+	private static final int PAD_SIZE = 2;
 
 	private static final Attribute DIMMER = Attribute.of(ChannelFunction.DIMMER);
 	private static final Attribute PAN = Attribute.of(ChannelFunction.PAN);
@@ -214,14 +220,16 @@ public class QuickSetupService implements QuickSetupUseCase {
 			}
 		}
 
-		var rows = List.<Integer>of();
+		var party = PartyRows.NONE;
 		var gradients = request.gradients();
 		if (request.partyButtons() || gradients) {
-			rows = addPartyRows(projectId, name, request.partyButtons() ? intensityButtons : List.of(),
+			party = addPartyRows(projectId, name, request.partyButtons() ? intensityButtons : List.of(),
 					request.partyButtons() ? colorButtons : List.of(), request.partyButtons() ? moveButtons : List.of(),
-					gradients ? request.fixtureIds() : List.of(), gradients ? mixingFixtures : List.of());
+					gradients ? request.fixtureIds() : List.of(), gradients ? mixingFixtures : List.of(),
+					gradients ? movingFixtures : List.of(), request.partyPage());
 		}
-		return new Result(name, madeLooks, madeCompositions, madeMoves, madePresets, rows, notes);
+		return new Result(name, madeLooks, madeCompositions, madeMoves, madePresets, party.page(), party.rows(),
+				notes);
 	}
 
 	private Optional<Mode> modeOf(PatchedFixture fixture) {
@@ -266,9 +274,10 @@ public class QuickSetupService implements QuickSetupUseCase {
 	}
 
 	private LookAndComposition lookWithComposition(long projectId, String name, Look content) {
-		var look = looks.create(projectId, LookSpec.shared(name), content);
+		var look = looks.create(projectId, LookSpec.shared(name).withFolder(Folders.GENERATED), content);
 		var composition = compositions.create(projectId, new CompositionSpec(name, FADE_SECONDS, HOLD_SECONDS,
-				PlayMode.ONCE, IntensityMode.ABSOLUTE, Optional.empty()), List.of(CompositionStep.of(look.id())));
+				PlayMode.ONCE, IntensityMode.ABSOLUTE, Optional.empty(), CompositionSpec.GENERATED_FOLDER),
+				List.of(CompositionStep.of(look.id())));
 		return new LookAndComposition(look, composition);
 	}
 
@@ -285,34 +294,56 @@ public class QuickSetupService implements QuickSetupUseCase {
 	}
 
 	/**
-	 * Adds a row of buttons (name, intensities, colors, moves) and a row of gradients below the last used row. The
-	 * buttons of each kind form a group with the gradient of the same kind, so only one of them is on.
+	 * Adds a row of buttons (name, intensities, colors, moves) and a row of gradients with a pan/tilt pad below the
+	 * last used row of the chosen page – without a choice the first page with room, or a new page named after the
+	 * setup if none has room. The buttons of each kind form
+	 * a group with the gradient (or the pad, for moves) of the same kind, so only one of them is on. With a pad, the
+	 * gradients are two rows high like the pad.
 	 */
-	private List<Integer> addPartyRows(long projectId, String name, List<Button> intensity, List<Button> colors,
-			List<Button> moveButtons, List<Long> dimmerFixtures, List<Long> colorFixtures) {
+	private PartyRows addPartyRows(long projectId, String name, List<Button> intensity, List<Button> colors,
+			List<Button> moveButtons, List<Long> dimmerFixtures, List<Long> colorFixtures, List<Long> padFixtures,
+			PartyTarget target) {
 		var buttonCount = intensity.size() + colors.size() + moveButtons.size();
 		var withButtons = buttonCount > 0;
-		var withGradients = !dimmerFixtures.isEmpty() || !colorFixtures.isEmpty();
+		var withGradients = !dimmerFixtures.isEmpty() || !colorFixtures.isEmpty() || !padFixtures.isEmpty();
 		if (!withButtons && !withGradients) {
-			return List.of();
+			return PartyRows.NONE;
+		}
+		var gradientHeight = padFixtures.isEmpty() ? 1 : PAD_SIZE;
+		var rowCount = (withButtons ? 1 : 0) + (withGradients ? gradientHeight : 0);
+		var dimmerSpan = dimmerFixtures.isEmpty() ? 0 : Math.max(intensity.size(), LEVELS.size());
+		var colorSpan = colorFixtures.isEmpty() ? 0 : Math.max(colors.size(), COLORS.size());
+		var padSpan = padFixtures.isEmpty() ? 0 : PAD_SIZE;
+		var needed = 1 + Math.max(buttonCount, withGradients ? dimmerSpan + colorSpan + padSpan : 0);
+		if (needed > PartyPage.MAX_SIZE) {
+			throw new ConflictException("A party page has at most " + PartyPage.MAX_SIZE + " columns");
 		}
 		var matrix = partyMatrices.matrix(projectId);
-		var start = matrix.cells().stream().mapToInt(PartyCell::row).max().orElse(-1) + 1;
-		var rowCount = (withButtons ? 1 : 0) + (withGradients ? 1 : 0);
-		if (start + rowCount > PartyMatrix.MAX_SIZE) {
-			throw new ConflictException("The party matrix has no room for " + rowCount + " more row"
-					+ (rowCount == 1 ? "" : "s") + " – make room there first");
-		}
-		var dimmerSpan = Math.max(intensity.size(), LEVELS.size());
-		var colorSpan = Math.max(colors.size(), COLORS.size());
-		var columns = Math.max(matrix.columns(), 1 + Math.max(buttonCount,
-				withGradients ? dimmerSpan + (colorFixtures.isEmpty() ? 0 : colorSpan) : 0));
-		if (columns > PartyMatrix.MAX_SIZE) {
-			throw new ConflictException("The party matrix has at most " + PartyMatrix.MAX_SIZE + " columns");
-		}
-		var group = uniqueGroup(matrix, name);
 		var label = name.length() > MAX_LABEL ? name.substring(0, MAX_LABEL) : name;
-		var cells = new ArrayList<>(matrix.cells());
+		var pageIndex = target.newPage() ? OptionalInt.empty() : IntStream.range(0, matrix.pages().size())
+				.filter(index -> target.page().map(chosen -> chosen == index).orElse(true))
+				.filter(index -> matrix.pages().get(index).firstFreeRow() + rowCount <= PartyPage.MAX_SIZE)
+				.findFirst();
+		if (target.page().isPresent() && pageIndex.isEmpty()) {
+			var chosen = target.page().get();
+			throw chosen < 0 || chosen >= matrix.pages().size()
+					? new DomainValidationException(List.of("the party matrix has no page " + (chosen + 1)))
+					: new ConflictException("The page \"" + matrix.pages().get(chosen).name() + "\" has no room for "
+							+ rowCount + " more row" + (rowCount == 1 ? "" : "s")
+							+ " – choose another page or a new one");
+		}
+		if (pageIndex.isEmpty() && matrix.pages().size() >= PartyMatrix.MAX_PAGES) {
+			throw new ConflictException((target.newPage() ? "The party matrix"
+					: "The party matrix has no room for " + rowCount + " more row" + (rowCount == 1 ? "" : "s") + " and")
+					+ " already has " + PartyMatrix.MAX_PAGES + " pages – make room there first");
+		}
+		var index = pageIndex.orElse(matrix.pages().size());
+		var page = pageIndex.isPresent() ? matrix.pages().get(index)
+				: new PartyPage(name.length() > PartyPage.MAX_NAME ? name.substring(0, PartyPage.MAX_NAME) : name,
+						1, 1, Set.of(), List.of());
+		var start = page.firstFreeRow();
+		var group = uniqueGroup(matrix, name);
+		var cells = new ArrayList<>(page.cells());
 		var rows = new ArrayList<Integer>();
 		var row = start;
 		if (withButtons) {
@@ -331,27 +362,47 @@ public class QuickSetupService implements QuickSetupUseCase {
 		}
 		if (withGradients) {
 			if (!withButtons) {
-				cells.add(PartyCell.text(row, 0, label));
+				cells.add(PartyCell.text(row, 0, label).withSize(1, gradientHeight));
 			}
-			cells.add(PartyCell.fader(row, 1, dimmerSpan, new PartyFader(PartyFader.Kind.DIMMER, dimmerFixtures))
-					.inGroup(group + " – intensity"));
-			if (!colorFixtures.isEmpty()) {
-				cells.add(PartyCell.fader(row, 1 + dimmerSpan, colorSpan,
+			var column = 1;
+			if (dimmerSpan > 0) {
+				cells.add(PartyCell.fader(row, column, dimmerSpan, gradientHeight,
+						new PartyFader(PartyFader.Kind.DIMMER, dimmerFixtures)).inGroup(group + " – intensity"));
+				column += dimmerSpan;
+			}
+			if (colorSpan > 0) {
+				cells.add(PartyCell.fader(row, column, colorSpan, gradientHeight,
 						new PartyFader(PartyFader.Kind.COLOR, colorFixtures)).inGroup(group + " – color"));
+				column += colorSpan;
 			}
-			rows.add(row++);
+			if (padSpan > 0) {
+				cells.add(PartyCell.fader(row, column, padSpan, PAD_SIZE,
+						new PartyFader(PartyFader.Kind.PAN_TILT, padFixtures)).inGroup(group + " – move"));
+			}
+			for (int i = 0; i < gradientHeight; i++) {
+				rows.add(row++);
+			}
 		}
-		var separators = new HashSet<>(matrix.separators());
+		var separators = new HashSet<>(page.separators());
 		if (start > 0) {
 			separators.add(start);
 		}
-		partyMatrices.save(projectId, new PartyMatrix(Math.max(matrix.rows(), row), columns, separators, cells));
-		return rows;
+		var filled = new PartyPage(page.name(), Math.max(page.rows(), row), Math.max(page.columns(), needed),
+				separators, cells);
+		partyMatrices.save(projectId, pageIndex.isPresent() ? matrix.withPage(index, filled)
+				: matrix.withNewPage(filled));
+		return new PartyRows(Optional.of(index), rows);
+	}
+
+	/** Where quick setup put its party fields. */
+	private record PartyRows(Optional<Integer> page, List<Integer> rows) {
+
+		static final PartyRows NONE = new PartyRows(Optional.empty(), List.of());
 	}
 
 	/** The name, or the name with a number if fields of the matrix already use it as their group. */
 	private static String uniqueGroup(PartyMatrix matrix, String name) {
-		var used = matrix.cells().stream().flatMap(cell -> cell.group().stream()).collect(Collectors.toSet());
+		var used = matrix.placedCells().flatMap(placed -> placed.cell().group().stream()).collect(Collectors.toSet());
 		var candidate = name;
 		for (int number = 2; taken(used, candidate); number++) {
 			candidate = name + " " + number;

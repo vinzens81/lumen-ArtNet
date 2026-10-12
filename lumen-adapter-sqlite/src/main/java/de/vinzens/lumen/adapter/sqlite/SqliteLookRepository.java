@@ -48,8 +48,8 @@ public class SqliteLookRepository implements LookRepository {
 	public NamedLook create(long projectId, LookSpec spec, Look look) {
 		long id = transactions.execute(status -> {
 			var keys = new GeneratedKeyHolder();
-			jdbc.sql("INSERT INTO look (project_id, name, owner_composition_id) VALUES (?, ?, ?)")
-					.params(projectId, spec.name(), spec.owner().orElse(null))
+			jdbc.sql("INSERT INTO look (project_id, name, owner_composition_id, folder) VALUES (?, ?, ?, ?)")
+					.params(projectId, spec.name(), spec.owner().orElse(null), spec.folder())
 					.update(keys);
 			var lookId = generatedId(keys);
 			tables.insert("look", "look_id", lookId, look);
@@ -60,8 +60,8 @@ public class SqliteLookRepository implements LookRepository {
 
 	@Override
 	public NamedLook updateSpec(long id, LookSpec spec) {
-		jdbc.sql("UPDATE look SET name = ?, owner_composition_id = ? WHERE id = ?")
-				.params(spec.name(), spec.owner().orElse(null), id).update();
+		jdbc.sql("UPDATE look SET name = ?, owner_composition_id = ?, folder = ? WHERE id = ?")
+				.params(spec.name(), spec.owner().orElse(null), spec.folder(), id).update();
 		return findById(id).orElseThrow();
 	}
 
@@ -117,7 +117,7 @@ public class SqliteLookRepository implements LookRepository {
 		var id = rs.getLong("id");
 		var ownerId = rs.getLong("owner_composition_id");
 		Optional<Long> owner = rs.wasNull() ? Optional.empty() : Optional.of(ownerId);
-		var spec = new LookSpec(rs.getString("name"), owner);
+		var spec = new LookSpec(rs.getString("name"), owner, rs.getString("folder"));
 		return new NamedLook(id, rs.getLong("project_id"), spec, contents.getOrDefault(id, Look.EMPTY));
 	}
 

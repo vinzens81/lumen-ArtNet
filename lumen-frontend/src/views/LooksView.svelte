@@ -1,9 +1,12 @@
 <script lang="ts">
+  import FolderHead from '../components/FolderHead.svelte';
   import Modal from '../components/Modal.svelte';
   import UpdateFromProgrammerModal from '../components/UpdateFromProgrammerModal.svelte';
   import { api } from '../lib/api';
   import { modesOf, previewOf, rgbToCss, swatchesOf } from '../lib/color';
-  import { compositionsPlaying } from '../lib/compositions';
+  import {
+    byFolder, closedFolders, compositionsPlaying, folderNames, rememberClosedFolders,
+  } from '../lib/compositions';
   import { focus } from '../lib/focus.svelte';
   import { shortTime } from '../lib/format';
   import { live } from '../lib/live.svelte';
@@ -21,6 +24,8 @@
   let selectedId = $state<number | null>(null);
   let showOwn = $state(false);
   let name = $state('');
+  let folder = $state('');
+  let closed = $state<string[]>(closedFolders('looks'));
   let createOpen = $state(false);
   let createName = $state('');
   let updateOpen = $state(false);
@@ -30,6 +35,8 @@
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const compositionNames = $derived(new Map(compositions.map((c) => [c.id, c.name])));
   const shared = $derived(looks.filter((l) => l.owner === null));
+  const folders = $derived(byFolder(shared));
+  const names = $derived(folderNames(shared));
   /** own looks of compositions, grouped by composition, steps in order */
   const own = $derived.by(() => {
     const groups = new Map<number, Look[]>();
@@ -93,6 +100,7 @@
   function select(look: Look) {
     selectedId = look.id;
     name = look.name;
+    folder = look.folder;
     if (look.owner !== null) showOwn = true;
   }
 
@@ -115,6 +123,20 @@
     } catch (e) {
       showError(e);
     }
+  }
+
+  async function move() {
+    if (projectId === null || !selected || folder.trim() === selected.folder) return;
+    try {
+      await api.looks.update(projectId, selected.id, selected.name, undefined, folder.trim());
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  function toggleFolder(name: string) {
+    closed = closed.includes(name) ? closed.filter((f) => f !== name) : [...closed, name];
+    rememberClosedFolders('looks', closed);
   }
 
   async function makeShared() {
@@ -206,10 +228,6 @@
   <header class="head">
     <div>
       <h1>Looks</h1>
-      <p class="dim">
-        Fixed values recorded from the programmer – the building blocks of compositions. A shared look can be played
-        by several compositions: change it here and it changes everywhere.
-      </p>
     </div>
     <button class="btn record" type="button" disabled={projectId === null}
       onclick={() => { createName = ''; createOpen = true; }}>
@@ -225,7 +243,13 @@
         {#if shared.length === 0}
           <p class="dim small pad">No shared looks yet. Build one in the programmer and record it.</p>
         {/if}
-        {#each shared as look (look.id)}{@render lookRow(look, look.name)}{/each}
+        {#each folders as { folder: name, items } (name)}
+          {@const open = !closed.includes(name)}
+          <FolderHead folder={name} count={items.length} {open} ontoggle={() => toggleFolder(name)} />
+          {#if open}
+            {#each items as look (look.id)}{@render lookRow(look, look.name)}{/each}
+          {/if}
+        {/each}
         <label class="check own-toggle">
           <input type="checkbox" bind:checked={showOwn} /> Show the looks of compositions
         </label>
@@ -243,6 +267,12 @@
         {:else}
           <form class="name-row" onsubmit={(e) => { e.preventDefault(); rename(); }}>
             <label class="field grow">Name<input bind:value={name} onblur={rename} /></label>
+            {#if selected.owner === null}
+              <label class="field folder">Folder
+                <input list="look-folders" bind:value={folder} maxlength="40" placeholder="Manual" onblur={move}
+                  onkeydown={(e) => { if (e.key === 'Enter') { e.preventDefault(); move(); } }} /></label>
+              <datalist id="look-folders">{#each names as option (option)}<option value={option}></option>{/each}</datalist>
+            {/if}
             {#if selected.owner !== null}
               <button class="btn small" type="button" onclick={makeShared}
                 title="Make it a shared look that any composition can play">◆ Make shared</button>
@@ -313,6 +343,12 @@
       </article>
     </div>
   {/if}
+
+  <p class="dim help">
+    Fixed values recorded from the programmer – the building blocks of compositions. A shared look can be played by
+    several compositions: change it here and it changes everywhere. Folders only sort the list: quick setup puts its
+    looks into "Auto generated", the folder of a look is set next to its name.
+  </p>
 </section>
 
 <Modal bind:open={createOpen} title={programmerHasValues ? 'Record look' : 'New empty look'}>
@@ -341,6 +377,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
@@ -354,11 +396,6 @@
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-  }
-
-  .head p {
-    margin: 6px 0 0;
-    max-width: 640px;
   }
 
   .layout {
@@ -447,6 +484,10 @@
 
   .grow {
     flex: 1;
+  }
+
+  .name-row .folder {
+    width: 180px;
   }
 
   .hint {

@@ -3,7 +3,7 @@ import { groupByValues } from './liveCommands';
 import { withSlide } from './party';
 import { showError } from './toasts.svelte';
 import type {
-  AttributeValues, MasterState, OperatingMode, OutputHealth, PartyStatus, PlaybackStatus, PresetRefs,
+  AttributeValues, MasterState, OperatingMode, OutputHealth, PartyPlace, PartyStatus, PlaybackStatus, PresetRefs,
 } from './types';
 
 const SEND_INTERVAL_MS = 33;
@@ -63,7 +63,7 @@ class LiveState {
   /** fader slot → level not sent yet */
   private pendingFaders = new Map<number, number>();
   /** gradient fields touched since the last flush: "row/column" → point */
-  private pendingSlides = new Map<string, number>();
+  private pendingSlides = new Map<string, { place: PartyPlace; x: number; y: number }>();
   /** fader levels set here, shown instead of the server's until it caught up */
   private localFaders = new Map<number, { level: number; until: number }>();
   fadersRevision = $state(0);
@@ -348,10 +348,10 @@ class LiveState {
     this.party = status;
   }
 
-  /** Touches a gradient field in party mode; shown at once, sent at most every few milliseconds. */
-  slideParty(row: number, column: number, point: number) {
-    if (this.party) this.party = withSlide(this.party, row, column, point);
-    this.pendingSlides.set(`${row}/${column}`, point);
+  /** Touches a gradient or pad field in party mode; shown at once, sent at most every few milliseconds. */
+  slideParty(place: PartyPlace, x: number, y: number) {
+    if (this.party) this.party = withSlide(this.party, place, x, y);
+    this.pendingSlides.set(`${place.page}/${place.row}/${place.column}`, { place, x, y });
     this.scheduleFlush();
   }
 
@@ -384,7 +384,7 @@ class LiveState {
     const commands = groupByValues(this.pending);
     const masterLevel = this.pendingMaster;
     const faders = [...this.pendingFaders];
-    const slides = [...this.pendingSlides];
+    const slides = [...this.pendingSlides.values()];
     this.pending.clear();
     this.pendingMaster = null;
     this.pendingFaders.clear();
@@ -406,10 +406,9 @@ class LiveState {
       if (open) this.socket!.send(JSON.stringify({ type: 'fader.set', slot, level }));
       else api.playback.setFader(slot, level).catch(showError);
     }
-    for (const [key, point] of slides) {
-      const [row, column] = key.split('/').map(Number);
-      if (open) this.socket!.send(JSON.stringify({ type: 'party.slide', row, column, point }));
-      else api.party.slide(row, column, point).then((status) => this.updateParty(status)).catch(showError);
+    for (const { place, x, y } of slides) {
+      if (open) this.socket!.send(JSON.stringify({ type: 'party.slide', ...place, x, y }));
+      else api.party.slide(place, x, y).then((status) => this.updateParty(status)).catch(showError);
     }
   }
 }

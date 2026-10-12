@@ -100,7 +100,6 @@
   <header class="head">
     <div>
       <h1>Projects</h1>
-      <p class="dim">A project is one show: its universes, patch and scenes. The active project drives the light.</p>
     </div>
     <div class="head-actions">
       <button class="btn ghost" type="button" onclick={() => importInput?.click()}>Import…</button>
@@ -146,6 +145,10 @@
       {/each}
     </div>
   {/if}
+
+  <p class="dim help">
+    A project is one show: its universes, patch and scenes. The active project drives the light.
+  </p>
 </section>
 
 <Modal bind:open={formOpen} title={editing ? 'Edit project' : 'New project'}>
@@ -178,6 +181,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .head-actions {
     display: flex;
     gap: 8px;
@@ -199,10 +208,6 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   form {

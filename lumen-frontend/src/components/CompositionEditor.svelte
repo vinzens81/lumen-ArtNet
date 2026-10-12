@@ -20,6 +20,7 @@
     scenes,
     fixtures,
     groups,
+    folders = [],
     modes,
     startWithGenerator = false,
     onSaved,
@@ -31,6 +32,8 @@
     fixtures: Fixture[];
     groups: Group[];
     modes: Map<number, Mode>;
+    /** the folders of the project, offered when choosing one */
+    folders?: string[];
     /** open the effect form right away, e.g. for a new effect */
     startWithGenerator?: boolean;
     onSaved?: (composition: Composition) => void;
@@ -88,6 +91,7 @@
         playMode: draft.playMode,
         intensityMode: draft.intensityMode,
         steps: draft.steps,
+        folder: draft.folder,
       });
       accept(result, snapshot);
     } catch (e) {
@@ -267,6 +271,12 @@
       <span class="sr-only">Name</span>
       <input bind:value={draft.name} aria-label="Name" />
     </label>
+    <label class="folder" title="The folder the composition is listed in">
+      <span class="dim">📁</span>
+      <input list="composition-folders" bind:value={draft.folder} maxlength="40" placeholder="Manual"
+        aria-label="Folder" />
+      <datalist id="composition-folders">{#each folders as folder (folder)}<option value={folder}></option>{/each}</datalist>
+    </label>
     {#if fast}
       <span class="badge warning" title="Fast flashing can trigger photosensitive epilepsy – it may have to be announced">
         ⚡ fast flashing
@@ -441,6 +451,24 @@
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
+  }
+
+  .folder {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .folder input {
+    width: 150px;
+    min-height: 30px;
+    padding: 0 8px;
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: rgba(0, 0, 0, 0.25);
+    color: var(--text);
+    font: inherit;
+    font-size: 13px;
   }
 
   .icon {

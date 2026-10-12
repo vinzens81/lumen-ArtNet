@@ -38,6 +38,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.PresetRefs;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyMatrix;
+import de.vinzens.lumen.domain.party.PartyPage;
 import de.vinzens.lumen.domain.project.GroupSpec;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
@@ -251,17 +252,23 @@ public class ProjectTransferService implements TransferProjectUseCase {
 	 */
 	private static PartyMatrix partyMatrix(PartyMatrix matrix, Map<Long, Long> sceneIds,
 			Map<Long, Long> compositionIds, Map<Long, Long> moveIds, Map<Long, Long> fixtureIds) {
-		var cells = matrix.cells().stream()
-				.map(cell -> new PartyCell(cell.row(), cell.column(), cell.label(),
-						cell.sceneId().map(sceneIds::get), cell.compositionId().map(compositionIds::get),
-						cell.moveId().map(moveIds::get), cell.color(), cell.borderColor(), cell.mode(), cell.group(),
-						cell.span(), cell.fader().flatMap(fader -> {
-							var mapped = fader.fixtureIds().stream().filter(fixtureIds::containsKey)
-									.map(fixtureIds::get).toList();
-							return mapped.isEmpty() ? Optional.empty() : Optional.of(fader.withFixtureIds(mapped));
-						})))
-				.toList();
-		return new PartyMatrix(matrix.rows(), matrix.columns(), matrix.separators(), cells);
+		return new PartyMatrix(matrix.pages().stream()
+				.map(page -> new PartyPage(page.name(), page.rows(), page.columns(), page.separators(),
+						page.cells().stream()
+								.map(cell -> partyCell(cell, sceneIds, compositionIds, moveIds, fixtureIds))
+								.toList()))
+				.toList());
+	}
+
+	private static PartyCell partyCell(PartyCell cell, Map<Long, Long> sceneIds, Map<Long, Long> compositionIds,
+			Map<Long, Long> moveIds, Map<Long, Long> fixtureIds) {
+		var fader = cell.fader().flatMap(gradient -> {
+			var mapped = gradient.fixtureIds().stream().filter(fixtureIds::containsKey).map(fixtureIds::get).toList();
+			return mapped.isEmpty() ? Optional.empty() : Optional.of(gradient.withFixtureIds(mapped));
+		});
+		return new PartyCell(cell.row(), cell.column(), cell.label(), cell.sceneId().map(sceneIds::get),
+				cell.compositionId().map(compositionIds::get), cell.moveId().map(moveIds::get), cell.color(),
+				cell.borderColor(), cell.mode(), cell.group(), cell.span(), cell.rowSpan(), fader);
 	}
 
 	private static boolean isLegacy(ProjectExport export) {
@@ -309,7 +316,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 					target(settings.target()), settings.perHead()));
 			return new Composition(composition.id(), 0, new CompositionSpec(
 					spec.name(), spec.fadeSeconds(), spec.holdSeconds(), spec.playMode(), spec.intensityMode(),
-					generator), composition.steps());
+					generator, spec.folder()), composition.steps());
 		}
 
 		Target target(Target target) {

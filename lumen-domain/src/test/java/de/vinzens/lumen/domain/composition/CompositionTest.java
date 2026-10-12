@@ -29,6 +29,17 @@ class CompositionTest {
 			2L, Look.of(Map.of(6L, new FixtureValues(Map.of(DIMMER, 0.5)))));
 
 	@Test
+	void aCompositionIsInTheManualFolderUnlessToldOtherwise() {
+		assertThat(CompositionSpec.of("Dusk").folder()).isEqualTo("Manual");
+		assertThat(CompositionSpec.of("Dusk").withFolder("  ").folder()).isEqualTo("Manual");
+		var generated = CompositionSpec.of("Dusk").withFolder(" Auto generated ");
+		assertThat(generated.folder()).isEqualTo("Auto generated");
+		assertThat(generated.withName("Dawn").folder()).as("a copy stays in its folder").isEqualTo("Auto generated");
+		assertThatThrownBy(() -> CompositionSpec.of("Dusk").withFolder("x".repeat(41)))
+				.hasMessageContaining("folder");
+	}
+
+	@Test
 	void stepsPlayTheirLooksWithDefaultOrOwnTimes() {
 		var spec = new CompositionSpec("Two", 1, 2, PlayMode.PING_PONG, IntensityMode.RELATIVE, Optional.empty());
 		var composition = new Composition(9, 1, spec, List.of(CompositionStep.of(1),

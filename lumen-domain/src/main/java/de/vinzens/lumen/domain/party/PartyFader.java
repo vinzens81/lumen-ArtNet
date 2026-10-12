@@ -14,9 +14,10 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * A gradient on a party field: touching a point of it sets the intensity or the color of its fixtures at once.
+ * A gradient or pad on a party field: touching a point of it sets the intensity, the color or the position (pan and
+ * tilt) of its fixtures at once.
  *
- * @param kind       what the gradient sets
+ * @param kind       what the field sets
  * @param fixtureIds the fixtures it sets, in order
  */
 public record PartyFader(Kind kind, List<Long> fixtureIds) {
@@ -28,6 +29,8 @@ public record PartyFader(Kind kind, List<Long> fixtureIds) {
 	static final Attribute RED = Attribute.of(ChannelFunction.RED);
 	static final Attribute GREEN = Attribute.of(ChannelFunction.GREEN);
 	static final Attribute BLUE = Attribute.of(ChannelFunction.BLUE);
+	static final Attribute PAN = Attribute.of(ChannelFunction.PAN);
+	static final Attribute TILT = Attribute.of(ChannelFunction.TILT);
 
 	public PartyFader {
 		Objects.requireNonNull(kind, "kind");
@@ -46,20 +49,24 @@ public record PartyFader(Kind kind, List<Long> fixtureIds) {
 	}
 
 	/**
-	 * The values at a point of the gradient: dimmer 0–100 %, or a fully saturated color (red/green/blue) from red at
-	 * the left to violet at the right.
-	 *
-	 * @param position 0 = left end, 1 = right end
+	 * The values at a point: dimmer 0–100 % or a fully saturated color (red/green/blue) from red at the left to violet
+	 * at the right – both only along x –, or pan (x, from the left) and tilt (y, from the bottom) over their whole
+	 * range.
 	 */
-	public FixtureValues valuesAt(double position) {
-		var value = clamp(position);
+	public FixtureValues valuesAt(PartyPoint point) {
 		return switch (kind) {
-			case DIMMER -> new FixtureValues(Map.of(DIMMER, value));
+			case DIMMER -> new FixtureValues(Map.of(DIMMER, point.x()));
 			case COLOR -> {
-				var color = colorAt(value);
+				var color = colorAt(point.x());
 				yield new FixtureValues(Map.of(RED, color.red(), GREEN, color.green(), BLUE, color.blue()));
 			}
+			case PAN_TILT -> new FixtureValues(Map.of(PAN, point.x(), TILT, point.y()));
 		};
+	}
+
+	/** Where the field starts before it is touched: a gradient at its right end, a pad in the middle. */
+	public PartyPoint firstPoint() {
+		return kind == Kind.PAN_TILT ? PartyPoint.CENTER : PartyPoint.along(1);
 	}
 
 	/** The color at a point of a color gradient: red at the left, violet at the right. */
@@ -71,14 +78,16 @@ public record PartyFader(Kind kind, List<Long> fixtureIds) {
 		return Math.min(1, Math.max(0, position));
 	}
 
-	/** What a gradient sets. */
+	/** What a gradient or pad sets. */
 	public enum Kind {
 		DIMMER,
-		COLOR;
+		COLOR,
+		/** a pad: pan along x, tilt along y */
+		PAN_TILT;
 
-		/** Lower-case id used in the API and the database. */
+		/** Lower-case id used in the API and the database, e.g. {@code pan-tilt}. */
 		public String id() {
-			return name().toLowerCase(Locale.ROOT);
+			return name().toLowerCase(Locale.ROOT).replace('_', '-');
 		}
 
 		public static Kind parse(String id) {
@@ -87,7 +96,7 @@ public record PartyFader(Kind kind, List<Long> fixtureIds) {
 					return kind;
 				}
 			}
-			throw new DomainValidationException(List.of("gradient must be dimmer or color, was '" + id + "'"));
+			throw new DomainValidationException(List.of("gradient must be dimmer, color or pan-tilt, was '" + id + "'"));
 		}
 	}
 }

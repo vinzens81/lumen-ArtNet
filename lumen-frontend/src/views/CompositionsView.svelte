@@ -3,7 +3,10 @@
   import Modal from '../components/Modal.svelte';
   import { api } from '../lib/api';
   import { modesOf } from '../lib/color';
-  import { compositionIcon, effectLabel, isFast, scenesUsing } from '../lib/compositions';
+  import FolderHead from '../components/FolderHead.svelte';
+  import {
+    byFolder, closedFolders, compositionIcon, effectLabel, folderNames, isFast, rememberClosedFolders, scenesUsing,
+  } from '../lib/compositions';
   import { focus } from '../lib/focus.svelte';
   import { live } from '../lib/live.svelte';
   import { stagePreview } from '../lib/stagePreview.svelte';
@@ -20,11 +23,19 @@
   let createOpen = $state(false);
   let deleteOpen = $state(false);
   let form = $state({ name: '', record: false });
+  let closed = $state<string[]>(closedFolders('compositions'));
 
   const projectId = $derived(app.active?.id ?? null);
   const selected = $derived(compositions.find((c) => c.id === selectedId) ?? null);
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const programmerHasValues = $derived(Object.keys(live.programmer).length > 0);
+  const folders = $derived(byFolder(compositions));
+  const names = $derived(folderNames(compositions));
+
+  function toggleFolder(folder: string) {
+    closed = closed.includes(folder) ? closed.filter((f) => f !== folder) : [...closed, folder];
+    rememberClosedFolders('compositions', closed);
+  }
 
   $effect(() => {
     void live.compositionsRevision;
@@ -115,13 +126,7 @@
 
 <section class="view">
   <header class="head">
-    <div>
-      <h1>Compositions</h1>
-      <p class="dim">
-        Steps that play looks – a single look stays, several run through with fades. Scenes use compositions: a change
-        shows in every scene. Chases, rainbows and other effects are generated into steps.
-      </p>
-    </div>
+    <h1>Compositions</h1>
     <button class="btn primary" type="button" onclick={openCreate} disabled={projectId === null}>+ New composition</button>
   </header>
 
@@ -136,29 +141,35 @@
   {:else}
     <div class="layout">
       <nav class="glass list" aria-label="Compositions">
-        {#each compositions as composition (composition.id)}
-          {@const onStage = stagePreview.status.compositionId === composition.id}
-          <button type="button" class="item" class:active={composition.id === selectedId} class:on-stage={onStage}
-            onclick={() => (selectedId = composition.id)}>
-            <span class="icon" aria-hidden="true">{compositionIcon(composition)}</span>
-            <span class="text">
-              <span class="name">{composition.name}</span>
-              <span class="dim small">{subtitle(composition)}</span>
-            </span>
-            {#if isFast(composition)}<span class="fast" title="Fast flashing">⚡</span>{/if}
-            {#if onStage}
-              <span class="on-stage-tag" title="This composition is playing on stage (Show on stage)">
-                <span class="pulse" aria-hidden="true"></span>ON STAGE
-              </span>
-            {/if}
-          </button>
+        {#each folders as { folder, items: inFolder } (folder)}
+          {@const open = !closed.includes(folder)}
+          <FolderHead {folder} count={inFolder.length} {open} ontoggle={() => toggleFolder(folder)} />
+          {#if open}
+            {#each inFolder as composition (composition.id)}
+              {@const onStage = stagePreview.status.compositionId === composition.id}
+              <button type="button" class="item" class:active={composition.id === selectedId} class:on-stage={onStage}
+                onclick={() => (selectedId = composition.id)}>
+                <span class="icon" aria-hidden="true">{compositionIcon(composition)}</span>
+                <span class="text">
+                  <span class="name">{composition.name}</span>
+                  <span class="dim small">{subtitle(composition)}</span>
+                </span>
+                {#if isFast(composition)}<span class="fast" title="Fast flashing">⚡</span>{/if}
+                {#if onStage}
+                  <span class="on-stage-tag" title="This composition is playing on stage (Show on stage)">
+                    <span class="pulse" aria-hidden="true"></span>ON STAGE
+                  </span>
+                {/if}
+              </button>
+            {/each}
+          {/if}
         {/each}
       </nav>
 
       <article class="glass panel">
         {#if selected && projectId !== null}
           <CompositionEditor {projectId} composition={selected} {looks} {scenes} {fixtures} {groups} {modes}
-            onSaved={saved} />
+            folders={names} onSaved={saved} />
           <footer class="footer">
             <button class="btn small ghost" type="button" onclick={duplicate}
               title="A copy with copies of its own looks, in no scene">⧉ Duplicate</button>
@@ -170,6 +181,12 @@
       </article>
     </div>
   {/if}
+
+  <p class="dim help">
+    Steps that play looks – a single look stays, several run through with fades. Scenes use compositions: a change
+    shows in every scene. Chases, rainbows and other effects are generated into steps. Folders only sort the list:
+    quick setup puts what it makes into "Auto generated", the folder of a composition is set next to its name.
+  </p>
 </section>
 
 <Modal bind:open={createOpen} title="New composition">
@@ -206,15 +223,20 @@
 
   .head {
     display: flex;
-    align-items: flex-end;
+    align-items: center;
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
   }
 
-  .head p {
-    margin: 6px 0 0;
-    max-width: 640px;
+  .head h1 {
+    margin: 0;
+  }
+
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
   }
 
   .layout {
@@ -224,7 +246,12 @@
     align-items: start;
   }
 
+  /* the list scrolls on its own, the composition beside it stays */
   .list {
+    position: sticky;
+    top: 84px;
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
     display: flex;
     flex-direction: column;
     gap: 2px;
@@ -334,6 +361,11 @@
   @media (max-width: 900px) {
     .layout {
       grid-template-columns: minmax(0, 1fr);
+    }
+
+    .list {
+      position: static;
+      max-height: 320px;
     }
   }
 </style>

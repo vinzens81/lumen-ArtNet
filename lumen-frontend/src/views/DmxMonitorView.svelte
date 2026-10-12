@@ -70,7 +70,6 @@
     {#if !embedded}
       <div>
         <h1>DMX monitor</h1>
-        <p class="dim">The 512 channel values Lumen sends right now, after programmer, playback and grand master.</p>
       </div>
     {/if}
     <div class="controls">
@@ -144,9 +143,21 @@
       </div>
     </div>
   {/if}
+
+  {#if !embedded}
+    <p class="dim help">
+      The 512 channel values Lumen sends right now, after programmer, playback and grand master.
+    </p>
+  {/if}
 </section>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
@@ -160,10 +171,6 @@
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   .controls {

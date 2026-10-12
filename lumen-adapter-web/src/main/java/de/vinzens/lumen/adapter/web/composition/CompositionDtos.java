@@ -43,15 +43,22 @@ public final class CompositionDtos {
 	 *
 	 * @param playMode      loop, ping_pong or once
 	 * @param intensityMode absolute or relative
+	 * @param folder        the folder it is listed in, {@code null} = "Manual" (or the folder it has, when changing)
 	 */
 	public record CompositionRequest(String name, Long fadeMs, Long holdMs, String playMode, String intensityMode,
-			List<StepDto> steps) {
+			List<StepDto> steps, String folder) {
 
 		/** @param generator kept from the stored composition: it only changes by generating again */
 		public CompositionSpec toSpec(Optional<GeneratorSettings> generator) {
+			return toSpec(generator, CompositionSpec.DEFAULT_FOLDER);
+		}
+
+		/** @param currentFolder the folder when the request names none */
+		public CompositionSpec toSpec(Optional<GeneratorSettings> generator, String currentFolder) {
 			return new CompositionSpec(name, seconds(fadeMs, 1000), seconds(holdMs, 2000),
 					playMode == null ? PlayMode.LOOP : PlayMode.fromId(playMode),
-					enumValue(IntensityMode.class, intensityMode, "intensityMode", IntensityMode.ABSOLUTE), generator);
+					enumValue(IntensityMode.class, intensityMode, "intensityMode", IntensityMode.ABSOLUTE), generator,
+					folder == null ? currentFolder : folder);
 		}
 
 		public List<CompositionStep> toSteps() {
@@ -228,15 +235,16 @@ public final class CompositionDtos {
 	 * @param generator what the steps were generated from, {@code null} if they were recorded or picked
 	 * @param steps     in order, each playing a look
 	 */
+	/** @param folder the folder it is listed in */
 	public record CompositionResponse(long id, String name, long fadeMs, long holdMs, String playMode,
-			String intensityMode, GeneratorResponse generator, List<StepDto> steps) {
+			String intensityMode, GeneratorResponse generator, List<StepDto> steps, String folder) {
 
 		public static CompositionResponse from(Composition composition) {
 			var spec = composition.spec();
 			return new CompositionResponse(composition.id(), spec.name(), millis(spec.fadeSeconds()),
 					millis(spec.holdSeconds()), spec.playMode().id(), lower(spec.intensityMode()),
 					spec.generator().map(GeneratorDto::from).orElse(null),
-					composition.steps().stream().map(StepDto::from).toList());
+					composition.steps().stream().map(StepDto::from).toList(), spec.folder());
 		}
 	}
 

@@ -56,8 +56,8 @@ public final class ShowContentWriter {
 		for (var look : content.looks()) {
 			var owner = look.spec().owner().map(compositionIds::get);
 			// positions come only from moves
-			lookIds.put(look.id(), looks.create(projectId, new LookSpec(look.spec().name(), owner),
-					look.look().withoutPositions()).id());
+			var spec = new LookSpec(look.spec().name(), owner, look.spec().folder());
+			lookIds.put(look.id(), looks.create(projectId, spec, look.look().withoutPositions()).id());
 		}
 		for (var composition : content.compositions()) {
 			var steps = composition.steps().stream()

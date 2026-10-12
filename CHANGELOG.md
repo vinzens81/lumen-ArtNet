@@ -3,7 +3,7 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.102 · 2026-10-12
+## 1.0.102 – 1.0.103 · 2026-10-12
 
 ### Added
 - Quick setup in the patch: tick "Quick setup" while adding fixtures (or use "Quick setup…" for fixtures already
@@ -19,6 +19,25 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - Several fixtures at once in the patch: shift-click (or cmd-click) fixtures in the channel grid, or tick them in the
   new list view (shift-click ticks a range; the choice of view is remembered on the device). For fixtures of one type
   the side panel offers quick setup for all of them together, plus "Locate all".
+- Party pages: the party matrix can have up to 12 pages, shown as tabs in party mode (with the number of fields that
+  are on). Add, rename, move and remove them in the setup tab "Party". Groups reach over all pages.
+- Party fields can be several rows high, not only several columns wide.
+- Folders for compositions and shared looks: the lists are grouped by folder (open and close them; the device
+  remembers). Quick setup puts what it makes into "Auto generated", everything else starts in "Manual"; set the
+  folder next to the name. What quick setup made earlier is moved to "Auto generated" on the update.
+- Pan/tilt pads: a party field that points moving heads where you touch it – left to right is pan, bottom to top is
+  tilt, within the limits set in the patch. Quick setup adds one for fixtures with pan and tilt, next to the gradients
+  and in the group of the moves.
+
+### Changed
+- Party mode fills the window: the rows share the height, nothing scrolls.
+- Project files are version 5 (party pages); files of version 3 and 4 still import, their matrix becomes the first
+  page.
+- Quick setup asks which party page its rows go on: a page of your choice, a new page named after the setup, or the
+  first page with room.
+- Setup → Party: "Reset field" empties a field (all places it covers).
+- The explanations at the top of the setup pages moved below their content.
+- Compositions: the list scrolls on its own, next to the composition being edited.
 
 ### Fixed
 - Password managers such as 1Password no longer put their icon into Lumen's fields (e.g. a fixture's name) or open

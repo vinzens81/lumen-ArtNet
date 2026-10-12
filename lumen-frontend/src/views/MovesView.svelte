@@ -163,11 +163,6 @@
   <header class="head">
     <div>
       <h1>Moves</h1>
-      <p class="dim">
-        Where the moving heads point. A figure is a shape in the pan/tilt grid; a move lays it onto fixtures with size,
-        shift, tempo and offset. One point is a fixed position. Scenes, light markers, keys and the party matrix play
-        moves next to looks – looks no longer hold pan and tilt.
-      </p>
     </div>
     <div class="head-actions">
       <button class="btn" type="button" onclick={() => openCreate('figure')} disabled={projectId === null}>
@@ -246,6 +241,12 @@
       </article>
     </div>
   {/if}
+
+  <p class="dim help">
+    Where the moving heads point. A figure is a shape in the pan/tilt grid; a move lays it onto fixtures with size,
+    shift, tempo and offset. One point is a fixed position. Scenes, light markers, keys and the party matrix play
+    moves next to looks – looks no longer hold pan and tilt.
+  </p>
 </section>
 
 <Modal bind:open={() => createOpen !== null, (open) => { if (!open) createOpen = null; }}
@@ -287,6 +288,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
@@ -300,11 +307,6 @@
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-  }
-
-  .head p {
-    margin: 6px 0 0;
-    max-width: 680px;
   }
 
   .head-actions {

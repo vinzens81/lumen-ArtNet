@@ -12,6 +12,7 @@ import de.vinzens.lumen.application.party.port.out.PartyMatrixRepository;
 import de.vinzens.lumen.application.project.port.out.FixtureRepository;
 import de.vinzens.lumen.application.project.port.out.GroupRepository;
 import de.vinzens.lumen.application.project.port.out.ProjectRepository;
+import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase.PartyTarget;
 import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase.Request;
 import de.vinzens.lumen.domain.library.Attribute;
 import de.vinzens.lumen.domain.preset.PresetSpec;
@@ -31,6 +32,7 @@ import de.vinzens.lumen.domain.look.NamedLook;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyFader;
 import de.vinzens.lumen.domain.party.PartyMatrix;
+import de.vinzens.lumen.domain.party.PartyPage;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
@@ -43,6 +45,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -149,24 +152,27 @@ class QuickSetupServiceTest {
 				.as("the look follows the palette").contains(redPreset.id());
 		assertThat(look(result.looks(), "PAR – 50 %").look().values().get(3L).get(DIMMER)).contains(0.5);
 		assertThat(result.compositions()).hasSize(8)
-				.allMatch(composition -> composition.steps().size() == 1);
+				.allMatch(composition -> composition.steps().size() == 1)
+				.allMatch(composition -> composition.spec().folder().equals("Auto generated"));
+		assertThat(result.looks()).allMatch(made -> made.spec().folder().equals("Auto generated"));
 		assertThat(result.moves()).isEmpty();
 		assertThat(result.notes()).containsExactly("No moves: none of the fixtures has pan and tilt");
 
+		assertThat(result.partyPage()).contains(0);
 		assertThat(result.partyRows()).containsExactly(0, 1);
-		assertThat(stored.columns()).isEqualTo(9);
-		var buttons = stored.cells().stream().filter(cell -> cell.row() == 0).toList();
+		assertThat(page().columns()).isEqualTo(9);
+		var buttons = page().cells().stream().filter(cell -> cell.row() == 0).toList();
 		assertThat(buttons).extracting(cell -> cell.label().orElse("")).containsExactly("PAR", "0 %", "50 %",
 				"100 %", "Red", "Orange", "Green", "Blue", "Violet");
 		assertThat(buttons.get(1).group()).contains("PAR – intensity");
 		assertThat(buttons.get(4).group()).contains("PAR – color");
 		assertThat(buttons.get(4).compositionId()).contains(result.compositions().get(3).id());
-		var dimmerGradient = stored.cell(1, 1).orElseThrow();
+		var dimmerGradient = page().cell(1, 1).orElseThrow();
 		assertThat(dimmerGradient.span()).isEqualTo(3);
 		assertThat(dimmerGradient.fader().orElseThrow())
 				.isEqualTo(new PartyFader(PartyFader.Kind.DIMMER, List.of(1L, 2L, 3L)));
 		assertThat(dimmerGradient.group()).contains("PAR – intensity");
-		var colorGradient = stored.cell(1, 4).orElseThrow();
+		var colorGradient = page().cell(1, 4).orElseThrow();
 		assertThat(colorGradient.span()).isEqualTo(5);
 		assertThat(colorGradient.group()).contains("PAR – color");
 	}
@@ -183,15 +189,15 @@ class QuickSetupServiceTest {
 				.containsExactlyInAnyOrder("Line", "Circle", "Eight");
 		assertThat(look(result.looks(), "Mixed – Red").look().values()).containsOnlyKeys(5L);
 		assertThat(look(result.looks(), "Mixed – 100 %").look().values()).containsOnlyKeys(4L, 5L);
-		assertThat(stored.cells()).hasSize(1 + 3 + 5 + 3);
-		assertThat(stored.columns()).isEqualTo(12);
-		assertThat(stored.cell(0, 11).orElseThrow().moveId()).contains(result.moves().get(2).id());
+		assertThat(page().cells()).hasSize(1 + 3 + 5 + 3);
+		assertThat(page().columns()).isEqualTo(12);
+		assertThat(page().cell(0, 11).orElseThrow().moveId()).contains(result.moves().get(2).id());
 
 		quickSetup.setUp(1, new Request(List.of(5L), Optional.of("Mixed"), false, false, true, true, false));
 
 		assertThat(show.figures.findByProject(1)).as("the figures are used again").hasSize(3);
-		assertThat(stored.cell(1, 1).orElseThrow().group()).as("a group of its own").contains("Mixed 2 – move");
-		assertThat(stored.separators()).containsExactly(1);
+		assertThat(page().cell(1, 1).orElseThrow().group()).as("a group of its own").contains("Mixed 2 – move");
+		assertThat(page().separators()).containsExactly(1);
 	}
 
 	@Test
@@ -208,7 +214,7 @@ class QuickSetupServiceTest {
 				.containsExactly("Mix – Red", "Mix – Orange", "Mix – Green", "Mix – Blue", "Mix – Violet",
 						"Mix – White", "Mix – Yellow");
 		assertThat(result.presets().get(6).values()).containsOnlyKeys(6L);
-		assertThat(stored.cell(1, 4).orElseThrow().fader().orElseThrow().fixtureIds())
+		assertThat(page().cell(1, 4).orElseThrow().fader().orElseThrow().fixtureIds())
 				.as("a wheel cannot run along a gradient").containsExactly(1L);
 	}
 
@@ -224,7 +230,7 @@ class QuickSetupServiceTest {
 	}
 
 	@Test
-	void theRowsGoBelowTheLastUsedRowAndTheMatrixMustHaveRoom() {
+	void theRowsGoBelowTheLastUsedRowOrOnANewPage() {
 		stored = new PartyMatrix(12, 4, Set.of(), List.of(PartyCell.text(9, 0, "Taken")));
 
 		var result = quickSetup.setUp(1, new Request(List.of(4L), Optional.empty(), true, false, false, true,
@@ -232,12 +238,61 @@ class QuickSetupServiceTest {
 		assertThat(result.partyRows()).containsExactly(10, 11);
 		assertThat(result.notes()).containsExactly(
 				"No color gradient: it needs red, green and blue or cyan, magenta and yellow");
-		assertThat(stored.cell(11, 4)).as("no color gradient without colors").isEmpty();
+		assertThat(page().cell(11, 4)).as("no color gradient without colors").isEmpty();
 
+		var next = quickSetup.setUp(1, new Request(List.of(4L), Optional.of("More"), true, false, false, true,
+				false));
+		assertThat(next.partyPage()).as("no room left on the first page").contains(1);
+		assertThat(next.partyRows()).containsExactly(0);
+		assertThat(stored.pages().get(1).name()).isEqualTo("More");
+
+		stored = new PartyMatrix(Collections.nCopies(PartyMatrix.MAX_PAGES,
+				new PartyPage(12, 4, Set.of(), List.of(PartyCell.text(11, 0, "Full")))));
 		assertThatThrownBy(() -> quickSetup.setUp(1, new Request(List.of(4L), Optional.empty(), true, false, false,
 				true, false)))
 				.isInstanceOf(ConflictException.class)
 				.hasMessageContaining("no room");
+	}
+
+	@Test
+	void theRowsGoOnTheChosenPageOrOnANewOne() {
+		stored = PartyMatrix.of(new PartyPage("Colors", 4, 4, Set.of(), List.of(PartyCell.text(0, 0, "Red"))),
+				new PartyPage("Dimmers", 4, 4, Set.of(), List.of()));
+
+		var onSecond = quickSetup.setUp(1, new Request(List.of(4L), Optional.of("Side"), true, false, false, true,
+				false, PartyTarget.page(1)));
+		assertThat(onSecond.partyPage()).contains(1);
+		assertThat(onSecond.partyRows()).containsExactly(0);
+		assertThat(stored.pages().get(1).cell(0, 0).orElseThrow().label()).contains("Side");
+
+		var onNew = quickSetup.setUp(1, new Request(List.of(4L), Optional.of("Back"), true, false, false, true,
+				false, PartyTarget.NEW_PAGE));
+		assertThat(onNew.partyPage()).contains(2);
+		assertThat(stored.pages()).extracting(PartyPage::name).containsExactly("Colors", "Dimmers", "Back");
+
+		stored = stored.withPage(0, new PartyPage("Colors", 12, 4, Set.of(), List.of(PartyCell.text(11, 0, "Full"))));
+		assertThatThrownBy(() -> quickSetup.setUp(1, new Request(List.of(4L), Optional.empty(), true, false, false,
+				true, false, PartyTarget.page(0))))
+				.isInstanceOf(ConflictException.class)
+				.hasMessageContaining("The page \"Colors\" has no room");
+		assertThatThrownBy(() -> quickSetup.setUp(1, new Request(List.of(4L), Optional.empty(), true, false, false,
+				true, false, PartyTarget.page(7))))
+				.hasMessageContaining("no page 8");
+	}
+
+	@Test
+	void movingHeadsGetAPanTiltPadNextToTheGradientsInTheGroupOfTheMoves() {
+		var result = quickSetup.setUp(1, new Request(List.of(4L, 5L), Optional.of("Heads"), true, true, true, true,
+				true));
+
+		assertThat(result.partyRows()).containsExactly(0, 1, 2);
+		var pad = page().cell(1, 9).orElseThrow();
+		assertThat(pad.fader().orElseThrow()).isEqualTo(new PartyFader(PartyFader.Kind.PAN_TILT, List.of(5L)));
+		assertThat(pad.span()).isEqualTo(2);
+		assertThat(pad.rowSpan()).isEqualTo(2);
+		assertThat(pad.group()).contains("Heads – move");
+		assertThat(page().cell(1, 1).orElseThrow().rowSpan()).as("the gradients as high as the pad").isEqualTo(2);
+		assertThat(page().firstFreeRow()).isEqualTo(3);
 	}
 
 	@Test
@@ -249,6 +304,10 @@ class QuickSetupServiceTest {
 		assertThat(result.looks()).hasSize(3);
 		assertThat(result.partyRows()).isEmpty();
 		assertThat(stored).isEqualTo(PartyMatrix.EMPTY);
+	}
+
+	private PartyPage page() {
+		return stored.pages().getFirst();
 	}
 
 	@Test

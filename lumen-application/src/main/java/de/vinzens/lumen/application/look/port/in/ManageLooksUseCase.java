@@ -31,6 +31,9 @@ public interface ManageLooksUseCase {
 	/** Renames a look; {@code shared} makes a look of a composition a shared one (not the other way round). */
 	NamedLook update(long projectId, long lookId, String name, boolean shared);
 
+	/** Renames the look, makes it shared or not, and moves it to a folder ({@code null} = the folder it is in). */
+	NamedLook update(long projectId, long lookId, String name, boolean shared, String folder);
+
 	/** A shared copy of the look. */
 	NamedLook duplicate(long projectId, long lookId);
 

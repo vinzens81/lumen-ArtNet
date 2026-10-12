@@ -56,12 +56,15 @@ public class LookController {
 		return LookResponse.from(looks.create(projectId, request.name(), Boolean.TRUE.equals(request.record())));
 	}
 
-	/** Renames the look; {@code shared: true} makes the look of a composition a shared one. */
+	/**
+	 * Renames the look; {@code shared: true} makes the look of a composition a shared one, {@code folder} moves it
+	 * (missing = it stays where it is).
+	 */
 	@PutMapping("/{lookId}")
 	LookResponse update(@PathVariable long projectId, @PathVariable long lookId, @RequestBody LookRequest request) {
 		var current = looks.look(projectId, lookId);
 		var shared = request.shared() == null ? current.spec().isShared() : request.shared();
-		return LookResponse.from(looks.update(projectId, lookId, request.name(), shared));
+		return LookResponse.from(looks.update(projectId, lookId, request.name(), shared, request.folder()));
 	}
 
 	@PostMapping("/{lookId}/duplicate")
@@ -109,8 +112,9 @@ public class LookController {
 	/**
 	 * @param record when creating: take the programmer
 	 * @param shared when updating: make a look of a composition shared, {@code null} = unchanged
+	 * @param folder when updating: the folder it is listed in, {@code null} = unchanged
 	 */
-	record LookRequest(String name, Boolean record, Boolean shared) {
+	record LookRequest(String name, Boolean record, Boolean shared, String folder) {
 	}
 
 	/**
@@ -135,14 +139,15 @@ public class LookController {
 	 * @param owner   the composition the look belongs to, {@code null} = shared
 	 * @param values  programmer-style values per fixture id
 	 * @param presets presets the values come from: fixture id → attribute group → preset id
+	 * @param folder  the folder it is listed in
 	 */
 	record LookResponse(long id, String name, Long owner, int fixtureCount, Map<Long, Map<String, Double>> values,
-			Map<Long, Map<String, Long>> presets) {
+			Map<Long, Map<String, Long>> presets, String folder) {
 
 		static LookResponse from(NamedLook look) {
 			return new LookResponse(look.id(), look.spec().name(), look.spec().owner().orElse(null),
 					look.look().values().size(), ValuesJson.toJson(look.look().values()),
-					PresetRefsJson.toJson(look.look().presets()));
+					PresetRefsJson.toJson(look.look().presets()), look.spec().folder());
 		}
 	}
 

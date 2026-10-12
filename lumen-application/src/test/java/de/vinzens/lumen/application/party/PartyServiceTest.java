@@ -15,6 +15,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.output.OperatingMode;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyMatrix;
+import de.vinzens.lumen.domain.party.PartyPlace;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
 import de.vinzens.lumen.domain.scene.SceneComposition;
@@ -60,16 +61,16 @@ class PartyServiceTest {
 				PartyCell.scene(1, 0, scene.id()), PartyCell.text(0, 1, "Looks"))));
 		var party = party();
 
-		party.press(0, 0);
-		party.press(1, 0);
+		party.press(new PartyPlace(0, 0, 0));
+		party.press(new PartyPlace(0, 1, 0));
 
 		var layer = party.layer(NOW, Map.of(3L, SPOT));
 		assertThat(layer.priority()).isEqualTo(60);
 		assertThat(layer.fixtures().get(3L).values()).containsEntry(DIMMER, 0.5).containsEntry(GOBO, 0.4);
 		assertThat(party.activeIn(OperatingMode.PARTY)).isTrue();
 		assertThat(party.activeIn(OperatingMode.SHOW)).isFalse();
-		assertThat(party.status().on()).containsExactlyInAnyOrder(new PartyCell.Position(0, 0),
-				new PartyCell.Position(1, 0));
+		assertThat(party.status().on()).containsExactlyInAnyOrder(new PartyPlace(0, 0, 0),
+				new PartyPlace(0, 1, 0));
 	}
 
 	@Test
@@ -77,7 +78,7 @@ class PartyServiceTest {
 		var party = party();
 		currentMode = OperatingMode.SETUP;
 
-		assertThatThrownBy(() -> party.press(0, 0)).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> party.press(new PartyPlace(0, 0, 0))).isInstanceOf(ConflictException.class);
 		assertThatThrownBy(party::clear).isInstanceOf(ConflictException.class);
 	}
 
@@ -87,12 +88,12 @@ class PartyServiceTest {
 		stored.put(1L, new PartyMatrix(1, 2, Set.of(), List.of(PartyCell.composition(0, 0, gobo.id()),
 				PartyCell.composition(0, 1, gobo.id()))));
 		var party = party();
-		party.press(0, 0);
-		party.press(0, 1);
+		party.press(new PartyPlace(0, 0, 0));
+		party.press(new PartyPlace(0, 0, 1));
 
 		stored.put(1L, new PartyMatrix(1, 2, Set.of(), List.of(PartyCell.composition(0, 0, gobo.id()))));
 		events.publish(StateTopic.PARTY_MATRIX);
-		assertThat(party.status().on()).containsExactly(new PartyCell.Position(0, 0));
+		assertThat(party.status().on()).containsExactly(new PartyPlace(0, 0, 0));
 
 		activeProject = 2;
 		events.publish(StateTopic.PROJECTS);

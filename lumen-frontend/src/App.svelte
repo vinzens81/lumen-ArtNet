@@ -188,7 +188,7 @@
 {:else if router.route === '/remote'}
   <RemoteView />
 {:else}
-<div class="shell">
+<div class="shell" class:fit={router.route === '/party'}>
   <header class="topbar glass">
     <div class="brand">
       <span class="orb" aria-hidden="true"></span>
@@ -643,6 +643,18 @@
     min-width: 0;
     display: flex;
     flex-direction: column;
+  }
+
+  /* party mode: everything in the window, the matrix takes the room left – no scrolling */
+  .shell.fit {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow: hidden;
+  }
+
+  .shell.fit main {
+    min-height: 0;
   }
 
   .sr-only {

@@ -57,8 +57,9 @@ public class PartyMatrixService implements ManagePartyMatrixUseCase {
 		var fixtureIds = new HashSet<Long>();
 		fixtures.findByProject(projectId).forEach(fixture -> fixtureIds.add(fixture.id()));
 		var errors = new ArrayList<String>();
-		for (var cell : matrix.cells()) {
-			var field = "Field " + (cell.row() + 1) + "/" + (cell.column() + 1);
+		matrix.placedCells().forEach(placed -> {
+			var cell = placed.cell();
+			var field = placed.describe();
 			cell.sceneId().filter(id -> !sceneIds.contains(id))
 					.ifPresent(id -> errors.add(field + " plays unknown scene " + id));
 			cell.compositionId().filter(id -> !compositionIds.contains(id))
@@ -67,7 +68,7 @@ public class PartyMatrixService implements ManagePartyMatrixUseCase {
 					.ifPresent(id -> errors.add(field + " plays unknown move " + id));
 			cell.fader().ifPresent(fader -> fader.fixtureIds().stream().filter(id -> !fixtureIds.contains(id))
 					.forEach(id -> errors.add(field + " sets unknown fixture " + id)));
-		}
+		});
 		if (!errors.isEmpty()) {
 			throw new DomainValidationException(List.copyOf(errors));
 		}

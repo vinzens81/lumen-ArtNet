@@ -72,19 +72,25 @@ public class LookService implements ManageLooksUseCase {
 
 	@Override
 	public NamedLook update(long projectId, long lookId, String name, boolean shared) {
+		return update(projectId, lookId, name, shared, null);
+	}
+
+	@Override
+	public NamedLook update(long projectId, long lookId, String name, boolean shared, String folder) {
 		var look = look(projectId, lookId);
 		if (!shared && look.spec().isShared()) {
 			throw new ConflictException("A shared look cannot be given back to a composition");
 		}
-		var spec = new LookSpec(name, shared ? Optional.empty() : look.spec().owner());
+		var spec = new LookSpec(name, shared ? Optional.empty() : look.spec().owner(),
+				folder == null ? look.spec().folder() : folder);
 		return spec.equals(look.spec()) ? look : published(looks.updateSpec(lookId, spec));
 	}
 
 	@Override
 	public NamedLook duplicate(long projectId, long lookId) {
 		var original = look(projectId, lookId);
-		return published(looks.create(projectId, LookSpec.shared(original.spec().name() + " (copy)"),
-				original.look()));
+		return published(looks.create(projectId, LookSpec.shared(original.spec().name() + " (copy)")
+				.withFolder(original.spec().folder()), original.look()));
 	}
 
 	@Override

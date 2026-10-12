@@ -273,7 +273,7 @@ about 3 s. Not yet tried with the real ESP.
 
 **DoD:** Lumen can be installed from the `.dmg`, started from the Dock and opens the interface with a button.
 Implemented with `./package-mac.sh` → `dist/Lumen-<version>.dmg` (version `1.0.<number of commits>` or `--version`,
-`--fast` without tests, `--no-build` packages the existing JAR), about 96 MB with its own Java runtime, ad-hoc signed.
+without tests – `--test` runs them first –, `--no-build` packages the existing JAR), about 96 MB with its own Java runtime, ad-hoc signed.
 Deviation: no module `lumen-desktop` of its own – the app starts the same JAR with `-Dlumen.desktop=true`
 (`DesktopLauncher` in `lumen-app`); without the option Lumen runs without a window as before. Window with status,
 "Open in browser", "Open data folder", "Show log", "Quit"; closing only hides it (the Dock icon brings it back),
@@ -467,7 +467,7 @@ the patch with a frame in the XY pad. Details and deviations in [MOVEMENT.md](MO
 is; with "Move in dark" it travels invisibly to its new position. Checked with domain, repository and API tests and via
 REST on the running server (Art-Net off); the UI is checked with svelte-check and Vitest, in the browser only looked at.
 
-## ✅ Iteration Q – quick setup & party gradients ⚡ (2026-10-12)
+## ✅ Iteration Q – quick setup, party gradients, pages & pads ⚡ (2026-10-12)
 - **Quick setup** in the patch (optional, while adding fixtures or for patched ones): intensity looks 0/50/100 %,
   color looks red/orange/green/blue/violet (mixed, CMY or the closest color wheel slot) with a color palette of
   presets they refer to (other wheel slots as further presets), moves line/circle/eight for pan/tilt fixtures, each
@@ -477,13 +477,17 @@ REST on the running server (Art-Net off); the UI is checked with svelte-check an
   for a range); for one fixture type the side panel offers quick setup for all of them and "Locate all"
 - **Party fields over several columns** and **gradient fields** (intensity or color) to pick by touch; dragging goes
   over the WebSocket (`party.slide`). Flyway `V28`, project export with `span`/`fader`
+- **Party pages** (tabs, up to 12; groups reach over all of them), fields **several rows high**, **pan/tilt pads**
+  (quick setup adds one for moving heads) and party mode **filling the window** without scrolling. Flyway `V29`,
+  project file version 5
 - Details: [PARTY-MODE.md](PARTY-MODE.md#quick-setup-2026-10-12)
 
 **DoD:** four PARs patched with quick setup give eight looks and two party rows; a gradient sets the intensity or the
-color of all four. Checked with domain, application, repository and API tests (DMX output, export/import) and via REST
-on the running server (Art-Net off); the UI with svelte-check, Vitest and in Chrome (patching with quick setup, the
-dialog for patched fixtures, selecting several fixtures in the grid and the list and setting them up together, the matrix editor, touching and dragging gradients in party mode, checked on the DMX
-output).
+color of all four; two movers get a pad that points both. Checked with domain, application, repository (incl. the
+migration of an existing matrix) and API tests (DMX output, export/import) and via REST on the running server (Art-Net
+off); the UI with svelte-check, Vitest and in Chrome (patching with quick setup, the dialog for patched fixtures,
+selecting several fixtures in the grid and the list and setting them up together, the matrix editor with pages and a
+pad, touching and dragging gradients and the pad in party mode, checked on the DMX output, no scrolling at 1920 × 994).
 
 ---
 

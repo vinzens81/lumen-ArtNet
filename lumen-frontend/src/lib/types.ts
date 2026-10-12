@@ -331,6 +331,8 @@ export interface Look {
   values: Record<number, AttributeValues>;
   /** presets the values come from */
   presets: PresetRefs;
+  /** the folder it is listed in, e.g. "Manual" or "Auto generated" (quick setup) */
+  folder: string;
 }
 
 /** What an attribute is about, e.g. to update only the colors of a scene. */
@@ -572,6 +574,8 @@ export interface Composition {
   intensityMode: IntensityMode;
   generator: Generator | null;
   steps: CompositionStep[];
+  /** the folder it is listed in, e.g. "Manual" or "Auto generated" (quick setup) */
+  folder: string;
 }
 
 export interface CompositionRequest {
@@ -581,6 +585,8 @@ export interface CompositionRequest {
   playMode?: PlayMode;
   intensityMode?: IntensityMode;
   steps?: CompositionStep[];
+  /** missing = "Manual" for a new one, the folder it has when changing */
+  folder?: string;
 }
 
 /** A rehearsed GO into the scene on stage; the fade-in starts delayMs after GO, the fade-out at GO. */
@@ -601,15 +607,19 @@ export interface StagePreviewStatus {
   fade: RehearsedFade | null;
 }
 
-/** A gradient on a party field: touching it sets the intensity or the color of its fixtures. */
+/**
+ * A gradient or pad on a party field: touching it sets the intensity, the color or – a pad – pan and tilt of its
+ * fixtures.
+ */
 export interface PartyFader {
-  kind: 'dimmer' | 'color';
+  kind: 'dimmer' | 'color' | 'pan-tilt';
   fixtureIds: number[];
 }
 
 /**
- * A field of the party matrix (rows and columns from 0): plays a scene, a composition or a move, shows a gradient, or
- * – with none – only shows its label. It covers `span` columns from `column` to the right.
+ * A field of a party page (rows and columns from 0): plays a scene, a composition or a move, shows a gradient or a
+ * pad, or – with none – only shows its label. It covers `span` columns from `column` to the right and `rowSpan` rows
+ * from `row` down.
  */
 export interface PartyCell {
   row: number;
@@ -628,12 +638,21 @@ export interface PartyCell {
   group: string | null;
   /** columns the field covers */
   span: number;
-  /** the gradient it shows instead of playing something */
+  /** rows the field covers */
+  rowSpan: number;
+  /** the gradient or pad it shows instead of playing something */
   fader: PartyFader | null;
 }
 
-/** The party mode of a project: a grid of fields, lines above the rows in `separators`. */
+/** The party mode of a project: pages of fields, shown as tabs. Groups reach over all pages. */
 export interface PartyMatrix {
+  /** at least one */
+  pages: PartyPage[];
+}
+
+/** A page of the party matrix: a grid of fields, lines above the rows in `separators`. */
+export interface PartyPage {
+  name: string;
   rows: number;
   columns: number;
   separators: number[];
@@ -641,11 +660,21 @@ export interface PartyMatrix {
   cells: PartyCell[];
 }
 
+/** A field of the party matrix by page, row and column (all from 0). */
+export interface PartyPlace {
+  page: number;
+  row: number;
+  column: number;
+}
+
 /** Live state of party mode, pushed as 'party': the fields that are on. */
 export interface PartyStatus {
-  on: { row: number; column: number }[];
-  /** the point last touched on each gradient field (0–1), also of those that are off */
-  points: { row: number; column: number; point: number }[];
+  on: PartyPlace[];
+  /**
+   * the point last touched on each gradient and pad field, also of those that are off: 0–1, x from the left, y from
+   * the bottom (a gradient uses only x)
+   */
+  points: (PartyPlace & { x: number; y: number })[];
 }
 
 /** What quick setup should make for fixtures; switches left out count as off. */
@@ -658,6 +687,10 @@ export interface QuickSetupRequest {
   moves: boolean;
   partyButtons: boolean;
   gradients: boolean;
+  /** the page of the party matrix for the rows (from 0), null = the first page with room */
+  partyPage: number | null;
+  /** a new page for the rows, named after the setup */
+  newPartyPage: boolean;
 }
 
 /** What quick setup made. */
@@ -668,7 +701,9 @@ export interface QuickSetupResult {
   moves: { id: number; name: string }[];
   /** the color palette (presets) */
   presets: { id: number; name: string }[];
-  /** rows of the party matrix that were filled (0-based) */
+  /** the page of the party matrix the rows went to (0-based), null = none */
+  partyPage: number | null;
+  /** rows of that page that were filled (0-based) */
   partyRows: number[];
   /** what was left out and why */
   notes: string[];

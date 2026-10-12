@@ -155,7 +155,6 @@
     <header class="head">
       <div>
         <h1>Universes</h1>
-        <p class="dim">Each universe carries 512 DMX channels. By default it goes by unicast to every Art-Net node that reports it.</p>
       </div>
       <button class="btn primary" type="button" onclick={openCreate}>+ New universe</button>
     </header>
@@ -251,6 +250,10 @@
       {/if}
     </section>
   {/if}
+
+  <p class="dim help">
+    Each universe carries 512 DMX channels. By default it goes by unicast to every Art-Net node that reports it.
+  </p>
 </section>
 
 <Modal bind:open={formOpen} title={editing ? 'Edit universe' : 'New universe'}>
@@ -340,6 +343,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   /* interface names like en7 are lower case */
   .badge.interface {
     text-transform: none;
@@ -357,10 +366,6 @@
     align-items: flex-end;
     justify-content: space-between;
     gap: 16px;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   form {

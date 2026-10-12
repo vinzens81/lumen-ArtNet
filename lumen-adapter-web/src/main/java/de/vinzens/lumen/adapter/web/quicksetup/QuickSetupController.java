@@ -1,6 +1,7 @@
 package de.vinzens.lumen.adapter.web.quicksetup;
 
 import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase;
+import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase.PartyTarget;
 import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase.Request;
 import de.vinzens.lumen.application.quicksetup.port.in.QuickSetupUseCase.Result;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -36,15 +37,18 @@ class QuickSetupController {
 	 * @param colors       looks for red, orange, green, blue and violet, with a color palette
 	 * @param moves        line, circle and eight for fixtures with pan and tilt
 	 * @param partyButtons a row of buttons in the party matrix
-	 * @param gradients    a row with an intensity and a color gradient in the party matrix
+	 * @param gradients    a row with an intensity and a color gradient (and a pan/tilt pad) in the party matrix
+	 * @param partyPage    the page of the party matrix for the rows (from 0), {@code null} = the first with room
+	 * @param newPartyPage {@code true} = a new page for the rows, named after the setup
 	 */
 	record QuickSetupRequest(List<Long> fixtureIds, String name, Boolean intensity, Boolean colors, Boolean moves,
-			Boolean partyButtons, Boolean gradients) {
+			Boolean partyButtons, Boolean gradients, Integer partyPage, Boolean newPartyPage) {
 
 		Request toRequest() {
 			return new Request(fixtureIds == null ? List.of() : fixtureIds, Optional.ofNullable(name),
 					Boolean.TRUE.equals(intensity), Boolean.TRUE.equals(colors), Boolean.TRUE.equals(moves),
-					Boolean.TRUE.equals(partyButtons), Boolean.TRUE.equals(gradients));
+					Boolean.TRUE.equals(partyButtons), Boolean.TRUE.equals(gradients),
+					new PartyTarget(Optional.ofNullable(partyPage), Boolean.TRUE.equals(newPartyPage)));
 		}
 	}
 
@@ -52,11 +56,12 @@ class QuickSetupController {
 	 * What was made.
 	 *
 	 * @param presets   the color palette
-	 * @param partyRows rows of the party matrix that were filled (0-based)
+	 * @param partyPage page of the party matrix the rows went to (0-based), {@code null} = none
+	 * @param partyRows rows of that page that were filled (0-based)
 	 * @param notes     what was left out and why
 	 */
 	record QuickSetupResponse(String name, List<Made> looks, List<Made> compositions, List<Made> moves,
-			List<Made> presets, List<Integer> partyRows, List<String> notes) {
+			List<Made> presets, Integer partyPage, List<Integer> partyRows, List<String> notes) {
 
 		static QuickSetupResponse from(Result result) {
 			return new QuickSetupResponse(result.name(),
@@ -64,7 +69,7 @@ class QuickSetupController {
 					result.compositions().stream().map(c -> new Made(c.id(), c.spec().name())).toList(),
 					result.moves().stream().map(move -> new Made(move.id(), move.spec().name())).toList(),
 					result.presets().stream().map(preset -> new Made(preset.id(), preset.spec().name())).toList(),
-					result.partyRows(), result.notes());
+					result.partyPage().orElse(null), result.partyRows(), result.notes());
 		}
 	}
 

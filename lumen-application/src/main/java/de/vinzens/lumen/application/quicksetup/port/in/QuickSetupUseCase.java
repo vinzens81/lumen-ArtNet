@@ -20,7 +20,9 @@ public interface QuickSetupUseCase {
 	 * Sets up the fixtures together: every look, composition and move covers all of them that can do it, so one
 	 * party button switches them all.
 	 *
-	 * @throws de.vinzens.lumen.application.ConflictException when the party matrix has no room for the new rows
+	 * @throws de.vinzens.lumen.application.ConflictException when the chosen page (or, choosing none, every page) of
+	 *                                                        the party matrix has no room for the new rows and no
+	 *                                                        page can be added
 	 */
 	Result setUp(long projectId, Request request);
 
@@ -32,14 +34,17 @@ public interface QuickSetupUseCase {
 	 *                     wheel – and a color palette (presets) they refer to, with the other wheel slots as well
 	 * @param moves        line, circle and eight (fixtures with pan and tilt)
 	 * @param partyButtons a row in the party matrix with a button per look and move
-	 * @param gradients    a row in the party matrix with an intensity and a color gradient
+	 * @param gradients    a row in the party matrix with an intensity and a color gradient, and a pan/tilt pad for
+	 *                     fixtures with pan and tilt (the row is two rows high then)
+	 * @param partyPage    where the party rows go
 	 */
 	record Request(List<Long> fixtureIds, Optional<String> name, boolean intensity, boolean colors, boolean moves,
-			boolean partyButtons, boolean gradients) {
+			boolean partyButtons, boolean gradients, PartyTarget partyPage) {
 
 		public Request {
 			Objects.requireNonNull(fixtureIds, "fixtureIds");
 			Objects.requireNonNull(name, "name");
+			Objects.requireNonNull(partyPage, "partyPage");
 			fixtureIds = List.copyOf(fixtureIds);
 			name = name.map(String::strip).filter(text -> !text.isEmpty());
 			if (fixtureIds.isEmpty()) {
@@ -49,19 +54,50 @@ public interface QuickSetupUseCase {
 				throw new DomainValidationException(List.of("choose at least one thing to set up"));
 			}
 		}
+
+		/** The party rows go on the first page with room. */
+		public Request(List<Long> fixtureIds, Optional<String> name, boolean intensity, boolean colors, boolean moves,
+				boolean partyButtons, boolean gradients) {
+			this(fixtureIds, name, intensity, colors, moves, partyButtons, gradients, PartyTarget.FIRST_WITH_ROOM);
+		}
+	}
+
+	/**
+	 * The page of the party matrix the rows go on.
+	 *
+	 * @param page    an existing page (index from 0); empty = the first page with room, or a new one if none has
+	 * @param newPage a new page at the end, named after the setup
+	 */
+	record PartyTarget(Optional<Integer> page, boolean newPage) {
+
+		public static final PartyTarget FIRST_WITH_ROOM = new PartyTarget(Optional.empty(), false);
+		public static final PartyTarget NEW_PAGE = new PartyTarget(Optional.empty(), true);
+
+		public PartyTarget {
+			Objects.requireNonNull(page, "page");
+			if (page.isPresent() && newPage) {
+				throw new DomainValidationException(List.of("choose an existing page or a new one, not both"));
+			}
+		}
+
+		public static PartyTarget page(int index) {
+			return new PartyTarget(Optional.of(index), false);
+		}
 	}
 
 	/**
 	 * What was made.
 	 *
 	 * @param presets   the color palette
-	 * @param partyRows the rows of the party matrix that were filled (0-based)
+	 * @param partyPage the page of the party matrix the rows went to (0-based), empty if none
+	 * @param partyRows the rows of that page that were filled (0-based)
 	 * @param notes     what was left out and why, e.g. colors for fixtures without red, green and blue
 	 */
 	record Result(String name, List<NamedLook> looks, List<Composition> compositions, List<Move> moves,
-			List<Preset> presets, List<Integer> partyRows, List<String> notes) {
+			List<Preset> presets, Optional<Integer> partyPage, List<Integer> partyRows, List<String> notes) {
 
 		public Result {
+			Objects.requireNonNull(partyPage, "partyPage");
 			presets = List.copyOf(presets);
 			looks = List.copyOf(looks);
 			compositions = List.copyOf(compositions);

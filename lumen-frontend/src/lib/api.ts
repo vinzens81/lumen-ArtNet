@@ -38,6 +38,7 @@ import type {
   SceneMove,
   SceneRequest,
   PartyMatrix,
+  PartyPlace,
   PartyStatus,
   QuickSetupRequest,
   QuickSetupResult,
@@ -93,6 +94,8 @@ const post = <T>(url: string, body?: unknown) => request<T>('POST', url, body ??
 const put = <T>(url: string, body: unknown) => request<T>('PUT', url, body);
 const patch = <T>(url: string, body: unknown) => request<T>('PATCH', url, body);
 const del = (url: string) => request<void>('DELETE', url);
+
+const partyCell = (p: PartyPlace) => `/api/party/pages/${p.page}/cells/${p.row}/${p.column}`;
 
 export const api = {
   library: {
@@ -178,8 +181,9 @@ export const api = {
     list: (projectId: number) => get<Look[]>(`/api/projects/${projectId}/looks`),
     create: (projectId: number, name: string, record: boolean) =>
       post<Look>(`/api/projects/${projectId}/looks`, { name, record }),
-    update: (projectId: number, id: number, name: string, shared?: boolean) =>
-      put<Look>(`/api/projects/${projectId}/looks/${id}`, { name, shared }),
+    /** shared and folder left out stay as they are */
+    update: (projectId: number, id: number, name: string, shared?: boolean, folder?: string) =>
+      put<Look>(`/api/projects/${projectId}/looks/${id}`, { name, shared, folder }),
     duplicate: (projectId: number, id: number) => post<Look>(`/api/projects/${projectId}/looks/${id}/duplicate`),
     record: (projectId: number, id: number, request?: RecordRequest) =>
       post<Look>(`/api/projects/${projectId}/looks/${id}/record`, request),
@@ -226,10 +230,10 @@ export const api = {
   },
   party: {
     status: () => get<PartyStatus>('/api/party'),
-    press: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/press`),
-    release: (row: number, column: number) => post<PartyStatus>(`/api/party/cells/${row}/${column}/release`),
-    slide: (row: number, column: number, point: number) =>
-      post<PartyStatus>(`/api/party/cells/${row}/${column}/slide`, { point }),
+    press: (place: PartyPlace) => post<PartyStatus>(`${partyCell(place)}/press`),
+    release: (place: PartyPlace) => post<PartyStatus>(`${partyCell(place)}/release`),
+    /** x along a gradient or pad, y up a pad (0–1) */
+    slide: (place: PartyPlace, x: number, y: number) => post<PartyStatus>(`${partyCell(place)}/slide`, { x, y }),
     clear: () => post<PartyStatus>('/api/party/clear'),
   },
   quickSetup: (projectId: number, request: QuickSetupRequest) =>

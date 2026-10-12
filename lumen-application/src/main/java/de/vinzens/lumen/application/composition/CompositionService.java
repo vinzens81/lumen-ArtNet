@@ -160,7 +160,7 @@ public class CompositionService implements ManageCompositionsUseCase {
 		var playMode = generated.playMode() == StepSequence.PlayMode.PING_PONG ? PlayMode.PING_PONG
 				: old.playMode() == PlayMode.ONCE ? PlayMode.ONCE : PlayMode.LOOP;
 		var spec = new CompositionSpec(old.name(), generated.fadeSeconds(), generated.holdSeconds(), playMode,
-				generated.intensityMode(), Optional.of(settings));
+				generated.intensityMode(), Optional.of(settings), old.folder());
 		var updated = compositions.update(compositionId, spec, steps);
 		dropUnusedOwnLooks(composition, updated);
 		events.publish(StateTopic.LOOKS);

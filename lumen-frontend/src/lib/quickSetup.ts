@@ -7,10 +7,12 @@ export interface QuickSetupOptions {
   moves: boolean;
   partyButtons: boolean;
   gradients: boolean;
+  /** where the party rows go: a page (from 0), a new page, or null = the first page with room */
+  page: number | 'new' | null;
 }
 
 export const ALL_OPTIONS: QuickSetupOptions = {
-  intensity: true, colors: true, moves: true, partyButtons: true, gradients: true,
+  intensity: true, colors: true, moves: true, partyButtons: true, gradients: true, page: null,
 };
 
 /**
@@ -40,9 +42,18 @@ function hasColoredWheel(mode: Mode | undefined): boolean {
     && c.ranges.some((r) => r.color !== null && !r.label.includes('→'))) ?? false;
 }
 
-/** The options, without what none of the fixtures can do. */
-export function fitting(options: QuickSetupOptions, abilities: Abilities): QuickSetupOptions {
-  return { ...options, colors: options.colors && abilities.colors, moves: options.moves && abilities.moves };
+/** Whether the setup adds fields to the party matrix – only then the page matters. */
+export function makesPartyRows(options: QuickSetupOptions): boolean {
+  return options.partyButtons || options.gradients;
+}
+
+/**
+ * The options, without what none of the fixtures can do; a page that no longer exists (e.g. remembered from another
+ * project) becomes "the first page with room".
+ */
+export function fitting(options: QuickSetupOptions, abilities: Abilities, pageCount = Infinity): QuickSetupOptions {
+  const page = typeof options.page === 'number' && options.page >= pageCount ? null : options.page;
+  return { ...options, colors: options.colors && abilities.colors, moves: options.moves && abilities.moves, page };
 }
 
 /** Whether there is something to make: party rows alone need buttons or gradients to fill them. */
@@ -52,10 +63,12 @@ export function makesSomething(options: QuickSetupOptions): boolean {
 
 export function quickSetupRequest(fixtureIds: number[], name: string, options: QuickSetupOptions):
   QuickSetupRequest {
-  return { fixtureIds, name: name.trim() || null, ...options };
+  const { page, ...switches } = options;
+  return { fixtureIds, name: name.trim() || null, ...switches, partyPage: typeof page === 'number' ? page : null,
+    newPartyPage: page === 'new' };
 }
 
-/** A short line for a toast, e.g. "8 looks, 3 moves and 2 party rows for PAR". */
+/** A short line for a toast, e.g. "8 looks, 3 moves and 2 party rows for PAR" (with the page if not the first). */
 export function resultSummary(result: QuickSetupResult): string {
   const parts = [
     count(result.looks.length, 'look'),
@@ -63,6 +76,10 @@ export function resultSummary(result: QuickSetupResult): string {
     count(result.moves.length, 'move'),
     count(result.partyRows.length, 'party row'),
   ].filter((part) => part !== null);
+  // rows on another page than the first are easy to miss
+  if (result.partyPage !== null && result.partyPage > 0 && result.partyRows.length > 0) {
+    parts[parts.length - 1] += ` on page ${result.partyPage + 1}`;
+  }
   const made = parts.length === 0 ? 'Nothing'
     : parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts.at(-1)}`;
   return `${made} for "${result.name}"`;
@@ -79,7 +96,10 @@ export function rememberedChoice(): { enabled: boolean; options: QuickSetupOptio
   try {
     const stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
     if (stored && typeof stored.enabled === 'boolean') {
-      return { enabled: stored.enabled, options: { ...ALL_OPTIONS, ...stored.options } };
+      const options = { ...ALL_OPTIONS, ...stored.options };
+      const page = options.page;
+      if (page !== null && page !== 'new' && !(Number.isInteger(page) && page >= 0)) options.page = null;
+      return { enabled: stored.enabled, options };
     }
   } catch {
     // storage blocked or broken: start with the defaults

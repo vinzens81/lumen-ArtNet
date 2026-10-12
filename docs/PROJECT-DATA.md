@@ -34,7 +34,10 @@ A **project** is a specific theatre play or a specific venue. It records which f
   `scene.outside_cue_list` is dropped; for projects not yet converted, `legacy_fader` and `legacy_outside_cue_list`
   remain), V22 = party matrix (`party_matrix`, `party_cell`; `party_button*` is dropped),
   V23 = parts after light markers and looks in scenes (`scene_composition.section`, `scene_look`), …,
-  V28 = wide party fields and gradients (`party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`).
+  V28 = wide party fields and gradients (`party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`),
+  V29 = party pages and pads (`party_page` replaces `party_matrix`, `page_index` and `party_cell.row_span`),
+  V30 = folders for compositions (`composition.folder`, default 'Manual'), V31 = compositions quick setup made before
+  move to 'Auto generated', V32 = folders for looks (`look.folder`; quick setup's shared looks to 'Auto generated').
 - **SQLite settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture types are referenced from the library by `fixture_type_id` + `mode_name`, not copied.
 
@@ -126,6 +129,7 @@ composition                                     -- steps that play looks
   play_mode       TEXT NOT NULL                 -- 'loop' | 'ping_pong' | 'once'
   intensity_mode  TEXT NOT NULL                 -- 'absolute' | 'relative'
   generator_kind, generator (JSON), generator_group_id, generator_per_head   -- only for "Regenerate"
+  folder          TEXT NOT NULL                 -- 'Manual', 'Auto generated' (quick setup) or own names (V30)
 composition_generator_fixture                   -- fixed fixture list as the generator's target
 composition_step                                -- composition_id, step_index, look_id, fade_ms/hold_ms (NULL = default),
                                                 --   parallel (1 = starts with the step before, same row)
@@ -133,6 +137,7 @@ composition_step                                -- composition_id, step_index, l
 look                                            -- fixed values, normalized 0..1
   id, project_id, name
   owner_composition_id FK → composition ON DELETE CASCADE NULL   -- set = a composition's own look
+  folder          TEXT NOT NULL                 -- 'Manual', 'Auto generated' (quick setup) or own names (V32)
 look_value                                      -- look_id, fixture_id, attribute, value
   attribute       TEXT NOT NULL                 -- attribute ID: 'dimmer', 'red', 'pan', 'generic:Program speed', …
 
@@ -163,25 +168,27 @@ fader                                           -- faders in the show, e.g. hous
   composition_id  FK → composition ON DELETE CASCADE
   PRIMARY KEY(project_id, slot)
 
-party_matrix                                    -- size of the party matrix (missing = 4 × 4, empty)
-  project_id      PK, FK → project ON DELETE CASCADE
+party_page                                      -- a page (tab) of the party matrix (none = one empty 4 × 4 page)
+  project_id, page_index                        -- PK; page_index 0–11
+  name            TEXT NOT NULL                 -- shown on the tab
   rows, columns   INTEGER 1–12
   separators      TEXT                          -- rows with a divider above them, e.g. '2,4'
 
 party_cell                                      -- a field; without scene and composition just text
-  project_id, row_index, column_index           -- PK
+  project_id, page_index, row_index, column_index -- PK; FK → party_page ON DELETE CASCADE
   label           TEXT NULL                     -- NULL = name of what it plays
   scene_id        FK → scene ON DELETE SET NULL
   composition_id  FK → composition ON DELETE SET NULL
+  move_id         FK → move ON DELETE SET NULL
   color, border_color TEXT                      -- '#rrggbb'
-  span            INTEGER 1–12                  -- columns the field covers (V28)
-  fader_kind      TEXT NULL                     -- 'dimmer' | 'color': a gradient (V28)
-
-party_cell_fixture                              -- fixtures of a gradient, in order (V28)
-  project_id, row_index, column_index, position -- PK; FK → party_cell ON DELETE CASCADE
-  fixture_id      FK → fixture ON DELETE CASCADE
   key_mode        TEXT                          -- 'toggle' | 'flash'
-  group_name      TEXT NULL                     -- fields of a group exclude each other
+  group_name      TEXT NULL                     -- fields of a group exclude each other (on all pages)
+  span, row_span  INTEGER 1–12                  -- columns and rows the field covers
+  fader_kind      TEXT NULL                     -- 'dimmer' | 'color' | 'pan-tilt': a gradient or pad
+
+party_cell_fixture                              -- fixtures of a gradient or pad, in order
+  project_id, page_index, row_index, column_index, position -- PK; FK → party_cell ON DELETE CASCADE
+  fixture_id      FK → fixture ON DELETE CASCADE
 
 app_setting                                     -- settings across projects
   key             TEXT PK                       -- 'config_pin_hash', 'network_access', 'operating_mode'
@@ -202,7 +209,7 @@ playback_state                                  -- for resuming after a crash/re
 
 ```json
 {
-  "format": "lumen-project", "version": 3, "exportedAt": "2026-10-06T19:30:00Z",
+  "format": "lumen-project", "version": 5, "exportedAt": "2026-10-06T19:30:00Z",
   "project":   { "name": "The Tempest", "venue": "City Theatre", "fadeInMs": 3000, "fadeOutMs": 3000 },
   "universes": [ { "id": 1, "number": 1, "name": "Stage", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
                    "mode": "auto", "ipAddresses": [] } ],
@@ -220,18 +227,23 @@ playback_state                                  -- for resuming after a crash/re
   "stagePlan": { "contentType": "image/png", "data": "<Base64>" },
   "presets":   [ { "id": 3, "name": "Warm", "group": "color", "values": { "7": { "red": 1.0, "green": 0.6 } } } ],
   "faders":    [ { "slot": 1, "name": "House lights", "compositionId": 4 } ],
-  "partyMatrix": { "rows": 2, "columns": 4, "separators": [1],
-                   "cells": [ { "row": 0, "column": 0, "label": "Red", "compositionId": 4, "color": "#c01020",
-                                "borderColor": "#ff4060", "mode": "toggle", "group": "Colors" },
-                              { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" },
-                              { "row": 1, "column": 1, "span": 3, "fader": { "kind": "color", "fixtureIds": [7] } } ] }
+  "partyMatrix": { "pages": [
+    { "name": "Party", "rows": 2, "columns": 4, "separators": [1],
+      "cells": [ { "row": 0, "column": 0, "label": "Red", "compositionId": 4, "color": "#c01020",
+                   "borderColor": "#ff4060", "mode": "toggle", "group": "Colors" },
+                 { "row": 1, "column": 0, "scene": "2.5", "mode": "flash" },
+                 { "row": 1, "column": 1, "span": 3, "fader": { "kind": "color", "fixtureIds": [7] } } ] },
+    { "name": "Movers", "rows": 2, "columns": 2,
+      "cells": [ { "row": 0, "column": 0, "span": 2, "rowSpan": 2,
+                   "fader": { "kind": "pan-tilt", "fixtureIds": [9] } } ] } ] }
 }
 ```
 
 The IDs only connect the parts of the file. Files of version 1 (before iteration S: values directly in the scenes,
 composition copies, project-wide extra keys) are converted on import like an old database. In version 2, faders
 played a scene (by number) and scenes could be outside the cue list: the fader then plays the scene's first
-composition, and such scenes are dropped. Party buttons of older files are ignored. An import always creates a
+composition, and such scenes are dropped. Party buttons of older files are ignored. Versions 3 and 4 have a party
+matrix of one page (`rows`, `columns`, `separators` and `cells` directly in `partyMatrix`); it becomes the first page. An import always creates a
 **new project** with new IDs; if a project of that name exists, it gets the suffix "(imported)". References to unknown
 universes/fixtures are rejected without leaving half a project behind. Missing fixture types are allowed and show up
 as a patch problem.

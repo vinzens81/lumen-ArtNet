@@ -55,9 +55,9 @@ class CompositionController {
 	@PutMapping("/{compositionId}")
 	CompositionResponse update(@PathVariable long projectId, @PathVariable long compositionId,
 			@RequestBody CompositionRequest request) {
-		var generator = compositions.composition(projectId, compositionId).spec().generator();
-		return CompositionResponse.from(compositions.update(projectId, compositionId, request.toSpec(generator),
-				request.toSteps()));
+		var stored = compositions.composition(projectId, compositionId).spec();
+		return CompositionResponse.from(compositions.update(projectId, compositionId,
+				request.toSpec(stored.generator(), stored.folder()), request.toSteps()));
 	}
 
 	@PostMapping("/{compositionId}/duplicate")

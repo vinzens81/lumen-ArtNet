@@ -124,10 +124,11 @@ class MoveApiTest {
 		put(base + "/scenes/" + scene + "/sections", "{\"marker\": \"Chorus\", \"moves\": [{\"moveId\": %d}]}"
 				.formatted(move));
 		put(base + "/party-matrix", """
-				{"rows": 2, "columns": 2, "cells": [{"row": 0, "column": 1, "moveId": %d}]}""".formatted(move));
+				{"pages": [{"rows": 2, "columns": 2, "cells": [{"row": 0, "column": 1, "moveId": %d}]}]}"""
+				.formatted(move));
 
 		var file = mvc.get().uri(base + "/export").exchange().getResponse().getContentAsString();
-		assertThat(JsonPath.<Integer>read(file, "$.version")).isEqualTo(4);
+		assertThat(JsonPath.<Integer>read(file, "$.version")).isEqualTo(5);
 		var copy = "/api/projects/" + id(post("/api/projects/import", file));
 
 		var moves = body(copy + "/moves");
@@ -141,7 +142,8 @@ class MoveApiTest {
 				.containsExactly(JsonPath.<Integer>read(moves, "$[0].figureId"));
 		assertThat(JsonPath.<Integer>read(body(copy + "/scenes"), "$[0].sections[0].moves[0].moveId"))
 				.isEqualTo(newMove);
-		assertThat(JsonPath.<Integer>read(body(copy + "/party-matrix"), "$.cells[0].moveId")).isEqualTo(newMove);
+		assertThat(JsonPath.<Integer>read(body(copy + "/party-matrix"), "$.pages[0].cells[0].moveId"))
+				.isEqualTo(newMove);
 	}
 
 	@Test

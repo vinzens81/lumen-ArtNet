@@ -89,7 +89,7 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		var generator = spec.generator();
 		jdbc.sql("""
 				UPDATE composition SET name = ?, fade_ms = ?, hold_ms = ?, play_mode = ?, intensity_mode = ?,
-				    generator_kind = ?, generator = ?, generator_group_id = ?, generator_per_head = ?
+				    generator_kind = ?, generator = ?, generator_group_id = ?, generator_per_head = ?, folder = ?
 				WHERE id = ?""")
 				.params(spec.name(), millis(spec.fadeSeconds()), millis(spec.holdSeconds()), spec.playMode().id(),
 						spec.intensityMode().name().toLowerCase(Locale.ROOT),
@@ -97,7 +97,7 @@ public class SqliteCompositionRepository implements CompositionRepository {
 						generator.map(g -> codec.write(g.effect())).orElse(null),
 						generator.map(g -> g.target() instanceof Target.Group group ? group.groupId() : null)
 								.orElse(null),
-						generator.map(g -> g.perHead() ? 1 : 0).orElse(0), id)
+						generator.map(g -> g.perHead() ? 1 : 0).orElse(0), spec.folder(), id)
 				.update();
 		jdbc.sql("DELETE FROM composition_generator_fixture WHERE composition_id = ?").param(id).update();
 		if (generator.isPresent() && generator.get().target() instanceof Target.Fixtures fixtures) {
@@ -156,7 +156,8 @@ public class SqliteCompositionRepository implements CompositionRepository {
 		}
 		var spec = new CompositionSpec(rs.getString("name"), rs.getLong("fade_ms") / 1000.0,
 				rs.getLong("hold_ms") / 1000.0, PlayMode.fromId(rs.getString("play_mode")),
-				IntensityMode.valueOf(rs.getString("intensity_mode").toUpperCase(Locale.ROOT)), generator);
+				IntensityMode.valueOf(rs.getString("intensity_mode").toUpperCase(Locale.ROOT)), generator,
+				rs.getString("folder"));
 		return new Composition(id, rs.getLong("project_id"), spec, steps.getOrDefault(id, List.of()));
 	}
 

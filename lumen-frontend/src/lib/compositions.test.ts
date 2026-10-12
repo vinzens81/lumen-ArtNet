@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  compositionFixtures, compositionIcon, cycleMs, defaultParams, generatorFixtures, isFast, lookMap, overlaps,
+  byFolder, compositionFixtures, folderNames, compositionIcon, cycleMs, defaultParams, generatorFixtures, isFast, lookMap, overlaps,
   moveStart, sceneStartValues, startOf, stepRows, unsuitableFixtures,
 } from './compositions';
 import type { Composition, Fixture, Look, Mode } from './types';
@@ -15,12 +15,14 @@ function composition(id: number, lookIds: number[], extra: Partial<Composition> 
     intensityMode: 'absolute',
     generator: null,
     steps: lookIds.map((lookId) => ({ lookId, fadeMs: null, holdMs: null, parallel: false })),
+    folder: 'Manual',
     ...extra,
   };
 }
 
 function look(id: number, values: Look['values']): Look {
-  return { id, name: `L${id}`, owner: null, fixtureCount: Object.keys(values).length, values, presets: {} };
+  return { id, name: `L${id}`, owner: null, fixtureCount: Object.keys(values).length, values, presets: {},
+    folder: 'Manual' };
 }
 
 const mode = (...functions: string[]): Mode =>
@@ -115,5 +117,17 @@ describe('compositions', () => {
     expect(sceneStartValues(scene, compositions, looks)).toEqual({ 1: { dimmer: 0.5, red: 1, blue: 1 } });
     expect(compositionIcon(composition(1, [1]))).toBe('▣');
     expect(compositionIcon(composition(1, [1, 2]))).toBe('▦');
+  });
+});
+
+describe('folders', () => {
+  it('lists Manual first, Auto generated last and the others between, each by name', () => {
+    const list = [composition(1, [], { name: 'Red', folder: 'Auto generated' }),
+      composition(2, [], { name: 'Storm' }), composition(3, [], { name: 'Dawn' }),
+      composition(4, [], { name: 'Chase', folder: 'Effects' })];
+    expect(byFolder(list).map((f) => [f.folder, f.items.map((c) => c.name)])).toEqual([
+      ['Manual', ['Dawn', 'Storm']], ['Effects', ['Chase']], ['Auto generated', ['Red']]]);
+    expect(folderNames(list)).toEqual(['Manual', 'Effects', 'Auto generated']);
+    expect(folderNames([])).toEqual(['Manual', 'Auto generated']);
   });
 });

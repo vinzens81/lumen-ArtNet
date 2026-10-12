@@ -15,12 +15,15 @@
     projectId,
     fixtures,
     preselected = [],
+    pages = [],
   }: {
     open?: boolean;
     projectId: number;
     /** the fixtures to choose from */
     fixtures: Fixture[];
     preselected?: number[];
+    /** the names of the party pages */
+    pages?: string[];
   } = $props();
 
   let chosen = $state<number[]>([]);
@@ -39,7 +42,7 @@
 
   const modeOf = (fixture: Fixture) => app.fixtureType(fixture.fixtureTypeId)?.modes.find((m) => m.name === fixture.mode);
   const abilities = $derived(abilitiesOf(fixtures.filter((f) => chosen.includes(f.id)).map(modeOf)));
-  const effective = $derived(fitting(options, abilities));
+  const effective = $derived(fitting(options, abilities, pages.length));
 
   function toggle(id: number) {
     chosen = chosen.includes(id) ? chosen.filter((c) => c !== id) : [...chosen, id];
@@ -77,7 +80,7 @@
     {/each}
   </fieldset>
   <label class="field">Name<input bind:value={name} placeholder="From the fixture names" maxlength="60" /></label>
-  <QuickSetupOptions bind:options {abilities} />
+  <QuickSetupOptions bind:options {abilities} {pages} />
   {#snippet actions()}
     <button class="btn ghost" type="button" onclick={() => (open = false)}>Cancel</button>
     <button class="btn primary" type="button" onclick={run}

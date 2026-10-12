@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Builds the Mac app: dist/Lumen-<version>.dmg with Lumen.app and its own Java runtime inside.
 #
-#   ./package-mac.sh                    build with all tests, version 1.0.<number of commits>
+#   ./package-mac.sh                    build without tests and package, version 1.0.<number of commits>
 #   ./package-mac.sh --version 1.2.0    with an explicit version (macOS wants 1–3 numbers, the first at least 1)
-#   ./package-mac.sh --fast             build without tests
+#   ./package-mac.sh --test             build with all tests first
 #   ./package-mac.sh --no-build         package the JAR that is already built
 #
 # Install: open the DMG and drag Lumen into "Applications". An installed Lumen is replaced by the new one; the
@@ -16,12 +16,13 @@ usage() {
 	sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//'
 }
 
-build=(./build.sh)
+build=(./build.sh --fast)
 version=""
 while [ $# -gt 0 ]; do
 	case "$1" in
 		--version) version="${2:-}"; shift ;;
-		--fast) build=(./build.sh --fast) ;;
+		--test) build=(./build.sh) ;;
+		--fast) build=(./build.sh --fast) ;; # the default; kept so older calls still work
 		--no-build) build=() ;;
 		-h | --help) usage; exit 0 ;;
 		*) echo "Unknown option: $1" >&2; usage >&2; exit 2 ;;

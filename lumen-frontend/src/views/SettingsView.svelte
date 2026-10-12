@@ -77,7 +77,6 @@
   <header class="head">
     <div>
       <h1>Settings</h1>
-      <p class="dim">Settings of this Lumen server, for all projects.</p>
     </div>
   </header>
 
@@ -206,6 +205,10 @@
       <button class="btn" type="button" onclick={() => (changelogOpen = true)}>What's new</button>
     </header>
   </article>
+
+  <p class="dim help">
+    Settings of this Lumen server, for all projects.
+  </p>
 </section>
 
 <Modal bind:open={changelogOpen} title="What's new in Lumen" wide>
@@ -227,6 +230,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .changelog {
     display: flex;
     flex-direction: column;
@@ -276,10 +285,6 @@
     gap: 20px;
     padding: 12px 8px;
     max-width: 980px;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   .panel {

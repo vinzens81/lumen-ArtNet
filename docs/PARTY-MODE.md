@@ -9,7 +9,11 @@ running order – you switch prepared scenes and compositions on and off freely.
 
 ## The matrix
 
-- One **matrix** of rows × columns per project (1–12 each, default 4 × 4), set up in the setup tab "Party".
+- The matrix has **pages** (1–12, shown as tabs; the first one is "Party"), each of rows × columns (1–12 each,
+  default 4 × 4), set up in the setup tab "Party": add, rename, move and remove pages there. In party mode the tabs show
+  how many fields of a page are on; the device remembers the page last shown. Fields stay on while another page is
+  shown, and **groups reach over all pages**.
+- In party mode the page **fills the window** – the rows share the height, nothing scrolls.
 - Every **field** is empty, a **text** (just a label, e.g. a heading "Colors"), a **scene** (plays all its
   compositions, without fades and keys) or a **composition**.
 - Per field: **label** (empty = the name of what it plays), **fill color**, its own **border color**, **toggle**
@@ -19,7 +23,7 @@ running order – you switch prepared scenes and compositions on and off freely.
 - **Collisions:** if several fields set the same attribute of a fixture, the **higher value** wins – for all
   attributes, not just intensity.
 - **Dividers** between rows structure the matrix visually (in the editor: click between two rows).
-- A field can be **several columns wide** (setting "Width").
+- A field can be **several columns wide and several rows high** (settings "Width" and "Height").
 - **Gradient fields:** a field can show a gradient instead of playing something – **intensity** (dark → full) or
   **color** (red → orange → yellow → green → cyan → blue → violet, hue 0–300°; cyan/magenta/yellow on fixtures that
   subtract instead of mixing) for chosen fixtures. Touching or
@@ -27,6 +31,10 @@ running order – you switch prepared scenes and compositions on and off freely.
   like a toggle field (the small "Off" switches it off) and takes part in groups: put it in the group of the color
   buttons and it replaces the button that is on. Fixtures that can show no mixed color are left alone by a color
   gradient.
+- **Pan/tilt pads:** a field (at first 2 × 2) whose fixtures with pan and tilt follow the point touched: left → right
+  is pan, bottom → top is tilt, over the whole range – the pan/tilt limits of the patch still hold. It starts in the
+  middle, keeps its point while off and switches like a gradient. Put it in a group with the moves so only one of them
+  points the heads (quick setup does).
 - Every field plays its compositions from the moment it goes on. Grand master and blackout work as always.
 
 ## Behaviour
@@ -61,22 +69,30 @@ fixtures together it makes:
   "<name> – color" and "<name> – move", so one button switches all the fixtures.
 - A **gradient row** below: intensity over 3 columns and color over 5, in the same groups as the buttons above. The
   color gradient takes fixtures that mix colors (red/green/blue or cyan/magenta/yellow); a wheel cannot run smoothly.
+  Fixtures with pan and tilt get a **pan/tilt pad** of 2 × 2 next to it in the group of the moves; the gradients are
+  then two rows high as well.
 
-The rows go below the last used row (with a divider), the matrix grows up to 12 × 12; if it is full, nothing is made
-and Lumen says so. Everything made is ordinary and can be changed or deleted.
+"Party page" chooses where the rows go: below the last used row (with a divider) of a chosen page, on a new page
+named after the setup, or – the default – on the first page with room (a new page if none has). A page grows up to
+12 × 12; if the chosen page is full or there are already 12 pages, nothing is made and Lumen says so. The request
+takes `partyPage` (index) or `newPartyPage: true`. Everything made is ordinary and can be changed or deleted.
 - "All off" switches everything off.
 
 ## Implementation
 
-- Domain: `PartyMatrix`, `PartyCell`, `PartySwitchboard` (on/off, groups, output with the maximum per attribute).
+- Domain: `PartyMatrix` (pages), `PartyPage`, `PartyCell`, `PartyPlace` (page, row, column), `PartyPoint`,
+  `PartySwitchboard` (on/off, groups, output with the maximum per attribute).
 - Application: `PartyService` (control and output layer), `PartyMatrixService` (setup, checks references).
 - REST: `GET/PUT /api/projects/{id}/party-matrix` (always the whole matrix), `GET /api/party`,
-  `POST /api/party/cells/{row}/{column}/press|release|slide` (slide: `{"point": 0.4}`), `POST /api/party/clear`;
-  WebSocket `party` (which fields are on, the points of the gradients), `partyMatrix` and the command `party.slide`
-  (`row`, `column`, `point`) for dragging. The matrix travels with the project export (version 3; scenes by their
-  number; `span` and `fader` are optional, so older files still read).
+  `POST /api/party/pages/{page}/cells/{row}/{column}/press|release|slide` (slide: `{"x": 0.4}`, a pad also `"y"`),
+  `POST /api/party/clear`; WebSocket `party` (which fields are on, the points of gradients and pads), `partyMatrix`
+  and the command `party.slide` (`page`, `row`, `column`, `x`, `y`) for dragging. The matrix travels with the project
+  export (version 5 with `pages`; scenes by their number; `span`, `rowSpan` and `fader` are optional; a file of
+  version 3 or 4 has one page and still reads).
 - Gradients: `PartyFader` in the domain; quick setup: `QuickSetupService`, `POST /api/projects/{id}/quick-setup`.
-- Flyway `V22`: `party_matrix`, `party_cell`; `V28`: `party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`.
+- Flyway `V22`: `party_matrix`, `party_cell`; `V28`: `party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`;
+  `V29`: `party_page` replaces `party_matrix` (the matrix becomes page 0 "Party"), `page_index` in `party_cell` and
+  `party_cell_fixture`, `party_cell.row_span`, fader kind `pan-tilt`.
 
 ## Theatre vs. party
 

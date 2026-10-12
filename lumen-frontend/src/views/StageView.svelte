@@ -244,7 +244,6 @@
   <header class="head">
     <div>
       <h1>Stage</h1>
-      <p class="dim">Drag fixtures to where they hang. They glow like the light on stage right now. Point at one to see its name.</p>
     </div>
     <div class="actions">
       <ClearAllButton />
@@ -396,9 +395,19 @@
     <!-- dragging outside the stage: drop to take the fixture off -->
     <div class="drag-ghost" style="left: {drag.x}px; top: {drag.y}px">Off stage</div>
   {/if}
+
+  <p class="dim help">
+    Drag fixtures to where they hang. They glow like the light on stage right now. Point at one to see its name.
+  </p>
 </section>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .view {
     display: flex;
     flex-direction: column;
@@ -413,10 +422,6 @@
     justify-content: space-between;
     gap: 16px;
     flex-wrap: wrap;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   .actions {

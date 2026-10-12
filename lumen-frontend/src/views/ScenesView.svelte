@@ -438,10 +438,6 @@
     <header class="head">
       <div>
         <h1>Scenes</h1>
-        <p class="dim">
-          The cue list of the show, ordered by number. Drag a scene by ⋮⋮ to move it – it gets a number between its new
-          neighbors (like 2.5). “+ Empty scene” inserts after the selected scene.
-        </p>
       </div>
       <form class="fades glass" onsubmit={(e) => { e.preventDefault(); saveFades(); }}>
         <label>Fade in <input type="number" min="0" max="600" step="0.1" bind:value={fades.fadeIn} /> s</label>
@@ -664,6 +660,11 @@
         {/if}
       </aside>
     </div>
+
+    <p class="dim help">
+      The cue list of the show, ordered by number. Drag a scene by ⋮⋮ to move it – it gets a number between its new
+      neighbors (like 2.5). “+ Empty scene” inserts after the selected scene.
+    </p>
   </section>
 {/if}
 
@@ -691,6 +692,12 @@
 </Modal>
 
 <style>
+  .help {
+    margin: 0;
+    max-width: 820px;
+    font-size: 12px;
+  }
+
   .revisions {
     display: flex;
     flex-direction: column;
@@ -749,10 +756,6 @@
   .head > div:first-child {
     flex: 1;
     min-width: 260px;
-  }
-
-  .head p {
-    margin: 6px 0 0;
   }
 
   .fades {

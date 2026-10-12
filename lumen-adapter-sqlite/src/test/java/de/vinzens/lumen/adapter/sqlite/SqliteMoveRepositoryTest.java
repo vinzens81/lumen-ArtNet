@@ -110,7 +110,8 @@ class SqliteMoveRepositoryTest {
 		assertThat(loaded.containsMove(b)).isTrue();
 
 		repos.partyMatrices().save(project, new PartyMatrix(2, 2, Set.of(), List.of(PartyCell.move(1, 1, a))));
-		assertThat(repos.partyMatrices().find(project).cell(1, 1).orElseThrow().moveId()).contains(a);
+		assertThat(repos.partyMatrices().find(project).pages().getFirst().cell(1, 1).orElseThrow().moveId())
+				.contains(a);
 	}
 
 	private static FixtureSpec fixture(String name, long universe, int address) {

@@ -9,8 +9,9 @@ import java.util.Optional;
 import java.util.stream.Stream;
 
 /**
- * A field of the party matrix: a button that plays a scene, a composition or a move, a gradient that sets intensity
- * or color, or just a text. A field can reach over several columns to the right.
+ * A field of a party page: a button that plays a scene, a composition or a move, a gradient that sets intensity or
+ * color, a pad that sets pan and tilt, or just a text. A field can reach over several columns to the right and several
+ * rows down.
  *
  * @param row           0-based
  * @param column        0-based
@@ -24,11 +25,12 @@ import java.util.stream.Stream;
  * @param mode          toggle (on until pressed again) or flash (on while held)
  * @param group         cells with the same group name exclude each other: only one of them is on
  * @param span          number of columns the field covers, from {@code column} to the right
- * @param fader         the gradient it shows
+ * @param rowSpan       number of rows the field covers, from {@code row} down
+ * @param fader         the gradient or pad it shows
  */
 public record PartyCell(int row, int column, Optional<String> label, Optional<Long> sceneId,
 		Optional<Long> compositionId, Optional<Long> moveId, String color, String borderColor, KeyMode mode,
-		Optional<String> group, int span, Optional<PartyFader> fader) {
+		Optional<String> group, int span, int rowSpan, Optional<PartyFader> fader) {
 
 	public static final String DEFAULT_COLOR = "#1c2230";
 	public static final String DEFAULT_BORDER = "#3cf0ff";
@@ -45,16 +47,25 @@ public record PartyCell(int row, int column, Optional<String> label, Optional<Lo
 		group = group.map(String::strip).filter(text -> !text.isEmpty());
 		new Validation()
 				.require(row >= 0 && column >= 0, "row and column must not be negative")
-				.require(span >= 1 && span <= PartyMatrix.MAX_SIZE,
-						"a field covers 1 to " + PartyMatrix.MAX_SIZE + " columns, was " + span)
+				.require(span >= 1 && span <= PartyPage.MAX_SIZE,
+						"a field covers 1 to " + PartyPage.MAX_SIZE + " columns, was " + span)
+				.require(rowSpan >= 1 && rowSpan <= PartyPage.MAX_SIZE,
+						"a field covers 1 to " + PartyPage.MAX_SIZE + " rows, was " + rowSpan)
 				.require(Stream.of(sceneId, compositionId, moveId, fader).filter(Optional::isPresent).count() <= 1,
-						"a field plays a scene, a composition, a move or a gradient, not several")
+						"a field plays a scene, a composition, a move, a gradient or a pad, not several")
 				.require(isColor(color), "color must look like #ff8800, was '" + color + "'")
 				.require(isColor(borderColor), "borderColor must look like #ff8800, was '" + borderColor + "'")
 				.require(label.map(text -> text.length() <= 60).orElse(true), "label must have at most 60 characters")
 				.throwIfInvalid();
 		color = color.toLowerCase(Locale.ROOT);
 		borderColor = borderColor.toLowerCase(Locale.ROOT);
+	}
+
+	/** A field of one row. */
+	public PartyCell(int row, int column, Optional<String> label, Optional<Long> sceneId, Optional<Long> compositionId,
+			Optional<Long> moveId, String color, String borderColor, KeyMode mode, Optional<String> group, int span,
+			Optional<PartyFader> fader) {
+		this(row, column, label, sceneId, compositionId, moveId, color, borderColor, mode, group, span, 1, fader);
 	}
 
 	/** A field of one column without a gradient. */
@@ -95,34 +106,39 @@ public record PartyCell(int row, int column, Optional<String> label, Optional<Lo
 
 	/** A gradient field over {@code span} columns. */
 	public static PartyCell fader(int row, int column, int span, PartyFader fader) {
+		return fader(row, column, span, 1, fader);
+	}
+
+	/** A gradient or pad field over {@code span} columns and {@code rowSpan} rows. */
+	public static PartyCell fader(int row, int column, int span, int rowSpan, PartyFader fader) {
 		return new PartyCell(row, column, Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(),
-				DEFAULT_COLOR, DEFAULT_BORDER, KeyMode.TOGGLE, Optional.empty(), span, Optional.of(fader));
+				DEFAULT_COLOR, DEFAULT_BORDER, KeyMode.TOGGLE, Optional.empty(), span, rowSpan, Optional.of(fader));
 	}
 
 	public PartyCell inGroup(String name) {
 		return new PartyCell(row, column, label, sceneId, compositionId, moveId, color, borderColor, mode,
-				Optional.of(name), span, fader);
+				Optional.of(name), span, rowSpan, fader);
 	}
 
 	public PartyCell withMode(KeyMode newMode) {
 		return new PartyCell(row, column, label, sceneId, compositionId, moveId, color, borderColor, newMode, group,
-				span, fader);
+				span, rowSpan, fader);
 	}
 
 	public PartyCell withLabel(String text) {
 		return new PartyCell(row, column, Optional.of(text), sceneId, compositionId, moveId, color, borderColor, mode,
-				group, span, fader);
+				group, span, rowSpan, fader);
 	}
 
 	public PartyCell withColors(String fill, String border) {
 		return new PartyCell(row, column, label, sceneId, compositionId, moveId, fill, border, mode, group, span,
-				fader);
+				rowSpan, fader);
 	}
 
 	/** The same field with another gradient (the gradient without fixtures: the field shows only its text). */
 	public PartyCell withFader(Optional<PartyFader> newFader) {
 		return new PartyCell(row, column, label, sceneId, compositionId, moveId, color, borderColor, mode, group, span,
-				newFader);
+				rowSpan, newFader);
 	}
 
 	/** Whether the field switches something (otherwise it only shows a text). */
@@ -130,9 +146,15 @@ public record PartyCell(int row, int column, Optional<String> label, Optional<Lo
 		return sceneId.isPresent() || compositionId.isPresent() || moveId.isPresent() || fader.isPresent();
 	}
 
-	/** Whether the field covers the given column of its row. */
+	/** Whether the field covers the given column of its first row. */
 	public boolean covers(int columnIndex) {
 		return columnIndex >= column && columnIndex < column + span;
+	}
+
+	/** The same field over another number of columns and rows. */
+	public PartyCell withSize(int newSpan, int newRowSpan) {
+		return new PartyCell(row, column, label, sceneId, compositionId, moveId, color, borderColor, mode, group,
+				newSpan, newRowSpan, fader);
 	}
 
 	public Position position() {
@@ -143,7 +165,7 @@ public record PartyCell(int row, int column, Optional<String> label, Optional<Lo
 		return value != null && value.matches("#[0-9a-fA-F]{6}");
 	}
 
-	/** Where a field sits in the matrix. */
+	/** Where a field sits on its page. */
 	public record Position(int row, int column) {
 	}
 }

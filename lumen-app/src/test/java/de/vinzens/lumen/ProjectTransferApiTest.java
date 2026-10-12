@@ -46,8 +46,9 @@ class ProjectTransferApiTest {
 		patchJson("/api/programmer/fixtures/" + back, "{\"dimmer\": 0.5}");
 		assertThat(post(scenes + "/" + dawn + "/record", "")).hasStatusOk();
 		assertThat(put("/api/projects/" + project + "/party-matrix", """
-				{"rows": 2, "columns": 2, "cells": [{"row": 1, "column": 1, "sceneId": %d, "mode": "flash"},
-				  {"row": 0, "column": 0, "label": "Looks"}]}""".formatted(dawn))).hasStatusOk();
+				{"pages": [{"rows": 2, "columns": 2, "cells": [
+				  {"row": 1, "column": 1, "sceneId": %d, "mode": "flash"},
+				  {"row": 0, "column": 0, "label": "Looks"}]}]}""".formatted(dawn))).hasStatusOk();
 
 		var export = mvc.get().uri("/api/projects/" + project + "/export").exchange();
 		assertThat(export).hasStatusOk().headers().hasValue("Content-Disposition",
@@ -97,10 +98,10 @@ class ProjectTransferApiTest {
 		assertThat(JsonPath.<String>read(copiedScenes, "$[0].script")).isEmpty();
 
 		var matrix = body("/api/projects/" + copy + "/party-matrix");
-		assertThat(JsonPath.<String>read(matrix, "$.cells[1].mode")).isEqualTo("flash");
-		assertThat(JsonPath.<Integer>read(matrix, "$.cells[1].sceneId"))
+		assertThat(JsonPath.<String>read(matrix, "$.pages[0].cells[1].mode")).isEqualTo("flash");
+		assertThat(JsonPath.<Integer>read(matrix, "$.pages[0].cells[1].sceneId"))
 				.isEqualTo(JsonPath.<Integer>read(copiedScenes, "$[0].id"));
-		assertThat(JsonPath.<String>read(matrix, "$.cells[0].label")).isEqualTo("Looks");
+		assertThat(JsonPath.<String>read(matrix, "$.pages[0].cells[0].label")).isEqualTo("Looks");
 	}
 
 	@Test

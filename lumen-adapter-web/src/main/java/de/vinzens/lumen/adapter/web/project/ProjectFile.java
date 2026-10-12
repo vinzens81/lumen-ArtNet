@@ -38,6 +38,7 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.party.PartyCell;
 import de.vinzens.lumen.domain.party.PartyFader;
 import de.vinzens.lumen.domain.party.PartyMatrix;
+import de.vinzens.lumen.domain.party.PartyPage;
 import de.vinzens.lumen.domain.preset.Preset;
 import de.vinzens.lumen.domain.preset.PresetSpec;
 import de.vinzens.lumen.domain.project.FixtureSpec;
@@ -77,7 +78,8 @@ import java.util.Set;
  * by {@link LegacyProjectFile}. In files of version 2, faders played a scene (by number) and scenes could be outside
  * the cue list: such a fader plays the first composition of its scene, such scenes are left out. Party buttons of
  * older files are left out. Files before version 4 have no moves; pan and tilt in their looks and position presets
- * are left out with a warning, positions come only from moves.
+ * are left out with a warning, positions come only from moves. Files before version 5 have a party matrix of one
+ * page; it becomes the first page.
  *
  * @param format  always {@value #FORMAT}
  * @param version format version, currently {@value #VERSION}
@@ -89,7 +91,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		List<MoveEntry> moves) {
 
 	static final String FORMAT = "lumen-project";
-	static final int VERSION = 4;
+	static final int VERSION = 5;
 	private static final System.Logger LOG = System.getLogger(ProjectFile.class.getName());
 
 	static ProjectFile from(ProjectExport export, Instant now, JsonMapper json) {
@@ -124,7 +126,7 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		var version = file.path("version").asInt(0);
 		return switch (version) {
 			case 1 -> json.treeToValue(file, LegacyProjectFile.class).toExport(json);
-			case 2, 3, VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
+			case 2, 3, 4, VERSION -> json.treeToValue(file, ProjectFile.class).toExport(json);
 			default -> throw new DomainValidationException(List.of("Project file version " + version
 					+ " is not supported (supported: up to " + VERSION + ")"));
 		};
@@ -265,19 +267,47 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	}
 
 	/**
-	 * The party matrix; files before version 3 have none.
+	 * The party matrix; files before version 3 have none, files of version 3 and 4 have one page without a name in
+	 * {@code rows}, {@code columns}, {@code separators} and {@code cells}.
 	 *
-	 * @param separators rows a line is drawn above
+	 * @param pages the pages, shown as tabs (version 5)
 	 */
-	record PartyMatrixEntry(Integer rows, Integer columns, List<Integer> separators, List<PartyCellEntry> cells) {
+	@JsonInclude(JsonInclude.Include.NON_NULL)
+	record PartyMatrixEntry(List<PartyPageEntry> pages, Integer rows, Integer columns, List<Integer> separators,
+			List<PartyCellEntry> cells) {
 
 		static PartyMatrixEntry from(PartyMatrix matrix, Map<Long, String> sceneNumbers) {
-			return new PartyMatrixEntry(matrix.rows(), matrix.columns(), matrix.separators().stream().sorted().toList(),
-					matrix.cells().stream().map(cell -> PartyCellEntry.from(cell, sceneNumbers)).toList());
+			return new PartyMatrixEntry(matrix.pages().stream().map(page -> PartyPageEntry.from(page, sceneNumbers))
+					.toList(), null, null, null, null);
 		}
 
 		PartyMatrix toMatrix(Map<String, Long> sceneIds) {
-			return new PartyMatrix(Objects.requireNonNullElse(rows, 4), Objects.requireNonNullElse(columns, 4),
+			if (pages == null) {
+				return new PartyMatrix(List.of(new PartyPageEntry(null, rows, columns, separators, cells)
+						.toPage(sceneIds)));
+			}
+			return new PartyMatrix(pages.stream().map(page -> page.toPage(sceneIds)).toList());
+		}
+	}
+
+	/**
+	 * A page of the party matrix.
+	 *
+	 * @param name       shown on the tab, missing = "Party"
+	 * @param separators rows a line is drawn above
+	 */
+	record PartyPageEntry(String name, Integer rows, Integer columns, List<Integer> separators,
+			List<PartyCellEntry> cells) {
+
+		static PartyPageEntry from(PartyPage page, Map<Long, String> sceneNumbers) {
+			return new PartyPageEntry(page.name(), page.rows(), page.columns(),
+					page.separators().stream().sorted().toList(),
+					page.cells().stream().map(cell -> PartyCellEntry.from(cell, sceneNumbers)).toList());
+		}
+
+		PartyPage toPage(Map<String, Long> sceneIds) {
+			return new PartyPage(Objects.requireNonNullElse(name, PartyPage.DEFAULT_NAME),
+					Objects.requireNonNullElse(rows, 4), Objects.requireNonNullElse(columns, 4),
 					Set.copyOf(list(separators)), list(cells).stream().map(cell -> cell.toCell(sceneIds)).toList());
 		}
 	}
@@ -289,18 +319,20 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param compositionId the composition it plays
 	 * @param mode          toggle or flash
 	 * @param span          columns the field covers, missing = 1
-	 * @param fader         the gradient it shows, missing = none
+	 * @param rowSpan       rows the field covers, missing = 1
+	 * @param fader         the gradient or pad it shows, missing = none
 	 */
 	@JsonInclude(JsonInclude.Include.NON_NULL)
 	record PartyCellEntry(int row, int column, String label, String scene, Long compositionId, Long moveId,
-			String color, String borderColor, String mode, String group, Integer span, GradientEntry fader) {
+			String color, String borderColor, String mode, String group, Integer span, Integer rowSpan,
+			GradientEntry fader) {
 
 		static PartyCellEntry from(PartyCell cell, Map<Long, String> sceneNumbers) {
 			return new PartyCellEntry(cell.row(), cell.column(), cell.label().orElse(null),
 					cell.sceneId().map(sceneNumbers::get).orElse(null), cell.compositionId().orElse(null),
 					cell.moveId().orElse(null), cell.color(), cell.borderColor(), cell.mode().id(),
 					cell.group().orElse(null), cell.span() == 1 ? null : cell.span(),
-					cell.fader().map(fader -> new GradientEntry(fader.kind().id(), fader.fixtureIds())).orElse(null));
+					cell.rowSpan() == 1 ? null : cell.rowSpan(), cell.fader().map(fader -> new GradientEntry(fader.kind().id(), fader.fixtureIds())).orElse(null));
 		}
 
 		PartyCell toCell(Map<String, Long> sceneIds) {
@@ -316,14 +348,15 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 					Optional.ofNullable(moveId), Objects.requireNonNullElse(color, PartyCell.DEFAULT_COLOR),
 					Objects.requireNonNullElse(borderColor, PartyCell.DEFAULT_BORDER),
 					mode == null ? KeyMode.TOGGLE : KeyMode.parse(mode), Optional.ofNullable(group),
-					Objects.requireNonNullElse(span, 1), Optional.ofNullable(fader).map(GradientEntry::toFader));
+					Objects.requireNonNullElse(span, 1), Objects.requireNonNullElse(rowSpan, 1),
+					Optional.ofNullable(fader).map(GradientEntry::toFader));
 		}
 	}
 
 	/**
-	 * A gradient on a party field.
+	 * A gradient or pad on a party field.
 	 *
-	 * @param kind       {@code dimmer} or {@code color}
+	 * @param kind       {@code dimmer}, {@code color} or {@code pan-tilt}
 	 * @param fixtureIds the fixtures it sets
 	 */
 	record GradientEntry(String kind, List<Long> fixtureIds) {
@@ -351,33 +384,34 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	 * @param presets presets the values come from: fixture id → attribute group → preset id
 	 */
 	record LookEntry(Long id, String name, Long owner, Map<Long, Map<String, Double>> values,
-			Map<Long, Map<String, Long>> presets) {
+			Map<Long, Map<String, Long>> presets, String folder) {
 
 		static LookEntry from(NamedLook look) {
 			return new LookEntry(look.id(), look.spec().name(), look.spec().owner().orElse(null),
-					ValuesJson.toJson(look.look().values()), PresetRefsJson.toJson(look.look().presets()));
+					ValuesJson.toJson(look.look().values()), PresetRefsJson.toJson(look.look().presets()),
+					look.spec().folder());
 		}
 
 		NamedLook toLook() {
-			return new NamedLook(require(id, "look id"), 0, new LookSpec(name, Optional.ofNullable(owner)),
+			return new NamedLook(require(id, "look id"), 0, new LookSpec(name, Optional.ofNullable(owner), folder),
 					new Look(fixtureValues(values), PresetRefsJson.fromJson(presets)));
 		}
 	}
 
 	/** A composition; the fields are the same as in the composition API. */
 	record CompositionEntry(Long id, String name, Long fadeMs, Long holdMs, String playMode, String intensityMode,
-			GeneratorDto generator, List<StepDto> steps) {
+			GeneratorDto generator, List<StepDto> steps, String folder) {
 
 		static CompositionEntry from(Composition composition, JsonMapper json) {
 			var api = CompositionResponse.from(composition);
 			var generator = api.generator() == null ? null : new GeneratorDto(api.generator().kind(),
 					json.valueToTree(api.generator().params()), api.generator().target(), api.generator().perHead());
 			return new CompositionEntry(api.id(), api.name(), api.fadeMs(), api.holdMs(), api.playMode(),
-					api.intensityMode(), generator, api.steps());
+					api.intensityMode(), generator, api.steps(), api.folder());
 		}
 
 		Composition toComposition(JsonMapper json) {
-			var request = new CompositionRequest(name, fadeMs, holdMs, playMode, intensityMode, steps);
+			var request = new CompositionRequest(name, fadeMs, holdMs, playMode, intensityMode, steps, folder);
 			var settings = Optional.ofNullable(generator).map(g -> g.toSettings(json));
 			return new Composition(require(id, "composition id"), 0, request.toSpec(settings), request.toSteps());
 		}
