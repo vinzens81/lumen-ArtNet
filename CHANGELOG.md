@@ -3,6 +3,14 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.106 · 2026-10-14
+
+### Added
+- Party mode: double-tap a pan/tilt pad (or use ⤢ on it) to open it large in a window and point the heads more
+  precisely; the values are shown to a tenth of a percent. Arrow buttons beside the pad move it in steps of 0.5, 2 or
+  5 % – for tablets, which have no arrow keys (on a keyboard the arrow keys do the same). On touch screens the small
+  switches in a pad's corner are larger.
+
 ## 1.0.102 – 1.0.103 · 2026-10-12
 
 ### Added

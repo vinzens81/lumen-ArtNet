@@ -3,6 +3,8 @@
     cellLabel, faderBackground, faderPoint, gridRow, isOn, padPointAt, pagePlaces, playsSomething, pointAt, rowTracks,
     textColorFor,
   } from '../lib/party';
+  import Modal from './Modal.svelte';
+  import XYPad from './XYPad.svelte';
   import type { Composition, Move, PartyCell, PartyPage, PartyStatus, Scene } from '../lib/types';
 
   let {
@@ -46,13 +48,36 @@
   const KEY_STEP = 0.05;
   /** from this many columns on, fields get smaller text */
   const DENSE_COLUMNS = 9;
+  /** two touches on a pad within this time (ms) and distance (px) open it large */
+  const DOUBLE_TAP_MS = 400;
+  const DOUBLE_TAP_PX = 30;
+  /** the steps the arrows in the large pad move by, for touch screens without arrow keys */
+  const NUDGE_STEPS = [0.005, 0.02, 0.05];
 
   const places = $derived(pagePlaces(page));
   const lines = $derived(Array.from({ length: Math.max(0, page.rows - 1) }, (_, i) => i + 1));
   /** the pointer dragging along a gradient or over a pad */
   let dragging: number | null = null;
-
   const placeOf = (cell: PartyCell) => ({ page: pageIndex, row: cell.row, column: cell.column });
+
+  /** the last touch on a pad, to see a double tap */
+  let lastTap: { row: number; column: number; time: number; x: number; y: number } | null = null;
+  /** the pad shown large, by its place on the page */
+  let zoomed: { row: number; column: number } | null = $state(null);
+  let zoomOpen = $state(false);
+  const zoomedCell = $derived(zoomed
+    ? page.cells.find((c) => c.row === zoomed!.row && c.column === zoomed!.column && c.fader?.kind === 'pan-tilt')
+      ?? null
+    : null);
+  const zoomedPoint = $derived(zoomedCell ? faderPoint(status, placeOf(zoomedCell)) : null);
+  let nudgeStep = $state(NUDGE_STEPS[0]);
+
+  /** One step of the large pad's arrows: dx, dy are -1, 0 or 1. */
+  function nudge(cell: PartyCell, dx: number, dy: number) {
+    const { x, y } = zoomedPoint ?? { x: 0.5, y: 0.5 };
+    const clamp = (n: number) => Math.min(1, Math.max(0, Math.round(n * 1000) / 1000));
+    onslide?.(cell, clamp(x + dx * nudgeStep), clamp(y + dy * nudgeStep));
+  }
 
   function style(cell: PartyCell): string {
     return `--fill: ${cell.color}; --edge: ${cell.borderColor}; --ink: ${textColorFor(cell.color)}`;
@@ -80,8 +105,25 @@
     }
   }
 
+  /** A second touch on the same pad right after the first: true, and the pad opens large. */
+  function isDoubleTap(event: PointerEvent, cell: PartyCell): boolean {
+    if (cell.fader?.kind !== 'pan-tilt') return false;
+    const previous = lastTap;
+    lastTap = { row: cell.row, column: cell.column, time: event.timeStamp, x: event.clientX, y: event.clientY };
+    if (!previous || previous.row !== cell.row || previous.column !== cell.column
+      || event.timeStamp - previous.time > DOUBLE_TAP_MS
+      || Math.hypot(event.clientX - previous.x, event.clientY - previous.y) > DOUBLE_TAP_PX) return false;
+    lastTap = null;
+    return true;
+  }
+
   function startSlide(event: PointerEvent, cell: PartyCell) {
     event.preventDefault();
+    if (isDoubleTap(event, cell)) {
+      zoomed = { row: cell.row, column: cell.column };
+      zoomOpen = true;
+      return;
+    }
     dragging = event.pointerId;
     (event.currentTarget as HTMLElement).setPointerCapture(event.pointerId);
     slideTo(event, cell);
@@ -145,6 +187,7 @@
       {@const label = cellLabel(cell, scenes, compositions, moves)}
       {@const pad = cell.fader.kind === 'pan-tilt'}
       <div class="cell fader" class:pad class:on role="slider" tabindex="0" aria-label={label}
+        title={pad ? 'Double-tap to open it large' : undefined}
         aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round((point?.x ?? 0) * 100)}
         aria-valuetext={pad && point ? `Pan ${Math.round(point.x * 100)} %, tilt ${Math.round(point.y * 100)} %`
           : undefined}
@@ -162,6 +205,11 @@
         {/if}
         <span class="meta">
           <span class="state">{on ? 'on' : 'off'}</span>
+          {#if pad}
+            <button type="button" class="off" title="Open it large" aria-label="Open {label} large"
+              onpointerdown={(e) => e.stopPropagation()}
+              onclick={() => { zoomed = { row: cell.row, column: cell.column }; zoomOpen = true; }}>⤢</button>
+          {/if}
           {#if on}
             <button type="button" class="off" title="Switch off" aria-label="Switch {label} off"
               onpointerdown={(e) => e.stopPropagation()} onclick={() => onpress?.(cell)}>✕</button>
@@ -193,7 +241,101 @@
   {/each}
 </div>
 
+{#if zoomedCell}
+  {@const label = cellLabel(zoomedCell, scenes, compositions, moves)}
+  {@const on = isOn(status, placeOf(zoomedCell))}
+  <Modal bind:open={zoomOpen} title={label} wide>
+    <div class="zoom">
+      <div class="zoom-pad">
+        <XYPad label={label} x={zoomedPoint?.x ?? 0.5} y={zoomedPoint?.y ?? 0.5} digits={1}
+          onchange={(x, y) => onslide?.(zoomedCell, x, y)} />
+      </div>
+      <div class="nudge" role="group" aria-label="Fine steps">
+        <button class="btn" type="button" style="grid-area: up" aria-label="Tilt up"
+          onclick={() => nudge(zoomedCell, 0, 1)}>▲</button>
+        <button class="btn" type="button" style="grid-area: left" aria-label="Pan left"
+          onclick={() => nudge(zoomedCell, -1, 0)}>◀</button>
+        <button class="btn" type="button" style="grid-area: right" aria-label="Pan right"
+          onclick={() => nudge(zoomedCell, 1, 0)}>▶</button>
+        <button class="btn" type="button" style="grid-area: down" aria-label="Tilt down"
+          onclick={() => nudge(zoomedCell, 0, -1)}>▼</button>
+        <div class="steps" style="grid-area: step" role="radiogroup" aria-label="Step">
+          {#each NUDGE_STEPS as step (step)}
+            <button type="button" role="radio" aria-checked={nudgeStep === step} class:on={nudgeStep === step}
+              onclick={() => (nudgeStep = step)}>{step * 100} %</button>
+          {/each}
+        </div>
+      </div>
+    </div>
+    <p class="dim">Left to right is pan, bottom to top is tilt. The arrows move in steps of the size chosen below
+      them; on a keyboard the arrow keys move in fine steps, with shift in larger ones.</p>
+    {#snippet actions()}
+      {#if on}
+        <button class="btn" type="button" onclick={() => onpress?.(zoomedCell)}>Switch off</button>
+      {/if}
+      <button class="btn primary" type="button" onclick={() => (zoomOpen = false)}>Done</button>
+    {/snippet}
+  </Modal>
+{/if}
+
 <style>
+  /* the large pad: as big as the dialog allows, still square and without scrolling; the arrows beside it on a wide
+     screen (a tablet in landscape), below it on a narrow one */
+  .zoom {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+  }
+
+  .zoom-pad {
+    flex: 0 1 auto;
+    width: min(100%, calc(100dvh - 280px));
+    min-width: 200px;
+  }
+
+  .nudge {
+    display: grid;
+    grid-template-areas: '. up .' 'left . right' '. down .' 'step step step';
+    grid-template-columns: repeat(3, 56px);
+    grid-auto-rows: 56px;
+    gap: 6px;
+  }
+
+  .nudge .btn {
+    justify-content: center;
+    padding: 0;
+    font-size: 18px;
+    touch-action: manipulation;
+  }
+
+  .steps {
+    display: flex;
+    align-self: center;
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+  }
+
+  .steps button {
+    flex: 1;
+    height: 40px;
+    border: 0;
+    background: transparent;
+    color: var(--text-dim);
+    font: inherit;
+    font-size: 12px;
+    touch-action: manipulation;
+    cursor: pointer;
+  }
+
+  .steps button.on {
+    background: var(--accent-soft);
+    color: var(--text);
+    font-weight: 700;
+  }
+
   /* one grid for the page: rows and the tracks between them alternate (see rowTracks) */
   .matrix {
     display: grid;
@@ -397,6 +539,14 @@
     letter-spacing: inherit;
     text-transform: inherit;
     cursor: pointer;
+  }
+
+  /* a finger needs more room than the small switches in the corner */
+  @media (pointer: coarse) {
+    .cell.fader .off {
+      padding: 4px 10px;
+      font-size: 15px;
+    }
   }
 
   .marker {

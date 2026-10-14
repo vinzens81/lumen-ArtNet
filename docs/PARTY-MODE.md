@@ -34,7 +34,8 @@ running order – you switch prepared scenes and compositions on and off freely.
 - **Pan/tilt pads:** a field (at first 2 × 2) whose fixtures with pan and tilt follow the point touched: left → right
   is pan, bottom → top is tilt, over the whole range – the pan/tilt limits of the patch still hold. It starts in the
   middle, keeps its point while off and switches like a gradient. Put it in a group with the moves so only one of them
-  points the heads (quick setup does).
+  points the heads (quick setup does). Double-tap the pad (or ⤢ on it) to open it large for finer
+  pointing.
 - Every field plays its compositions from the moment it goes on. Grand master and blackout work as always.
 
 ## Behaviour

@@ -7,6 +7,7 @@
     onchange,
     label = 'Position',
     limits = null,
+    digits = 0,
   }: {
     x: number;
     y: number;
@@ -14,6 +15,8 @@
     label?: string;
     /** the allowed range in the show, drawn as a frame; the pad itself is not limited */
     limits?: PositionLimits | null;
+    /** decimal places of the percentages shown below the pad */
+    digits?: number;
   } = $props();
 
   let pad: HTMLDivElement | undefined = $state();
@@ -67,7 +70,7 @@
     <span class="line v" style="left: {x * 100}%"></span>
     <span class="dot" style="left: {x * 100}%; top: {(1 - y) * 100}%"></span>
   </div>
-  <div class="values mono dim">Pan {Math.round(x * 100)}% · Tilt {Math.round(y * 100)}%</div>
+  <div class="values mono dim">Pan {(x * 100).toFixed(digits)}% · Tilt {(y * 100).toFixed(digits)}%</div>
 </div>
 
 <style>
