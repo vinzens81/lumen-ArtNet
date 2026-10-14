@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Lumen User Guide</title>
-<meta name="description" content="How to set up and run a theatre show with Lumen, the DMX/Art-Net lighting control in your browser.">
+<meta name="description" content="How to set up and run a theatre show with Lumen, the DMX lighting control (Art-Net and sACN) in your browser.">
 <style>
   :root {
     --bg: #0b0d12;
@@ -458,7 +458,7 @@
     <div class="group">Setup</div>
     <ol>
       <li><a href="#projects">Projects</a></li>
-      <li><a href="#universes">Universes &amp; Art-Net</a></li>
+      <li><a href="#universes">Universes, Art-Net &amp; sACN</a></li>
       <li><a href="#patch">Patch</a></li>
       <li><a href="#stage">Stage</a></li>
       <li><a href="#programmer">Programmer</a></li>
@@ -486,7 +486,7 @@
       <h1>Lumen user guide</h1>
       <p class="lead">Lumen is a lighting control for theatre that runs in your browser. You patch your fixtures, build
         scenes, write the script next to them – and during the performance you just press <strong>GO</strong>.
-        Lumen sends DMX over Art-Net to your nodes.</p>
+        Lumen sends DMX over Art-Net or sACN to your nodes.</p>
       <div class="buttons">
         <a class="button primary" href="#install">Get started</a>
         <a class="button" href="downloads/midsummer-demo.lumen.json" download>⇣ Demo project</a>
@@ -524,7 +524,7 @@
 cd lumen-ArtNet
 ./build.sh          # build with all tests (--fast skips them)
 ./run.sh            # start, then open http://127.0.0.1:8080
-./run.sh --test     # try-out mode: Art-Net off, separate database data/test.db</code></pre>
+./run.sh --test     # try-out mode: Art-Net and sACN off, separate database data/test.db</code></pre>
     <p>With <code>run.sh</code> the data lives in <code>data/</code> in the project folder.</p>
 
     <div class="callout" id="demo">
@@ -545,7 +545,7 @@ cd lumen-ArtNet
       <tr><th>Element</th><th>What it does</th></tr>
       <tr><td>Project selector</td><td>Switches the active project – the one that drives the light.</td></tr>
       <tr><td>Tabs</td><td>Projects · Universes · Patch · Programmer · Stage · Looks · Compositions · Moves · Scenes · Party · DMX · Settings. Only visible in setup mode.</td></tr>
-      <tr><td>Art-Net</td><td>Packets per second sent right now. Grey "Art-Net off" in try-out mode, yellow/red on send problems.</td></tr>
+      <tr><td>DMX</td><td>Art-Net and sACN packets per second sent right now. Grey "Output off" in try-out mode, yellow/red on send problems.</td></tr>
       <tr><td>Nodes</td><td>"Nodes 2/2" – how many expected Art-Net nodes answer. Red when one is missing; click for details.</td></tr>
       <tr><td>On stage</td><td>Appears while a look, composition, move or scene is shown on stage for trying out. <strong>Stop</strong> ends it.</td></tr>
       <tr><td>👁 View · 📜 Script</td><td>The <a href="#view">view-only pages</a> for phones and tablets.</td></tr>
@@ -589,24 +589,65 @@ cd lumen-ArtNet
     </ul>
 
     <!-- ───────────────────────────────────────────── -->
-    <h2 id="universes"><span class="num">05</span>Universes &amp; Art-Net</h2>
+    <h2 id="universes"><span class="num">05</span>Universes, Art-Net &amp; sACN</h2>
     <figure>
-      <img src="images/universes.jpg" width="1568" height="760" alt="Universes tab with universe 1 Stage in auto mode and the list of Art-Net nodes" loading="lazy">
-      <figcaption>Universe 1 in <strong>Auto</strong> mode. The hint says no node reports this universe yet.</figcaption>
+      <img src="images/universes.jpg" width="1568" height="683" alt="Universes tab with three universes: Stage by Art-Net in auto mode, Movers by sACN multicast, House lights by both protocols with sACN priority 120" loading="lazy">
+      <figcaption>Stage goes out by <strong>Art-Net</strong> (the hint says no node reports it yet), Movers by
+        <strong>sACN</strong> multicast, House lights by <strong>both</strong>.</figcaption>
     </figure>
-    <p>A universe carries 512 DMX channels. Create one per DMX line of your nodes and set its <strong>Art-Net
-      universe</strong> (net:subnet:universe) to match the node.</p>
+    <p>A universe carries 512 DMX channels. Create one per DMX line of your nodes and choose its
+      <strong>protocol</strong> – whatever your nodes and dimmers understand:</p>
+    <ul>
+      <li><strong>Art-Net</strong> (default) – most DIY and budget nodes, e.g. ESP-based dimmers.</li>
+      <li><strong>sACN</strong> (E1.31, streaming ACN) – common on professional nodes, dimmer racks and LED
+        fixtures with a network port.</li>
+      <li><strong>Both</strong> sends the universe twice, e.g. while part of the rig still uses Art-Net. Make sure
+        a device listens to only one of them.</li>
+    </ul>
+    <p>When you switch the protocol, the settings of the other one are kept – switching back restores them.</p>
+    <div class="pair">
+      <figure>
+        <img src="images/universe-artnet.jpg" width="485" height="830" alt="Edit universe dialog with protocol Art-Net: Art-Net universe 0, network all networks, send Art-Net to Auto" loading="lazy">
+        <figcaption>Art-Net: the port address and where the packets go.</figcaption>
+      </figure>
+      <figure>
+        <img src="images/universe-sacn.jpg" width="485" height="810" alt="Edit universe dialog with protocol sACN: sACN universe 2, priority 100, send sACN to multicast group 239.255.0.2" loading="lazy">
+        <figcaption>sACN: universe, priority and multicast or fixed IPs.</figcaption>
+      </figure>
+    </div>
+
+    <h3>Art-Net</h3>
+    <p>Set the <strong>Art-Net universe</strong> (net:subnet:universe) to match the node. Art-Net counts from 0.</p>
     <ul>
       <li><strong>Auto</strong> (default): Lumen asks the network every few seconds which nodes exist (ArtPoll) and
         sends each universe by unicast to exactly the nodes that report it. Usually you enter no IP at all.</li>
       <li><strong>Manual IPs</strong> for nodes that do not answer ArtPoll – they can be combined with Auto.</li>
       <li><strong>Broadcast</strong> sends to everybody. It works, but is unreliable over Wi-Fi.</li>
-      <li><strong>Network interface</strong>: with several networks (e.g. Wi-Fi and a USB Ethernet adapter) pick the
-        one the nodes are in.</li>
     </ul>
-    <p>Below the universes, Lumen lists every node it found with name, IP and the universes it reports. Once a node
-      has answered, Lumen <em>expects</em> it: if it disappears – even before the show starts – the header turns
+    <p>Below the universes, Lumen lists every Art-Net node it found with name, IP and the universes it reports. Once a
+      node has answered, Lumen <em>expects</em> it: if it disappears – even before the show starts – the header turns
       red and show mode shows a warning.</p>
+
+    <h3>sACN</h3>
+    <p>Set the <strong>sACN universe</strong> to the one your receiver listens on. sACN counts from 1; a new universe
+      suggests its number in Lumen.</p>
+    <ul>
+      <li><strong>Multicast</strong> (default): every receiver on the network that is set to this universe picks it
+        up – no IP addresses needed. Lumen sends to the multicast group of the universe, e.g.
+        <code>239.255.0.2</code> for universe 2.</li>
+      <li><strong>Fixed IPs</strong>: only to the addresses you enter – useful over Wi-Fi, where multicast is often
+        unreliable, or when a switch filters multicast.</li>
+      <li><strong>Priority</strong> (0–200, usually 100): a receiver that gets the same universe from several
+        consoles takes the one with the highest priority – e.g. 120 so Lumen wins over a backup desk.</li>
+    </ul>
+    <p>sACN has no node list: receivers do not report themselves like Art-Net nodes, so Lumen cannot warn when one is
+      missing. Lumen does announce its universes every 10 s (universe discovery, shown by tools such as sACNView) and
+      tells the receivers when it stops.</p>
+
+    <h3>Network</h3>
+    <p>With several networks (e.g. Wi-Fi and a USB Ethernet adapter) pick the <strong>network interface</strong> the
+      nodes are in – for both protocols. The universe then goes out only there, and not at all while the adapter is
+      unplugged. With "All networks", sACN multicast goes out on every network of the computer.</p>
 
     <!-- ───────────────────────────────────────────── -->
     <h2 id="patch"><span class="num">06</span>Patch</h2>
@@ -1024,9 +1065,13 @@ cd lumen-ArtNet
 
     <h3>The stage view glows but the real light stays dark</h3>
     <ul>
-      <li>Does the header say <strong>Art-Net off</strong>? Then Lumen runs in try-out mode (<code>run.sh --test</code>).</li>
-      <li>Open <strong>Universes</strong>: is your node listed, and does it report the same Art-Net universe? A yellow
-        hint under the universe tells you when no node receives it.</li>
+      <li>Does the header say <strong>Output off</strong>? Then Lumen runs in try-out mode (<code>run.sh --test</code>)
+        and sends neither Art-Net nor sACN.</li>
+      <li>Does the universe use the protocol your node speaks (Art-Net or sACN)?</li>
+      <li>Art-Net: open <strong>Universes</strong>: is your node listed, and does it report the same Art-Net universe?
+        A yellow hint under the universe tells you when no node receives it.</li>
+      <li>sACN: is the receiver set to the same sACN universe (counted from 1)? Over Wi-Fi, or if the switch filters
+        multicast, enter the receiver's IP under <strong>Fixed IPs</strong>.</li>
       <li>Nodes that do not answer ArtPoll need their IP entered on the universe.</li>
       <li>With several networks, pick the right <strong>network interface</strong> on the universe.</li>
       <li>Check the fixture's DMX address and mode against the patch, and that master is up and blackout is off.</li>
