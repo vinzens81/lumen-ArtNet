@@ -403,6 +403,18 @@ Concept: [MIDI.md](MIDI.md)
 **DoD:** GO, back, grand master and blackout work via the controller and the button LEDs show the state. In setup
 mode faders control group dimmers.
 
+## ⬜ Iteration I – DMX input from an external console 🎚️ (proposal, not decided)
+Concept: [DMX-INPUT.md](DMX-INPUT.md) – open questions there must be answered first
+- Input universes (Art-Net first) and an input patch: single attribute, fixture block, grand master
+- Takeover per target: only changes count; the console takes over by pickup (crossing the Lumen value) or by a
+  change above a threshold (configurable, default ±5), Lumen takes back at once when it sets something new; signal
+  loss gives everything back
+- "!" at overridden values, ArtPollReply so consoles find Lumen, input monitor, Flyway migration, project export
+- Later: learn, "mirror output patch", sACN input, group intensity and control channels shared with iteration M
+
+**DoD (step 1):** with QLC+ as a console, a dimmer is picked up at the scene value and overridden; the next GO that
+changes it brings the scene value back at once; the grand master works the same way.
+
 ## 🟨 Iteration 10 – backlog (as needed)
 - ✅ **Fade times per scene** (in, out, delay), see [PLAYBACK.md](PLAYBACK.md#fade-times-per-scene): the times apply
   to the GO into the scene, empty = project time. Flyway `V8`, travels with the project export. Scene editor with

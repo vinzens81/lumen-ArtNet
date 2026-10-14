@@ -42,6 +42,7 @@ and fade-in running in parallel.
 | [docs/UI.md](docs/UI.md) | Setup and show mode, look & feel |
 | [docs/LOOKS-COMPOSITIONS-SCENES.md](docs/LOOKS-COMPOSITIONS-SCENES.md) | Looks → compositions → scenes: the three levels of a show, generators for effects, mixing rules |
 | [docs/MIDI.md](docs/MIDI.md) | *Optional:* USB MIDI controller with faders & buttons, MIDI learn, LED feedback |
+| [docs/DMX-INPUT.md](docs/DMX-INPUT.md) | *Proposal:* DMX input from an external console via an input patch |
 | [docs/PARTY-MODE.md](docs/PARTY-MODE.md) | Party mode: live control from a matrix of fields |
 | [docs/MOVEMENT.md](docs/MOVEMENT.md) | Moves – drawn figures for pan/tilt fixtures, size, shift, offset |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Iterative steps with a definition of done |
