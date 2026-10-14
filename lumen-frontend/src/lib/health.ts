@@ -15,11 +15,13 @@ export function outputIndicator(health: OutputHealth | null, connected: boolean)
     return { tone: 'off', label: 'Output ?', details: 'No connection to the server – the light keeps running' };
   }
   const rates = `Render loop ${health.renderRateHz.toFixed(0)}/${health.targetRateHz} fps`;
-  const packets = health.artNetActive ? `Art-Net ${formatRate(health.packetsPerSecond)} packets/s` : 'Art-Net output off';
+  // artNetActive: Art-Net or sACN output is on
+  const packets = health.artNetActive ? `${formatRate(health.packetsPerSecond)} DMX packets/s (Art-Net and sACN)`
+    : 'Art-Net and sACN output off';
   const details = [...health.problems, rates, packets].join('\n');
   if (health.level === 'error') return { tone: 'error', label: 'Output error', details };
-  if (!health.artNetActive) return { tone: health.level === 'ok' ? 'off' : 'warning', label: 'Art-Net off', details };
-  const label = `Art-Net ${formatRate(health.packetsPerSecond)}/s`;
+  if (!health.artNetActive) return { tone: health.level === 'ok' ? 'off' : 'warning', label: 'Output off', details };
+  const label = `DMX ${formatRate(health.packetsPerSecond)}/s`;
   return { tone: health.level === 'warning' ? 'warning' : 'ok', label, details };
 }
 

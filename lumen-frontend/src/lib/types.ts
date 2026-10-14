@@ -97,6 +97,18 @@ export interface ArtNet {
 /** auto: nodes found via ArtPoll (+ manual IPs) · unicast: only manual IPs · broadcast: everybody */
 export type DeliveryMode = 'auto' | 'unicast' | 'broadcast';
 
+/** how a universe goes out; Art-Net and sACN settings are kept either way */
+export type OutputProtocol = 'artnet' | 'sacn' | 'both';
+
+export interface Sacn {
+  /** 1–63999, sACN counts from 1 */
+  universe: number;
+  /** 0–200, receivers take the source with the highest priority */
+  priority: number;
+  /** manual receivers; none = multicast */
+  ipAddresses: string[];
+}
+
 export interface Universe {
   id: number;
   number: number;
@@ -108,6 +120,8 @@ export interface Universe {
   ipAddresses: string[];
   /** interface the packets go out on, e.g. "en7"; null = all networks */
   networkInterface: string | null;
+  protocol: OutputProtocol;
+  sacn: Sacn;
 }
 
 export interface UniverseRequest {
@@ -117,6 +131,8 @@ export interface UniverseRequest {
   mode: DeliveryMode;
   ipAddresses: string[];
   networkInterface: string | null;
+  protocol: OutputProtocol;
+  sacn: Sacn;
 }
 
 /** An IPv4 network of an interface of the computer Lumen runs on. */
@@ -444,6 +460,7 @@ export interface OutputHealth {
   renderErrors: number;
   lastRenderError: string | null;
   watchdogRestarts: number;
+  /** Art-Net or sACN output is on (name kept for the API) */
   artNetActive: boolean;
   packetsPerSecond: number;
   sendErrorsPerSecond: number;

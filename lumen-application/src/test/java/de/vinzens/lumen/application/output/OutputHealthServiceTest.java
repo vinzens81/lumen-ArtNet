@@ -62,7 +62,7 @@ class OutputHealthServiceTest {
 		nanos += TimeUnit.MILLISECONDS.toNanos(300);
 		health.sample();
 		assertThat(health.health().level()).isEqualTo(Level.WARNING);
-		assertThat(health.health().problems()).anyMatch(p -> p.contains("No Art-Net packets"));
+		assertThat(health.health().problems()).anyMatch(p -> p.contains("No DMX packets"));
 
 		output.errors = 3;
 		nanos += TimeUnit.MILLISECONDS.toNanos(300);

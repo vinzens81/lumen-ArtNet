@@ -24,6 +24,7 @@ public final class PatchValidator {
 			Function<String, Optional<FixtureType>> library) {
 		var issues = new ArrayList<PatchIssue>();
 		issues.addAll(duplicatePortAddresses(universes));
+		issues.addAll(duplicateSacnUniverses(universes));
 
 		var universesById = new HashMap<Long, Universe>();
 		universes.forEach(u -> universesById.put(u.id(), u));
@@ -93,11 +94,31 @@ public final class PatchValidator {
 		var issues = new ArrayList<PatchIssue>();
 		Map<Integer, Universe> byPortAddress = new HashMap<>();
 		for (var universe : universes) {
+			if (!universe.spec().protocol().sendsArtNet()) {
+				continue;
+			}
 			var artNet = universe.spec().artNet();
 			var existing = byPortAddress.putIfAbsent(artNet.portAddress(), universe);
 			if (existing != null) {
 				issues.add(PatchIssue.universeWarning(existing.displayName() + " and " + universe.displayName()
 						+ " both send to Art-Net " + artNet, existing.id(), universe.id()));
+			}
+		}
+		return issues;
+	}
+
+	private static List<PatchIssue> duplicateSacnUniverses(List<Universe> universes) {
+		var issues = new ArrayList<PatchIssue>();
+		Map<Integer, Universe> bySacnUniverse = new HashMap<>();
+		for (var universe : universes) {
+			if (!universe.spec().protocol().sendsSacn()) {
+				continue;
+			}
+			var number = universe.spec().sacn().universe();
+			var existing = bySacnUniverse.putIfAbsent(number, universe);
+			if (existing != null) {
+				issues.add(PatchIssue.universeWarning(existing.displayName() + " and " + universe.displayName()
+						+ " both send to sACN universe " + number, existing.id(), universe.id()));
 			}
 		}
 		return issues;

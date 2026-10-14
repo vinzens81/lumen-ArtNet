@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Starts Lumen from the built JAR; the UI is then at http://127.0.0.1:8080
 #
-#   ./run.sh                  normal start: project data in data/lumen.db, Art-Net output on
-#   ./run.sh --test           safe try-out: Art-Net off (no DMX to real devices), own database
+#   ./run.sh                  normal start: project data in data/lumen.db, Art-Net and sACN output on
+#   ./run.sh --test           safe try-out: Art-Net and sACN off (no DMX to real devices), own database
 #                             data/test.db, backups in data/test-backups/
 #   ./run.sh --build          build first (without tests), then start
 #   ./run.sh -- <options>     everything after -- goes to Lumen, e.g. -- --server.port=8099
@@ -53,10 +53,10 @@ fi
 
 java_args=()
 if $test_mode; then
-	echo "▶ Starting Lumen in test mode: Art-Net off, database data/test.db"
-	java_args+=(--lumen.artnet.enabled=false --lumen.database-file=data/test.db --lumen.backup.dir=data/test-backups)
+	echo "▶ Starting Lumen in test mode: Art-Net and sACN off, database data/test.db"
+	java_args+=(--lumen.artnet.enabled=false --lumen.sacn.enabled=false --lumen.database-file=data/test.db --lumen.backup.dir=data/test-backups)
 else
-	echo "▶ Starting Lumen: database data/lumen.db, Art-Net output on"
+	echo "▶ Starting Lumen: database data/lumen.db, Art-Net and sACN output on"
 fi
 echo "  UI: http://127.0.0.1:$port   (stop with Ctrl+C)"
 

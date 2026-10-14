@@ -23,6 +23,7 @@ public record LumenProperties(
 		@DefaultValue("data/lumen.db") String databaseFile,
 		@DefaultValue Output output,
 		@DefaultValue ArtNet artnet,
+		@DefaultValue Sacn sacn,
 		@DefaultValue Backup backup,
 		@DefaultValue("false") boolean networkAccess) {
 
@@ -69,5 +70,20 @@ public record LumenProperties(
 			@DefaultValue("255.255.255.255") String broadcastAddress,
 			@DefaultValue("6454") int listenPort,
 			@DefaultValue("3s") Duration pollInterval) {
+	}
+
+	/**
+	 * @param enabled     send sACN (E1.31) for the universes set to sACN (disabled in tests)
+	 * @param bindAddress local address to send from
+	 * @param port        destination UDP port of receivers
+	 * @param sourceName  name receivers and consoles show for Lumen
+	 * @param cid         identifies Lumen as a source; empty = derived from the computer's name, so it stays the same
+	 */
+	public record Sacn(
+			@DefaultValue("true") boolean enabled,
+			@DefaultValue("0.0.0.0") String bindAddress,
+			@DefaultValue("5568") int port,
+			@DefaultValue("Lumen") String sourceName,
+			@DefaultValue("") String cid) {
 	}
 }

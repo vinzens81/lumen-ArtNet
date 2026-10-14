@@ -4,6 +4,8 @@ import de.vinzens.lumen.adapter.artnet.ArtNetDiscovery;
 import de.vinzens.lumen.adapter.artnet.ArtNetDmxOutput;
 import de.vinzens.lumen.adapter.artnet.ArtNetSettings;
 import de.vinzens.lumen.adapter.artnet.SystemNetworks;
+import de.vinzens.lumen.adapter.sacn.SacnDmxOutput;
+import de.vinzens.lumen.adapter.sacn.SacnSettings;
 import de.vinzens.lumen.adapter.sqlite.SqliteRepositories;
 import de.vinzens.lumen.application.composition.CompositionPreviewService;
 import de.vinzens.lumen.application.composition.CompositionResolver;
@@ -11,6 +13,7 @@ import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
 import de.vinzens.lumen.application.library.port.in.QueryFixtureLibraryUseCase;
 import de.vinzens.lumen.application.output.ArtNetNodeService;
+import de.vinzens.lumen.application.output.CombinedDmxOutput;
 import de.vinzens.lumen.application.output.NodeWatchService;
 import de.vinzens.lumen.application.output.OperatingModeKeeper;
 import de.vinzens.lumen.application.output.OutputHealthService;
@@ -27,7 +30,12 @@ import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
+import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -68,15 +76,46 @@ class OutputConfiguration {
 	}
 
 	@Bean
+	SacnSettings sacnSettings(LumenProperties properties) {
+		var sacn = properties.sacn();
+		return new SacnSettings(sacn.bindAddress(), sacn.port(), sacn.sourceName(), sacnCid(sacn.cid()));
+	}
+
+	/** Each output sends only the universes set to its protocol. */
+	@Bean
 	DmxOutputPort dmxOutput(LumenProperties properties, ArtNetSettings settings, ArtNetNodeDirectory directory,
-			LocalNetworks networks, Clock clock) {
-		if (!properties.artnet().enabled()) {
+			LocalNetworks networks, Clock clock, SacnSettings sacnSettings) {
+		DmxOutputPort artNet = DmxOutputPort.NONE;
+		if (properties.artnet().enabled()) {
+			log.info("Art-Net output from {} to port {}, broadcast address {}", settings.bindAddress(),
+					settings.port(), settings.broadcastAddress());
+			artNet = new ArtNetDmxOutput(settings, directory, networks, clock);
+		} else {
 			log.info("Art-Net output is disabled");
-			return DmxOutputPort.NONE;
 		}
-		log.info("Art-Net output from {} to port {}, broadcast address {}", settings.bindAddress(), settings.port(),
-				settings.broadcastAddress());
-		return new ArtNetDmxOutput(settings, directory, networks, clock);
+		DmxOutputPort sacn = DmxOutputPort.NONE;
+		if (properties.sacn().enabled()) {
+			log.info("sACN output from {} to port {} as \"{}\" (CID {})", sacnSettings.bindAddress(),
+					sacnSettings.port(), sacnSettings.sourceName(), sacnSettings.cid());
+			sacn = new SacnDmxOutput(sacnSettings, networks, clock);
+		} else {
+			log.info("sACN output is disabled");
+		}
+		return CombinedDmxOutput.of(List.of(artNet, sacn));
+	}
+
+	/** The configured CID, else one derived from the computer's name: the same after every restart. */
+	private static UUID sacnCid(String configured) {
+		if (!configured.isBlank()) {
+			return UUID.fromString(configured.strip());
+		}
+		String host;
+		try {
+			host = InetAddress.getLocalHost().getHostName();
+		} catch (UnknownHostException e) {
+			host = "localhost";
+		}
+		return UUID.nameUUIDFromBytes(("lumen-sacn:" + host).getBytes(StandardCharsets.UTF_8));
 	}
 
 	@Bean

@@ -81,6 +81,31 @@ class ProjectPatchApiTest {
 	}
 
 	@Test
+	void universeCanGoOutBySacn() throws Exception {
+		var project = createProject("sACN");
+
+		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 3}")).hasStatus(201).bodyJson()
+				.satisfies(json -> {
+					assertThat(json).extractingPath("$.protocol").isEqualTo("artnet");
+					assertThat(json).extractingPath("$.sacn.universe").isEqualTo(3);
+					assertThat(json).extractingPath("$.sacn.priority").isEqualTo(100);
+					assertThat(json).extractingPath("$.sacn.ipAddresses").asArray().isEmpty();
+				});
+		assertThat(post("/api/projects/" + project + "/universes", "{\"number\": 4, \"protocol\": \"sacn\", "
+				+ "\"sacn\": {\"universe\": 400, \"priority\": 150, \"ipAddresses\": [\"10.0.0.9\"]}}"))
+				.hasStatus(201).bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.protocol").isEqualTo("sacn");
+					assertThat(json).extractingPath("$.sacn.universe").isEqualTo(400);
+					assertThat(json).extractingPath("$.sacn.priority").isEqualTo(150);
+					assertThat(json).extractingPath("$.sacn.ipAddresses[0]").isEqualTo("10.0.0.9");
+				});
+		assertThat(post("/api/projects/" + project + "/universes",
+				"{\"number\": 5, \"protocol\": \"dmx\"}")).hasStatus(400);
+		assertThat(post("/api/projects/" + project + "/universes",
+				"{\"number\": 6, \"protocol\": \"both\", \"sacn\": {\"universe\": 0}}")).hasStatus(400);
+	}
+
+	@Test
 	void universeCanBeBoundToANetworkInterface() throws Exception {
 		var project = createProject("Interfaces");
 

@@ -5,17 +5,21 @@
   import { navigate } from '../lib/router.svelte';
   import { app } from '../lib/state.svelte';
   import { notify, showError } from '../lib/toasts.svelte';
-  import { interfaceMissing, networkLabel, receiversOf } from '../lib/networks';
-  import type { ArtNetNode, DeliveryMode, LocalNetwork, Universe } from '../lib/types';
+  import { interfaceMissing, networkLabel, receiversOf, sacnMulticastAddress, sendsArtNet, sendsSacn } from '../lib/networks';
+  import type { ArtNetNode, DeliveryMode, LocalNetwork, OutputProtocol, Universe } from '../lib/types';
 
   let universes = $state<Universe[]>([]);
   let nodes = $state<ArtNetNode[]>([]);
   let networks = $state<LocalNetwork[]>([]);
   let editing = $state<Universe | null>(null);
   let formOpen = $state(false);
-  // networkInterface '' = all networks
-  let form = $state({ number: 1, name: '', port: 0, mode: 'auto' as DeliveryMode, ips: '', networkInterface: '' });
+  // networkInterface '' = all networks; sacnIps '' = multicast
+  let form = $state({
+    number: 1, name: '', port: 0, mode: 'auto' as DeliveryMode, ips: '', networkInterface: '',
+    protocol: 'artnet' as OutputProtocol, sacnUniverse: 1, sacnPriority: 100, sacnMulticast: true, sacnIps: '',
+  });
   let portTouched = $state(false);
+  let sacnTouched = $state(false);
   let showAdvanced = $state(false);
 
   const project = $derived(app.active);
@@ -27,7 +31,10 @@
       (n) => n.portAddresses.includes(form.port) && (!form.networkInterface || n.networkInterface === form.networkInterface),
     ),
   );
-  const usedBy = $derived(universes.find((u) => u.portAddress === form.port && u.id !== editing?.id));
+  const usedBy = $derived(sendsArtNet(form.protocol) ? universes.find((u) => u.id !== editing?.id
+    && sendsArtNet(u.protocol) && u.portAddress === form.port) : undefined);
+  const sacnUsedBy = $derived(sendsSacn(form.protocol) ? universes.find((u) => u.id !== editing?.id
+    && sendsSacn(u.protocol) && u.sacn.universe === form.sacnUniverse) : undefined);
 
   function setPart(part: 'net' | 'subnet' | 'universe', value: number) {
     const next = { ...parts, [part]: Math.max(0, Math.min(part === 'net' ? 127 : 15, value || 0)) };
@@ -35,9 +42,12 @@
     portTouched = true;
   }
 
-  // suggest port address = number - 1 for new universes until the user picks one
+  // suggest port address = number - 1 and sACN universe = number for new universes until the user picks one
   $effect(() => {
     if (!editing && !portTouched) form.port = Math.max(0, (form.number || 1) - 1);
+  });
+  $effect(() => {
+    if (!editing && !sacnTouched) form.sacnUniverse = Math.min(63999, Math.max(1, form.number || 1));
   });
   const projectPorts = $derived(new Set(universes.map((u) => u.portAddress)));
 
@@ -71,8 +81,14 @@
     const number = Math.max(0, ...universes.map((u) => u.number)) + 1;
     editing = null;
     portTouched = false;
+    sacnTouched = false;
     showAdvanced = false;
-    form = { number, name: '', port: number - 1, mode: 'auto', ips: '', networkInterface: '' };
+    // a new universe goes out like the last one: most rigs use one protocol
+    const protocol = universes.at(-1)?.protocol ?? 'artnet';
+    form = {
+      number, name: '', port: number - 1, mode: 'auto', ips: '', networkInterface: '', protocol,
+      sacnUniverse: Math.min(63999, number), sacnPriority: 100, sacnMulticast: true, sacnIps: '',
+    };
     formOpen = true;
     loadNodes(); // an adapter may have been plugged in since
   }
@@ -80,6 +96,7 @@
   function openEdit(universe: Universe) {
     editing = universe;
     portTouched = true;
+    sacnTouched = true;
     showAdvanced = false;
     form = {
       number: universe.number,
@@ -88,6 +105,11 @@
       mode: universe.mode,
       ips: universe.ipAddresses.join(', '),
       networkInterface: universe.networkInterface ?? '',
+      protocol: universe.protocol,
+      sacnUniverse: universe.sacn.universe,
+      sacnPriority: universe.sacn.priority,
+      sacnMulticast: universe.sacn.ipAddresses.length === 0,
+      sacnIps: universe.sacn.ipAddresses.join(', '),
     };
     formOpen = true;
     loadNodes();
@@ -99,9 +121,16 @@
       number: form.number,
       name: form.name || null,
       artnet: parts,
-      mode: form.mode,
-      ipAddresses: form.mode === 'broadcast' ? [] : form.ips.split(/[\s,;]+/).filter(Boolean),
+      // fixed IPs without any address only matter while Art-Net is sent
+      mode: !sendsArtNet(form.protocol) && form.mode === 'unicast' && splitIps(form.ips).length === 0 ? 'auto' : form.mode,
+      ipAddresses: form.mode === 'broadcast' ? [] : splitIps(form.ips),
       networkInterface: form.networkInterface || null,
+      protocol: form.protocol,
+      sacn: {
+        universe: form.sacnUniverse,
+        priority: form.sacnPriority,
+        ipAddresses: form.sacnMulticast ? [] : splitIps(form.sacnIps),
+      },
     };
     try {
       if (editing) {
@@ -134,8 +163,12 @@
     return universe ? `Art-Net ${port} → ${universe.name ?? `Universe ${universe.number}`}` : `Art-Net ${port} – not in project`;
   }
 
+  function splitIps(text: string): string[] {
+    return text.split(/[\s,;]+/).filter(Boolean);
+  }
+
   function addIp(ip: string) {
-    const ips = form.ips.split(/[\s,;]+/).filter(Boolean);
+    const ips = splitIps(form.ips);
     if (!ips.includes(ip)) form.ips = [...ips, ip].join(', ');
   }
 
@@ -170,29 +203,54 @@
         {#each universes as universe (universe.id)}
           {@const found = receiversOf(universe, nodes)}
           {@const missing = interfaceMissing(universe, networks)}
-          {@const silent = missing || (universe.mode === 'auto' && found.length === 0 && universe.ipAddresses.length === 0)}
+          {@const artNet = sendsArtNet(universe.protocol)}
+          {@const sacn = sendsSacn(universe.protocol)}
+          {@const silent = missing || (artNet && !sacn && universe.mode === 'auto' && found.length === 0
+            && universe.ipAddresses.length === 0)}
           <article class="card glass" class:silent>
             <div class="number mono">{universe.number}</div>
             <div class="info">
               <h2>{universe.name ?? `Universe ${universe.number}`}</h2>
-              <div class="address">
-                <span class="label">Art-Net universe</span>
-                <span class="port mono">{universe.portAddress}</span>
-                <span class="dim mono small" title="Net : Subnet : Universe">{universe.artnet.net}:{universe.artnet.subnet}:{universe.artnet.universe}</span>
-              </div>
+              {#if artNet}
+                <div class="address">
+                  <span class="label">Art-Net universe</span>
+                  <span class="port mono">{universe.portAddress}</span>
+                  <span class="dim mono small" title="Net : Subnet : Universe">{universe.artnet.net}:{universe.artnet.subnet}:{universe.artnet.universe}</span>
+                </div>
+              {/if}
+              {#if sacn}
+                <div class="address">
+                  <span class="label">sACN universe</span>
+                  <span class="port mono">{universe.sacn.universe}</span>
+                  {#if universe.sacn.priority !== 100}
+                    <span class="dim mono small" title="Receivers take the source with the highest priority">priority {universe.sacn.priority}</span>
+                  {/if}
+                </div>
+              {/if}
               <div class="meta wrap">
                 {#if universe.networkInterface}
                   <span class="badge mono interface" class:warning={missing} title="Sent only on this network interface">⌁ {universe.networkInterface}</span>
                 {/if}
-                {#if universe.mode === 'broadcast'}
-                  <span class="badge warning" title="Every device on the network receives this universe">Broadcast</span>
+                {#if sacn}
+                  {#if universe.sacn.ipAddresses.length === 0}
+                    <span class="badge accent" title="sACN multicast group {sacnMulticastAddress(universe.sacn.universe)}">sACN multicast</span>
+                  {:else}
+                    {#each universe.sacn.ipAddresses as ip (ip)}
+                      <span class="badge mono" title="sACN unicast">sACN {ip}</span>
+                    {/each}
+                  {/if}
+                {/if}
+                {#if !artNet}
+                  <!-- no Art-Net targets -->
+                {:else if universe.mode === 'broadcast'}
+                  <span class="badge warning" title="Every device on the network receives this universe">{sacn ? 'Art-Net broadcast' : 'Broadcast'}</span>
                 {:else}
-                  {#if universe.mode === 'auto'}<span class="badge accent">Auto</span>{/if}
+                  {#if universe.mode === 'auto'}<span class="badge accent">{sacn ? 'Art-Net auto' : 'Auto'}</span>{/if}
                   {#each found as node (node.ipAddress + node.bindIndex)}
                     <span class="badge node" title={node.ipAddress}><span class="dot"></span>{node.shortName || node.ipAddress}</span>
                   {/each}
                   {#each universe.ipAddresses as ip (ip)}
-                    <span class="badge mono">{ip}</span>
+                    <span class="badge mono">{sacn ? `Art-Net ${ip}` : ip}</span>
                   {/each}
                 {/if}
               </div>
@@ -252,7 +310,9 @@
   {/if}
 
   <p class="dim help">
-    Each universe carries 512 DMX channels. By default it goes by unicast to every Art-Net node that reports it.
+    Each universe carries 512 DMX channels and goes out by Art-Net, by sACN (E1.31) or both. By Art-Net it goes by
+    default by unicast to every node that reports it; by sACN by multicast, which every receiver set to that universe
+    picks up.
   </p>
 </section>
 
@@ -264,32 +324,82 @@
     </div>
     <p class="field"><span class="hint">Only used inside Lumen (patch, scenes) – it is not sent to any device.</span></p>
 
-    <div class="artnet-box">
-      <label class="field">Art-Net universe (port address)
-        <input class="port-input mono" type="number" min="0" max="32767" bind:value={form.port}
-          oninput={() => (portTouched = true)} required />
-      </label>
-      <p class="field"><span class="hint">This number is sent in every packet. Set the same number as “Universe” on your node. Art-Net counts from 0.</span></p>
-      {#if listening.length > 0}
-        <p class="listen ok">✔ {listening.map((n) => `${n.shortName || n.ipAddress} (${n.ipAddress})`).join(', ')} {listening.length === 1 ? 'listens' : 'listen'} on {form.port}</p>
-      {:else if nodes.length > 0}
-        <p class="listen">No node found on {form.port} yet – found nodes listen on {[...new Set(nodes.flatMap((n) => n.portAddresses))].join(', ')}.</p>
-      {/if}
-      {#if usedBy}
-        <p class="listen warn-text">Universe {usedBy.number} already sends on {form.port}.</p>
-      {/if}
-      <button type="button" class="link" onclick={() => (showAdvanced = !showAdvanced)} aria-expanded={showAdvanced}>
-        {showAdvanced ? '▾' : '▸'} Net / Subnet / Universe <span class="mono">{parts.net}:{parts.subnet}:{parts.universe}</span>
-      </button>
-      {#if showAdvanced}
+    <fieldset class="protocols">
+      <legend class="field">Protocol</legend>
+      {#each [['artnet', 'Art-Net'], ['sacn', 'sACN'], ['both', 'Both']] as [value, text] (value)}
+        <label class:active={form.protocol === value}>
+          <input type="radio" bind:group={form.protocol} {value} />{text}
+        </label>
+      {/each}
+    </fieldset>
+    <p class="field"><span class="hint">Use what your nodes and dimmers understand. “Both” sends the universe twice, e.g.
+      while some devices still use Art-Net.</span></p>
+
+    {#if sendsSacn(form.protocol)}
+      <div class="artnet-box">
         <div class="row">
-          <label class="field">Net<input type="number" min="0" max="127" value={parts.net} oninput={(e) => setPart('net', Number(e.currentTarget.value))} /></label>
-          <label class="field">Subnet<input type="number" min="0" max="15" value={parts.subnet} oninput={(e) => setPart('subnet', Number(e.currentTarget.value))} /></label>
-          <label class="field">Universe<input type="number" min="0" max="15" value={parts.universe} oninput={(e) => setPart('universe', Number(e.currentTarget.value))} /></label>
+          <label class="field">sACN universe
+            <input class="port-input mono" type="number" min="1" max="63999" bind:value={form.sacnUniverse}
+              oninput={() => (sacnTouched = true)} required />
+          </label>
+          <label class="field priority-field">Priority
+            <input type="number" min="0" max="200" bind:value={form.sacnPriority} required />
+          </label>
         </div>
-        <p class="field"><span class="hint">Some consoles and nodes show the address in three parts: port address = Net × 256 + Subnet × 16 + Universe.</span></p>
-      {/if}
-    </div>
+        <p class="field"><span class="hint">Set the same universe on your receiver; sACN counts from 1. Receivers that get
+          the universe from several consoles take the highest priority (100 is the usual).</span></p>
+        {#if sacnUsedBy}
+          <p class="listen warn-text">Universe {sacnUsedBy.number} already sends sACN universe {form.sacnUniverse}.</p>
+        {/if}
+        <fieldset class="modes">
+          <legend class="field">Send sACN to</legend>
+          <label class:active={form.sacnMulticast}>
+            <input type="radio" bind:group={form.sacnMulticast} value={true} />
+            <span><strong>Multicast</strong> <span class="dim">– every receiver on the network that is set to this
+              universe (recommended), group <span class="mono">{sacnMulticastAddress(form.sacnUniverse || 1)}</span></span></span>
+          </label>
+          <label class:active={!form.sacnMulticast}>
+            <input type="radio" bind:group={form.sacnMulticast} value={false} />
+            <span><strong>Fixed IPs</strong> <span class="dim">– only the addresses below, e.g. over Wi-Fi where
+              multicast is unreliable</span></span>
+          </label>
+        </fieldset>
+        {#if !form.sacnMulticast}
+          <label class="field">sACN IP addresses
+            <input bind:value={form.sacnIps} placeholder="192.168.1.60" required />
+          </label>
+        {/if}
+      </div>
+    {/if}
+
+    {#if sendsArtNet(form.protocol)}
+      <div class="artnet-box">
+        <label class="field">Art-Net universe (port address)
+          <input class="port-input mono" type="number" min="0" max="32767" bind:value={form.port}
+            oninput={() => (portTouched = true)} required />
+        </label>
+        <p class="field"><span class="hint">This number is sent in every packet. Set the same number as “Universe” on your node. Art-Net counts from 0.</span></p>
+        {#if listening.length > 0}
+          <p class="listen ok">✔ {listening.map((n) => `${n.shortName || n.ipAddress} (${n.ipAddress})`).join(', ')} {listening.length === 1 ? 'listens' : 'listen'} on {form.port}</p>
+        {:else if nodes.length > 0}
+          <p class="listen">No node found on {form.port} yet – found nodes listen on {[...new Set(nodes.flatMap((n) => n.portAddresses))].join(', ')}.</p>
+        {/if}
+        {#if usedBy}
+          <p class="listen warn-text">Universe {usedBy.number} already sends on {form.port}.</p>
+        {/if}
+        <button type="button" class="link" onclick={() => (showAdvanced = !showAdvanced)} aria-expanded={showAdvanced}>
+          {showAdvanced ? '▾' : '▸'} Net / Subnet / Universe <span class="mono">{parts.net}:{parts.subnet}:{parts.universe}</span>
+        </button>
+        {#if showAdvanced}
+          <div class="row">
+            <label class="field">Net<input type="number" min="0" max="127" value={parts.net} oninput={(e) => setPart('net', Number(e.currentTarget.value))} /></label>
+            <label class="field">Subnet<input type="number" min="0" max="15" value={parts.subnet} oninput={(e) => setPart('subnet', Number(e.currentTarget.value))} /></label>
+            <label class="field">Universe<input type="number" min="0" max="15" value={parts.universe} oninput={(e) => setPart('universe', Number(e.currentTarget.value))} /></label>
+          </div>
+          <p class="field"><span class="hint">Some consoles and nodes show the address in three parts: port address = Net × 256 + Subnet × 16 + Universe.</span></p>
+        {/if}
+      </div>
+    {/if}
 
     <label class="field">Network
       <select bind:value={form.networkInterface}>
@@ -307,32 +417,34 @@
       </span>
     </label>
 
-    <fieldset class="modes">
-      <legend class="field">Send to</legend>
-      <label class:active={form.mode === 'auto'}>
-        <input type="radio" bind:group={form.mode} value="auto" />
-        <span><strong>Auto</strong> <span class="dim">– nodes found on the network that output this universe (recommended)</span></span>
-      </label>
-      <label class:active={form.mode === 'unicast'}>
-        <input type="radio" bind:group={form.mode} value="unicast" />
-        <span><strong>Fixed IPs</strong> <span class="dim">– only the addresses below</span></span>
-      </label>
-      <label class:active={form.mode === 'broadcast'}>
-        <input type="radio" bind:group={form.mode} value="broadcast" />
-        <span><strong>Broadcast</strong> <span class="dim">– everybody; unreliable over Wi-Fi</span></span>
-      </label>
-    </fieldset>
+    {#if sendsArtNet(form.protocol)}
+      <fieldset class="modes">
+        <legend class="field">Send Art-Net to</legend>
+        <label class:active={form.mode === 'auto'}>
+          <input type="radio" bind:group={form.mode} value="auto" />
+          <span><strong>Auto</strong> <span class="dim">– nodes found on the network that output this universe (recommended)</span></span>
+        </label>
+        <label class:active={form.mode === 'unicast'}>
+          <input type="radio" bind:group={form.mode} value="unicast" />
+          <span><strong>Fixed IPs</strong> <span class="dim">– only the addresses below</span></span>
+        </label>
+        <label class:active={form.mode === 'broadcast'}>
+          <input type="radio" bind:group={form.mode} value="broadcast" />
+          <span><strong>Broadcast</strong> <span class="dim">– everybody; unreliable over Wi-Fi</span></span>
+        </label>
+      </fieldset>
 
-    {#if form.mode !== 'broadcast'}
-      <label class="field">{form.mode === 'auto' ? 'Additional IP addresses (optional)' : 'IP addresses'}
-        <input bind:value={form.ips} placeholder="192.168.1.50, 192.168.1.51" required={form.mode === 'unicast'} />
-      </label>
-      {#if nodes.length > 0}
-        <div class="suggest">
-          {#each nodes as node (node.ipAddress + node.bindIndex)}
-            <button type="button" class="btn small" onclick={() => addIp(node.ipAddress)}>+ {node.shortName || node.ipAddress}</button>
-          {/each}
-        </div>
+      {#if form.mode !== 'broadcast'}
+        <label class="field">{form.mode === 'auto' ? 'Additional IP addresses (optional)' : 'IP addresses'}
+          <input bind:value={form.ips} placeholder="192.168.1.50, 192.168.1.51" required={form.mode === 'unicast'} />
+        </label>
+        {#if nodes.length > 0}
+          <div class="suggest">
+            {#each nodes as node (node.ipAddress + node.bindIndex)}
+              <button type="button" class="btn small" onclick={() => addIp(node.ipAddress)}>+ {node.shortName || node.ipAddress}</button>
+            {/each}
+          </div>
+        {/if}
       {/if}
     {/if}
   </form>
@@ -411,6 +523,41 @@
     flex: 0 0 140px;
   }
 
+  .priority-field {
+    flex: 0 0 110px;
+  }
+
+  .protocols {
+    display: flex;
+    gap: 6px;
+    margin: 0;
+    padding: 0;
+    border: 0;
+  }
+
+  .protocols legend {
+    margin-bottom: 8px;
+  }
+
+  .protocols label {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .protocols label.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
   .artnet-box {
     display: flex;
     flex-direction: column;
@@ -459,6 +606,10 @@
     display: flex;
     align-items: baseline;
     gap: 8px;
+  }
+
+  .address > span {
+    white-space: nowrap;
   }
 
   .address .label {

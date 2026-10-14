@@ -6,10 +6,12 @@ import de.vinzens.lumen.domain.project.ArtNetTarget;
 import de.vinzens.lumen.domain.project.FixtureSpec;
 import de.vinzens.lumen.domain.project.Group;
 import de.vinzens.lumen.domain.project.GroupSpec;
+import de.vinzens.lumen.domain.project.OutputProtocol;
 import de.vinzens.lumen.domain.project.PatchIssue;
 import de.vinzens.lumen.domain.project.PatchedFixture;
 import de.vinzens.lumen.domain.project.Position;
 import de.vinzens.lumen.domain.project.PositionLimits;
+import de.vinzens.lumen.domain.project.SacnOutput;
 import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Universe;
 import de.vinzens.lumen.domain.project.UniverseSpec;
@@ -30,15 +32,36 @@ final class PatchDtos {
 	}
 
 	/**
+	 * @param universe    sACN universe 1–63999, missing = the number in Lumen
+	 * @param priority    0–200, missing = 100
+	 * @param ipAddresses manual receivers; none = multicast
+	 */
+	record SacnDto(Integer universe, Integer priority, List<String> ipAddresses) {
+
+		static SacnDto from(SacnOutput sacn) {
+			return new SacnDto(sacn.universe(), sacn.priority(), sacn.ipAddresses());
+		}
+
+		SacnOutput toOutput(int number) {
+			var defaults = SacnOutput.forUniverse(Math.max(number, 1));
+			return new SacnOutput(Objects.requireNonNullElse(universe, defaults.universe()),
+					Objects.requireNonNullElse(priority, defaults.priority()),
+					Objects.requireNonNullElse(ipAddresses, List.of()));
+		}
+	}
+
+	/**
 	 * Without {@code artnet}, port address {@code number - 1} is used.
 	 *
 	 * @param mode        {@code auto} (default: nodes found via ArtPoll plus {@code ipAddresses}),
 	 *                    {@code unicast} (only {@code ipAddresses}) or {@code broadcast}
 	 * @param ipAddresses      manual node addresses
 	 * @param networkInterface interface the packets go out on, e.g. {@code en7}; {@code null} = all networks
+	 * @param protocol         {@code artnet} (default), {@code sacn} or {@code both}
+	 * @param sacn             sACN settings, kept with Art-Net too; missing = defaults for the number
 	 */
 	record UniverseRequest(Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses,
-			String networkInterface) {
+			String networkInterface, String protocol, SacnDto sacn) {
 
 		UniverseSpec toSpec() {
 			var n = Objects.requireNonNullElse(number, 0);
@@ -46,7 +69,9 @@ final class PatchDtos {
 					? new ArtNetAddress(artnet.net(), artnet.subnet(), artnet.universe())
 					: ArtNetAddress.fromPortAddress(Math.max(n - 1, 0));
 			return new UniverseSpec(n, Optional.ofNullable(name), address, target(),
-					Optional.ofNullable(networkInterface));
+					Optional.ofNullable(networkInterface),
+					protocol == null ? OutputProtocol.ART_NET : OutputProtocol.parse(protocol),
+					Objects.requireNonNullElse(sacn, new SacnDto(null, null, null)).toOutput(n));
 		}
 
 		private ArtNetTarget target() {
@@ -66,7 +91,8 @@ final class PatchDtos {
 	static final String MODE_BROADCAST = "broadcast";
 
 	record UniverseResponse(long id, int number, String name, String displayName, ArtNetDto artnet,
-			int portAddress, String mode, List<String> ipAddresses, String networkInterface) {
+			int portAddress, String mode, List<String> ipAddresses, String networkInterface, String protocol,
+			SacnDto sacn) {
 
 		static UniverseResponse from(Universe universe) {
 			var spec = universe.spec();
@@ -78,7 +104,8 @@ final class PatchDtos {
 			var ips = spec.target() instanceof ArtNetTarget.Unicast unicast ? unicast.ipAddresses() : List.<String>of();
 			return new UniverseResponse(universe.id(), spec.number(), spec.name().orElse(null),
 					universe.displayName(), new ArtNetDto(artNet.net(), artNet.subnet(), artNet.universe()),
-					artNet.portAddress(), mode, ips, spec.networkInterface().orElse(null));
+					artNet.portAddress(), mode, ips, spec.networkInterface().orElse(null), spec.protocol().asText(),
+					SacnDto.from(spec.sacn()));
 		}
 	}
 

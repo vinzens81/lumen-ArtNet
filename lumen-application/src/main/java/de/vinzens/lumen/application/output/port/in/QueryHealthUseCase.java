@@ -25,8 +25,8 @@ public interface QueryHealthUseCase {
 	 * @param renderErrors       failed ticks since start
 	 * @param lastRenderError    message of the last failed tick
 	 * @param watchdogRestarts   how often a stalled render loop was restarted
-	 * @param artNetActive       whether packets are sent into the network at all
-	 * @param packetsPerSecond   Art-Net packets sent per second
+	 * @param artNetActive       whether packets are sent into the network at all, by Art-Net or sACN (name kept)
+	 * @param packetsPerSecond   Art-Net and sACN packets sent per second
 	 * @param sendErrorsPerSecond packets per second that could not be sent
 	 * @param universes          universes of the active project
 	 * @param nodes              the nodes the project expects, empty while Art-Net is off

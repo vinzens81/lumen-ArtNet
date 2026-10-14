@@ -37,7 +37,8 @@ A **project** is a specific theatre play or a specific venue. It records which f
   V28 = wide party fields and gradients (`party_cell.span`, `party_cell.fader_kind`, `party_cell_fixture`),
   V29 = party pages and pads (`party_page` replaces `party_matrix`, `page_index` and `party_cell.row_span`),
   V30 = folders for compositions (`composition.folder`, default 'Manual'), V31 = compositions quick setup made before
-  move to 'Auto generated', V32 = folders for looks (`look.folder`; quick setup's shared looks to 'Auto generated').
+  move to 'Auto generated', V32 = folders for looks (`look.folder`; quick setup's shared looks to 'Auto generated'),
+  V33 = sACN per universe (`universe.protocol`, `sacn_universe`, `sacn_priority`, `sacn_targets`).
 - **SQLite settings:** `journal_mode=WAL`, `foreign_keys=ON`, `synchronous=NORMAL`.
 - Fixture types are referenced from the library by `fixture_type_id` + `mode_name`, not copied.
 
@@ -64,6 +65,10 @@ universe                                        -- replaces the former outputs.y
   artnet_universe INTEGER NOT NULL DEFAULT 0    -- 0–15
   target          TEXT NOT NULL                 -- 'auto', 'auto,10.0.0.5', '10.0.0.5,10.0.0.6' or 'broadcast'
   network_interface TEXT NULL                   -- e.g. 'en7': send only via this interface, NULL = all networks
+  protocol        TEXT NOT NULL DEFAULT 'artnet' -- 'artnet', 'sacn' or 'both' (V33)
+  sacn_universe   INTEGER NULL                  -- 1–63999; NULL = the number (V33)
+  sacn_priority   INTEGER NOT NULL DEFAULT 100  -- 0–200 (V33)
+  sacn_targets    TEXT NULL                     -- '10.0.0.5,10.0.0.6'; NULL = multicast (V33)
   UNIQUE(project_id, number)
 
 fixture                                         -- patched instance
@@ -212,7 +217,8 @@ playback_state                                  -- for resuming after a crash/re
   "format": "lumen-project", "version": 5, "exportedAt": "2026-10-06T19:30:00Z",
   "project":   { "name": "The Tempest", "venue": "City Theatre", "fadeInMs": 3000, "fadeOutMs": 3000 },
   "universes": [ { "id": 1, "number": 1, "name": "Stage", "artnet": { "net": 0, "subnet": 0, "universe": 0 },
-                   "mode": "auto", "ipAddresses": [] } ],
+                   "mode": "auto", "ipAddresses": [], "protocol": "artnet",
+                   "sacn": { "universe": 1, "priority": 100, "ipAddresses": [] } } ],
   "fixtures":  [ { "id": 7, "name": "Front left", "shortName": "FL", "fixtureTypeId": "generic-rgbw-par",
                    "mode": "8ch", "universeId": 1, "address": 1, "position": null, "sortOrder": 0 } ],
   "groups":    [ { "id": 2, "name": "Front", "color": "#3cf0ff", "sortOrder": 0, "fixtureIds": [7] } ],

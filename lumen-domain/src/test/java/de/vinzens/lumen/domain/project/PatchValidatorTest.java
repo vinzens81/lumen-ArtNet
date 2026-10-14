@@ -81,6 +81,33 @@ class PatchValidatorTest {
 		});
 	}
 
+	@Test
+	void warnsAboutDuplicateSacnUniverseOnlyWhenBothSendSacn() {
+		var sacn = sacnUniverse(4, 4, 7, OutputProtocol.SACN);
+		var sameSacn = sacnUniverse(5, 5, 7, OutputProtocol.BOTH);
+		var artNetOnly = new Universe(6, 1, new UniverseSpec(6, Optional.empty(), new ArtNetAddress(0, 0, 9),
+				new ArtNetTarget.Broadcast(), Optional.empty(), OutputProtocol.ART_NET,
+				new SacnOutput(7, 100, List.of())));
+
+		assertThat(validate(List.of(sacn, sameSacn, artNetOnly), List.of())).singleElement().satisfies(issue -> {
+			assertThat(issue.message()).isEqualTo("Universe 4 and Universe 5 both send to sACN universe 7");
+			assertThat(issue.universeIds()).containsExactly(4L, 5L);
+		});
+	}
+
+	@Test
+	void ignoresTheArtNetAddressOfSacnOnlyUniverses() {
+		var sacnOnly = sacnUniverse(3, 3, 3, OutputProtocol.SACN);
+
+		assertThat(validate(List.of(U1, sacnOnly), List.of())).isEmpty();
+	}
+
+	private static Universe sacnUniverse(long id, int number, int sacnUniverse, OutputProtocol protocol) {
+		// Art-Net port address 0 like U1
+		return new Universe(id, 1, new UniverseSpec(number, Optional.empty(), new ArtNetAddress(0, 0, 0),
+				new ArtNetTarget.Broadcast(), Optional.empty(), protocol, new SacnOutput(sacnUniverse, 100, List.of())));
+	}
+
 	private static List<PatchIssue> validate(List<Universe> universes, List<PatchedFixture> fixtures) {
 		return PatchValidator.validate(universes, fixtures, id -> Optional.ofNullable(LIBRARY.get(id)));
 	}

@@ -8,7 +8,7 @@
   (inbound)         │                                                │  (outbound)
                     │   Inbound ports           Outbound ports       │
  ┌──────────────┐   │  ┌────────────────┐     ┌───────────────────┐  │   ┌──────────────────┐
- │ REST API     │──▶│  │ ProjectUseCase │     │ DmxOutputPort     │──│──▶│ Art-Net UDP      │
+ │ REST API     │──▶│  │ ProjectUseCase │     │ DmxOutputPort     │──│──▶│ Art-Net / sACN   │
  └──────────────┘   │  │ PatchUseCase   │     └───────────────────┘  │   └──────────────────┘
  ┌──────────────┐   │  │ Programmer-    │     ┌───────────────────┐  │   ┌──────────────────┐
  │ WebSocket    │──▶│  │  UseCase       │     │ FixtureLibrary    │──│──▶│ YAML folder      │
@@ -36,7 +36,8 @@ lumen/
 ├── pom.xml                       parent, versions, Java 26
 ├── lumen-domain/                 plain Java, no dependencies
 ├── lumen-application/            use cases + port interfaces, depends on domain only
-├── lumen-adapter-artnet/         DmxOutputPort → Art-Net UDP
+├── lumen-adapter-artnet/         DmxOutputPort → Art-Net UDP, node discovery (ArtPoll)
+├── lumen-adapter-sacn/           DmxOutputPort → sACN (E1.31) UDP multicast/unicast
 ├── lumen-adapter-library-yaml/   FixtureLibrary → YAML folder
 ├── lumen-adapter-sqlite/         ProjectRepository, SceneRepository → SQLite (Flyway + JdbcClient)
 ├── lumen-adapter-web/            REST + WebSocket controllers, DTOs
@@ -120,10 +121,29 @@ Important domain logic (all unit-testable without Spring, time via an injected `
 - Packets are sent from a random local port; target port, bind address and broadcast address are set in
   `application.yml` under `lumen.artnet.*`. In tests the output is switched off (`lumen.artnet.enabled: false`).
 
+## sACN adapter
+
+- ANSI E1.31 (streaming ACN), UDP port **5568**, data packets with start code 0 and all 512 slots.
+- Each universe has a **protocol**: Art-Net (default), sACN or both. Both adapters get every frame
+  (`CombinedDmxOutput`) and send only the universes of their protocol; the Art-Net settings of a universe are kept
+  while it is set to sACN and the other way round.
+- Per universe: sACN universe (1–63999, default = the number in Lumen), priority (0–200, default 100), and the
+  receivers: **multicast** to `239.255.<high byte>.<low byte>` (default) or fixed IPs (unicast).
+- Multicast goes out on the network interface of the universe (`IP_MULTICAST_IF`, one socket per interface); while
+  the interface is missing the universe is not sent. A universe on all networks goes out on every interface with an
+  IPv4 network – the operating system alone would use only the one of its default route, which a lighting network
+  without a router is not. Unicast is routed by the operating system.
+- Sequence number per sACN universe (0–255). Every 10 s a **universe discovery** packet lists the universes sent
+  (to `239.255.250.214`, per interface). On shutdown the receivers get three packets with *Stream_Terminated*.
+- Source name and CID (a UUID that must stay the same) under `lumen.sacn.*`; without a CID, one is derived from the
+  computer's name. sACN has no ArtPoll: the node list and the expected nodes cover only Art-Net universes.
+- In tests the output is switched off (`lumen.sacn.enabled: false`), also with `./run.sh --test`.
+
 ### Testing without hardware
 
 - **Look at DMX values:** `GET /api/output/universes/1/dmx` returns the 512 channel values of the active project.
 - **Capture Art-Net:** Wireshark with the filter `artnet` (port 6454) shows the ArtDmx packets including channel values.
+- **Capture sACN:** Wireshark with the filter `acn` (port 5568); sACNView shows the universes and their sources.
 - **Art-Net monitor:** QLC+ (Input/Output → Art-Net as input, then "DMX Monitor"). If QLC+ runs on the same computer,
   set the universe in Lumen to unicast `127.0.0.1`.
 - **Quick test with curl** (requires an active project with a patched fixture):
@@ -144,7 +164,7 @@ Important domain logic (all unit-testable without Spring, time via an injected `
 | `GET /api/backups` · `POST /api/backups` | List DB backups (incl. folder) · create a backup now |
 | `GET /api/access` · `POST /api/access/unlock` `{pin}` · `/lock` | PIN status of this browser, unlock (403 wrong PIN, 429 after 5 failed attempts), lock |
 | `PUT /api/access/pin` `{pin\|null}` · `PUT /api/access/network` `{enabled}` | Set/change/remove the PIN · network access (takes effect after a restart) |
-| `CRUD /api/projects/{id}/universes` | Universes & Art-Net targets: `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses` |
+| `CRUD /api/projects/{id}/universes` | Universes: `protocol` (`artnet`/`sacn`/`both`), Art-Net `mode` (`auto`/`unicast`/`broadcast`) + `ipAddresses`, `sacn` (`universe`, `priority`, `ipAddresses`: none = multicast) |
 | `PUT /api/projects/{id}/fixtures/positions` `{positions: {fixtureId: {x, y} \| null}}` | Stage positions (0–1) of several fixtures at once, `null` = not on stage |
 | `GET/PUT/DELETE /api/projects/{id}/stage/plan` | Floor plan image (PUT with `Content-Type: image/png\|jpeg\|webp` as body) |
 | `CRUD /api/projects/{id}/looks` · `POST …/looks/{lid}/record` · `/load` · `/duplicate` · `GET …/revisions` · `POST …/revisions/{rid}/restore` | Looks: record from the programmer, load into the programmer, history and undo, see [LOOKS-COMPOSITIONS-SCENES.md](LOOKS-COMPOSITIONS-SCENES.md) |
@@ -222,7 +242,7 @@ changes through `StateEvents`; the web adapter subscribes to them – so the dep
   over `data/lumen.db`.
 - **Watchdog:** the render loop catches every failure in a tick (including `Error`). If a tick hangs for more than
   2 s, the watchdog replaces the render thread. Render rate and Art-Net packets/s are measured every second and sent
-  to all clients; the header shows the state (e.g. "Art-Net 40/s", a warning on send errors or without receivers).
+  to all clients; the header shows the state (e.g. "DMX 40/s", a warning on send errors or without receivers).
 - **Soak test:** `ShowSoakTest` plays a 3 h show (40 Hz, auto-follow, GO, pause, master, blackout) on a simulated
   clock in a few seconds and checks that the heap does not grow.
 

@@ -60,11 +60,13 @@ public class NodeWatchService implements WatchNodesUseCase {
 		reload();
 	}
 
-	/** Reads the active project, its universes and its expected nodes. */
+	/** Reads the active project, its universes sent by Art-Net (sACN has no ArtPoll) and its expected nodes. */
 	public synchronized void reload() {
 		var active = projects.findAll().stream().filter(Project::active).findFirst();
 		projectId = active.map(Project::id).orElse(null);
-		projectUniverses = active.map(project -> universes.findByProject(project.id())).orElse(List.of());
+		projectUniverses = active.map(project -> universes.findByProject(project.id())).orElse(List.of()).stream()
+				.filter(universe -> universe.spec().protocol().sendsArtNet())
+				.toList();
 		known.clear();
 		active.ifPresent(project -> expected.findByProject(project.id())
 				.forEach(node -> known.put(node.ipAddress(), node)));

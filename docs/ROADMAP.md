@@ -421,7 +421,11 @@ mode faders control group dimmers.
   category and heads. Flyway `V18`, `PUT /api/projects/{id}/fixtures/{fid}/stage-shape`, travels with the project
   export. Checked in the browser (test server: 8-pixel bar, a bar rotated as a strip)
 - External GO button: USB foot switch (as a keyboard), OSC (e.g. from QLab); MIDI see its own iteration
-- sACN as a second `DmxOutputPort`
+- ✅ **sACN (E1.31)** as a second `DmxOutputPort` (2026-10-14): protocol per universe (Art-Net, sACN or both), sACN
+  universe, priority, multicast or fixed IPs, universe discovery and stream termination; new module
+  `lumen-adapter-sacn`, Flyway `V33`, travels with the project export. Checked with packet tests (byte-exact data and
+  discovery packets, unicast over loopback), repository and API tests, and the universe form in Chrome (test server,
+  output off); not yet against a real sACN receiver
 - Host names (mDNS, e.g. `artnet-dimmer.local`) as an Art-Net target – still open whether wanted
 - Flash effect as a scene attribute (candle/fire flicker is now part of iteration K)
 - PWA, Docker / Raspberry Pi as an alternative place to run

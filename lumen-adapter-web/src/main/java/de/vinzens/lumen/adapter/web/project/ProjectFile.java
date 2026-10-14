@@ -17,6 +17,7 @@ import de.vinzens.lumen.adapter.web.project.PatchDtos.ArtNetDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.LimitsDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.PositionDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.StageShapeDto;
+import de.vinzens.lumen.adapter.web.project.PatchDtos.SacnDto;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseRequest;
 import de.vinzens.lumen.adapter.web.project.PatchDtos.UniverseResponse;
 import de.vinzens.lumen.adapter.web.project.ProjectDtos.ProjectRequest;
@@ -424,19 +425,22 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 	/**
 	 * @param mode             {@code auto}, {@code unicast} or {@code broadcast}
 	 * @param networkInterface interface name, {@code null} = all networks (and in files before iteration N)
+	 * @param protocol         {@code artnet}, {@code sacn} or {@code both}; {@code null} = Art-Net (files before sACN)
+	 * @param sacn             sACN settings; {@code null} = the defaults for the number (files before sACN)
 	 */
 	record UniverseEntry(Long id, Integer number, String name, ArtNetDto artnet, String mode, List<String> ipAddresses,
-			String networkInterface) {
+			String networkInterface, String protocol, SacnDto sacn) {
 
 		static UniverseEntry from(Universe universe) {
 			var response = UniverseResponse.from(universe);
 			return new UniverseEntry(universe.id(), response.number(), response.name(), response.artnet(),
-					response.mode(), response.ipAddresses(), response.networkInterface());
+					response.mode(), response.ipAddresses(), response.networkInterface(), response.protocol(),
+					response.sacn());
 		}
 
 		Universe toUniverse() {
-			return new Universe(require(id, "universe id"), 0,
-					new UniverseRequest(number, name, artnet, mode, ipAddresses, networkInterface).toSpec());
+			return new Universe(require(id, "universe id"), 0, new UniverseRequest(number, name, artnet, mode,
+					ipAddresses, networkInterface, protocol, sacn).toSpec());
 		}
 	}
 

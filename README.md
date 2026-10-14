@@ -3,7 +3,7 @@
 > Working title "Lumen" – may be renamed at any time.
 
 A web-based lighting control for theatre plays: a Spring Boot service provides a modern web interface that controls
-DMX fixtures via **Art-Net**. A show is a list of **scenes** that cross-fade into each other on **GO**, with fade-out
+DMX fixtures via **Art-Net** or **sACN** (E1.31). A show is a list of **scenes** that cross-fade into each other on **GO**, with fade-out
 and fade-in running in parallel.
 
 ```
@@ -35,7 +35,7 @@ and fade-in running in parallel.
 
 | Document | Content |
 |---|---|
-| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Hexagonal architecture, modules, domain, DMX engine, Art-Net, API |
+| [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Hexagonal architecture, modules, domain, DMX engine, Art-Net, sACN, API |
 | [docs/FIXTURE-LIBRARY.md](docs/FIXTURE-LIBRARY.md) | YAML format of the fixture library |
 | [docs/PROJECT-DATA.md](docs/PROJECT-DATA.md) | SQLite schema for projects, patch and scenes |
 | [docs/PLAYBACK.md](docs/PLAYBACK.md) | Scenes, fade-in/stay/fade-out, cross-fade logic, GO |
@@ -56,5 +56,6 @@ and fade-in running in parallel.
 | Fixture library | YAML via Jackson `jackson-dataformat-yaml` |
 | Project data | SQLite (`sqlite-jdbc`), Spring `JdbcClient`, Flyway migrations |
 | Art-Net | Own lean implementation (ArtDmx, ArtPoll discovery) |
+| sACN | Own lean implementation (E1.31 data packets, multicast or unicast, universe discovery) |
 | Tests | JUnit 5, AssertJ, ArchUnit, Spring Boot Test |
 | Frontend | Vite + TypeScript + Svelte 5, built via `frontend-maven-plugin`, served by Spring Boot |

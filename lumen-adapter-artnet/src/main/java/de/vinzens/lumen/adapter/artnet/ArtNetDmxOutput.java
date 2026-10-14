@@ -67,6 +67,9 @@ public class ArtNetDmxOutput implements DmxOutputPort, AutoCloseable {
 
 	@Override
 	public synchronized void send(Universe universe, DmxFrame frame) {
+		if (!universe.spec().protocol().sendsArtNet()) {
+			return;
+		}
 		var address = universe.spec().artNet();
 		var destinations = destinations(universe.spec());
 		if (destinations.isEmpty()) {

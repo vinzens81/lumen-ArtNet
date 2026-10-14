@@ -21,6 +21,7 @@
 		<module>lumen-adapter-library-yaml</module>
 		<module>lumen-adapter-sqlite</module>
 		<module>lumen-adapter-artnet</module>
+		<module>lumen-adapter-sacn</module>
 		<module>lumen-adapter-web</module>
 		<module>lumen-frontend</module>
 		<module>lumen-app</module>
@@ -60,6 +61,11 @@
 			<dependency>
 				<groupId>de.vinzens.lumen</groupId>
 				<artifactId>lumen-adapter-artnet</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>de.vinzens.lumen</groupId>
+				<artifactId>lumen-adapter-sacn</artifactId>
 				<version>${project.version}</version>
 			</dependency>
 			<dependency>

@@ -126,10 +126,10 @@ public class OutputHealthService implements QueryHealthUseCase, AutoCloseable {
 		if (to.counters().active()) {
 			if (sendErrorRate > 0) {
 				level = max(level, Level.WARNING);
-				problems.add("Art-Net packets cannot be sent (network unavailable?)");
+				problems.add("DMX packets cannot be sent (network unavailable?)");
 			} else if (universes > 0 && packetRate == 0) {
 				level = max(level, Level.WARNING);
-				problems.add("No Art-Net packets are sent – no node found for any universe");
+				problems.add("No DMX packets are sent – no Art-Net node found for any universe");
 			}
 			for (var node : nodes) {
 				if (node.state() == NodeState.OFFLINE) {

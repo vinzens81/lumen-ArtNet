@@ -48,3 +48,14 @@ lumen:
     listen-port: 6454
     # how often nodes are discovered
     poll-interval: 3s
+  sacn:
+    # sACN (E1.31) for the universes set to sACN or "both"
+    enabled: true
+    # local address to send from, 0.0.0.0 = any interface
+    bind-address: 0.0.0.0
+    # destination UDP port (E1.31 standard: 5568)
+    port: 5568
+    # the name receivers and consoles show for Lumen
+    source-name: Lumen
+    # identifies Lumen as a source (a UUID); empty = derived from the computer's name
+    cid: ""

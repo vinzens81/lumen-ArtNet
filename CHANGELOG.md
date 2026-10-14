@@ -3,13 +3,22 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.106 · 2026-10-14
+## 1.0.106 – 1.0.107 · 2026-10-14
 
 ### Added
+- sACN (E1.31) output: each universe goes out by Art-Net, by sACN or both (Setup → Universes → Protocol). For sACN set
+  the universe (sACN counts from 1; new universes suggest their number), the priority (100 by default) and whether it
+  goes by multicast (recommended – every receiver set to that universe picks it up) or to fixed IP addresses. The
+  network choice of a universe applies to sACN as well. Lumen announces its universes (universe discovery) and tells
+  the receivers when it stops. Existing universes stay on Art-Net.
 - Party mode: double-tap a pan/tilt pad (or use ⤢ on it) to open it large in a window and point the heads more
   precisely; the values are shown to a tenth of a percent. Arrow buttons beside the pad move it in steps of 0.5, 2 or
   5 % – for tablets, which have no arrow keys (on a keyboard the arrow keys do the same). On touch screens the small
   switches in a pad's corner are larger.
+
+### Changed
+- The output display in the header reads "DMX 40/s" (Art-Net and sACN together) instead of "Art-Net 40/s".
+- `./run.sh --test` switches sACN off as well.
 
 ## 1.0.102 – 1.0.103 · 2026-10-12
 

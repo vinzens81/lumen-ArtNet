@@ -9,6 +9,8 @@ import de.vinzens.lumen.domain.project.Position;
 import de.vinzens.lumen.domain.project.StageShape;
 import de.vinzens.lumen.domain.project.Project;
 import de.vinzens.lumen.domain.project.ProjectSpec;
+import de.vinzens.lumen.domain.project.OutputProtocol;
+import de.vinzens.lumen.domain.project.SacnOutput;
 import de.vinzens.lumen.domain.project.UniverseSpec;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -132,6 +134,13 @@ class SqliteRepositoriesTest {
 		var bound = new UniverseSpec(2, Optional.of("Stage"), new ArtNetAddress(0, 1, 2), ArtNetTarget.auto(),
 				Optional.of("en7"));
 		assertThat(repos.universes().update(universe.id(), bound).spec()).isEqualTo(bound);
+
+		var sacn = new UniverseSpec(2, Optional.of("Stage"), new ArtNetAddress(0, 1, 2), ArtNetTarget.auto(),
+				Optional.empty(), OutputProtocol.SACN, new SacnOutput(42, 150, List.of("10.0.0.5", "10.0.0.6")));
+		assertThat(repos.universes().update(universe.id(), sacn).spec()).isEqualTo(sacn);
+		var multicast = new UniverseSpec(2, Optional.empty(), new ArtNetAddress(0, 1, 2), ArtNetTarget.auto(),
+				Optional.empty(), OutputProtocol.BOTH, new SacnOutput(1, 100, List.of()));
+		assertThat(repos.universes().update(universe.id(), multicast).spec()).isEqualTo(multicast);
 	}
 
 	@Test

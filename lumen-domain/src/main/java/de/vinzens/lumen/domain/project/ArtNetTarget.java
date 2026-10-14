@@ -7,7 +7,6 @@ import java.util.Arrays;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Objects;
-import java.util.regex.Pattern;
 
 /**
  * Where the Art-Net packets of a universe are sent.
@@ -58,15 +57,12 @@ public sealed interface ArtNetTarget {
 	 */
 	record Unicast(boolean discovered, List<String> ipAddresses) implements ArtNetTarget {
 
-		private static final Pattern IPV4 = Pattern.compile(
-				"((25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)\\.){3}(25[0-5]|2[0-4]\\d|1\\d\\d|[1-9]?\\d)");
-
 		public Unicast {
 			Objects.requireNonNull(ipAddresses, "ipAddresses");
 			var errors = new ArrayList<String>();
 			ipAddresses = List.copyOf(new LinkedHashSet<>(ipAddresses.stream().map(String::strip).toList()));
 			for (var ip : ipAddresses) {
-				if (!IPV4.matcher(ip).matches()) {
+				if (!Ipv4.isValid(ip)) {
 					errors.add("'" + ip + "' is not a valid IPv4 address");
 				}
 			}
