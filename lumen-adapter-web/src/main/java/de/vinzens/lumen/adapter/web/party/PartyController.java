@@ -1,7 +1,9 @@
 package de.vinzens.lumen.adapter.web.party;
 
+import de.vinzens.lumen.adapter.web.party.PartyDtos.BpmRequest;
 import de.vinzens.lumen.adapter.web.party.PartyDtos.PartyResponse;
 import de.vinzens.lumen.adapter.web.party.PartyDtos.SlideRequest;
+import de.vinzens.lumen.adapter.web.party.PartyDtos.SpeedRequest;
 import de.vinzens.lumen.application.party.port.in.ControlPartyUseCase;
 import de.vinzens.lumen.domain.party.PartyPlace;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -54,6 +56,27 @@ class PartyController {
 	@PostMapping("/clear")
 	PartyResponse clear() {
 		party.clear();
+		return status();
+	}
+
+	/** Taps the tempo: two or more taps set the BPM from their average interval. */
+	@PostMapping("/beat/tap")
+	PartyResponse tapBeat() {
+		party.tapBeat();
+		return status();
+	}
+
+	/** Sets the tempo in BPM directly. */
+	@PostMapping("/beat/bpm")
+	PartyResponse setBpm(@RequestBody BpmRequest request) {
+		party.setBpm(request.bpm());
+		return status();
+	}
+
+	/** Sets the speed master factor (0 = frozen, 1 = programmed, 2 = twice). */
+	@PostMapping("/speed")
+	PartyResponse setSpeed(@RequestBody SpeedRequest request) {
+		party.setSpeed(request.speed());
 		return status();
 	}
 }

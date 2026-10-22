@@ -684,7 +684,7 @@ export interface PartyPlace {
   column: number;
 }
 
-/** Live state of party mode, pushed as 'party': the fields that are on. */
+/** Live state of party mode, pushed as 'party': the fields that are on, the tempo and the speed master. */
 export interface PartyStatus {
   on: PartyPlace[];
   /**
@@ -692,6 +692,12 @@ export interface PartyStatus {
    * the bottom (a gradient uses only x)
    */
   points: (PartyPlace & { x: number; y: number })[];
+  /** tempo in beats per minute */
+  bpm: number;
+  /** epoch milliseconds of the last beat, or -1 if no tempo has been set */
+  beatOrigin: number;
+  /** speed master factor (0–2, 1 = programmed speed) */
+  speed: number;
 }
 
 /** What quick setup should make for fixtures; switches left out count as off. */

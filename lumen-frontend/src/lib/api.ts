@@ -235,6 +235,9 @@ export const api = {
     /** x along a gradient or pad, y up a pad (0–1) */
     slide: (place: PartyPlace, x: number, y: number) => post<PartyStatus>(`${partyCell(place)}/slide`, { x, y }),
     clear: () => post<PartyStatus>('/api/party/clear'),
+    tapBeat: () => post<PartyStatus>('/api/party/beat/tap'),
+    setBpm: (bpm: number) => post<PartyStatus>('/api/party/beat/bpm', { bpm }),
+    setSpeed: (speed: number) => post<PartyStatus>('/api/party/speed', { speed }),
   },
   quickSetup: (projectId: number, request: QuickSetupRequest) =>
     post<QuickSetupResult>(`/api/projects/${projectId}/quick-setup`, request),

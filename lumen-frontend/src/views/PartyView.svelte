@@ -16,10 +16,25 @@
   import PartyGrid from '../components/PartyGrid.svelte';
   import { api } from '../lib/api';
   import { live } from '../lib/live.svelte';
+  import { beatPhase } from '../lib/party';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
-  import { wakeLock } from '../lib/wakeLock.svelte';
   import type { Composition, Move, PartyCell, PartyMatrix, PartyPlace, PartyStatus, Scene } from '../lib/types';
+  import { wakeLock } from '../lib/wakeLock.svelte';
+
+  const speed = $derived(live.party?.speed ?? 1);
+
+  /** The pulsing beat dot: the phase from the last server beat, animated frame by frame. */
+  let beatAnim = $state(0);
+  let beatRaf = 0;
+  $effect(() => {
+    const tick = () => {
+      beatAnim = beatPhase(live.party?.bpm ?? 0, live.party?.beatOrigin ?? -1);
+      beatRaf = requestAnimationFrame(tick);
+    };
+    beatRaf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(beatRaf);
+  });
 
   let matrix = $state<PartyMatrix | null>(null);
   let scenes = $state<Scene[]>([]);
@@ -117,6 +132,18 @@
         </div>
       {/if}
       <span class="spacer"></span>
+      <div class="tempo" title="Tempo – tap in time with the music">
+        <span class="beat-dot" style="opacity: {1 - beatAnim * 0.7}" aria-hidden="true"></span>
+        <span class="bpm">{Math.round(live.party?.bpm ?? 0)}</span>
+        <span class="bpm-unit">BPM</span>
+        <button class="btn tap" type="button" onclick={() => live.tapBeat()} title="Tap tempo">TAP</button>
+      </div>
+      <div class="speed-master" title="Speed master – slow down or speed up all running effects">
+        <label for="speed-fader" class="speed-label">SPEED</label>
+        <input id="speed-fader" type="range" min="0" max="2" step="0.01" value={speed}
+          oninput={(e) => live.setSpeed(parseFloat((e.target as HTMLInputElement).value))} />
+        <span class="speed-val">{Math.round(speed * 100)}%</span>
+      </div>
       <span class="dim small">{onCount === 0 ? 'Everything off' : `${onCount} on`}</span>
       <button class="btn" type="button" onclick={() => run(api.party.clear())} disabled={onCount === 0}
         title="Switch every field off, on all pages">All off</button>
@@ -205,6 +232,65 @@
 
   .small {
     font-size: 12px;
+  }
+
+  .tempo {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .beat-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--accent);
+    flex-shrink: 0;
+    transition: opacity 50ms linear;
+  }
+
+  .bpm {
+    font-size: 18px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .bpm-unit {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .tap {
+    min-width: 52px;
+    font-weight: 700;
+    letter-spacing: 1px;
+  }
+
+  .speed-master {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .speed-label {
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .speed-master input[type="range"] {
+    width: 100px;
+    accent-color: var(--accent);
+  }
+
+  .speed-val {
+    font-size: 12px;
+    font-variant-numeric: tabular-nums;
+    min-width: 40px;
+    text-align: right;
   }
 
   .grid {

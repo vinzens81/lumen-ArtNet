@@ -26,8 +26,12 @@ public final class PartyDtos {
 	/**
 	 * @param on     the fields that are on
 	 * @param points the point last touched on each gradient and pad field, also of those that are off
+	 * @param bpm     the tempo in beats per minute
+	 * @param beatOrigin epoch milliseconds of the last beat, or -1 if no tempo has been set
+	 * @param speed  the speed master factor (0–2, 1 = programmed)
 	 */
-	public record PartyResponse(List<PlaceDto> on, List<FaderPointDto> points) {
+	public record PartyResponse(List<PlaceDto> on, List<FaderPointDto> points, double bpm, long beatOrigin,
+			double speed) {
 
 		private static final Comparator<PartyPlace> ORDER = Comparator.comparingInt(PartyPlace::page)
 				.thenComparingInt(PartyPlace::row).thenComparingInt(PartyPlace::column);
@@ -41,7 +45,8 @@ public final class PartyDtos {
 							.sorted(Map.Entry.comparingByKey(ORDER))
 							.map(entry -> new FaderPointDto(entry.getKey().page(), entry.getKey().row(),
 									entry.getKey().column(), entry.getValue().x(), entry.getValue().y()))
-							.toList());
+							.toList(),
+					status.bpm(), status.beatOrigin(), status.speed());
 		}
 	}
 
@@ -64,6 +69,12 @@ public final class PartyDtos {
 			}
 			return new PartyPoint(x, Objects.requireNonNullElse(y, 0.5));
 		}
+	}
+
+	public record BpmRequest(double bpm) {
+	}
+
+	public record SpeedRequest(double speed) {
 	}
 
 	/**

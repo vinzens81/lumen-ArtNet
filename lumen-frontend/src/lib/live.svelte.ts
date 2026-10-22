@@ -355,6 +355,26 @@ class LiveState {
     this.scheduleFlush();
   }
 
+  /** Taps the tempo in party mode; via WebSocket for low latency, REST as fallback. */
+  tapBeat() {
+    if (this.party) this.party = { ...this.party };
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'party.tap' }));
+    } else {
+      api.party.tapBeat().then((status) => this.updateParty(status)).catch(showError);
+    }
+  }
+
+  /** Sets the speed master in party mode; via WebSocket for low latency, REST as fallback. */
+  setSpeed(speed: number) {
+    if (this.party) this.party = { ...this.party, speed };
+    if (this.socket?.readyState === WebSocket.OPEN) {
+      this.socket.send(JSON.stringify({ type: 'party.speed', level: speed }));
+    } else {
+      api.party.setSpeed(speed).then((status) => this.updateParty(status)).catch(showError);
+    }
+  }
+
   async setMode(mode: OperatingMode) {
     try {
       this.mode = (await api.mode.set(mode)).mode;

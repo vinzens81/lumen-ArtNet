@@ -189,6 +189,7 @@ export function faderPoint(status: PartyStatus | null, place: PartyPlace): { x: 
 export function withSlide(status: PartyStatus, place: PartyPlace, x: number, y: number): PartyStatus {
   const here = { page: place.page, row: place.row, column: place.column };
   return {
+    ...status,
     on: status.on.some((p) => samePlace(p, here)) ? status.on : [...status.on, here],
     points: [...status.points.filter((p) => !samePlace(p, here)), { ...here, x, y }],
   };
@@ -240,4 +241,15 @@ export function textColorFor(fill: string): string {
     return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
   });
   return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.35 ? '#0b0d12' : '#e8ecf4';
+}
+
+/**
+ * The beat phase 0–1 at a moment, computed from the server's BPM and the epoch milliseconds of the last beat.
+ * The server sends both with the party status; between two status messages the phase keeps running locally, so
+ * the dot pulses without any traffic. No tempo set: phase 0 and the dot stays dim.
+ */
+export function beatPhase(bpm: number, beatOrigin: number, nowMillis = Date.now()): number {
+  if (bpm <= 0 || beatOrigin < 0) return 0;
+  const beatMillis = 60_000 / bpm;
+  return (((nowMillis - beatOrigin) % beatMillis) + beatMillis) % beatMillis / beatMillis;
 }

@@ -51,6 +51,23 @@ public final class PartySwitchboard {
 	}
 
 	private static final Attribute CYAN = Attribute.of(ChannelFunction.CYAN);
+	/** Multiplies the speed of all running compositions and moves: 0 = frozen, 1 = as programmed, 2 = twice. */
+	private double speed = 1;
+	/** Tempo and beat origin for the UI. */
+	private final BeatClock beat = new BeatClock();
+
+	/** The speed master factor (0–2, default 1 = programmed speed). */
+	public double speed() {
+		return speed;
+	}
+
+	public void setSpeed(double value) {
+		speed = Math.clamp(value, 0, 2);
+	}
+
+	public BeatClock beat() {
+		return beat;
+	}
 
 	private Map<PartyPlace, PlayableCell> cells = Map.of();
 	/** fields that are on, with the moment they went on */
@@ -141,11 +158,14 @@ public final class PartySwitchboard {
 		return Map.copyOf(faderPositions);
 	}
 
-	/** The light of all fields that are on: per attribute the highest value of any field. */
+	/**
+	 * The light of all fields that are on: per attribute the highest value of any field. The speed master scales the
+	 * speed of all running compositions and moves.
+	 */
 	public Map<Long, FixtureValues> output(Instant now, FixtureAttributes attributes) {
 		var merged = new HashMap<Long, Map<Attribute, Double>>();
 		on.forEach((place, since) -> {
-			var seconds = Math.max(0, Duration.between(since, now).toNanos() / 1e9);
+			var seconds = Math.max(0, Duration.between(since, now).toNanos() / 1e9) * speed;
 			var cell = cells.get(place);
 			Map<Long, FixtureValues> look = Map.of();
 			for (var composition : cell.compositions()) {
