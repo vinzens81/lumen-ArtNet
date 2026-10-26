@@ -148,10 +148,10 @@ public class SqliteSceneRepository implements SceneRepository {
 			var use = compositions.get(i);
 			jdbc.sql("""
 					INSERT INTO scene_composition (scene_id, section, composition_id, position, level, speed_factor,
-					                               restart)
-					VALUES (?, ?, ?, ?, ?, ?, ?)""")
+					                               restart, fade_in_ms, fade_out_ms)
+					VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""")
 					.params(sceneId, section, use.compositionId(), i, use.level(), use.speedFactor(),
-							use.restart() ? 1 : 0)
+							use.restart() ? 1 : 0, millis(use.fadeIn()), millis(use.fadeOut()))
 					.update();
 		}
 	}
@@ -184,7 +184,8 @@ public class SqliteSceneRepository implements SceneRepository {
 					result.computeIfAbsent(rs.getLong("scene_id"), id -> new Light()).compositions()
 							.computeIfAbsent(rs.getString("section"), s -> new ArrayList<>())
 							.add(new SceneComposition(rs.getLong("composition_id"), rs.getDouble("level"),
-									rs.getDouble("speed_factor"), rs.getInt("restart") == 1));
+									rs.getDouble("speed_factor"), rs.getInt("restart") == 1,
+									optionalMillis(rs, "fade_in_ms"), optionalMillis(rs, "fade_out_ms")));
 				});
 		jdbc.sql("SELECT * FROM scene_look WHERE " + where + " ORDER BY scene_id, section, position").param(param)
 				.query(rs -> {

@@ -219,8 +219,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 
 	private static List<SceneComposition> mappedUses(List<SceneComposition> uses, Map<Long, Long> compositionIds) {
 		return uses.stream().filter(use -> compositionIds.containsKey(use.compositionId()))
-				.map(use -> new SceneComposition(compositionIds.get(use.compositionId()), use.level(),
-						use.speedFactor(), use.restart()))
+				.map(use -> use.withCompositionId(compositionIds.get(use.compositionId())))
 				.toList();
 	}
 

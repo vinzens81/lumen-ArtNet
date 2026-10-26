@@ -3,6 +3,18 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.109 · 2026-10-26
+
+### Added
+- Fade times per composition in a scene (Scenes → a composition → Fade in / Fade out, optional): a composition with
+  its own fade-in fades in that long at GO (after the delay of the scene), one with its own fade-out takes that long
+  to fade out when it leaves the stage (next GO, a light marker, the end of the show). Empty fields keep the fade
+  times of the scene. Where compositions share a fixture, the one with its own time wins, the longest of several.
+
+### Changed
+- In the scene settings the remove button of a look sits on the right, like the one of a composition.
+- The light of a scene always sits in a yellow frame, like the parts after its light markers – also without markers.
+
 ## 1.0.106 – 1.0.107 · 2026-10-14
 
 ### Added

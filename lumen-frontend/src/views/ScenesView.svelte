@@ -642,10 +642,10 @@
 
           {#if projectId !== null}
             <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {moves} {fixtures} {groups}
-              {modes} framed={sceneMarkers.length > 0} />
+              {modes} hasMarkers={sceneMarkers.length > 0} />
             {#each sceneMarkers as marker (marker.name)}
               <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {moves} {fixtures} {groups}
-                {modes} marker={marker.name} info={marker.info} framed />
+                {modes} marker={marker.name} info={marker.info} />
             {/each}
             <SceneKeys {projectId} scene={selected} {compositions} {moves} />
           {/if}

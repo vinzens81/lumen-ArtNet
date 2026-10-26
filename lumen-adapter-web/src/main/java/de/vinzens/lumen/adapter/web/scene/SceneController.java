@@ -174,20 +174,27 @@ class SceneController {
 	}
 
 	/**
-	 * @param restart start from the beginning at GO, even if the composition already runs in the scene before
+	 * @param restart   start from the beginning at GO, even if the composition already runs in the scene before
+	 * @param fadeInMs  its own fade-in time, {@code null} = the scene's
+	 * @param fadeOutMs its own fade-out time, {@code null} = the one of the transition
 	 */
-	record SceneCompositionDto(Long compositionId, Double level, Double speedFactor, Boolean restart) {
+	record SceneCompositionDto(Long compositionId, Double level, Double speedFactor, Boolean restart, Long fadeInMs,
+			Long fadeOutMs) {
 
 		SceneComposition toUse() {
 			if (compositionId == null) {
 				throw new DomainValidationException(List.of("compositionId is missing"));
 			}
 			return new SceneComposition(compositionId, Objects.requireNonNullElse(level, 1.0),
-					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart));
+					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart),
+					Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+					Optional.ofNullable(fadeOutMs).map(Duration::ofMillis));
 		}
 
 		static SceneCompositionDto from(SceneComposition use) {
-			return new SceneCompositionDto(use.compositionId(), use.level(), use.speedFactor(), use.restart());
+			return new SceneCompositionDto(use.compositionId(), use.level(), use.speedFactor(), use.restart(),
+					use.fadeIn().map(Duration::toMillis).orElse(null),
+					use.fadeOut().map(Duration::toMillis).orElse(null));
 		}
 	}
 

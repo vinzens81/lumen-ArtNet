@@ -3,6 +3,7 @@
   import { compositionIcon, effectLabel, isFast, lookMap, overlaps, scenesUsing } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
   import { showError } from '../lib/toasts.svelte';
+  import { secondsToMs } from '../lib/sceneTiming';
   import type {
     Composition, Fixture, Group, Look, Mode, Move, Scene, SceneComposition, SceneLook, SceneMove,
   } from '../lib/types';
@@ -18,7 +19,7 @@
     scene,
     marker = null,
     info = '',
-    framed = false,
+    hasMarkers = false,
     scenes,
     compositions,
     looks,
@@ -40,8 +41,8 @@
     marker?: string | null;
     /** the text in brackets of the marker */
     info?: string;
-    /** a frame around the settings, so the parts of a scene with light markers stand apart */
-    framed?: boolean;
+    /** the scene has light markers: this part is its start */
+    hasMarkers?: boolean;
   } = $props();
 
   let uses = $state<SceneComposition[]>([]);
@@ -119,6 +120,13 @@
       || s.sections.some((part) => part.moves.some((u) => u.moveId === moveId)));
   }
 
+  /** the scene's own fade-in as a hint in empty fields */
+  const sceneFadeIn = $derived(scene.fadeInMs !== null ? String(scene.fadeInMs / 1000) : 'scene');
+
+  function msToSeconds(ms: number | null): number | null {
+    return ms === null ? null : ms / 1000;
+  }
+
   function change(index: number, patch: Partial<SceneComposition>) {
     save(uses.map((u, i) => (i === index ? { ...u, ...patch } : u)));
   }
@@ -134,7 +142,8 @@
   function add() {
     const id = Number(addId);
     addId = '';
-    if (id) save([...uses, { compositionId: id, level: 1, speedFactor: 1, restart: false }]);
+    if (id) save([...uses, { compositionId: id, level: 1, speedFactor: 1, restart: false, fadeInMs: null,
+      fadeOutMs: null }]);
   }
 
   /** A new composition for this scene: the programmer as its first step, or an effect to generate. */
@@ -145,7 +154,8 @@
         name: `${scene.name}${marker ? ` – ${marker}` : ''} – ${kind === 'effect' ? 'effect' : count}`,
       });
       if (kind === 'programmer') created = await api.compositions.recordStep(projectId, created.id);
-      await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false }]);
+      await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false,
+        fadeInMs: null, fadeOutMs: null }]);
       if (kind === 'effect') editing = { id: created.id, generate: true };
     } catch (e) {
       showError(e);
@@ -167,9 +177,9 @@
   }
 </script>
 
-<section class="compositions" class:part={marker !== null} class:framed>
+<section class="compositions" class:part={marker !== null}>
   {#if marker === null}
-    <h3>Compositions{framed ? ' · Start' : ''}</h3>
+    <h3>Compositions{hasMarkers ? ' · Start' : ''}</h3>
     <p class="hint dim">
       Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
       scene too keeps running.
@@ -239,6 +249,17 @@
               <input type="checkbox" checked={use.restart} onchange={(e) => change(i, { restart: e.currentTarget.checked })} />
               Restart at GO
             </label>
+            <label class="mini fade" title="Its own fade-in at GO, after the delay of the scene. Empty = the scene's">
+              Fade in
+              <span><input type="number" min="0" max="600" step="0.1" value={msToSeconds(use.fadeInMs)}
+                placeholder={sceneFadeIn} onchange={(e) => change(i, { fadeInMs: secondsToMs(e.currentTarget.valueAsNumber) })} />
+                s</span></label>
+            <label class="mini fade"
+              title="Its own fade-out when it leaves the stage (next GO, a light marker). Empty = the one of that GO">
+              Fade out
+              <span><input type="number" min="0" max="600" step="0.1" value={msToSeconds(use.fadeOutMs)}
+                placeholder="scene" onchange={(e) => change(i, { fadeOutMs: secondsToMs(e.currentTarget.valueAsNumber) })} />
+                s</span></label>
           </div>
         </li>
       {/each}
@@ -314,29 +335,22 @@
 </Modal>
 
 <style>
+  /* everything that belongs to one part, from its heading to the pickers, in a frame */
   .compositions {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 6px;
+    padding: 12px 14px 14px;
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   /* a part after a light marker */
   .compositions.part h3 {
     color: var(--warning);
-  }
-
-  /* everything that belongs to one part, from its heading to the pickers */
-  .compositions.framed {
-    margin-top: 6px;
-    padding: 12px 14px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .compositions.framed.part {
-    border-color: color-mix(in srgb, var(--warning) 40%, transparent);
-    border-left: 3px solid var(--warning);
   }
 
   .list {
@@ -379,6 +393,14 @@
     color: var(--text-dim);
   }
 
+  .fade {
+    width: 80px;
+  }
+
+  .fade input {
+    width: 56px;
+  }
+
   .icon {
     width: 20px;
     text-align: center;
@@ -409,6 +431,7 @@
 
   .actions {
     display: flex;
+    margin-left: auto;
   }
 
   .fast {

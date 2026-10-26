@@ -67,7 +67,8 @@ class SqliteSceneRepositoryTest {
 	void compositionsAndKeysOfASceneKeepTheirOrderAndSettings() {
 		var a = composition("A");
 		var b = composition("B");
-		var uses = List.of(new SceneComposition(b, 0.5, 2, true), SceneComposition.of(a));
+		var uses = List.of(new SceneComposition(b, 0.5, 2, true, Optional.of(Duration.ofMillis(4500)),
+				Optional.of(Duration.ZERO)), SceneComposition.of(a));
 		var keys = List.of(new SceneKey(3, a, KeyMode.FLASH, Duration.ofMillis(500)),
 				new SceneKey(1, b, KeyMode.TOGGLE, Duration.ZERO));
 

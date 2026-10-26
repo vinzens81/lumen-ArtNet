@@ -24,7 +24,7 @@ import java.util.Set;
  * <li>attributes the new scene does not set keep their old value</li>
  * </ul>
  * An optional delay holds back the fade-in while the fade-out starts at GO. A {@link FadeCurve} shapes the levels
- * and the progress of smooth attributes.
+ * and the progress of smooth attributes. Single fixtures can have fade times of their own.
  */
 public final class Crossfade {
 
@@ -54,17 +54,28 @@ public final class Crossfade {
 	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
 			Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve,
 			FadeBehaviors behaviors, Set<Long> darkAtGo) {
+		return mix(from, to, elapsed, fadeIn, fadeOut, delay, curve, behaviors, darkAtGo, Map.of(), Map.of());
+	}
+
+	/**
+	 * @param fadeInOf  fixtures with a fade-in time of their own (a composition with its own times lights them)
+	 * @param fadeOutOf fixtures with a fade-out time of their own
+	 */
+	public static Map<Long, FixtureValues> mix(Map<Long, FixtureValues> from, Map<Long, FixtureValues> to,
+			Duration elapsed, Duration fadeIn, Duration fadeOut, Duration delay, FadeCurve curve,
+			FadeBehaviors behaviors, Set<Long> darkAtGo, Map<Long, Duration> fadeInOf,
+			Map<Long, Duration> fadeOutOf) {
 		var sinceFadeIn = elapsed.minus(delay);
-		var linearIn = progress(sinceFadeIn, fadeIn);
-		var levelIn = curve.level(linearIn);
-		var levelOut = curve.level(1 - progress(elapsed, fadeOut));
-		var moved = curve.progress(linearIn);
 		var fadeInStarted = !sinceFadeIn.isNegative();
 
 		var fixtures = new HashSet<>(from.keySet());
 		fixtures.addAll(to.keySet());
 		var result = new HashMap<Long, FixtureValues>();
 		for (var fixtureId : fixtures) {
+			var linearIn = progress(sinceFadeIn, fadeInOf.getOrDefault(fixtureId, fadeIn));
+			var levelIn = curve.level(linearIn);
+			var levelOut = curve.level(1 - progress(elapsed, fadeOutOf.getOrDefault(fixtureId, fadeOut)));
+			var moved = curve.progress(linearIn);
 			var old = from.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var target = to.getOrDefault(fixtureId, FixtureValues.EMPTY);
 			var wasDark = darkAtGo != null ? darkAtGo.contains(fixtureId) : isDark(old);

@@ -252,6 +252,10 @@ export interface SceneComposition {
   speedFactor: number;
   /** start from the beginning at GO, even if it already runs in the scene before */
   restart: boolean;
+  /** its own fade-in time at GO, null = the scene's */
+  fadeInMs: number | null;
+  /** its own fade-out time when it leaves the stage, null = the one of the transition */
+  fadeOutMs: number | null;
 }
 
 /** A look used directly in a scene: it stays as it is. */

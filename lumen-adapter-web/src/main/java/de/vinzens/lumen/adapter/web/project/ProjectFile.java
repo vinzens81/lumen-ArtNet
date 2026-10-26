@@ -573,16 +573,21 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	record SceneCompositionEntry(Long compositionId, Double level, Double speedFactor, Boolean restart) {
+	/** {@code fadeInMs} and {@code fadeOutMs} are {@code null} for the fade times of the scene. */
+	record SceneCompositionEntry(Long compositionId, Double level, Double speedFactor, Boolean restart,
+			Long fadeInMs, Long fadeOutMs) {
 
 		static SceneCompositionEntry from(SceneComposition use) {
-			return new SceneCompositionEntry(use.compositionId(), use.level(), use.speedFactor(), use.restart());
+			return new SceneCompositionEntry(use.compositionId(), use.level(), use.speedFactor(), use.restart(),
+					use.fadeIn().map(Duration::toMillis).orElse(null),
+					use.fadeOut().map(Duration::toMillis).orElse(null));
 		}
 
 		SceneComposition toUse() {
 			return new SceneComposition(require(compositionId, "compositionId of a scene"),
 					Objects.requireNonNullElse(level, 1.0), Objects.requireNonNullElse(speedFactor, 1.0),
-					Boolean.TRUE.equals(restart));
+					Boolean.TRUE.equals(restart), Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+					Optional.ofNullable(fadeOutMs).map(Duration::ofMillis));
 		}
 	}
 
