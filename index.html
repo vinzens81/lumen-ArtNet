@@ -838,7 +838,7 @@ cd lumen-ArtNet
       <tr><th>You write</th><th>Meaning</th></tr>
       <tr><td><code>Puck: How now, spirit!</code></td><td>A speech. A name with a colon at the start of a line (1–4 capitalized words) marks the speaker; every person keeps their own color.</td></tr>
       <tr><td><code>**Thunder. Enter Oberon.**</code></td><td>A stage direction – shown differently and skipped by the arrow keys.</td></tr>
-      <tr><td><code>//## Moonrise (the moon comes up)##</code></td><td>A <strong>light marker</strong>: the scene changes its light here (see below).</td></tr>
+      <tr><td><code>//## Moonrise (the moon comes up)##</code></td><td>A <strong>light marker</strong>: the scene changes its light here (see below). With only stage directions after it, the operator stops on the marker itself.</td></tr>
     </table>
 
     <h3>Times</h3>
@@ -921,6 +921,15 @@ cd lumen-ArtNet
       speech to speech; stage directions are skipped. Stepping past a <strong>light marker</strong> changes the light
       of the scene. The position is shared: a second browser shows the same speech. On GO the next scene starts at its
       first speech.</p>
+    <ul>
+      <li><strong>Waiting with the light:</strong> a light marker followed only by stage directions (or nothing) is a
+        stop of its own. <kbd>↓</kbd> stops on the marker and fades in its light; the light stays until the next
+        <kbd>↓</kbd> – e.g. for a dance or a scene change that the script only describes. No placeholder speech like
+        "All: pause" is needed. A marker followed by speech changes the light together with that speech.</li>
+      <li><strong>On to the next scene:</strong> at the last stop of a scene the button reads <strong>▼ Next
+        scene</strong>. The first <kbd>↓</kbd> asks ("GO 4 Sunrise?"), a second one within 3 seconds is the GO.</li>
+      <li>The counter next to the scene name (e.g. <code>3 / 5</code>) counts the stops of the scene.</li>
+    </ul>
     <p>Next to <em>Scenes</em> and <em>Script</em> there are <strong>Stage</strong> (the glowing stage view, read-only)
       and <strong>DMX</strong> (the live values of all used channels).</p>
 
@@ -951,7 +960,10 @@ cd lumen-ArtNet
         <strong>Stop</strong> (asks once, like in show mode).</li>
       <li>The <strong>script</strong> of the scene with all stage directions and light markers. The current speech
         stands at the top, what comes next below it. The big <strong>▼</strong> goes to the next speech (and past a
-        light marker changes the light), ▲ goes back. The position is shared with the laptop and the script view.</li>
+        light marker changes the light), ▲ goes back; a light marker with only stage directions after it is a stop of
+        its own, as in show mode. The bar behind the counter (<code>3 / 5</code>) fills as the scene goes on. At the
+        end of the scene ▼ reads <strong>▼ Next scene</strong>: tap it twice for a GO into the next scene. The position
+        is shared with the laptop and the script view.</li>
       <li>The <strong>keys</strong> of the scene and the <strong>faders</strong> (e.g. house lights) on the left,
         <strong>master</strong> and <strong>blackout</strong> at the bottom, the <strong>⏱ show time</strong> at the
         top.</li>
