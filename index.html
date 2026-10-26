@@ -866,9 +866,14 @@ cd lumen-ArtNet
     <ul>
       <li>Add <strong>compositions</strong>, <strong>looks</strong> and <strong>moves</strong> to the scene. Per
         composition you set level, tempo and "Restart at GO". Order is priority: for colors the later one wins,
-        intensity takes the highest.</li>
+        intensity takes the highest. Each part of the scene sits in a yellow frame.</li>
+      <li><strong>Fade in / Fade out per composition</strong> (optional): a composition with its own fade-in fades in
+        that long at GO (after the delay of the scene); one with its own fade-out takes that long to fade out when it
+        leaves the stage – at the next GO, at a light marker or at the end of the show. Empty fields keep the times of
+        the scene. Example: the scene fades in over 3 s, but the moonlight in it creeps in over 20 s. Where
+        compositions share a fixture, the one with its own time wins.</li>
       <li>Every <strong>light marker</strong> in the script gets its own section. When the operator steps past the
-        marker during the show, the light of that part fades in with the scene's times. What is in both parts keeps
+        marker during the show, the light of that part fades in with the scene's times (or a composition's own). What is in both parts keeps
         running and does not move.</li>
       <li><strong>Keys 1–8</strong>: compositions or moves the operator can switch on during this scene – toggle or
         flash (e.g. "Thunder" on key 1). A new scene inherits the keys of the scene before.</li>
