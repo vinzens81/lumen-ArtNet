@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { centeredScrollTop, topScrollTop } from './scroll';
+import { centeredScrollTop, leadInTop, topScrollTop } from './scroll';
 
 describe('centeredScrollTop', () => {
   it('puts the element in the middle of the container', () => {
@@ -19,5 +19,21 @@ describe('topScrollTop', () => {
 
   it('never scrolls above the top', () => {
     expect(topScrollTop(0, { top: 100, height: 400 }, { top: 104, height: 40 }, 8)).toBe(0);
+  });
+});
+
+describe('leadInTop', () => {
+  const speech = { top: 500, height: 80 };
+
+  it('takes the stage directions and the marker before the speech along', () => {
+    expect(leadInTop(speech, [{ top: 460, height: 30 }, { top: 420, height: 30 }], 400, 200)).toBe(420);
+  });
+
+  it('stops where the speech would no longer fit below them', () => {
+    expect(leadInTop(speech, [{ top: 300, height: 150 }, { top: 100, height: 150 }], 300, 200)).toBe(300);
+  });
+
+  it('is the speech itself without anything before it', () => {
+    expect(leadInTop(speech, [], 400, 200)).toBe(500);
   });
 });

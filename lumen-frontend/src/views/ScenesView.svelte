@@ -15,7 +15,7 @@
   import { notify, showError } from '../lib/toasts.svelte';
   import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
-  import { parseScript } from '../lib/script';
+  import { parseScript, stops } from '../lib/script';
   import {
     curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
   } from '../lib/sceneTiming';
@@ -72,7 +72,8 @@
   });
   const scriptStats = $derived.by(() => {
     const script = parseScript(form.script);
-    return { lines: script.lineCount, notes: script.noteCount, speakers: script.speakers.length };
+    return { lines: script.lineCount, notes: script.noteCount, speakers: script.speakers.length,
+      stops: stops(script).length };
   });
   /** the scene GO comes from in the show – a rehearsed fade starts there */
   const previousScene = $derived.by(() => {
@@ -681,7 +682,8 @@
   <div class="script-preview">
     <ScriptText script={parseScript(form.script)} />
   </div>
-  <p class="hint dim">As in show mode – {scriptStats.lines} {scriptStats.lines === 1 ? 'sentence' : 'sentences'} to step through.</p>
+  <p class="hint dim">As in show mode – {scriptStats.stops} {scriptStats.stops === 1 ? 'stop' : 'stops'} to step through
+    (speeches, and light markers without speech after them).</p>
 </Modal>
 
 <Modal bind:open={deleteOpen} title="Delete scene">

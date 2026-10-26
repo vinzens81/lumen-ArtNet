@@ -3,7 +3,7 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.109 – 1.0.110 · 2026-10-26
+## 1.0.109 – 1.0.111 · 2026-10-26
 
 ### Added
 - Show mode and the tablet remote: at the last speech of a scene, ▼ (or ↓) leads on to the next scene – the first
@@ -20,6 +20,11 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 ### Changed
 - In the scene settings the remove button of a look sits on the right, like the one of a composition.
 - The light of a scene always sits in a yellow frame, like the parts after its light markers – also without markers.
+
+### Fixed
+- Tablet remote: the stage directions and the light marker right before the current speech stay in view – the speech
+  no longer pushes them out at the top.
+- Script preview in the scene editor counts the stops (speeches and light markers) instead of "0 sentences".
 
 ## 1.0.106 – 1.0.107 · 2026-10-14
 
