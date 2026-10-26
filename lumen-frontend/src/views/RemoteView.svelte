@@ -8,7 +8,9 @@
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { nowProgress, remoteBlocked, stepNext } from '../lib/remote';
-  import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
+  import {
+    NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
+  } from '../lib/script';
   import { topIn } from '../lib/scroll';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -38,17 +40,19 @@
   const progress = $derived(nowProgress(status, now - live.playbackReceivedAt, current?.autoFollowMs ?? null));
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
-  const scriptPassages = $derived(passages(script));
-  const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
+  const scriptSection = $derived(status?.section ?? 0);
+  /** the places ▲/▼ stop at: speeches, and light markers without speech after them */
+  const scriptStops = $derived(stops(script));
+  const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
   let scriptElement: HTMLElement | undefined = $state();
 
   // the current speech at the top of the script panel, what comes next below it
   $effect(() => {
-    const line = scriptLine;
+    const selector = stopSelector(scriptStops[stopIndex]);
     const element = scriptElement;
     void current;
     // after the layout, so it also works when the page opens in the middle of a scene
-    const frame = requestAnimationFrame(() => topIn(element, `[data-line="${line}"]`));
+    const frame = requestAnimationFrame(() => topIn(element, selector));
     return () => cancelAnimationFrame(frame);
   });
   const stoppable = $derived(status !== null && status.available && (status.position >= 0
@@ -87,11 +91,36 @@
     if (target) apply(api.playback.setNext(target.id));
   }
 
+  /** a first ▼ at the last speech asks; a second tap within a few seconds is a GO into the next scene */
+  let nextArmedFor = $state<number | null>(null);
+  let nextArmTimer: ReturnType<typeof setTimeout> | null = null;
+  const nextArmed = $derived(nextArmedFor !== null && nextArmedFor === current?.id);
+  const downAction = $derived(current
+    ? scriptDownAction(stopIndex, scriptStops.length, canGo, nextArmed)
+    : 'none');
+  const nextLabel = $derived(next ? `${next.number} ${next.name}` : 'end of show');
+
+  function scriptDown() {
+    if (downAction === 'speech') {
+      stepScript(1);
+    } else if (downAction === 'arm' && current) {
+      nextArmedFor = current.id;
+      if (nextArmTimer) clearTimeout(nextArmTimer);
+      nextArmTimer = setTimeout(() => (nextArmedFor = null), NEXT_SCENE_ARM_MS);
+    } else if (downAction === 'go') {
+      nextArmedFor = null;
+      go();
+    }
+  }
+
   function stepScript(step: number) {
+    nextArmedFor = null;
     if (!current) return;
-    const line = stepPassage(script, scriptLine, step);
+    const target = stepStop(scriptStops, scriptLine, scriptSection, step);
     // passing a light marker fades to the light of its part
-    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line, sectionOf(script, line));
+    if (target.line !== scriptLine || target.section !== scriptSection) {
+      live.scriptCommand(current.id, target.line, target.section);
+    }
   }
 
   /** the first tap on Stop only asks; a second one within a few seconds stops */
@@ -195,9 +224,17 @@
       <!-- always there, also for a scene without text, so GO keeps its size -->
       <article class="panel glass text-panel">
         <div class="panel-head">
-          <h3>Text {#if scriptPassages.length > 0}<span class="dim mono">{passageIndex + 1} / {scriptPassages.length}</span>{/if}</h3>
+          <h3>Text
+            {#if scriptStops.length > 1}
+              <!-- how far the scene is: the bar behind the count fills with every speech -->
+              <span class="speech-progress mono" title="Step {stopIndex + 1} of {scriptStops.length}"
+                style="--done: {((stopIndex + 1) / scriptStops.length) * 100}%">
+                {stopIndex + 1} / {scriptStops.length}
+              </span>
+            {/if}
+          </h3>
           <button type="button" class="btn back-speech" onclick={() => stepScript(-1)}
-            disabled={!current || passageIndex <= 0} aria-label="Previous speech">▲</button>
+            disabled={!current || stopIndex <= 0} aria-label="Previous speech">▲</button>
         </div>
         {#if current && script.parts.length > 0}
           <div class="script" bind:this={scriptElement}>
@@ -209,8 +246,12 @@
           <p class="script-empty dim">{current ? 'This scene has no text.' : 'The text of a scene appears here once it is on stage.'}</p>
         {/if}
         <!-- pressed most during the show: big and at the bottom, where the thumb is -->
-        <button type="button" class="next-speech" onclick={() => stepScript(1)}
-          disabled={!current || passageIndex >= scriptPassages.length - 1} aria-label="Next speech">▼</button>
+        <!-- at the last speech it leads on: tap twice for a GO into the next scene -->
+        <button type="button" class="next-speech" class:to-scene={downAction !== 'speech'} class:armed={nextArmed}
+          onclick={scriptDown} disabled={downAction === 'none'}
+          aria-label={downAction === 'speech' ? 'Next speech' : 'Next scene, tap twice'}>
+          {#if downAction === 'speech'}▼{:else if nextArmed}GO {nextLabel}?{:else}▼ Next scene{/if}
+        </button>
       </article>
     </div>
   </div>
@@ -361,6 +402,20 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
+  }
+
+  .speech-progress {
+    display: inline-block;
+    min-width: 140px;
+    margin-left: 8px;
+    padding: 3px 10px;
+    border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
+    border-radius: 999px;
+    background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 45%, transparent) var(--done),
+      transparent var(--done));
+    color: var(--text);
+    text-align: center;
+    transition: background 0.3s;
   }
 
   .choose {
@@ -558,6 +613,16 @@
 
   .next-speech:active:not(:disabled) {
     transform: scale(0.98);
+  }
+
+  .next-speech.to-scene {
+    font-size: 26px;
+    font-weight: 700;
+  }
+
+  .next-speech.armed {
+    background: var(--warning);
+    color: var(--bg);
   }
 
   .next-speech:disabled {

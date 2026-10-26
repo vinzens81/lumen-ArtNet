@@ -3,7 +3,7 @@
   import ScriptText from '../components/ScriptText.svelte';
   import WatchHeader from '../components/WatchHeader.svelte';
   import { live } from '../lib/live.svelte';
-  import { parseScript } from '../lib/script';
+  import { parseScript, stopOf, stops, stopSelector } from '../lib/script';
   import { centerIn } from '../lib/scroll';
   import { wakeLock } from '../lib/wakeLock.svelte';
   import { watchCaption, watchIdleText, watchNext } from '../lib/watch';
@@ -32,6 +32,9 @@
   const current = $derived(sceneId !== null ? scenes.list.find((s) => s.id === sceneId) : undefined);
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
+  /** what to keep in the middle: the current speech, or the light marker the operator stopped at */
+  const scriptStops = $derived(stops(script));
+  const stopTarget = $derived(stopSelector(scriptStops[stopOf(scriptStops, scriptLine, status?.section ?? 0)]));
   const caption = $derived(watchCaption(scenes.list, status));
   const next = $derived(watchNext(scenes.list, status));
   const idle = $derived(watchIdleText(status));
@@ -63,20 +66,20 @@
 
   // keep the current speech in the middle; the text size changes where it is
   $effect(() => {
-    const line = scriptLine;
+    const target = stopTarget;
     void size;
     void current;
-    if (following) center(line);
+    if (following) center(target);
   });
 
-  function center(line: number) {
+  function center(selector: string) {
     autoScrollUntil = performance.now() + AUTO_SCROLL_MS;
-    centerIn(body, `[data-line="${line}"]`);
+    centerIn(body, selector);
   }
 
   function follow() {
     following = true;
-    center(scriptLine);
+    center(stopTarget);
   }
 
   // scrolling by the reader stops following – by wheel, touch, keyboard or scrollbar, not our own centering

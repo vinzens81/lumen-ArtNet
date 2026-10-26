@@ -300,7 +300,79 @@ export function stepPassage(script: Script, line: number, step: number): number 
   return list[target].first;
 }
 
+/**
+ * A place the operator stops at when stepping through the script: the start of the scene, every passage, and every
+ * light marker that no speech follows before the next marker – there the light changes and waits, e.g. for a dance
+ * described only in stage directions. A marker followed by speech changes the light together with that speech.
+ *
+ * @param line    the sentence it stands at (for a marker: the first sentence after it)
+ * @param section the part of the scene whose light is on stage there
+ * @param marker  the stop is a light marker, not a speech
+ */
+export interface Stop {
+  line: number;
+  section: number;
+  marker: boolean;
+}
+
+export function stops(script: Script): Stop[] {
+  const starts = new Set(passages(script).map((p) => p.first));
+  const result: Stop[] = [{ line: 0, section: 0, marker: false }];
+  const add = (stop: Stop) => {
+    const last = result[result.length - 1];
+    if (last.line !== stop.line || last.section !== stop.section) result.push(stop);
+  };
+  let section = 0;
+  /** a marker waiting for its speech; without one before the next marker it is a stop of its own */
+  let pending: Stop | null = null;
+  for (const part of script.parts) {
+    if (part.kind === 'marker') {
+      if (pending) add(pending);
+      section = part.section;
+      pending = { line: part.firstLine, section, marker: true };
+    } else if (part.kind === 'line' && starts.has(part.index)) {
+      pending = null;
+      add({ line: part.index, section, marker: false });
+    }
+  }
+  if (pending) add(pending);
+  return result;
+}
+
+/** The stop the operator is at (or the last one before the position). */
+export function stopOf(list: Stop[], line: number, section: number): number {
+  let found = 0;
+  list.forEach((stop, i) => {
+    if (stop.section < section || (stop.section === section && stop.line <= line)) found = i;
+  });
+  return found;
+}
+
+/** The stop `step` stops away from the position, within the scene. */
+export function stepStop(list: Stop[], line: number, section: number, step: number): Stop {
+  return list[Math.max(0, Math.min(list.length - 1, stopOf(list, line, section) + step))];
+}
+
+/** What to scroll to for a stop: its speech, or the light marker. */
+export function stopSelector(stop: Stop): string {
+  return stop.marker ? `[data-marker="${stop.section}"]` : `[data-line="${stop.line}"]`;
+}
+
 /** The part of the scene a sentence is in: 0 before the first light marker, n after the n-th. */
 export function sectionOf(script: Script, line: number): number {
   return script.parts.filter((p) => p.kind === 'marker' && p.firstLine <= line).length;
+}
+
+/** How long a first ▼ at the last stop waits for the second one that starts the next scene. */
+export const NEXT_SCENE_ARM_MS = 3000;
+
+/**
+ * What ▼ (or ↓) does: the next stop; at the last stop of the scene (or in a scene without text) the first press
+ * asks and a second one within {@link NEXT_SCENE_ARM_MS} is a GO into the next scene. Nothing when GO is not possible.
+ */
+export function scriptDownAction(stopIndex: number, stopCount: number, canGo: boolean,
+  armed: boolean): 'speech' | 'arm' | 'go' | 'none' {
+  if (stopIndex < stopCount - 1) return 'speech';
+  if (!canGo) return 'none';
+  return armed ? 'go' : 'arm';
 }

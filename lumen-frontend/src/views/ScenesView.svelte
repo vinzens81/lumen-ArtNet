@@ -521,7 +521,8 @@
                   –
                 {/if}
                 In show mode ↑/↓ step from speech to speech; <span class="mono">**text**</span> is a stage direction,
-                a line <span class="mono">//## Name (info)##</span> a light marker with light of its own.
+                a line <span class="mono">//## Name (info)##</span> a light marker with light of its own. A marker with
+                only stage directions after it is a stop of its own: the light changes there and waits.
                 <button class="btn small preview-script" type="button" onclick={() => (scriptPreviewOpen = true)}
                   disabled={!form.script.trim()} title="Shows the script as the show displays it – with unsaved changes">
                   👁 Preview

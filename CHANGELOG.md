@@ -3,9 +3,15 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
-## 1.0.109 · 2026-10-26
+## 1.0.109 – 1.0.110 · 2026-10-26
 
 ### Added
+- Show mode and the tablet remote: at the last speech of a scene, ▼ (or ↓) leads on to the next scene – the first
+  press asks ("GO 4 Sunrise?"), a second one within 3 s is the GO. It works the same in a scene without text.
+- Tablet remote: a bar behind the speech count ("3 / 5") shows how far the scene is.
+- Script: a light marker followed only by stage directions (or nothing) is a stop of its own – ▲/▼ stop there, its
+  light fades in and waits, the next ▼ goes on. No more placeholder speeches like "All: pause" to hold the light. A
+  marker followed by speech still changes the light together with that speech.
 - Fade times per composition in a scene (Scenes → a composition → Fade in / Fade out, optional): a composition with
   its own fade-in fades in that long at GO (after the delay of the scene), one with its own fade-out takes that long
   to fade out when it leaves the stage (next GO, a light marker, the end of the show). Empty fields keep the fade

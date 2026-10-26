@@ -12,7 +12,9 @@
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
-  import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
+  import {
+    NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
+  } from '../lib/script';
   import { centerIn } from '../lib/scroll';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
@@ -73,8 +75,10 @@
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
   /** what ↑/↓ step through: the whole speech of a speaker */
-  const scriptPassages = $derived(passages(script));
-  const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
+  const scriptSection = $derived(status?.section ?? 0);
+  /** the places ▲/▼ stop at: speeches, and light markers without speech after them */
+  const scriptStops = $derived(stops(script));
+  const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
 
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
@@ -130,9 +134,9 @@
 
   // keep the current sentence in the middle, however long the text is
   $effect(() => {
-    const line = scriptLine;
+    const stop = scriptStops[stopIndex];
     if (tab !== 'script' || current === undefined) return;
-    center(`[data-line="${line}"]`);
+    center(stopSelector(stop));
   });
 
   onMount(() => {
@@ -192,11 +196,34 @@
     if (target) chooseNext(target);
   }
 
+  /** a first ▼ at the last speech asks; a second one within a few seconds is a GO into the next scene */
+  let nextArmedFor = $state<number | null>(null);
+  let nextArmTimer: ReturnType<typeof setTimeout> | null = null;
+  const nextArmed = $derived(nextArmedFor !== null && nextArmedFor === current?.id);
+  const downAction = $derived(scriptDownAction(stopIndex, scriptStops.length, canGo, nextArmed));
+  const nextLabel = $derived(next ? `${next.number} ${next.name}` : 'end of show');
+
+  function scriptDown() {
+    if (downAction === 'speech') {
+      stepScript(1);
+    } else if (downAction === 'arm' && current) {
+      nextArmedFor = current.id;
+      if (nextArmTimer) clearTimeout(nextArmTimer);
+      nextArmTimer = setTimeout(() => (nextArmedFor = null), NEXT_SCENE_ARM_MS);
+    } else if (downAction === 'go') {
+      nextArmedFor = null;
+      go();
+    }
+  }
+
   function stepScript(step: number) {
+    nextArmedFor = null;
     if (!current) return;
-    const line = stepPassage(script, scriptLine, step);
+    const target = stepStop(scriptStops, scriptLine, scriptSection, step);
     // passing a light marker fades to the light of its part
-    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line, sectionOf(script, line));
+    if (target.line !== scriptLine || target.section !== scriptSection) {
+      live.scriptCommand(current.id, target.line, target.section);
+    }
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -208,7 +235,7 @@
       P: () => live.playbackCommand('pause'),
       Enter: () => live.playbackCommand('finish'),
       ArrowUp: () => (event.shiftKey ? moveNext(-1) : stepScript(-1)),
-      ArrowDown: () => (event.shiftKey ? moveNext(1) : stepScript(1)),
+      ArrowDown: () => (event.shiftKey ? moveNext(1) : scriptDown()),
     };
     const action = actions[event.key];
     if (action) {
@@ -231,13 +258,19 @@
   {#if current}
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
-      {#if script.lineCount > 0}
-        <span class="dim small mono" title="Speeches">{passageIndex + 1} / {scriptPassages.length}</span>
+      {#if scriptStops.length > 1}
+        <span class="dim small mono" title="Speeches and light markers">{stopIndex + 1} / {scriptStops.length}</span>
         <div class="script-steps">
-          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={passageIndex <= 0}
+          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={stopIndex <= 0}
             aria-label="Previous speech">▲ <kbd>↑</kbd></button>
-          <button type="button" class="btn" onclick={() => stepScript(1)}
-            disabled={passageIndex >= scriptPassages.length - 1} aria-label="Next speech">▼ <kbd>↓</kbd></button>
+          {#if downAction === 'speech'}
+            <button type="button" class="btn" onclick={scriptDown} aria-label="Next speech">▼ <kbd>↓</kbd></button>
+          {:else}
+            <!-- at the last speech: twice for a GO into the next scene -->
+            <button type="button" class="btn" class:armed={nextArmed} onclick={scriptDown}
+              disabled={downAction === 'none'} title="Press twice for a GO into the next scene">
+              {nextArmed ? `GO ${nextLabel}?` : '▼ Next scene'} <kbd>↓</kbd></button>
+          {/if}
         </div>
       {/if}
     </div>
@@ -557,6 +590,12 @@
   .script-steps {
     display: flex;
     gap: 6px;
+  }
+
+  .script-steps .armed {
+    border-color: var(--warning);
+    background: var(--warning-soft);
+    color: var(--warning);
   }
 
   .script {

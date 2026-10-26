@@ -1,5 +1,7 @@
 <script lang="ts">
-  import { passageOf, passages, scriptBlocks, speakerHue, type Script, type ScriptPart } from '../lib/script';
+  import {
+    passageOf, passages, scriptBlocks, speakerHue, stopOf, stops, type Script, type ScriptPart,
+  } from '../lib/script';
 
   let {
     script,
@@ -14,12 +16,18 @@
   } = $props();
 
   const blocks = $derived(scriptBlocks(script));
-  /** sentences of the current passage, e.g. the whole speech of the current speaker */
+  /**
+   * sentences of the current passage, e.g. the whole speech of the current speaker; at a light marker without speech
+   * none, everything before it is done
+   */
   const current = $derived.by(() => {
     if (currentLine === null) return null;
-    const list = passages(script);
-    const index = passageOf(list, currentLine);
-    return index < 0 ? null : list[index];
+    const list = stops(script);
+    const stop = list[stopOf(list, currentLine, section ?? 0)];
+    if (stop.marker) return { first: stop.line, last: stop.line - 1 };
+    const all = passages(script);
+    const index = passageOf(all, currentLine);
+    return index < 0 ? null : all[index];
   });
 </script>
 
@@ -48,7 +56,7 @@
     {:else if block.kind === 'note'}
       <div class="direction">{block.text}</div>
     {:else if block.kind === 'marker'}
-      <div class="marker" class:active={section === block.section} class:passed={section !== null && block.section < (section ?? 0)}>
+      <div class="marker" data-marker={block.section} class:active={section === block.section} class:passed={section !== null && block.section < (section ?? 0)}>
         <span class="marker-name">💡 {block.name}</span>
         {#if block.info}<span class="marker-info">{block.info}</span>{/if}
       </div>
