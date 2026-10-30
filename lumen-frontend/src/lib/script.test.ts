@@ -78,7 +78,7 @@ describe('parseScript', () => {
   });
 
   it('has no parts for an empty text', () => {
-    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, speakers: [], markers: [] });
+    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, pauseCount: 0, speakers: [], markers: [] });
   });
 });
 
@@ -131,6 +131,7 @@ function summary(block: ScriptBlock): string {
     case 'text': return `text: ${text(block.parts)}`;
     case 'note': return `note: ${block.text}`;
     case 'marker': return `marker ${block.section}: ${block.name} (${block.info})`;
+    case 'pause': return `pause ${block.index}: ${block.name} (${block.info})`;
     case 'paragraph': return 'paragraph';
   }
 }
@@ -188,6 +189,47 @@ describe('stepping through the script', () => {
 
   it('is null without sentences', () => {
     expect(stepPassage(parseScript('**Silence**'), 0, 1)).toBeNull();
+  });
+});
+
+describe('pauses', () => {
+  const script = parseScript([
+    'Michael: Is father here?',
+    '//|| Long pause (they wait)||',
+    'Christian: Hiding.',
+    '//## Hall ##',
+    '//|| Pause ||',
+    '**Leif comes in.**',
+  ].join('\n'));
+
+  it('are positions of their own, not spoken and not a speaker', () => {
+    expect(script.pauseCount).toBe(2);
+    expect(script.lineCount).toBe(4);
+    expect(script.speakers).toEqual(['Michael', 'Christian']);
+    expect(script.markers).toEqual([{ name: 'Hall', info: '' }]);
+    expect(lines('Michael: Is father here?\n//|| Pause ||'), 'not spoken').toEqual(['Is father here?']);
+  });
+
+  it('show on a line of their own', () => {
+    expect(scriptBlocks(script).map(summary)).toEqual([
+      'speech Michael: Is father here?',
+      'pause 1: Long pause (they wait)',
+      'speech Christian: Hiding.',
+      'marker 1: Hall ()',
+      'pause 3: Pause ()',
+      'note: Leif comes in.',
+    ]);
+  });
+
+  it('are a stop of their own; a marker before one changes the light with it', () => {
+    expect(passages(script)).toEqual([{ first: 0, last: 0 }, { first: 1, last: 1 }, { first: 2, last: 2 },
+      { first: 3, last: 3 }]);
+    expect(stops(script)).toEqual([
+      { line: 0, section: 0, marker: false },
+      { line: 1, section: 0, marker: false },
+      { line: 2, section: 0, marker: false },
+      { line: 3, section: 1, marker: false },
+    ]);
   });
 });
 

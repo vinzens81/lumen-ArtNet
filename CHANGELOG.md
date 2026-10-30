@@ -3,6 +3,28 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.112 · 2026-10-28
+
+### Added
+- Script: pauses. "⏸ Pause" in the script editor inserts a line `//|| Pause (info)||` – shown as ⏸ in the script,
+  and a stop of its own when stepping through it in show mode and on the remote, like a speech. A light marker right
+  before a pause changes the light with it. Before, a pause needed a made-up speaker such as `ALLE: pause`.
+- Scenes: every light frame has its own Fade in and Fade out. The start frame holds the fade times of the GO into the
+  scene (moved there from the scene settings above); a frame after a light marker sets how long its light fades in
+  and the light before fades out when the script passes the marker – empty fields keep the scene's times. They travel
+  with the project export.
+
+### Changed
+- Scenes: "▶ Show on stage" and "⇢ Fade in" (was "Rehearse fade") sit under each light frame – the start of the scene
+  and every part after a light marker – so each light can be tried on its own. "⇢ Fade in" fades from the light that
+  is on stage right now, whatever it is, with the fade times of the show; what is in both keeps running and does not
+  move. Before, it jumped to the scene before (to its start, not its last part) and faded from there, so light that
+  stays on in the show went out and came back.
+
+### Removed
+- Scenes: "Load into programmer", "Update from programmer" and the look history that belonged to it. A scene is
+  changed through its compositions; their looks are updated in the composition or under Looks.
+
 ## 1.0.109 – 1.0.111 · 2026-10-26
 
 ### Added

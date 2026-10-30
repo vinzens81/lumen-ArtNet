@@ -6,7 +6,6 @@
   import SceneKeys from '../components/SceneKeys.svelte';
   import ScriptEditor from '../components/ScriptEditor.svelte';
   import ScriptText from '../components/ScriptText.svelte';
-  import UpdateFromProgrammerModal from '../components/UpdateFromProgrammerModal.svelte';
   import { api } from '../lib/api';
   import { modesOf, swatchesOf } from '../lib/color';
   import { live } from '../lib/live.svelte';
@@ -16,24 +15,17 @@
   import { compositionIcon, lookMap, sceneStartValues } from '../lib/compositions';
   import { numberAt, numberBetween } from '../lib/sceneNumbers';
   import { parseScript, stops } from '../lib/script';
-  import {
-    curveLabel, FADE_CURVES, fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs, timingLabel,
-  } from '../lib/sceneTiming';
-  import { shortTime } from '../lib/format';
+  import { curveLabel, FADE_CURVES, sceneRequestOf, secondsToMs, timingLabel } from '../lib/sceneTiming';
   import { stagePreview } from '../lib/stagePreview.svelte';
-  import type {
-    Composition, FadeCurve, Fixture, Group, Look, LookRevision, Move, RecordRequest, Scene,
-  } from '../lib/types';
+  import type { Composition, FadeCurve, Fixture, Group, Look, Move, Scene } from '../lib/types';
 
   let scenes = $state<Scene[]>([]);
   let fixtures = $state<Fixture[]>([]);
   let groups = $state<Group[]>([]);
   let selectedId = $state<number | null>(null);
   let recordOpen = $state(false);
-  let overwriteOpen = $state(false);
   let deleteOpen = $state(false);
   let scriptPreviewOpen = $state(false);
-  let revisions = $state<LookRevision[]>([]);
   let compositions = $state<Composition[]>([]);
   let looks = $state<Look[]>([]);
   let moves = $state<Move[]>([]);
@@ -44,8 +36,6 @@
     autoFollow: false,
     autoFollowSeconds: 5,
     // empty (null) = the project's time
-    fadeInSeconds: null as number | null,
-    fadeOutSeconds: null as number | null,
     delaySeconds: null as number | null,
     // empty = the project's curve
     fadeCurve: '' as FadeCurve | '',
@@ -72,40 +62,11 @@
   });
   const scriptStats = $derived.by(() => {
     const script = parseScript(form.script);
-    return { lines: script.lineCount, notes: script.noteCount, speakers: script.speakers.length,
-      stops: stops(script).length };
-  });
-  /** the scene GO comes from in the show – a rehearsed fade starts there */
-  const previousScene = $derived.by(() => {
-    if (!selected) return null;
-    const index = scenes.indexOf(selected);
-    return index > 0 ? scenes[index - 1] : null;
-  });
-
-  // progress of a rehearsed fade, interpolated from the moment the status arrived
-  let now = $state(performance.now());
-  const rehearsal = $derived(stagePreview.status.fade);
-  const rehearsalElapsed = $derived(rehearsal ? rehearsal.elapsedMs + (now - stagePreview.receivedAt) : 0);
-  const rehearsalRunning = $derived(rehearsal !== null && !fadeEnded(rehearsalElapsed, rehearsal));
-
-  $effect(() => {
-    if (rehearsal === null) return;
-    let frame = requestAnimationFrame(function tick() {
-      now = performance.now();
-      if (!fadeEnded(rehearsalElapsed, rehearsal)) frame = requestAnimationFrame(tick);
-    });
-    return () => cancelAnimationFrame(frame);
+    return { lines: script.lineCount - script.pauseCount, notes: script.noteCount, pauses: script.pauseCount,
+      speakers: script.speakers.length, stops: stops(script).length };
   });
   const compositionsById = $derived(new Map(compositions.map((c) => [c.id, c])));
   const looksById = $derived(lookMap(looks));
-  /** the look of a simple scene: its first composition plays one look – “Update from programmer” changes it */
-  const baseLook = $derived.by(() => {
-    const first = selected?.compositions[0];
-    const composition = first ? compositionsById.get(first.compositionId) : undefined;
-    return composition?.steps.length === 1 ? looksById.get(composition.steps[0].lookId) ?? null : null;
-  });
-  /** the quick update works for a scene without compositions (records one) or with a simple first composition */
-  const canQuickUpdate = $derived(selected !== null && (selected.compositions.length === 0 || baseLook !== null));
   const modes = $derived(modesOf(fixtures, (id) => app.fixtureType(id)));
   const nextNumber = $derived(
     scenes.length === 0 ? '1' : String(Math.floor(Number(scenes[scenes.length - 1].number)) + 1),
@@ -119,32 +80,6 @@
     void live.movesRevision;
     if (projectId !== null) load(projectId);
   });
-
-  $effect(() => {
-    void live.looksRevision;
-    const lookId = baseLook?.id ?? null;
-    if (projectId !== null && lookId !== null) loadRevisions(projectId, lookId);
-    else revisions = [];
-  });
-
-  async function loadRevisions(projectId: number, lookId: number) {
-    try {
-      const loaded = await api.looks.revisions(projectId, lookId);
-      if (baseLook?.id === lookId) revisions = loaded;
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function restore(revision: LookRevision) {
-    if (!project || !selected || !baseLook) return;
-    try {
-      await api.looks.restore(project.id, baseLook.id, revision.id);
-      notify(`Scene ${selected.number}: look from ${shortTime(new Date(revision.createdAt))} restored`);
-    } catch (e) {
-      showError(e);
-    }
-  }
 
   $effect(() => {
     // only when the stored fade times change, so unsaved edits survive unrelated project reloads
@@ -178,8 +113,6 @@
       cueNote: scene.cueNote ?? '',
       autoFollow: scene.autoFollowMs !== null,
       autoFollowSeconds: scene.autoFollowMs !== null ? scene.autoFollowMs / 1000 : 5,
-      fadeInSeconds: scene.fadeInMs !== null ? scene.fadeInMs / 1000 : null,
-      fadeOutSeconds: scene.fadeOutMs !== null ? scene.fadeOutMs / 1000 : null,
       delaySeconds: scene.delayMs > 0 ? scene.delayMs / 1000 : null,
       fadeCurve: scene.fadeCurve ?? '',
       moveInDark: scene.moveInDark,
@@ -201,8 +134,9 @@
         name: form.name,
         cueNote: form.cueNote || null,
         autoFollowMs: form.autoFollow ? Math.round(form.autoFollowSeconds * 1000) : null,
-        fadeInMs: secondsToMs(form.fadeInSeconds),
-        fadeOutMs: secondsToMs(form.fadeOutSeconds),
+        // fade in and out are set in the frame of the start and saved there at once
+        fadeInMs: selected.fadeInMs,
+        fadeOutMs: selected.fadeOutMs,
         delayMs: secondsToMs(form.delaySeconds),
         fadeCurve: form.fadeCurve || null,
         moveInDark: form.moveInDark,
@@ -212,27 +146,6 @@
       });
       notify(`Saved scene ${scene.number}`);
       await load(project.id);
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function loadIntoProgrammer(scene: Scene) {
-    if (!project) return;
-    try {
-      await api.scenes.load(project.id, scene.id);
-      notify(`Scene ${scene.number} loaded into the programmer`);
-    } catch (e) {
-      showError(e);
-    }
-  }
-
-  async function overwrite(request: RecordRequest) {
-    if (!project || !selected) return;
-    try {
-      await api.scenes.record(project.id, selected.id, request);
-      notify(`Scene ${selected.number} ${request.merge ? 'merged with' : 'updated from'} the programmer`);
-      overwriteOpen = false;
     } catch (e) {
       showError(e);
     }
@@ -512,18 +425,20 @@
               <div class="field">
                 <span>Script</span>
                 <ScriptEditor bind:value={form.script} rows={12}
-                  placeholder={'Text spoken on stage during this scene.\nJuliet: Ay me! – a name and a colon at the start of a line marks who speaks.\n**Enter Juliet** – stage directions in two asterisks.\n//## Window (moonlight) ## – a light marker: the light of the scene changes here.'} />
+                  placeholder={'Text spoken on stage during this scene.\nJuliet: Ay me! – a name and a colon at the start of a line marks who speaks.\n**Enter Juliet** – stage directions in two asterisks.\n//## Window (moonlight) ## – a light marker: the light of the scene changes here.\n//|| Long pause || – a pause: stepping stops here.'} />
               </div>
               <p class="hint dim">
-                {#if scriptStats.lines > 0 || scriptStats.notes > 0}
+                {#if scriptStats.lines > 0 || scriptStats.notes > 0 || scriptStats.pauses > 0}
                   {scriptStats.lines} {scriptStats.lines === 1 ? 'sentence' : 'sentences'}
                   {#if scriptStats.speakers > 0}· {scriptStats.speakers} {scriptStats.speakers === 1 ? 'speaker' : 'speakers'}{/if}
                   {#if scriptStats.notes > 0}· {scriptStats.notes} stage {scriptStats.notes === 1 ? 'direction' : 'directions'}{/if}
+                  {#if scriptStats.pauses > 0}· {scriptStats.pauses} {scriptStats.pauses === 1 ? 'pause' : 'pauses'}{/if}
                   –
                 {/if}
                 In show mode ↑/↓ step from speech to speech; <span class="mono">**text**</span> is a stage direction,
                 a line <span class="mono">//## Name (info)##</span> a light marker with light of its own. A marker with
-                only stage directions after it is a stop of its own: the light changes there and waits.
+                only stage directions after it is a stop of its own: the light changes there and waits. A line
+                <span class="mono">//|| Pause ||</span> is a pause: nobody speaks, but stepping stops there.
                 <button class="btn small preview-script" type="button" onclick={() => (scriptPreviewOpen = true)}
                   disabled={!form.script.trim()} title="Shows the script as the show displays it – with unsaved changes">
                   👁 Preview
@@ -537,11 +452,7 @@
             </label>
             <p class="hint dim">The time starts when the fade-in has finished. Without it the scene stays until GO.</p>
               <fieldset class="timing">
-                <legend>Fade times of the GO into this scene</legend>
-                <label>In <input class="seconds" type="number" min="0" max="600" step="0.1"
-                  bind:value={form.fadeInSeconds} placeholder={String(project.fadeInMs / 1000)} /> s</label>
-                <label>Out <input class="seconds" type="number" min="0" max="600" step="0.1"
-                  bind:value={form.fadeOutSeconds} placeholder={String(project.fadeOutMs / 1000)} /> s</label>
+                <legend>GO into this scene</legend>
                 <label>Delay <input class="seconds" type="number" min="0" max="600" step="0.1"
                   bind:value={form.delaySeconds} placeholder="0" /> s</label>
                 <label>Curve
@@ -552,8 +463,8 @@
                 </label>
               </fieldset>
               <p class="hint dim">
-                Empty = the project's time. “Out” fades the scene before, “Delay” holds back the fade-in – e.g. In 0 and
-                Out 0 for a flash.
+                Fade in and out are set in the frames below: the start frame for the GO into the scene, each light marker
+                for its own change. “Delay” holds back the fade-in of the GO – e.g. Fade in 0 and Fade out 0 for a flash.
               </p>
               <fieldset class="timing">
                 <legend>Moving heads</legend>
@@ -570,77 +481,6 @@
                 instead of sweeping across the stage while lit. Heads staying where they are fade as usual.
               </p>
           </form>
-
-          <section>
-            <h3>On stage</h3>
-            <div class="buttons">
-              <button class="btn" type="button" onclick={() => selected && loadIntoProgrammer(selected)}>Load into programmer</button>
-              {#if stagePreview.status.sceneId === selected.id}
-                <button class="btn primary" type="button" onclick={() => stagePreview.stop()}
-                  title="Stop playing this scene on stage">■ Stop showing</button>
-              {:else}
-                <button class="btn" type="button" onclick={() => projectId !== null && stagePreview.showScene(projectId, selected.id)}
-                  title="Play the scene with its compositions on stage, above the playback">▶ Show on stage</button>
-              {/if}
-              <button class="btn" type="button"
-                onclick={() => projectId !== null && selected && stagePreview.rehearseFade(projectId, selected.id)}
-                title="Play the GO into this scene on stage: from {previousScene ? `scene ${previousScene.number}` : 'the dark stage'} with the fade times of the show">
-                ⇢ Rehearse fade
-              </button>
-              <button class="btn record-outline" type="button" onclick={() => (overwriteOpen = true)}
-                disabled={!programmerHasValues || !canQuickUpdate}
-                title={canQuickUpdate
-                  ? 'Take the programmer into the look of this scene'
-                  : 'The first composition has several steps – change its looks in the composition'}>⏺ Update from programmer</button>
-              {#if revisions.length > 0}
-                <button class="btn" type="button" onclick={() => restore(revisions[0])}
-                  title="Restore the look from before “{revisions[0].reason}” ({shortTime(new Date(revisions[0].createdAt))})">↶ Undo</button>
-              {/if}
-            </div>
-            {#if rehearsal && rehearsalRunning && stagePreview.status.sceneId === selected.id}
-              {@const from = scenes.find((s) => s.id === rehearsal.fromSceneId)}
-              {@const delayLeft = Math.max(0, rehearsal.delayMs - rehearsalElapsed)}
-              <div class="rehearsal" role="status">
-                <div class="small">
-                  {from ? `${from.number} ${from.name}` : 'Dark stage'} → {selected.number} {selected.name}
-                  <span class="mono dim">
-                    · {delayLeft > 0
-                      ? `fade in starts in ${(delayLeft / 1000).toFixed(1)} s`
-                      : `${(Math.max(0, rehearsal.delayMs + rehearsal.fadeInMs - rehearsalElapsed) / 1000).toFixed(1)} s left`}
-                  </span>
-                </div>
-                <div class="bar">
-                  <span style="width: {fadeInProgress(rehearsalElapsed, rehearsal.fadeInMs, rehearsal.delayMs) * 100}%"></span>
-                </div>
-              </div>
-            {/if}
-            {#if stagePreview.status.sceneId === selected.id && programmerHasValues}
-              <p class="hint warning-text">The programmer is on top of the stage preview – clear it to see the scene as it is.</p>
-            {/if}
-          </section>
-
-          {#if revisions.length > 0}
-            <section>
-              <h3>History</h3>
-              <ul class="revisions">
-                {#each revisions as revision (revision.id)}
-                  <li>
-                    <span class="mono">{shortTime(new Date(revision.createdAt))}</span>
-                    <span class="revision-reason dim">before “{revision.reason}”</span>
-                    <span class="swatches" aria-hidden="true">
-                      {#each swatchesOf(fixtures, modes, revision.values) as swatch, j (j)}
-                        <span class="swatch" style="--color: {swatch.color}; --intensity: {swatch.intensity}"></span>
-                      {:else}
-                        <span class="dark">dark</span>
-                      {/each}
-                    </span>
-                    <button class="btn small" type="button" onclick={() => restore(revision)}
-                      title="Put this look back – the current look stays in the history">Restore</button>
-                  </li>
-                {/each}
-              </ul>
-            </section>
-          {/if}
 
           {#if projectId !== null}
             <SceneCompositions {projectId} scene={selected} {scenes} {compositions} {looks} {moves} {fixtures} {groups}
@@ -673,17 +513,12 @@
 <RecordSceneModal bind:open={recordOpen} suggestedNumber={nextNumber}
   onrecorded={(scene) => project && load(project.id).then(() => select(scene))} />
 
-<UpdateFromProgrammerModal bind:open={overwriteOpen}
-  subject={baseLook ? `the look of scene ${selected?.number} “${selected?.name}”` : `scene ${selected?.number} “${selected?.name}”`}
-  note={baseLook && baseLook.owner === null ? 'It is a shared look – it changes everywhere it is played.' : undefined}
-  onconfirm={overwrite} />
-
 <Modal bind:open={scriptPreviewOpen} title="Script {form.number} {form.name}" wide>
   <div class="script-preview">
     <ScriptText script={parseScript(form.script)} />
   </div>
   <p class="hint dim">As in show mode – {scriptStats.stops} {scriptStats.stops === 1 ? 'stop' : 'stops'} to step through
-    (speeches, and light markers without speech after them).</p>
+    (speeches, pauses, and light markers without speech or pause after them).</p>
 </Modal>
 
 <Modal bind:open={deleteOpen} title="Delete scene">
@@ -701,30 +536,6 @@
     font-size: 12px;
   }
 
-  .revisions {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .revisions li {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    font-size: 0.85rem;
-  }
-
-  .revision-reason {
-    flex: 1;
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
   .preview-script {
     margin-left: 6px;
   }
@@ -733,10 +544,6 @@
   .script-preview {
     padding: 4px 6px 12px;
     font-size: 20px;
-  }
-
-  .warning-text {
-    color: var(--warning);
   }
 
   .view {
@@ -1027,25 +834,6 @@
     background: rgba(0, 0, 0, 0.25);
     color: var(--text);
     font: inherit;
-  }
-
-  .rehearsal {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .rehearsal .bar {
-    height: 6px;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.08);
-    overflow: hidden;
-  }
-
-  .rehearsal .bar span {
-    display: block;
-    height: 100%;
-    background: var(--accent);
   }
 
   .timing {

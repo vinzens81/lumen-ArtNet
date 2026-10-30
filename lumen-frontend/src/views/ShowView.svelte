@@ -76,7 +76,7 @@
   const scriptLine = $derived(status?.scriptLine ?? 0);
   /** what ↑/↓ step through: the whole speech of a speaker */
   const scriptSection = $derived(status?.section ?? 0);
-  /** the places ▲/▼ stop at: speeches, and light markers without speech after them */
+  /** the places ▲/▼ stop at: speeches, pauses, and light markers without speech or pause after them */
   const scriptStops = $derived(stops(script));
   const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
 
@@ -259,7 +259,7 @@
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
       {#if scriptStops.length > 1}
-        <span class="dim small mono" title="Speeches and light markers">{stopIndex + 1} / {scriptStops.length}</span>
+        <span class="dim small mono" title="Speeches, pauses and light markers">{stopIndex + 1} / {scriptStops.length}</span>
         <div class="script-steps">
           <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={stopIndex <= 0}
             aria-label="Previous speech">▲ <kbd>↑</kbd></button>

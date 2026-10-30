@@ -12,6 +12,8 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.MoveInDark;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.ScriptMarkers;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -190,8 +192,26 @@ public final class Playback {
 		if (target == null) {
 			return false;
 		}
-		startTransition(now, target, 0, behaviors);
+		// the same scene again (chosen with setNext) restarts at once, without its delay
+		var times = target == position && isScene(target) ? markerTimes(target, 0) : timesInto(target);
+		startTransition(now, target, 0, times, behaviors);
 		return true;
+	}
+
+	/**
+	 * Fades from what is on stage to a part of any scene of the cue list (0 = its start, n = after the n-th light
+	 * marker), e.g. to try a transition: into the start with the times of the GO into the scene, into a part with the
+	 * times of passing its marker. What is in both continues.
+	 */
+	public void goTo(long sceneId, int part, Instant now, FadeBehaviors behaviors) {
+		var index = indexOf(sceneId);
+		if (index < 0) {
+			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
+		}
+		if (part < 0 || part > partCount(index)) {
+			throw new IllegalArgumentException("Scene " + sceneId + " has no part " + part);
+		}
+		startTransition(now, index, part, part == 0 ? timesInto(index) : markerTimes(index, part), behaviors);
 	}
 
 	/**
@@ -202,7 +222,7 @@ public final class Playback {
 		if (!isScene(position) || target == section || target < 0 || target > sectionCount()) {
 			return false;
 		}
-		startTransition(now, position, target, behaviors);
+		startTransition(now, position, target, markerTimes(position, target), behaviors);
 		return true;
 	}
 
@@ -216,7 +236,7 @@ public final class Playback {
 		if (position == READY) {
 			return false;
 		}
-		startTransition(now, position - 1, 0, behaviors);
+		startTransition(now, position - 1, 0, timesInto(position - 1), behaviors);
 		return true;
 	}
 
@@ -225,18 +245,43 @@ public final class Playback {
 	 * countdown starts now.
 	 */
 	public void restore(long sceneId, Instant now) {
+		restore(sceneId, 0, now);
+	}
+
+	/**
+	 * Puts a part of a scene on stage at once (0 = its start, n = after the n-th light marker), without a fade. A part
+	 * the scene does not have is its start.
+	 */
+	public void restore(long sceneId, int part, Instant now) {
 		var index = indexOf(sceneId);
 		if (index < 0) {
 			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
 		}
 		position = index;
-		section = 0;
+		section = part > 0 && part <= sectionCount() ? part : 0;
 		transition = null;
 		pendingNext = null;
 		stayStart = virtualNow(now);
 		held = Map.of();
 		var v = stayStart;
 		running = compositionsAt(index).stream().map(c -> new Running(c, v)).toList();
+		dropDeletedScene();
+	}
+
+	/**
+	 * Puts light on stage at once that is no scene of the cue list (e.g. a preview), its compositions running since
+	 * {@code startedAt}. No scene is current; {@link #goTo} fades from it, and what it has in common with the target
+	 * continues with its phase.
+	 */
+	public void restoreLight(List<ActiveComposition> light, Instant startedAt) {
+		position = READY;
+		section = 0;
+		transition = null;
+		pendingNext = null;
+		held = Map.of();
+		var v = virtualNow(startedAt);
+		stayStart = v;
+		running = light.stream().map(c -> new Running(c, v)).toList();
 		dropDeletedScene();
 	}
 
@@ -483,7 +528,7 @@ public final class Playback {
 
 	// --- internals -------------------------------------------------------------------------------------------
 
-	private void startTransition(Instant now, int target, int targetSection, FadeBehaviors behaviors) {
+	private void startTransition(Instant now, int target, int targetSection, Times times, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		var current = output(now, behaviors);
 		var darkAtGo = new HashSet<Long>();
@@ -516,8 +561,6 @@ public final class Playback {
 
 		var fromSceneId = currentScene().map(Scene::id);
 		var withinScene = target == position && isScene(target);
-		// the delay of a scene is for the GO into it, a light marker changes the light at once
-		var times = withinScene ? timesInto(target).withoutDelay() : timesInto(target);
 		var dark = DarkMove.NONE;
 		if (times.moveInDark()) {
 			dark = darkMove(next, continuing, darkAtGo, times, v);
@@ -625,7 +668,12 @@ public final class Playback {
 
 	/** Number of light markers of the current scene. */
 	private int sectionCount() {
-		return isScene(position) ? parts.getOrDefault(scenes.get(position).id(), List.of()).size() : 0;
+		return partCount(position);
+	}
+
+	/** Number of light markers of the scene at a position. */
+	private int partCount(int index) {
+		return isScene(index) ? parts.getOrDefault(scenes.get(index).id(), List.of()).size() : 0;
 	}
 
 	/** Static values with the running compositions laid over them. */
@@ -715,6 +763,24 @@ public final class Playback {
 				timing.curveOr(fadeCurve), dark.enabled(), dark.dimOutOr(dimOut), dark.travelOr(travel));
 	}
 
+	/**
+	 * Fade times of passing a light marker: the delay of a scene is for the GO into it, a marker changes the light at
+	 * once – with the fade times of its part, if it has its own.
+	 */
+	private Times markerTimes(int index, int part) {
+		return timesInto(index).withoutDelay().with(partTiming(index, part));
+	}
+
+	/** The own fade times of a part of a scene (n = after the n-th light marker of its script); none for its start. */
+	private SectionTiming partTiming(int index, int part) {
+		if (part == 0 || !isScene(index)) {
+			return SectionTiming.NONE;
+		}
+		var scene = scenes.get(index);
+		var markers = ScriptMarkers.parse(scene.spec().script());
+		return part <= markers.size() ? scene.section(markers.get(part - 1).name()).timing() : SectionTiming.NONE;
+	}
+
 	/** Time since an arbitrary origin that does not advance while paused. */
 	private Duration virtualNow(Instant now) {
 		var paused = pausedAt == null ? pausedTotal : pausedTotal.plus(Duration.between(pausedAt, now));
@@ -727,6 +793,11 @@ public final class Playback {
 
 		Times withoutDelay() {
 			return new Times(fadeIn, fadeOut, Duration.ZERO, curve, moveInDark, dimOut, travel);
+		}
+
+		/** The times with the own fade times of a part of the scene where it has them. */
+		Times with(SectionTiming part) {
+			return new Times(part.fadeInOr(fadeIn), part.fadeOutOr(fadeOut), delay, curve, moveInDark, dimOut, travel);
 		}
 	}
 

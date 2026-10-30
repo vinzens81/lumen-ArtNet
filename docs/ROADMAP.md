@@ -423,7 +423,11 @@ changes it brings the scene value back at once; the grand master works the same 
 - ✅ **Rehearsal cross-fade** in setup mode: "⇢ Rehearse fade" in the scene editor plays the GO from the scene before
   (or from dark) into the chosen scene, as a stage preview (layer 75) with the same `Playback` engine as in show mode,
   i.e. with fade times, delay and compositions. `POST /api/projects/{id}/scenes/{sid}/rehearse-fade`, the status of
-  the stage preview contains the running fade. Checked in the browser (test server)
+  the stage preview contains the running fade. Checked in the browser (test server). Since 2026-10-28 per light
+  frame: `?marker=` on `stage-preview` and `rehearse-fade` plays the part after a light marker, or the change into it
+  from the part before; the scene editor has both buttons under every frame instead of one row for the scene. Since
+  2026-10-30 "⇢ Fade in" (`POST …/scenes/{sid}/fade-in`, was `rehearse-fade`) fades from whatever the stage preview
+  shows instead of jumping to the scene before (`Playback.restoreLight` + `goTo`)
 - ✅ Along the way: robustness – on reload the playback reads the database outside the lock (the render loop does not
   wait), a scene deleted during the show stays until the next GO, after the end no newly created scene comes on stage.
   WebSocket watchdog (3.5 s without a message → reconnect), wake lock with NoSleep.js fallback for tablets over HTTP,

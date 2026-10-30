@@ -6,6 +6,7 @@ import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.util.List;
 import java.util.Optional;
@@ -25,11 +26,11 @@ public interface SceneRepository {
 	Scene replaceCompositions(long id, List<SceneComposition> compositions);
 
 	/**
-	 * The light of a part of the scene: compositions, looks and moves after the marker, or at the start for
-	 * {@code ""}.
+	 * The light of a part of the scene: compositions, looks, moves and fade times after the marker, or at the start
+	 * for {@code ""} (whose fade times are those of the scene, {@code timing} is ignored there).
 	 */
 	Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks,
-			List<SceneMove> moves);
+			List<SceneMove> moves, SectionTiming timing);
 
 	Scene replaceKeys(long id, List<SceneKey> keys);
 

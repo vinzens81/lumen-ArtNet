@@ -1,6 +1,7 @@
 package de.vinzens.lumen.application.composition;
 
 import de.vinzens.lumen.application.ConflictException;
+import de.vinzens.lumen.application.NotFoundException;
 import de.vinzens.lumen.application.TestShow;
 import de.vinzens.lumen.application.events.StateEvents;
 import de.vinzens.lumen.application.events.StateTopic;
@@ -22,6 +23,7 @@ import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneComposition;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
@@ -29,6 +31,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -96,7 +99,7 @@ class CompositionPreviewServiceTest {
 
 	@Test
 	void wholeSceneRunsOnStageWithItsCompositions() {
-		preview.showSceneOnStage(1, scene.id());
+		preview.showSceneOnStage(1, scene.id(), Optional.empty());
 		assertThat(preview.sceneOnStage()).contains(scene.id());
 		assertThat(preview.compositionOnStage()).isEmpty();
 
@@ -114,21 +117,20 @@ class CompositionPreviewServiceTest {
 	}
 
 	@Test
-	void rehearsedFadeComesFromThePreviousSceneWithTheTimesOfTheShow() {
+	void fadeInComesFromTheLightOnStageWithTheTimesOfTheShow() {
 		var modes = Map.of(1L, DIMMER_MODE, 2L, DIMMER_MODE, 3L, DIMMER_MODE, 4L, DIMMER_MODE);
 		preview.layer(now, modes);
+		preview.showSceneOnStage(1, before.id(), Optional.empty());
 
-		preview.rehearseFade(1, scene.id());
+		preview.fadeIn(1, scene.id(), Optional.empty());
 
 		assertThat(preview.sceneOnStage()).contains(scene.id());
-		assertThat(dimmer(modes, 4)).as("starts with the previous scene").isEqualTo(1.0);
+		assertThat(dimmer(modes, 4)).as("starts with the light on stage").isEqualTo(1.0);
 		now = now.plusSeconds(1);
 		assertThat(dimmer(modes, 4)).isCloseTo(0.75, within(1e-9));
 		assertThat(dimmer(modes, 3)).isCloseTo(0.15, within(1e-9));
-		assertThat(preview.fadeOnStage()).get().satisfies(fade -> {
-			assertThat(fade.fromSceneId()).contains(before.id());
-			assertThat(fade.elapsed()).isEqualTo(Duration.ofSeconds(1));
-		});
+		assertThat(preview.fadeOnStage()).get().satisfies(fade ->
+				assertThat(fade.elapsed()).isEqualTo(Duration.ofSeconds(1)));
 
 		now = now.plusSeconds(3);
 		assertThat(preview.fadeOnStage()).as("ended, the scene stays").isEmpty();
@@ -138,22 +140,101 @@ class CompositionPreviewServiceTest {
 	}
 
 	@Test
-	void rehearsedFadeIntoTheFirstSceneComesFromTheDarkStage() {
-		var modes = Map.of(4L, DIMMER_MODE);
+	void fadeInFromAnEmptyStageComesFromTheDark() {
+		var modes = Map.of(3L, DIMMER_MODE, 4L, DIMMER_MODE);
 		preview.layer(now, modes);
 
-		preview.rehearseFade(1, before.id());
+		preview.fadeIn(1, before.id(), Optional.empty());
 		now = now.plusSeconds(1);
 
 		assertThat(dimmer(modes, 4)).isCloseTo(0.5, within(1e-9));
-		assertThat(preview.fadeOnStage()).get().satisfies(fade -> assertThat(fade.fromSceneId()).isEmpty());
+
+		preview.stopOnStage();
+		preview.fadeIn(1, scene.id(), Optional.empty());
+		assertThat(dimmer(modes, 4)).as("not the scene before in the cue list").isZero();
 	}
 
 	@Test
-	void rehearsedFadeNeedsSetupMode() {
+	void fadeInIntoAPartComesFromTheLightOnStage() {
+		var modes = Map.of(3L, DIMMER_MODE, 4L, DIMMER_MODE, 5L, DIMMER_MODE);
+		preview.layer(now, modes);
+		withWindowMarker();
+		preview.showSceneOnStage(1, before.id(), Optional.empty());
+
+		preview.fadeIn(1, scene.id(), Optional.of("Window"));
+
+		assertThat(dimmer(modes, 4)).as("starts with the light on stage").isEqualTo(1.0);
+		assertThat(dimmer(modes, 3)).as("not the start of the scene").isZero();
+		now = now.plusSeconds(1);
+		assertThat(dimmer(modes, 5)).isCloseTo(0.4, within(1e-9));
+		assertThat(preview.fadeOnStage()).get().satisfies(fade ->
+				assertThat(fade.delay()).as("a marker changes the light at once").isZero());
+		assertThat(preview.markerOnStage()).contains("Window");
+
+		now = now.plusSeconds(4);
+		assertThat(dimmer(modes, 5)).isEqualTo(0.8);
+		assertThat(dimmer(modes, 4)).isZero();
+	}
+
+	@Test
+	void whatIsOnStageAndInTheSceneDoesNotMove() {
+		var modes = Map.of(3L, DIMMER_MODE, 4L, DIMMER_MODE, 5L, DIMMER_MODE);
+		preview.layer(now, modes);
+		withWindowMarker(scene.compositions().getFirst().compositionId());
+		preview.showSceneOnStage(1, scene.id(), Optional.of("Window"));
+		now = now.plusSeconds(10);
+
+		preview.fadeIn(1, scene.id(), Optional.empty());
+
+		for (int i = 0; i < 4; i++) {
+			assertThat(dimmer(modes, 3)).as("in both: stays on").isEqualTo(0.3);
+			now = now.plusSeconds(1);
+		}
+		assertThat(dimmer(modes, 5)).isZero();
+
+		preview.fadeIn(1, before.id(), Optional.empty());
+		now = now.plusSeconds(1);
+		assertThat(dimmer(modes, 3)).as("a fade back in the cue list starts from the stage too")
+				.isCloseTo(0.225, within(1e-9));
+		preview.fadeIn(1, scene.id(), Optional.empty());
+		assertThat(dimmer(modes, 3)).as("a fade during a fade goes on from where it stands")
+				.isCloseTo(0.225, within(1e-9));
+	}
+
+	@Test
+	void aPartAfterALightMarkerRunsOnStageOnItsOwn() {
+		var modes = Map.of(3L, DIMMER_MODE, 5L, DIMMER_MODE);
+		withWindowMarker();
+
+		preview.showSceneOnStage(1, scene.id(), Optional.of("Window"));
+
+		assertThat(preview.sceneOnStage()).contains(scene.id());
+		assertThat(preview.markerOnStage()).contains("Window");
+		assertThat(dimmer(modes, 5)).isEqualTo(0.8);
+		assertThat(dimmer(modes, 3)).as("the start of the scene is not in the part").isZero();
+		assertThatThrownBy(() -> preview.showSceneOnStage(1, scene.id(), Optional.of("Door")))
+				.isInstanceOf(NotFoundException.class);
+	}
+
+	/** The script of scene 1 gets a marker "Window": fixture 5 at 80 % after it, with the given compositions too. */
+	private void withWindowMarker(long... alsoCompositionIds) {
+		var spec = scene.spec();
+		show.scenes.updateSpec(scene.id(), new SceneSpec(spec.number(), spec.name(), spec.cueNote(),
+				spec.autoFollow(), spec.timing(), "Romeo: Soft!\n//## Window ##\nJuliet: Ay me!"));
+		var uses = new ArrayList<SceneComposition>();
+		for (var id : alsoCompositionIds) {
+			uses.add(SceneComposition.of(id));
+		}
+		uses.add(SceneComposition.of(show.fixed(1, "Window", Map.of(5L, new FixtureValues(Map.of(DIMMER, 0.8))))
+				.id()));
+		show.scenes.replaceSection(scene.id(), "Window", uses, List.of(), List.of(), SectionTiming.NONE);
+	}
+
+	@Test
+	void fadeInNeedsSetupMode() {
 		currentMode = OperatingMode.SHOW;
 
-		assertThatThrownBy(() -> preview.rehearseFade(1, scene.id())).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> preview.fadeIn(1, scene.id(), Optional.empty())).isInstanceOf(ConflictException.class);
 	}
 
 	private double dimmer(Map<Long, Mode> modes, long fixtureId) {

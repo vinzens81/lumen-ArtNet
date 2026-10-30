@@ -25,6 +25,7 @@ import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -342,8 +343,8 @@ class PlaybackServiceTest {
 
 			@Override
 			public Scene replaceSection(long id, String marker, List<SceneComposition> compositions,
-					List<SceneLook> looks, List<SceneMove> moves) {
-				return show.scenes.replaceSection(id, marker, compositions, looks, moves);
+					List<SceneLook> looks, List<SceneMove> moves, SectionTiming timing) {
+				return show.scenes.replaceSection(id, marker, compositions, looks, moves, timing);
 			}
 
 			@Override

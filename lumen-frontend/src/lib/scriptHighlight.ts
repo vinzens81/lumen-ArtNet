@@ -1,7 +1,7 @@
-import { MARKER, MAX_SPEAKER_LENGTH, NOTE, SPEAKER, speakerHue } from './script';
+import { MARKER, MAX_SPEAKER_LENGTH, NOTE, PAUSE, SPEAKER, speakerHue } from './script';
 
 /** What a piece of the script text is, for coloring it in the editor. */
-export type HighlightKind = 'text' | 'speaker' | 'direction' | 'marker' | 'syntax';
+export type HighlightKind = 'text' | 'speaker' | 'direction' | 'marker' | 'pause' | 'syntax';
 
 /** A piece of the text; `hue` is the speaker's color (as in show mode). */
 export interface Segment {
@@ -13,7 +13,7 @@ export interface Segment {
 /**
  * The script split into colored pieces that put together give exactly the text again – so a colored copy can lie
  * under the editor without moving a single character. Same rules as the script view: `NAME:` at the start of a line,
- * `**…**` stage directions, `//## Name (info)##` light markers.
+ * `**…**` stage directions, `//## Name (info)##` light markers, `//|| Name (info)||` pauses.
  */
 export function highlightScript(text: string): Segment[] {
   const kinds: HighlightKind[] = new Array(text.length).fill('text');
@@ -28,10 +28,13 @@ export function highlightScript(text: string): Segment[] {
   for (const match of text.matchAll(MARKER)) {
     if (match[1].trim()) mark(match.index, match.index + match[0].length, 'marker');
   }
+  for (const match of text.matchAll(PAUSE)) {
+    if (match[1].trim()) mark(match.index, match.index + match[0].length, 'pause');
+  }
   for (const match of text.matchAll(NOTE)) {
     const start = match.index;
     const end = start + match[0].length;
-    if (kinds.slice(start, end).includes('marker')) continue;
+    if (kinds.slice(start, end).some((kind) => kind === 'marker' || kind === 'pause')) continue;
     mark(start, start + 2, 'syntax');
     mark(start + 2, end - 2, 'direction');
     mark(end - 2, end, 'syntax');

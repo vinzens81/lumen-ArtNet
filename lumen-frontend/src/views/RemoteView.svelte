@@ -41,7 +41,7 @@
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
   const scriptSection = $derived(status?.section ?? 0);
-  /** the places ▲/▼ stop at: speeches, and light markers without speech after them */
+  /** the places ▲/▼ stop at: speeches, pauses, and light markers without speech or pause after them */
   const scriptStops = $derived(stops(script));
   const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
   let scriptElement: HTMLElement | undefined = $state();

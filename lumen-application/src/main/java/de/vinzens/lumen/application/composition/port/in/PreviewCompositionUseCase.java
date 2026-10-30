@@ -24,14 +24,21 @@ public interface PreviewCompositionUseCase {
 	/** Plays a move on stage above the playback (setup mode only): its heads follow the figure. */
 	void showMoveOnStage(long projectId, long moveId);
 
-	/** Plays a whole scene – its compositions – on stage above the playback (setup mode only). */
-	void showSceneOnStage(long projectId, long sceneId);
+	/**
+	 * Plays the compositions of a scene on stage above the playback (setup mode only).
+	 *
+	 * @param marker a light marker of the saved script to play the part after it, empty for the start of the scene
+	 */
+	void showSceneOnStage(long projectId, long sceneId, Optional<String> marker);
 
 	/**
-	 * Rehearses the GO into a scene on stage (setup mode only): the scene before it in the cue list – or the dark
-	 * stage for the first scene – fades into it with the fade times of the show, then the scene stays on stage.
+	 * Fades on stage from the light there – whatever the stage preview shows, or the dark stage – into a scene
+	 * (setup mode only), which stays on stage afterwards: into its start with the fade times of the GO into it, into a
+	 * part after a light marker with those of passing the marker. What is in both keeps running and does not move.
+	 *
+	 * @param marker a light marker of the saved script, empty for the start of the scene
 	 */
-	void rehearseFade(long projectId, long sceneId);
+	void fadeIn(long projectId, long sceneId, Optional<String> marker);
 
 	void stopOnStage();
 
@@ -39,9 +46,12 @@ public interface PreviewCompositionUseCase {
 
 	Optional<Long> moveOnStage();
 
-	/** The scene on stage, shown directly or as the target of a rehearsed fade. */
+	/** The scene on stage, shown directly or as the target of a fade. */
 	Optional<Long> sceneOnStage();
 
-	/** The running rehearsed fade, empty once it has ended. */
+	/** The light marker of the part of {@link #sceneOnStage} shown, empty for its start. */
+	Optional<String> markerOnStage();
+
+	/** The running fade into the scene on stage, empty once it has ended. */
 	Optional<FadeStatus> fadeOnStage();
 }

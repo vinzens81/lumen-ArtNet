@@ -95,6 +95,8 @@ const put = <T>(url: string, body: unknown) => request<T>('PUT', url, body);
 const patch = <T>(url: string, body: unknown) => request<T>('PATCH', url, body);
 const del = (url: string) => request<void>('DELETE', url);
 
+/** `?marker=…` for a part of a scene after a light marker, nothing for its start */
+const markerQuery = (marker: string | null) => (marker === null ? '' : `?marker=${encodeURIComponent(marker)}`);
 const partyCell = (p: PartyPlace) => `/api/party/pages/${p.page}/cells/${p.row}/${p.column}`;
 
 export const api = {
@@ -163,18 +165,15 @@ export const api = {
     create: (projectId: number, scene: SceneRequest) => post<Scene>(`/api/projects/${projectId}/scenes`, scene),
     update: (projectId: number, id: number, scene: SceneRequest) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}`, scene),
-    record: (projectId: number, id: number, request?: RecordRequest) =>
-      post<Scene>(`/api/projects/${projectId}/scenes/${id}/record`, request),
     setCompositions: (projectId: number, id: number, compositions: SceneComposition[]) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/compositions`, compositions),
-    /** The light of a part: after the marker, or the start of the scene for marker null. */
+    /** The light of a part: after the marker, or the start of the scene for marker null (fade times: the scene's). */
     setSection: (projectId: number, id: number, section: { marker: string | null; compositions: SceneComposition[];
-      looks: SceneLook[]; moves: SceneMove[] }) => put<Scene>(`/api/projects/${projectId}/scenes/${id}/sections`, section),
+      looks: SceneLook[]; moves: SceneMove[]; fadeInMs?: number | null; fadeOutMs?: number | null }) => put<Scene>(`/api/projects/${projectId}/scenes/${id}/sections`, section),
     setKeys: (projectId: number, id: number, keys: SceneKey[]) =>
       put<Scene>(`/api/projects/${projectId}/scenes/${id}/keys`, keys),
     duplicate: (projectId: number, id: number, number: string | null) =>
       post<Scene>(`/api/projects/${projectId}/scenes/${id}/duplicate`, { number }),
-    load: (projectId: number, id: number) => post<void>(`/api/projects/${projectId}/scenes/${id}/load`),
     remove: (projectId: number, id: number) => del(`/api/projects/${projectId}/scenes/${id}`),
   },
   looks: {
@@ -249,10 +248,11 @@ export const api = {
       post<StagePreviewStatus>(`/api/projects/${projectId}/compositions/${id}/stage-preview`),
     showMove: (projectId: number, id: number) =>
       post<StagePreviewStatus>(`/api/projects/${projectId}/moves/${id}/stage-preview`),
-    showScene: (projectId: number, sceneId: number) =>
-      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/stage-preview`),
-    rehearseFade: (projectId: number, sceneId: number) =>
-      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/rehearse-fade`),
+    /** The start of the scene, or with a marker the part after it. */
+    showScene: (projectId: number, sceneId: number, marker: string | null = null) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/stage-preview${markerQuery(marker)}`),
+    fadeIn: (projectId: number, sceneId: number, marker: string | null = null) =>
+      post<StagePreviewStatus>(`/api/projects/${projectId}/scenes/${sceneId}/fade-in${markerQuery(marker)}`),
     stop: () => request<StagePreviewStatus>('DELETE', '/api/stage-preview'),
   },
   stage: {

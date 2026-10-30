@@ -90,17 +90,19 @@ happen by accident during the performance. If no PIN is set, a confirmation is e
   optional. The list takes 30 % of the width, the editor 70 %; "Save" sits at the bottom of the editor and stays
   visible while scrolling.
   The **script** is edited with formatting: speaker names in their show-mode color, stage directions purple, light
-  markers orange, control characters (`**`, `:`, `//##`) dimmed. Plain text is what is saved; a toolbar sets the
-  speaker of the current line, turns the selection into a stage direction and inserts a light marker. "👁 Preview"
-  shows the text as in show mode.
+  markers orange, pauses green, control characters (`**`, `:`) dimmed. Plain text is what is saved; a toolbar sets the
+  speaker of the current line, turns the selection into a stage direction and inserts a light marker
+  (`//## Name (info)##`) or a pause (`//|| Pause (info)||`). "👁 Preview" shows the text as in show mode.
   In the editor: section **Compositions** (add existing, "⏺ From programmer", "✦ Effect"; per use level, tempo and
   "Restart at GO"; reorder; a click on the name opens the composition – changes apply in all scenes) and **Keys** 1–8
-  (composition, toggle/flash, fade). A new scene takes over the keys of the scene before it. "Update from programmer"
-  and "↶ Undo" act on the look of the first composition if it has one step (the shortcut for simple scenes).
+  (composition, toggle/flash, fade). A new scene takes over the keys of the scene before it.
   "⧉ Duplicate" copies the scene directly after it with the same compositions and keys. With the fade times there is
-  also the curve (linear, s-curve, square law; empty = the project's). "▶ Show on stage" plays the scene with its
-  compositions on the real stage (above the playback, below the programmer); "■ Stop showing" or "■ Stop" in the
-  header ends it.
+  also the curve (linear, s-curve, square law; empty = the project's). Each light frame (the start of the scene and
+  every part after a light marker) has its own "Fade in" and "Fade out" – for the start those of the GO into the
+  scene (empty = the project's), for a marker those of the change at the marker (empty = the scene's) – and its own
+  "▶ Show on stage": it plays that light on the real stage (above the
+  playback, below the programmer); "■ Stop showing" or "■ Stop" in the header ends it. Scenes are changed through
+  their compositions, not from the programmer – the looks of a composition are updated in the composition.
 - **Settings:** setup PIN, network access for tablet/phone (with addresses), list of DB backups and "Back up now". The
   global fade times are set with the project. Later keyboard shortcuts and MIDI mapping with MIDI learn
   ([MIDI.md](MIDI.md)).
@@ -128,9 +130,13 @@ It is built **dynamically from the fixture type**, so a new YAML is enough for n
 4. **Record** (new scene) or **Update**: "Replace" replaces the whole picture, "Merge" only takes what the programmer
    sets – optionally only certain attribute groups (intensity, color, position, beam, other) and/or only the fixtures
    selected in the programmer. The previous picture stays in the history
-5. Optional **rehearsal cross-fade** ("⇢ Rehearse fade" in the scene editor): plays the GO into the scene on stage –
-   from the scene before it in the cue list (for the first scene from dark) with the real fade times incl. delay and
-   compositions. Progress in the editor; afterwards the scene stays until the preview is stopped
+5. Optional **trying a cross-fade** ("⇢ Fade in" under each light frame of the scene editor): fades on stage from the
+   light that is there right now – whatever the stage preview shows (a scene, a part, a composition, a move, a fade
+   still running) or the dark stage – into this light. For the start of the scene with the real fade times of the GO
+   incl. delay, for a part after a light marker with the times of passing the marker. What is on stage and in the new
+   light keeps running and does not move. Typical: "▶ Show on stage" for scene 1, then "⇢ Fade in" at scene 2.
+   Progress under the frame; afterwards the light stays until the preview is stopped. "▶ Show on stage" switches
+   without a fade
 6. **Printable cue list** ("🖨 Cue list"): a page of its own without the app frame, also as PDF via the print dialog
 
 ---
@@ -199,7 +205,8 @@ Unlike blackout, the position is not kept. `POST /api/playback/stop`.
 
 ### Script in the show
 The tab **Script** next to Scenes, Stage and DMX shows the script of the scene on stage. `↑`/`↓` (on a tablet ▲/▼)
-move from speech to speech, the current one is highlighted and kept in the middle; stage directions are skipped. The
+move from speech to speech, the current one is highlighted and kept in the middle; stage directions are skipped, a
+pause (`//|| … ||`, shown as "⏸ …") is a stop of its own where nobody speaks. The
 position is server state, so all browsers show the same speech. Passing a light marker fades to the light of that
 part of the scene.
 

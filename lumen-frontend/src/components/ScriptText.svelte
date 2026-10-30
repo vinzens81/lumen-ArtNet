@@ -55,6 +55,12 @@
       <div class="said">{@render spoken(block.parts)}</div>
     {:else if block.kind === 'note'}
       <div class="direction">{block.text}</div>
+    {:else if block.kind === 'pause'}
+      <div class="pause" data-line={block.index} class:done={current !== null && block.index < current.first}
+        class:current={current !== null && block.index >= current.first && block.index <= current.last}>
+        <span class="pause-name">⏸ {block.name}</span>
+        {#if block.info}<span class="marker-info">{block.info}</span>{/if}
+      </div>
     {:else if block.kind === 'marker'}
       <div class="marker" data-marker={block.section} class:active={section === block.section} class:passed={section !== null && block.section < (section ?? 0)}>
         <span class="marker-name">💡 {block.name}</span>
@@ -88,6 +94,30 @@
 
   .marker.passed {
     opacity: 0.45;
+  }
+
+  /* a pause: nobody speaks, the operator stops here */
+  .pause {
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+    width: fit-content;
+    margin: 6px 0;
+    padding: 2px 10px;
+    border-radius: 6px;
+    background: var(--pause-soft);
+    color: var(--pause);
+    font-size: 0.8em;
+    font-weight: 700;
+    transition: box-shadow 0.15s, opacity 0.15s;
+  }
+
+  .pause.done {
+    opacity: 0.35;
+  }
+
+  .pause.current {
+    box-shadow: 0 0 0 2px var(--accent);
   }
 
   .marker-info {

@@ -7,9 +7,11 @@ import de.vinzens.lumen.domain.library.ChannelFunction;
 import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.Scene;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
 import de.vinzens.lumen.domain.scene.ScriptMarkers;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
@@ -85,6 +87,77 @@ class PlaybackSectionsTest {
 		assertThat(playback.output(START.plusSeconds(1), B).get(6L).get(DIMMER).orElseThrow())
 				.as("the marker fades at once").isCloseTo(0.5, within(0.01));
 		assertThat(playback.fade(START)).hasValueSatisfying(fade -> assertThat(fade.delay()).isZero());
+	}
+
+	@Test
+	void aMarkerFadesWithTheOwnTimesOfItsPart() {
+		var spec = new SceneSpec(SceneNumber.of(1), "One", Optional.empty(), Optional.empty(), SceneTiming.DEFAULT,
+				"Romeo: Soft!\n//## Window ##\nJuliet: Ay me!");
+		var window = new SceneSection("Window", List.of(), List.of(), List.of(),
+				new SectionTiming(Optional.of(Duration.ofSeconds(4)), Optional.of(Duration.ofSeconds(1))));
+		var scene = new Scene(1, 1, spec, List.of(), List.of(), List.of(), List.of(), List.of(window));
+		var playback = new Playback(List.of(scene), Map.of(1L, List.of(WARM)), Duration.ofSeconds(2),
+				Duration.ofSeconds(2));
+		playback.useSections(Map.of(1L, List.of(List.of(SPOT))));
+		playback.go(START, B);
+		playback.finish(START);
+
+		playback.goToSection(1, START, B);
+
+		var halfway = playback.output(START.plusSeconds(2), B);
+		assertThat(halfway.get(6L).get(DIMMER).orElseThrow()).as("4 s fade-in of the part").isCloseTo(0.5,
+				within(0.01));
+		assertThat(halfway.get(5L).get(DIMMER)).as("1 s fade-out of the part").contains(0.0);
+		assertThat(playback.fade(START)).hasValueSatisfying(fade -> assertThat(fade.fadeIn())
+				.isEqualTo(Duration.ofSeconds(4)));
+	}
+
+	@Test
+	void goToFadesFromLightOutsideTheCueListIntoAPartOfAnyScene() {
+		var timing = new SceneTiming(Optional.empty(), Optional.empty(), Duration.ofSeconds(1));
+		var spec = new SceneSpec(SceneNumber.of(2), "Two", Optional.empty(), Optional.empty(), timing,
+				"Romeo: Soft!\n//## Window ##\nJuliet: Ay me!");
+		var window = new SceneSection("Window", List.of(), List.of(), List.of(),
+				new SectionTiming(Optional.of(Duration.ofSeconds(4)), Optional.empty()));
+		var one = new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "One", Optional.empty(), Optional.empty()));
+		var two = new Scene(2, 1, spec, List.of(), List.of(), List.of(), List.of(), List.of(window));
+		var playback = new Playback(List.of(one, two), Map.of(1L, List.of(SPOT), 2L, List.of(SPOT)),
+				Duration.ofSeconds(2), Duration.ofSeconds(2));
+		playback.useSections(Map.of(2L, List.of(List.of(WARM, SPOT))));
+		playback.restoreLight(List.of(WARM), START);
+
+		assertThat(playback.output(START, B).get(5L).get(DIMMER)).as("the light is on stage").contains(1.0);
+		assertThat(playback.currentScene()).isEmpty();
+
+		playback.goTo(2, 1, START, B);
+
+		var halfway = playback.output(START.plusSeconds(2), B);
+		assertThat(halfway.get(5L).get(DIMMER)).as("in both: does not move").contains(1.0);
+		assertThat(halfway.get(6L).get(DIMMER).orElseThrow()).as("4 s of the part, without the scene's delay")
+				.isCloseTo(0.5, within(0.01));
+		assertThat(playback.section()).isEqualTo(1);
+		assertThat(playback.currentScene()).contains(two);
+
+		playback.finish(START.plusSeconds(2));
+		playback.goTo(2, 0, START.plusSeconds(2), B);
+		assertThat(playback.fade(START.plusSeconds(2))).as("into the start: the times of the GO")
+				.hasValueSatisfying(fade -> assertThat(fade.delay()).isEqualTo(Duration.ofSeconds(1)));
+	}
+
+	@Test
+	void restorePutsAPartOnStageWithoutFade() {
+		var scene = new Scene(1, 1, new SceneSpec(SceneNumber.of(1), "One", Optional.empty(), Optional.empty()));
+		var playback = new Playback(List.of(scene), Map.of(1L, List.of(WARM)), Duration.ofSeconds(2),
+				Duration.ofSeconds(2));
+		playback.useSections(Map.of(1L, List.of(List.of(SPOT))));
+
+		playback.restore(1L, 1, START);
+
+		assertThat(playback.section()).isEqualTo(1);
+		assertThat(playback.fade(START)).isEmpty();
+		assertThat(playback.runningCompositions()).containsExactly(SPOT);
+		playback.restore(1L, 2, START);
+		assertThat(playback.section()).as("no such marker: the start").isZero();
 	}
 
 	@Test

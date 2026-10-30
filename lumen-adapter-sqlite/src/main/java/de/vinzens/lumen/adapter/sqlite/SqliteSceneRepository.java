@@ -13,6 +13,7 @@ import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.jdbc.support.GeneratedKeyHolder;
 import org.springframework.transaction.support.TransactionTemplate;
@@ -111,9 +112,14 @@ public class SqliteSceneRepository implements SceneRepository {
 
 	@Override
 	public Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks,
-			List<SceneMove> moves) {
+			List<SceneMove> moves, SectionTiming timing) {
 		transactions.executeWithoutResult(status -> {
 			jdbc.sql("DELETE FROM scene_composition WHERE scene_id = ? AND section = ?").params(id, marker).update();
+			jdbc.sql("DELETE FROM scene_section WHERE scene_id = ? AND section = ?").params(id, marker).update();
+			if (!marker.isEmpty() && !timing.isNone()) {
+				jdbc.sql("INSERT INTO scene_section (scene_id, section, fade_in_ms, fade_out_ms) VALUES (?, ?, ?, ?)")
+						.params(id, marker, millis(timing.fadeIn()), millis(timing.fadeOut())).update();
+			}
 			jdbc.sql("DELETE FROM scene_look WHERE scene_id = ? AND section = ?").params(id, marker).update();
 			jdbc.sql("DELETE FROM scene_move WHERE scene_id = ? AND section = ?").params(id, marker).update();
 			insertCompositions(id, marker, compositions);
@@ -167,12 +173,15 @@ public class SqliteSceneRepository implements SceneRepository {
 		}
 	}
 
-	/** Compositions, looks and moves of a scene, per section ('' = the start of the scene). */
+	/**
+	 * Compositions, looks and moves of a scene, per section ('' = the start of the scene), and the own fade times of
+	 * the parts after a marker.
+	 */
 	private record Light(Map<String, List<SceneComposition>> compositions, Map<String, List<SceneLook>> looks,
-			Map<String, List<SceneMove>> moves) {
+			Map<String, List<SceneMove>> moves, Map<String, SectionTiming> timings) {
 
 		Light() {
-			this(new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>());
+			this(new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>(), new LinkedHashMap<>());
 		}
 	}
 
@@ -198,6 +207,12 @@ public class SqliteSceneRepository implements SceneRepository {
 					result.computeIfAbsent(rs.getLong("scene_id"), id -> new Light()).moves()
 							.computeIfAbsent(rs.getString("section"), s -> new ArrayList<>())
 							.add(new SceneMove(rs.getLong("move_id")));
+				});
+		jdbc.sql("SELECT * FROM scene_section WHERE " + where).param(param)
+				.query(rs -> {
+					result.computeIfAbsent(rs.getLong("scene_id"), id -> new Light()).timings()
+							.put(rs.getString("section"), new SectionTiming(optionalMillis(rs, "fade_in_ms"),
+									optionalMillis(rs, "fade_out_ms")));
 				});
 		return result;
 	}
@@ -229,10 +244,12 @@ public class SqliteSceneRepository implements SceneRepository {
 		var markers = new TreeSet<String>(own.compositions().keySet());
 		markers.addAll(own.looks().keySet());
 		markers.addAll(own.moves().keySet());
+		markers.addAll(own.timings().keySet());
 		markers.remove("");
 		var sections = markers.stream()
 				.map(marker -> new SceneSection(marker, own.compositions().getOrDefault(marker, List.of()),
-						own.looks().getOrDefault(marker, List.of()), own.moves().getOrDefault(marker, List.of())))
+						own.looks().getOrDefault(marker, List.of()), own.moves().getOrDefault(marker, List.of()),
+						own.timings().getOrDefault(marker, SectionTiming.NONE)))
 				.toList();
 		return new Scene(id, rs.getLong("project_id"), spec, own.compositions().getOrDefault("", List.of()),
 				keys.getOrDefault(id, List.of()), own.looks().getOrDefault("", List.of()),
