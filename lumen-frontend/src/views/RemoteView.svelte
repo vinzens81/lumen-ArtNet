@@ -4,6 +4,7 @@
   import KeyBar from '../components/KeyBar.svelte';
   import MasterBar from '../components/MasterBar.svelte';
   import ScriptText from '../components/ScriptText.svelte';
+  import SpeechProgress from '../components/SpeechProgress.svelte';
   import { api } from '../lib/api';
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
@@ -250,11 +251,7 @@
         <div class="panel-head">
           <h3>Text
             {#if scriptStops.length > 1}
-              <!-- how far the scene is: the bar behind the count fills with every speech -->
-              <span class="speech-progress mono" title="Step {stopIndex + 1} of {scriptStops.length}"
-                style="--done: {((stopIndex + 1) / scriptStops.length) * 100}%">
-                {stopIndex + 1} / {scriptStops.length}
-              </span>
+              <SpeechProgress index={stopIndex} count={scriptStops.length} />
             {/if}
           </h3>
           <div class="text-tools">
@@ -440,20 +437,6 @@
     align-items: center;
     justify-content: space-between;
     gap: 10px;
-  }
-
-  .speech-progress {
-    display: inline-block;
-    min-width: 140px;
-    margin-left: 8px;
-    padding: 3px 10px;
-    border: 1px solid color-mix(in srgb, var(--warning) 50%, transparent);
-    border-radius: 999px;
-    background: linear-gradient(90deg, color-mix(in srgb, var(--warning) 45%, transparent) var(--done),
-      transparent var(--done));
-    color: var(--text);
-    text-align: center;
-    transition: background 0.3s;
   }
 
   .choose {

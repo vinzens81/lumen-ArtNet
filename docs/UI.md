@@ -171,7 +171,9 @@ Optimized for one task: press GO at the right time, without mistakes.
 ```
 
 - **Scene list** on the left: finished scenes dimmed, the current one highlighted, the next one marked. Tapping picks
-  a scene as the *next* one (jump); it is only triggered with GO.
+  a scene as the *next* one (jump); it is only triggered with GO. If the current scene has a script, its row shows how
+  far the scene is: "3 / 12" (speeches, pauses and light markers) in a bar that fills with every step, like on the
+  remote and in the Script tab.
 - **Progress as a stack** on the right: the scene before (small, indented; during the fade "Fading out" with a bar),
   **Now** large, **Next** a bit smaller, "Then" (the one after) smaller still and "+ n more scenes"; a line with dots
   connects them. If the scene has light markers, the "Now" box lists its parts (start and every marker with info
@@ -205,7 +207,8 @@ Unlike blackout, the position is not kept. `POST /api/playback/stop`.
 
 ### Script in the show
 The tab **Script** next to Scenes, Stage and DMX shows the script of the scene on stage. `↑`/`↓` (on a tablet ▲/▼)
-move from speech to speech, the current one is highlighted and kept in the middle; stage directions are skipped, a
+move from speech to speech ("3 / 12" above it fills like a bar), the current one is highlighted and kept in the
+middle; stage directions are skipped, a
 pause (`//|| … ||`, shown as "⏸ …") is a stop of its own where nobody speaks. The
 position is server state, so all browsers show the same speech. Passing a light marker fades to the light of that
 part of the scene.
@@ -234,7 +237,8 @@ keyboard shortcuts, no PIN, does not follow the operating mode.
 ### Cue list on a phone, view only (`#/view/cues`)
 
 For a phone (e.g. an iPhone backstage): the link **🎬 Cues** in the header (or `http://<computer>:8080/#/view/cues`)
-shows only the show time, large, the scene on stage with its active light marker and cue note, and the next three
+shows only the show time, large, the scene on stage with its active light marker, cue note and how far its script is
+("3 / 12" in a bar that fills with every speech, pause and light marker), and the next three
 scenes with their cue notes – starting at the next scene the operator chose, then on in the cue list; "End of the
 show" when the show ends after them. The screen stays on. Like `#/view`: no controls, no keyboard shortcuts, no PIN,
 does not follow the operating mode.

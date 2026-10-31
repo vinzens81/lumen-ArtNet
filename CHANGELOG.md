@@ -6,12 +6,15 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 ## 1.0.113 · 2026-10-30
 
 ### Added
-- Cue list on a phone, view only (`#/view/cues`, "🎬 Cues" in the header): the show time, the scene on stage and the
-  next three, each with its name and cue note – no controls.
+- Cue list on a phone, view only (`#/view/cues`, "🎬 Cues" in the header): the show time, the scene on stage with how
+  far its script is ("3 / 12" in a bar that fills, like on the remote) and the next three, each with its name and cue
+  note – no controls.
 
 ### Changed
 - Remote: the script takes most of the screen and is larger (A−/A+ set its size); GO, ▼ and all other buttons are
   much smaller, in a narrow column on the left with now and next.
+- Show: the current scene in the scene list shows how far its script is ("3 / 12" in a bar that fills), like the
+  remote; the Script tab has the same bar.
 
 ## 1.0.112 · 2026-10-28
 

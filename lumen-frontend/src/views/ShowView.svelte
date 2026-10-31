@@ -3,6 +3,7 @@
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import ScriptText from '../components/ScriptText.svelte';
+  import SpeechProgress from '../components/SpeechProgress.svelte';
   import DmxMonitorView from './DmxMonitorView.svelte';
   import StageView from './StageView.svelte';
   import Swatches from '../components/Swatches.svelte';
@@ -259,7 +260,7 @@
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
       {#if scriptStops.length > 1}
-        <span class="dim small mono" title="Speeches, pauses and light markers">{stopIndex + 1} / {scriptStops.length}</span>
+        <SpeechProgress index={stopIndex} count={scriptStops.length} />
         <div class="script-steps">
           <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={stopIndex <= 0}
             aria-label="Previous speech">▲ <kbd>↑</kbd></button>
@@ -349,7 +350,11 @@
         {/if}
         {#if timingLabel(scene)}<span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>{/if}
         {#if scene.autoFollowMs !== null}<span class="badge">⟳ {seconds(scene.autoFollowMs)}</span>{/if}
-        {#if rowState(scene, i) === 'current'}<span class="tag now">NOW</span>{/if}
+        {#if rowState(scene, i) === 'current'}
+          <!-- how far the scene is in its script -->
+          {#if scriptStops.length > 1}<SpeechProgress index={stopIndex} count={scriptStops.length} />{/if}
+          <span class="tag now">NOW</span>
+        {/if}
         {#if rowState(scene, i) === 'next'}<span class="tag next">NEXT</span>{/if}
       </button>
     {/each}

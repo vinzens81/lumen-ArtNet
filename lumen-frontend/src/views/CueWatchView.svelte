@@ -1,15 +1,17 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import SpeechProgress from '../components/SpeechProgress.svelte';
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
+  import { parseScript, stopOf, stops } from '../lib/script';
   import { app } from '../lib/state.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
   import { watchCaption, watchUpcoming } from '../lib/watch';
   import { watchScenes } from '../lib/watchScenes.svelte';
 
   /**
-   * The cue list on a phone, view only: the show time, the scene on stage and the next three, each with its name and
-   * cue note. Nothing here changes the show.
+   * The cue list on a phone, view only: the show time, the scene on stage with how far its script is, and the next
+   * three, each with its name and cue note. Nothing here changes the show.
    */
 
   const scenes = watchScenes();
@@ -20,6 +22,8 @@
     ? scenes.list.find((s) => s.id === status.currentSceneId) : undefined);
   const caption = $derived(watchCaption(scenes.list, status));
   const upcoming = $derived(watchUpcoming(scenes.list, status));
+  const scriptStops = $derived(stops(parseScript(current?.script ?? '')));
+  const stopIndex = $derived(stopOf(scriptStops, status?.scriptLine ?? 0, status?.section ?? 0));
 
   onMount(() => {
     // the show clock only arrives with each status; count on in between
@@ -55,6 +59,9 @@
       <div class="name"><span class="mono">{current.number}</span> {current.name}</div>
       {#if caption.part}<div class="part">💡 {caption.part}</div>{/if}
       {#if current.cueNote}<div class="note">{current.cueNote}</div>{/if}
+      {#if scriptStops.length > 1}
+        <div class="progress"><SpeechProgress index={stopIndex} count={scriptStops.length} /></div>
+      {/if}
     {:else}
       <div class="name dim">{caption.title}</div>
     {/if}
@@ -213,6 +220,18 @@
     color: var(--text-dim);
     font-size: 15px;
     line-height: 1.35;
+  }
+
+  /* the bar across the card, so it can be read at a glance */
+  .progress {
+    display: flex;
+    margin-top: 10px;
+  }
+
+  .progress > :global(.speech-progress) {
+    flex: 1;
+    padding: 6px 10px;
+    font-size: 15px;
   }
 
   .now .note {
