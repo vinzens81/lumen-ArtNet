@@ -3,6 +3,12 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.113 · 2026-10-30
+
+### Added
+- Cue list on a phone, view only (`#/view/cues`, "🎬 Cues" in the header): the show time, the scene on stage and the
+  next three, each with its name and cue note – no controls.
+
 ## 1.0.112 · 2026-10-28
 
 ### Added

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { PlaybackStatus, Scene } from './types';
-import { watchCaption, watchIdleText, watchNext } from './watch';
+import { watchCaption, watchIdleText, watchNext, watchUpcoming } from './watch';
 
 const scenes = [
   { id: 1, number: '1', name: 'Opening', script: 'Anna: Hello.\n//## Window (blue)##\nBen: Bye.' },
@@ -51,5 +51,25 @@ describe('watchIdleText', () => {
 
   it('is null while a scene is on stage', () => {
     expect(watchIdleText(status({}))).toBeNull();
+  });
+});
+
+describe('watchUpcoming', () => {
+  const cues = [1, 2, 3, 4, 5, 6].map((id) => ({ id, number: String(id), name: `Scene ${id}`, script: '' })) as Scene[];
+  const ids = (result: { scenes: Scene[] }) => result.scenes.map((s) => s.id);
+
+  it('is the next scene and the ones after it in the cue list', () => {
+    expect(ids(watchUpcoming(cues, status({ currentSceneId: 1, nextSceneId: 2 })))).toEqual([2, 3, 4]);
+    expect(watchUpcoming(cues, status({ currentSceneId: 1, nextSceneId: 2 })).end).toBe(false);
+  });
+
+  it('starts at the next scene the operator chose', () => {
+    expect(ids(watchUpcoming(cues, status({ currentSceneId: 1, nextSceneId: 5 })))).toEqual([5, 6]);
+    expect(watchUpcoming(cues, status({ currentSceneId: 1, nextSceneId: 5 })).end).toBe(true);
+  });
+
+  it('is empty when the show ends next or is not running', () => {
+    expect(watchUpcoming(cues, status({ currentSceneId: 6, nextSceneId: null, nextIsEnd: true }))).toEqual({ scenes: [], end: true });
+    expect(watchUpcoming(cues, null)).toEqual({ scenes: [], end: false });
   });
 });

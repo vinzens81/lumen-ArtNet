@@ -231,6 +231,14 @@ the end of the text. Text size via A−/A+ (remembered by the browser). Scrollin
 following; "↧ Follow the show" or the next scene resumes it. The screen stays on. Like `#/view`: no controls, no
 keyboard shortcuts, no PIN, does not follow the operating mode.
 
+### Cue list on a phone, view only (`#/view/cues`)
+
+For a phone (e.g. an iPhone backstage): the link **🎬 Cues** in the header (or `http://<computer>:8080/#/view/cues`)
+shows only the show time, large, the scene on stage with its active light marker and cue note, and the next three
+scenes with their cue notes – starting at the next scene the operator chose, then on in the cue list; "End of the
+show" when the show ends after them. The screen stays on. Like `#/view`: no controls, no keyboard shortcuts, no PIN,
+does not follow the operating mode.
+
 ### Show remote for a tablet (`#/remote`)
 
 For running the show from a tablet (e.g. an iPad in landscape) next to or instead of the laptop: the link

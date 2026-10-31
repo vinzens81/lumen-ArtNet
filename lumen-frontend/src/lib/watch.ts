@@ -34,3 +34,16 @@ export function watchIdleText(status: PlaybackStatus | null): string | null {
   if (status.position >= status.sceneCount && status.sceneCount > 0) return 'End of the show.';
   return 'Before the first scene – the script appears here with the first GO.';
 }
+
+/**
+ * The scenes coming up, for the view-only cue list: the next scene (as chosen by the operator) and the ones after it
+ * in the cue list, at most `count`. `end` is true when the show ends after them.
+ */
+export function watchUpcoming(scenes: Scene[], status: PlaybackStatus | null,
+  count = 3): { scenes: Scene[]; end: boolean } {
+  if (!status?.available || status.nextIsEnd) return { scenes: [], end: status?.nextIsEnd === true };
+  const start = scenes.findIndex((s) => s.id === status.nextSceneId);
+  if (start < 0) return { scenes: [], end: false };
+  const upcoming = scenes.slice(start, start + count);
+  return { scenes: upcoming, end: start + count >= scenes.length };
+}

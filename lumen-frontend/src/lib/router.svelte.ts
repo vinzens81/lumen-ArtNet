@@ -19,6 +19,7 @@ export type Route =
   | '/party'
   | '/view'
   | '/view/script'
+  | '/view/cues'
   | '/remote'
   | '/print/cues';
 
@@ -39,6 +40,7 @@ const ROUTES: Route[] = [
   '/party',
   '/view',
   '/view/script',
+  '/view/cues',
   '/remote',
   '/print/cues',
 ];
@@ -75,9 +77,11 @@ export function isPrintPage(route: Route): boolean {
 
 /**
  * Pages standing on their own, outside setup, show and party: the print pages, the view-only stage (#/view) and the
- * view-only script (#/view/script) for phones and tablets, and the show remote for a tablet (#/remote). They do not follow the operating
- * mode and have no controls of the app around them.
+ * view-only script (#/view/script) for phones and tablets, the view-only cue list (#/view/cues) for a phone, and the
+ * show remote for a tablet (#/remote). They do not follow the operating mode and have no controls of the app around
+ * them.
  */
 export function isStandalonePage(route: Route): boolean {
-  return isPrintPage(route) || route === '/view' || route === '/view/script' || route === '/remote';
+  return isPrintPage(route) || route === '/view' || route === '/view/script' || route === '/view/cues'
+    || route === '/remote';
 }
