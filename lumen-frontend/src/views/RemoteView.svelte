@@ -25,6 +25,8 @@
    */
 
   const GO_GUARD_MS = 300;
+  const SIZE_KEY = 'lumen.remoteTextSize';
+  const SIZES = [18, 20, 22, 24, 28, 32, 36];
 
   const scenes = watchScenes();
   let now = $state(performance.now());
@@ -45,12 +47,32 @@
   const scriptStops = $derived(stops(script));
   const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
   let scriptElement: HTMLElement | undefined = $state();
+  let textSize = $state(readSize());
+
+  function readSize(): number {
+    try {
+      const stored = Number(localStorage.getItem(SIZE_KEY));
+      return SIZES.includes(stored) ? stored : 24;
+    } catch {
+      return 24;
+    }
+  }
+
+  function resize(step: number) {
+    textSize = SIZES[Math.min(SIZES.length - 1, Math.max(0, SIZES.indexOf(textSize) + step))];
+    try {
+      localStorage.setItem(SIZE_KEY, String(textSize));
+    } catch {
+      // only a convenience
+    }
+  }
 
   // the current speech at the top of the script panel, what comes next below it
   $effect(() => {
     const selector = stopSelector(scriptStops[stopIndex]);
     const element = scriptElement;
     void current;
+    void textSize;
     // after the layout, so it also works when the page opens in the middle of a scene
     const frame = requestAnimationFrame(() => topIn(element, selector));
     return () => cancelAnimationFrame(frame);
@@ -164,7 +186,10 @@
 
     <div class="left" inert={blocked !== null}>
       <article class="panel glass now-panel">
-        <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
+        <div class="panel-head">
+          <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
+          <span class="small mono progress-text" class:follow={progress.kind === 'follow'}>{progress.text}</span>
+        </div>
         {#if current}
           <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
         {:else if atEnd}
@@ -173,7 +198,6 @@
           <div class="big dim">Ready – stage is dark</div>
         {/if}
         <div class="progress {progress.kind}"><span style="width: {progress.value * 100}%"></span></div>
-        <div class="small mono progress-text" class:follow={progress.kind === 'follow'}>{progress.text}</div>
       </article>
 
       <article class="panel glass next-panel">
@@ -196,14 +220,6 @@
         {/if}
       </article>
 
-      <div class="keys glass"><KeyBar keys={status?.keys ?? []} /></div>
-      <!-- on the left too, so the script on the right keeps its full height -->
-      {#if (status?.faders.length ?? 0) > 0}
-        <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
-      {/if}
-    </div>
-
-    <div class="right" inert={blocked !== null}>
       <button type="button" class="go" disabled={!canGo} onpointerdown={go} onclick={(e) => e.detail === 0 && go()}>
         GO
       </button>
@@ -221,7 +237,15 @@
         </button>
       </div>
 
-      <!-- always there, also for a scene without text, so GO keeps its size -->
+      <div class="keys glass"><KeyBar keys={status?.keys ?? []} /></div>
+      <!-- on the left too, so the script on the right keeps its full height -->
+      {#if (status?.faders.length ?? 0) > 0}
+        <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
+      {/if}
+    </div>
+
+    <div class="right" inert={blocked !== null}>
+      <!-- always there, also for a scene without text, so nothing moves -->
       <article class="panel glass text-panel">
         <div class="panel-head">
           <h3>Text
@@ -233,11 +257,17 @@
               </span>
             {/if}
           </h3>
-          <button type="button" class="btn back-speech" onclick={() => stepScript(-1)}
-            disabled={!current || stopIndex <= 0} aria-label="Previous speech">▲</button>
+          <div class="text-tools">
+            <button type="button" class="btn small" onclick={() => resize(-1)} disabled={textSize === SIZES[0]}
+              aria-label="Smaller text">A−</button>
+            <button type="button" class="btn small" onclick={() => resize(1)}
+              disabled={textSize === SIZES[SIZES.length - 1]} aria-label="Larger text">A+</button>
+            <button type="button" class="btn small back-speech" onclick={() => stepScript(-1)}
+              disabled={!current || stopIndex <= 0} aria-label="Previous speech">▲</button>
+          </div>
         </div>
         {#if current && script.parts.length > 0}
-          <div class="script" bind:this={scriptElement}>
+          <div class="script" style="font-size: {textSize}px" bind:this={scriptElement}>
             <div class="script-body">
               <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
             </div>
@@ -245,7 +275,7 @@
         {:else}
           <p class="script-empty dim">{current ? 'This scene has no text.' : 'The text of a scene appears here once it is on stage.'}</p>
         {/if}
-        <!-- pressed most during the show: big and at the bottom, where the thumb is -->
+        <!-- pressed most during the show: across the whole panel at the bottom, where the thumb is -->
         <!-- at the last speech it leads on: tap twice for a GO into the next scene -->
         <button type="button" class="next-speech" class:to-scene={downAction !== 'speech'} class:armed={nextArmed}
           onclick={scriptDown} disabled={downAction === 'none'}
@@ -261,8 +291,8 @@
 
 <style>
   /*
-   * A tablet in landscape: now, next, the keys and the faders on the left; GO, the playback buttons and the script on
-   * the right; master below. The page fills the screen exactly and every panel has a size that does not depend on
+   * A tablet in landscape: a narrow column on the left with now, next, GO, the playback buttons, the keys and the
+   * faders, all compact; the script gets the rest of the screen, so it can be read from a distance; master below. The page fills the screen exactly and every panel has a size that does not depend on
    * what it shows.
    */
   .remote {
@@ -329,7 +359,7 @@
     position: relative;
     flex: 1 1 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 30%) minmax(0, 1fr);
     gap: 10px;
     min-height: 0;
   }
@@ -374,8 +404,8 @@
   .panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 14px 18px;
+    gap: 8px;
+    padding: 10px 14px;
     overflow: hidden;
   }
 
@@ -385,11 +415,19 @@
     gap: 10px;
   }
 
-  /* now and next share the room above the keys equally, whatever they show */
-  .left > .now-panel,
+  /* next with its cue note gets the room that is left, never less than it needs; a short screen scrolls the column */
   .left > .next-panel {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 1 0 auto;
+  }
+
+  .left {
+    overflow-y: auto;
+  }
+
+  @media (max-width: 900px) {
+    .left {
+      overflow: visible;
+    }
   }
 
   .now-panel {
@@ -424,9 +462,9 @@
   }
 
   .choose .btn {
-    min-width: 56px;
-    min-height: 44px;
-    font-size: 16px;
+    min-width: 40px;
+    min-height: 32px;
+    padding: 0 8px;
   }
 
   /* cut after a few lines instead of growing; max-height as well, some browsers only draw the "…" */
@@ -439,7 +477,7 @@
 
   .big {
     flex: none;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.2;
     max-height: 2.4em;
@@ -460,9 +498,9 @@
     font-size: 16px;
     font-weight: 600;
     line-height: 1.3;
-    max-height: calc(2.6em + 16px);
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    max-height: calc(3.9em + 16px);
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .progress {
@@ -487,9 +525,9 @@
   }
 
   .progress-text {
-    flex: none;
-    height: 1.4em;
+    min-width: 0;
     overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--text-dim);
     white-space: nowrap;
   }
@@ -506,14 +544,12 @@
     padding: 10px;
   }
 
-  /* bigger touch targets than on the desk */
   .keys :global(.key) {
-    min-height: 68px;
+    min-height: 40px;
   }
 
-  /* GO small, the text with its big ▼ gets the room */
-  .right > .go {
-    height: 150px;
+  .left > .go {
+    height: 64px;
   }
 
   .go {
@@ -522,12 +558,12 @@
     background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 35%, transparent), var(--accent-soft));
     color: var(--accent);
     font: inherit;
-    font-size: 56px;
+    font-size: 30px;
     font-weight: 900;
     letter-spacing: 0.25em;
     text-indent: 0.25em;
     cursor: pointer;
-    box-shadow: 0 0 40px var(--accent-glow), inset 0 0 40px var(--accent-soft);
+    box-shadow: 0 0 24px var(--accent-glow), inset 0 0 24px var(--accent-soft);
     transition: transform 0.06s, box-shadow 0.15s;
     touch-action: manipulation;
   }
@@ -545,14 +581,14 @@
 
   .controls {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .controls .btn {
-    height: 60px;
+    height: 38px;
     overflow: hidden;
-    font-size: 15px;
+    font-size: 13px;
     white-space: nowrap;
   }
 
@@ -571,10 +607,14 @@
     min-height: 0;
   }
 
-  .back-speech {
-    min-width: 56px;
-    min-height: 44px;
-    font-size: 16px;
+  .text-tools {
+    display: flex;
+    gap: 6px;
+  }
+
+  .text-tools .btn {
+    min-width: 40px;
+    min-height: 32px;
   }
 
   /* the whole script of the scene, scrolling inside the panel; the current speech stands at the top */
@@ -582,7 +622,7 @@
     flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
-    font-size: 18px;
+    line-height: 1.45;
   }
 
   /* room below, so the last speech can reach the top too – inside the scrolling box, so the panel keeps its size */
@@ -597,14 +637,14 @@
 
   .next-speech {
     flex: none;
-    height: 130px;
+    height: 56px;
     margin-top: auto;
     border-radius: var(--radius);
     border: 2px solid var(--warning);
     background: var(--warning-soft);
     color: var(--warning);
     font: inherit;
-    font-size: 56px;
+    font-size: 26px;
     font-weight: 900;
     cursor: pointer;
     touch-action: manipulation;
@@ -616,7 +656,7 @@
   }
 
   .next-speech.to-scene {
-    font-size: 26px;
+    font-size: 18px;
     font-weight: 700;
   }
 
@@ -656,16 +696,17 @@
     .left > .now-panel,
     .left > .next-panel {
       flex: none;
-      height: 150px;
+      height: 130px;
     }
 
-    .right > .go {
+    .left > .go {
       order: 3;
     }
 
+    /* the screen between the buttons and master, so ▼ is in reach without scrolling */
     .right > .text-panel {
       flex: none;
-      height: 330px;
+      height: max(330px, calc(100dvh - 550px));
     }
 
     .next-panel {
@@ -674,6 +715,7 @@
 
     .controls {
       order: 4;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .text-panel {

@@ -243,19 +243,20 @@ does not follow the operating mode.
 
 For running the show from a tablet (e.g. an iPad in landscape) next to or instead of the laptop: the link
 **🎛 Remote** in the header (or `http://<computer>:8080/#/remote`) shows only what the show needs – now (with the
-fade or auto-follow bar) and next (with its cue note, ▲/▼ choose another next scene), a big GO, Back, Pause,
+fade or auto-follow bar) and next (with its cue note, ▲/▼ choose another next scene), GO, Back, Pause,
 Finish fade and Stop (asks first, like in the show view), the whole script of the scene on stage with ▲/▼ through its
 speeches (like `↑`/`↓` in the show view: the current speech is highlighted and kept in the middle, "3 / 12" counts
 them; passing a light marker fades to its light), the keys of the scene, the faders, master and blackout. No scene
 list, stage or DMX.
 
-Layout in landscape: now, next, the 8 keys and the faders (if the project has any) on the left; a smaller GO, the
-playback buttons and the script below them on the right – the script panel takes the remaining height (the current
-speech at its top, what comes next below) and has a big ▼ (next speech) at the bottom, the button pressed most
-during a play, ▲ goes back. Master below. Every panel has a
-fixed size – long names and cue notes are cut, the script scrolls inside its panel, the panel stays (empty) for a
-scene without text, and the "show mode is off" hint lies over the panels – so nothing on the page ever moves. In
-portrait one column: now, next, GO, buttons, script, keys, faders.
+Layout in landscape: the text comes first, so it can be read from a distance. A narrow column on the left holds
+now, next, a compact GO, the playback buttons, the 8 keys and the faders (if the project has any); the script takes
+the rest of the screen (the current speech at its top, what comes next below), with A−/A+ for its text size
+(remembered by the browser), ▲ back and a ▼ (next speech) across its bottom, the button pressed most during a play.
+Master below. Long names are cut, cue notes after three lines; the script scrolls inside its panel, the panel stays
+(empty) for a scene without text, and the "show mode is off" hint lies over the panels – so the page does not jump.
+On a short screen the left column scrolls. In portrait one column: now, next, GO, buttons, the script down to master
+(▼ in reach without scrolling), keys and faders below.
 
 The remote wears the show colors (amber) and shows the show time (⏱) in its header. It only runs the show: outside
 show mode it says so and GO, the playback buttons and the keys are disabled;

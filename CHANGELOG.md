@@ -9,6 +9,10 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 - Cue list on a phone, view only (`#/view/cues`, "🎬 Cues" in the header): the show time, the scene on stage and the
   next three, each with its name and cue note – no controls.
 
+### Changed
+- Remote: the script takes most of the screen and is larger (A−/A+ set its size); GO, ▼ and all other buttons are
+  much smaller, in a narrow column on the left with now and next.
+
 ## 1.0.112 · 2026-10-28
 
 ### Added
