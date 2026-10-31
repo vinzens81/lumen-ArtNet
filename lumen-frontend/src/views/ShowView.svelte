@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
+  import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
   import SpeechProgress from '../components/SpeechProgress.svelte';
   import DmxMonitorView from './DmxMonitorView.svelte';
@@ -133,11 +134,11 @@
     center(`[data-scene="${id}"]`);
   });
 
-  // keep the current sentence in the middle, however long the text is
+  // keep the current sentence in the middle, however long the text is – in the scene on stage, not the next one below
   $effect(() => {
     const stop = scriptStops[stopIndex];
     if (tab !== 'script' || current === undefined) return;
-    center(stopSelector(stop));
+    center(`.current-scene ${stopSelector(stop)}`);
   });
 
   onMount(() => {
@@ -287,12 +288,13 @@
     {#if script.parts.length === 0}
       <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
     {:else}
-      <div class="script"><ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} /></div>
-      <p class="script-end dim small">
-        {#if next}Next: GO <span class="mono">{next.number}</span> {next.name}
-        {:else if status?.nextIsEnd}Next: end of show{/if}
-        · <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> choose the next scene
-      </p>
+      <div class="script">
+        <div class="current-scene">
+          <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+        </div>
+        <NextSceneText {next} end={status?.nextIsEnd ?? false} />
+      </div>
+      <p class="script-end dim small"><kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> choose the next scene</p>
     {/if}
   {/if}
 {/snippet}

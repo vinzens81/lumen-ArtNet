@@ -1,17 +1,19 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
   import WatchHeader from '../components/WatchHeader.svelte';
   import { live } from '../lib/live.svelte';
   import { parseScript, stopOf, stops, stopSelector } from '../lib/script';
   import { centerIn } from '../lib/scroll';
   import { wakeLock } from '../lib/wakeLock.svelte';
-  import { watchCaption, watchIdleText, watchNext } from '../lib/watch';
+  import { watchCaption, watchIdleText } from '../lib/watch';
   import { watchScenes } from '../lib/watchScenes.svelte';
 
   /**
    * The script of the scene on stage, for following the text on a tablet or phone: the speech the operator is at is
-   * highlighted and kept in the middle. Nothing here changes the light or the position in the script.
+   * highlighted and kept in the middle, the script of the next scene follows below a clear cut. Nothing here changes
+   * the light or the position in the script.
    */
 
   const SIZE_KEY = 'lumen.scriptWatchSize';
@@ -34,9 +36,12 @@
   const scriptLine = $derived(status?.scriptLine ?? 0);
   /** what to keep in the middle: the current speech, or the light marker the operator stopped at */
   const scriptStops = $derived(stops(script));
-  const stopTarget = $derived(stopSelector(scriptStops[stopOf(scriptStops, scriptLine, status?.section ?? 0)]));
+  /** only in the scene on stage, not in the next one below it */
+  const stopTarget = $derived(
+    `.current-scene ${stopSelector(scriptStops[stopOf(scriptStops, scriptLine, status?.section ?? 0)])}`);
   const caption = $derived(watchCaption(scenes.list, status));
-  const next = $derived(watchNext(scenes.list, status));
+  const nextScene = $derived(status?.nextSceneId != null
+    ? scenes.list.find((s) => s.id === status.nextSceneId) : undefined);
   const idle = $derived(watchIdleText(status));
 
   function readSize(): number {
@@ -131,14 +136,16 @@
     {#if idle}
       <p class="dim pad">{idle}</p>
     {:else if current}
-      {#if script.parts.length === 0}
-        <p class="dim pad">This scene has no script.</p>
-      {:else}
-        <div class="script" style="font-size: {size}px">
-          <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+      <div class="script" style="font-size: {size}px">
+        <div class="current-scene">
+          {#if script.parts.length === 0}
+            <p class="dim">This scene has no script.</p>
+          {:else}
+            <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+          {/if}
         </div>
-      {/if}
-      {#if next}<p class="script-end dim small" class:short={script.parts.length === 0}>{next}</p>{/if}
+        <NextSceneText next={nextScene} end={status?.nextIsEnd ?? false} />
+      </div>
     {/if}
   </div>
 
@@ -188,17 +195,7 @@
     /* room above and below, so the first and last speech can be centered too */
     max-width: 60em;
     margin: 0 auto;
-    padding: 40vh 18px 0;
-  }
-
-  .script-end {
-    max-width: 60em;
-    margin: 0 auto;
-    padding: 20px 18px 40vh;
-  }
-
-  .script-end.short {
-    padding: 0 18px 18px;
+    padding: 40vh 18px;
   }
 
   .body:focus-visible {

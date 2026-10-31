@@ -13,6 +13,8 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 ### Changed
 - Remote: the script takes most of the screen and is larger (A−/A+ set its size); GO, ▼ and all other buttons are
   much smaller, in a narrow column on the left with now and next.
+- Script in the show, on the remote and in `#/view/script`: below the script of the scene on stage comes a clear cut
+  ("GO ▸" and the next scene in the color of GO) and then the script of the next scene, dimmed, to read ahead.
 - Show: the current scene in the scene list shows how far its script is ("3 / 12" in a bar that fills), like the
   remote; the Script tab has the same bar.
 

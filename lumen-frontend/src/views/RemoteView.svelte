@@ -3,6 +3,7 @@
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import MasterBar from '../components/MasterBar.svelte';
+  import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
   import SpeechProgress from '../components/SpeechProgress.svelte';
   import { api } from '../lib/api';
@@ -68,9 +69,9 @@
     }
   }
 
-  // the current speech at the top of the script panel, what comes next below it
+  // the current speech at the top of the script panel, what comes next below it – in the scene on stage, not the next one
   $effect(() => {
-    const selector = stopSelector(scriptStops[stopIndex]);
+    const selector = `.current-scene ${stopSelector(scriptStops[stopIndex])}`;
     const element = scriptElement;
     void current;
     void textSize;
@@ -263,14 +264,22 @@
               disabled={!current || stopIndex <= 0} aria-label="Previous speech">▲</button>
           </div>
         </div>
-        {#if current && script.parts.length > 0}
+        {#if current}
           <div class="script" style="font-size: {textSize}px" bind:this={scriptElement}>
             <div class="script-body">
-              <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+              <div class="current-scene">
+                {#if script.parts.length > 0}
+                  <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+                {:else}
+                  <p class="dim">This scene has no text.</p>
+                {/if}
+              </div>
+              <!-- what comes after the cut, to read ahead -->
+              <NextSceneText {next} end={status?.nextIsEnd ?? false} />
             </div>
           </div>
         {:else}
-          <p class="script-empty dim">{current ? 'This scene has no text.' : 'The text of a scene appears here once it is on stage.'}</p>
+          <p class="script-empty dim">The text of a scene appears here once it is on stage.</p>
         {/if}
         <!-- pressed most during the show: across the whole panel at the bottom, where the thumb is -->
         <!-- at the last speech it leads on: tap twice for a GO into the next scene -->
