@@ -57,6 +57,7 @@ import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -552,15 +553,21 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 		}
 	}
 
-	/** @param marker name of the light marker in the script */
+	/**
+	 * @param marker   name of the light marker in the script
+	 * @param fadeInMs fade times of the change into the part, {@code null} for those of the scene (also missing in
+	 *                 older files)
+	 */
 	record SectionEntry(String marker, List<SceneCompositionEntry> compositions, List<SceneLookEntry> looks,
-			List<SceneMoveEntry> moves) {
+			List<SceneMoveEntry> moves, Long fadeInMs, Long fadeOutMs) {
 
 		static SectionEntry from(SceneSection section) {
 			return new SectionEntry(section.marker(),
 					section.compositions().stream().map(SceneCompositionEntry::from).toList(),
 					section.looks().stream().map(SceneLookEntry::from).toList(),
-					section.moves().stream().map(SceneMoveEntry::from).toList());
+					section.moves().stream().map(SceneMoveEntry::from).toList(),
+					section.timing().fadeIn().map(Duration::toMillis).orElse(null),
+					section.timing().fadeOut().map(Duration::toMillis).orElse(null));
 		}
 
 		SceneSection toSection() {
@@ -569,20 +576,27 @@ record ProjectFile(String format, Integer version, Instant exportedAt, ProjectRe
 			}
 			return new SceneSection(marker, list(compositions).stream().map(SceneCompositionEntry::toUse).toList(),
 					list(looks).stream().map(SceneLookEntry::toUse).toList(),
-					list(moves).stream().map(SceneMoveEntry::toUse).toList());
+					list(moves).stream().map(SceneMoveEntry::toUse).toList(),
+					new SectionTiming(Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+							Optional.ofNullable(fadeOutMs).map(Duration::ofMillis)));
 		}
 	}
 
-	record SceneCompositionEntry(Long compositionId, Double level, Double speedFactor, Boolean restart) {
+	/** {@code fadeInMs} and {@code fadeOutMs} are {@code null} for the fade times of the scene. */
+	record SceneCompositionEntry(Long compositionId, Double level, Double speedFactor, Boolean restart,
+			Long fadeInMs, Long fadeOutMs) {
 
 		static SceneCompositionEntry from(SceneComposition use) {
-			return new SceneCompositionEntry(use.compositionId(), use.level(), use.speedFactor(), use.restart());
+			return new SceneCompositionEntry(use.compositionId(), use.level(), use.speedFactor(), use.restart(),
+					use.fadeIn().map(Duration::toMillis).orElse(null),
+					use.fadeOut().map(Duration::toMillis).orElse(null));
 		}
 
 		SceneComposition toUse() {
 			return new SceneComposition(require(compositionId, "compositionId of a scene"),
 					Objects.requireNonNullElse(level, 1.0), Objects.requireNonNullElse(speedFactor, 1.0),
-					Boolean.TRUE.equals(restart));
+					Boolean.TRUE.equals(restart), Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+					Optional.ofNullable(fadeOutMs).map(Duration::ofMillis));
 		}
 	}
 

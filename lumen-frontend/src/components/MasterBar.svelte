@@ -1,8 +1,11 @@
 <script lang="ts">
   import { live } from '../lib/live.svelte';
+
+  /** blackout in the middle instead of on the right – on the remote, away from the ▼ button above the right edge */
+  let { centered = false }: { centered?: boolean } = $props();
 </script>
 
-<footer class="master glass" class:blackout={live.master.blackout}>
+<footer class="master glass" class:blackout={live.master.blackout} class:centered>
   <label class="level">
     <span class="title">Master</span>
     <input
@@ -140,6 +143,28 @@
     color: #fff;
     box-shadow: 0 0 24px var(--danger);
     animation: pulse 1s ease-in-out infinite alternate;
+  }
+
+  /* master on the left, blackout in the middle, live on the right */
+  .centered {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+
+  .centered .level {
+    min-width: 0;
+  }
+
+  .centered .blackout-btn {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .centered .link {
+    grid-column: 3;
+    grid-row: 1;
+    justify-self: end;
+    margin-left: 0;
   }
 
   @keyframes pulse {

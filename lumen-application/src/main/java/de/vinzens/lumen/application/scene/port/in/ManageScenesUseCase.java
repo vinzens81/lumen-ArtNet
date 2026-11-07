@@ -8,6 +8,7 @@ import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneTiming;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.time.Duration;
 import java.util.List;
@@ -51,9 +52,11 @@ public interface ManageScenesUseCase {
 	/**
 	 * The light of a part of the scene: after the light marker {@code marker} of the script, or the start of the
 	 * scene for an empty marker. Compositions, looks and moves must belong to the project.
+	 *
+	 * @param timing fade times of the change into the part; the start of the scene has those of the scene instead
 	 */
 	Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> compositions,
-			List<SceneLook> looks, List<SceneMove> moves);
+			List<SceneLook> looks, List<SceneMove> moves, SectionTiming timing);
 
 	/** The extra keys of the scene; each plays a composition or a move of the project. */
 	Scene setKeys(long projectId, long sceneId, List<SceneKey> keys);

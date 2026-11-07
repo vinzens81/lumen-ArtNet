@@ -1,15 +1,19 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import MasterBar from '../components/MasterBar.svelte';
+  import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
+  import SpeechProgress from '../components/SpeechProgress.svelte';
   import { api } from '../lib/api';
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { nowProgress, remoteBlocked, stepNext } from '../lib/remote';
-  import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
-  import { topIn } from '../lib/scroll';
+  import {
+    NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
+  } from '../lib/script';
+  import { SceneGlide, topIn } from '../lib/scroll';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
@@ -23,6 +27,8 @@
    */
 
   const GO_GUARD_MS = 300;
+  const SIZE_KEY = 'lumen.remoteTextSize';
+  const SIZES = [18, 20, 22, 24, 28, 32, 36];
 
   const scenes = watchScenes();
   let now = $state(performance.now());
@@ -38,17 +44,53 @@
   const progress = $derived(nowProgress(status, now - live.playbackReceivedAt, current?.autoFollowMs ?? null));
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
-  const scriptPassages = $derived(passages(script));
-  const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
+  const scriptSection = $derived(status?.section ?? 0);
+  /** the places ▲/▼ stop at: speeches, pauses, and light markers without speech or pause after them */
+  const scriptStops = $derived(stops(script));
+  const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
   let scriptElement: HTMLElement | undefined = $state();
+  let textSize = $state(readSize());
 
-  // the current speech at the top of the script panel, what comes next below it
+  function readSize(): number {
+    try {
+      const stored = Number(localStorage.getItem(SIZE_KEY));
+      return SIZES.includes(stored) ? stored : 24;
+    } catch {
+      return 24;
+    }
+  }
+
+  function resize(step: number) {
+    textSize = SIZES[Math.min(SIZES.length - 1, Math.max(0, SIZES.indexOf(textSize) + step))];
+    try {
+      localStorage.setItem(SIZE_KEY, String(textSize));
+    } catch {
+      // only a convenience
+    }
+  }
+
+  // after GO the text read ahead below the cut glides to the top instead of a long scroll through the script
+  const glide = new SceneGlide();
+  /** a primitive on purpose: scenes reload as new objects */
+  const currentId = $derived(current?.id);
+  /** the scene whose text stands below the cut right now; not reactive, read before the page changes */
+  let readAheadId: number | undefined;
+  $effect.pre(() => {
+    const id = currentId;
+    glide.capture(untrack(() => scriptElement), id !== undefined && id === readAheadId);
+  });
   $effect(() => {
-    const line = scriptLine;
+    readAheadId = next?.id;
+  });
+
+  // the current speech at the top of the script panel, what comes next below it – in the scene on stage, not the next one
+  $effect(() => {
+    const selector = `.current-scene ${stopSelector(scriptStops[stopIndex])}`;
     const element = scriptElement;
     void current;
+    void textSize;
     // after the layout, so it also works when the page opens in the middle of a scene
-    const frame = requestAnimationFrame(() => topIn(element, `[data-line="${line}"]`));
+    const frame = requestAnimationFrame(() => glide.scroll(element, (behavior) => topIn(element, selector, 8, behavior)));
     return () => cancelAnimationFrame(frame);
   });
   const stoppable = $derived(status !== null && status.available && (status.position >= 0
@@ -87,11 +129,36 @@
     if (target) apply(api.playback.setNext(target.id));
   }
 
+  /** a first ▼ at the last speech asks; a second tap within a few seconds is a GO into the next scene */
+  let nextArmedFor = $state<number | null>(null);
+  let nextArmTimer: ReturnType<typeof setTimeout> | null = null;
+  const nextArmed = $derived(nextArmedFor !== null && nextArmedFor === current?.id);
+  const downAction = $derived(current
+    ? scriptDownAction(stopIndex, scriptStops.length, canGo, nextArmed)
+    : 'none');
+  const nextLabel = $derived(next ? `${next.number} ${next.name}` : 'end of show');
+
+  function scriptDown() {
+    if (downAction === 'speech') {
+      stepScript(1);
+    } else if (downAction === 'arm' && current) {
+      nextArmedFor = current.id;
+      if (nextArmTimer) clearTimeout(nextArmTimer);
+      nextArmTimer = setTimeout(() => (nextArmedFor = null), NEXT_SCENE_ARM_MS);
+    } else if (downAction === 'go') {
+      nextArmedFor = null;
+      go();
+    }
+  }
+
   function stepScript(step: number) {
+    nextArmedFor = null;
     if (!current) return;
-    const line = stepPassage(script, scriptLine, step);
+    const target = stepStop(scriptStops, scriptLine, scriptSection, step);
     // passing a light marker fades to the light of its part
-    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line, sectionOf(script, line));
+    if (target.line !== scriptLine || target.section !== scriptSection) {
+      live.scriptCommand(current.id, target.line, target.section);
+    }
   }
 
   /** the first tap on Stop only asks; a second one within a few seconds stops */
@@ -135,7 +202,10 @@
 
     <div class="left" inert={blocked !== null}>
       <article class="panel glass now-panel">
-        <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
+        <div class="panel-head">
+          <h3>Now {#if status?.paused}<span class="badge warning">Paused</span>{/if}</h3>
+          <span class="small mono progress-text" class:follow={progress.kind === 'follow'}>{progress.text}</span>
+        </div>
         {#if current}
           <div class="big"><span class="mono">{current.number}</span> {current.name}</div>
         {:else if atEnd}
@@ -144,7 +214,6 @@
           <div class="big dim">Ready – stage is dark</div>
         {/if}
         <div class="progress {progress.kind}"><span style="width: {progress.value * 100}%"></span></div>
-        <div class="small mono progress-text" class:follow={progress.kind === 'follow'}>{progress.text}</div>
       </article>
 
       <article class="panel glass next-panel">
@@ -167,14 +236,6 @@
         {/if}
       </article>
 
-      <div class="keys glass"><KeyBar keys={status?.keys ?? []} /></div>
-      <!-- on the left too, so the script on the right keeps its full height -->
-      {#if (status?.faders.length ?? 0) > 0}
-        <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
-      {/if}
-    </div>
-
-    <div class="right" inert={blocked !== null}>
       <button type="button" class="go" disabled={!canGo} onpointerdown={go} onclick={(e) => e.detail === 0 && go()}>
         GO
       </button>
@@ -192,36 +253,66 @@
         </button>
       </div>
 
-      <!-- always there, also for a scene without text, so GO keeps its size -->
+      <div class="keys glass"><KeyBar keys={status?.keys ?? []} /></div>
+      <!-- on the left too, so the script on the right keeps its full height -->
+      {#if (status?.faders.length ?? 0) > 0}
+        <div class="faders glass"><FaderBar faders={status?.faders ?? []} /></div>
+      {/if}
+    </div>
+
+    <div class="right" inert={blocked !== null}>
+      <!-- always there, also for a scene without text, so nothing moves -->
       <article class="panel glass text-panel">
         <div class="panel-head">
-          <h3>Text {#if scriptPassages.length > 0}<span class="dim mono">{passageIndex + 1} / {scriptPassages.length}</span>{/if}</h3>
-          <button type="button" class="btn back-speech" onclick={() => stepScript(-1)}
-            disabled={!current || passageIndex <= 0} aria-label="Previous speech">▲</button>
+          <h3>Text
+            {#if scriptStops.length > 1}
+              <SpeechProgress index={stopIndex} count={scriptStops.length} />
+            {/if}
+          </h3>
+          <div class="text-tools">
+            <button type="button" class="btn small" onclick={() => resize(-1)} disabled={textSize === SIZES[0]}
+              aria-label="Smaller text">A−</button>
+            <button type="button" class="btn small" onclick={() => resize(1)}
+              disabled={textSize === SIZES[SIZES.length - 1]} aria-label="Larger text">A+</button>
+            <button type="button" class="btn small back-speech" onclick={() => stepScript(-1)}
+              disabled={!current || stopIndex <= 0} aria-label="Previous speech">▲</button>
+          </div>
         </div>
-        {#if current && script.parts.length > 0}
-          <div class="script" bind:this={scriptElement}>
+        {#if current}
+          <div class="script" style="font-size: {textSize}px" bind:this={scriptElement}>
             <div class="script-body">
-              <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+              <div class="current-scene">
+                {#if script.parts.length > 0}
+                  <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+                {:else}
+                  <p class="dim">This scene has no text.</p>
+                {/if}
+              </div>
+              <!-- what comes after the cut, to read ahead -->
+              <NextSceneText {next} end={status?.nextIsEnd ?? false} />
             </div>
           </div>
         {:else}
-          <p class="script-empty dim">{current ? 'This scene has no text.' : 'The text of a scene appears here once it is on stage.'}</p>
+          <p class="script-empty dim">The text of a scene appears here once it is on stage.</p>
         {/if}
-        <!-- pressed most during the show: big and at the bottom, where the thumb is -->
-        <button type="button" class="next-speech" onclick={() => stepScript(1)}
-          disabled={!current || passageIndex >= scriptPassages.length - 1} aria-label="Next speech">▼</button>
+        <!-- pressed most during the show: across the whole panel at the bottom, where the thumb is -->
+        <!-- at the last speech it leads on: tap twice for a GO into the next scene -->
+        <button type="button" class="next-speech" class:to-scene={downAction !== 'speech'} class:armed={nextArmed}
+          onclick={scriptDown} disabled={downAction === 'none'}
+          aria-label={downAction === 'speech' ? 'Next speech' : 'Next scene, tap twice'}>
+          {#if downAction === 'speech'}▼{:else if nextArmed}GO {nextLabel}?{:else}▼ Next scene{/if}
+        </button>
       </article>
     </div>
   </div>
 
-  <MasterBar />
+  <MasterBar centered />
 </section>
 
 <style>
   /*
-   * A tablet in landscape: now, next, the keys and the faders on the left; GO, the playback buttons and the script on
-   * the right; master below. The page fills the screen exactly and every panel has a size that does not depend on
+   * A tablet in landscape: a narrow column on the left with now, next, GO, the playback buttons, the keys and the
+   * faders, all compact; the script gets the rest of the screen, so it can be read from a distance; master below. The page fills the screen exactly and every panel has a size that does not depend on
    * what it shows.
    */
   .remote {
@@ -288,7 +379,7 @@
     position: relative;
     flex: 1 1 0;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: minmax(280px, 30%) minmax(0, 1fr);
     gap: 10px;
     min-height: 0;
   }
@@ -333,8 +424,8 @@
   .panel {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    padding: 14px 18px;
+    gap: 8px;
+    padding: 10px 14px;
     overflow: hidden;
   }
 
@@ -344,11 +435,19 @@
     gap: 10px;
   }
 
-  /* now and next share the room above the keys equally, whatever they show */
-  .left > .now-panel,
+  /* next with its cue note gets the room that is left, never less than it needs; a short screen scrolls the column */
   .left > .next-panel {
-    flex: 1 1 0;
-    min-height: 0;
+    flex: 1 0 auto;
+  }
+
+  .left {
+    overflow-y: auto;
+  }
+
+  @media (max-width: 900px) {
+    .left {
+      overflow: visible;
+    }
   }
 
   .now-panel {
@@ -369,9 +468,9 @@
   }
 
   .choose .btn {
-    min-width: 56px;
-    min-height: 44px;
-    font-size: 16px;
+    min-width: 40px;
+    min-height: 32px;
+    padding: 0 8px;
   }
 
   /* cut after a few lines instead of growing; max-height as well, some browsers only draw the "…" */
@@ -384,7 +483,7 @@
 
   .big {
     flex: none;
-    font-size: 26px;
+    font-size: 22px;
     font-weight: 700;
     line-height: 1.2;
     max-height: 2.4em;
@@ -405,9 +504,9 @@
     font-size: 16px;
     font-weight: 600;
     line-height: 1.3;
-    max-height: calc(2.6em + 16px);
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    max-height: calc(3.9em + 16px);
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
   }
 
   .progress {
@@ -432,9 +531,9 @@
   }
 
   .progress-text {
-    flex: none;
-    height: 1.4em;
+    min-width: 0;
     overflow: hidden;
+    text-overflow: ellipsis;
     color: var(--text-dim);
     white-space: nowrap;
   }
@@ -451,14 +550,12 @@
     padding: 10px;
   }
 
-  /* bigger touch targets than on the desk */
   .keys :global(.key) {
-    min-height: 68px;
+    min-height: 40px;
   }
 
-  /* GO small, the text with its big ▼ gets the room */
-  .right > .go {
-    height: 150px;
+  .left > .go {
+    height: 64px;
   }
 
   .go {
@@ -467,12 +564,12 @@
     background: radial-gradient(circle at 50% 40%, color-mix(in srgb, var(--accent) 35%, transparent), var(--accent-soft));
     color: var(--accent);
     font: inherit;
-    font-size: 56px;
+    font-size: 30px;
     font-weight: 900;
     letter-spacing: 0.25em;
     text-indent: 0.25em;
     cursor: pointer;
-    box-shadow: 0 0 40px var(--accent-glow), inset 0 0 40px var(--accent-soft);
+    box-shadow: 0 0 24px var(--accent-glow), inset 0 0 24px var(--accent-soft);
     transition: transform 0.06s, box-shadow 0.15s;
     touch-action: manipulation;
   }
@@ -490,14 +587,14 @@
 
   .controls {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
   }
 
   .controls .btn {
-    height: 60px;
+    height: 38px;
     overflow: hidden;
-    font-size: 15px;
+    font-size: 13px;
     white-space: nowrap;
   }
 
@@ -516,10 +613,14 @@
     min-height: 0;
   }
 
-  .back-speech {
-    min-width: 56px;
-    min-height: 44px;
-    font-size: 16px;
+  .text-tools {
+    display: flex;
+    gap: 6px;
+  }
+
+  .text-tools .btn {
+    min-width: 40px;
+    min-height: 32px;
   }
 
   /* the whole script of the scene, scrolling inside the panel; the current speech stands at the top */
@@ -527,7 +628,7 @@
     flex: 1 1 0;
     min-height: 0;
     overflow-y: auto;
-    font-size: 18px;
+    line-height: 1.45;
   }
 
   /* room below, so the last speech can reach the top too – inside the scrolling box, so the panel keeps its size */
@@ -542,14 +643,14 @@
 
   .next-speech {
     flex: none;
-    height: 130px;
+    height: 56px;
     margin-top: auto;
     border-radius: var(--radius);
     border: 2px solid var(--warning);
     background: var(--warning-soft);
     color: var(--warning);
     font: inherit;
-    font-size: 56px;
+    font-size: 26px;
     font-weight: 900;
     cursor: pointer;
     touch-action: manipulation;
@@ -558,6 +659,16 @@
 
   .next-speech:active:not(:disabled) {
     transform: scale(0.98);
+  }
+
+  .next-speech.to-scene {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .next-speech.armed {
+    background: var(--warning);
+    color: var(--bg);
   }
 
   .next-speech:disabled {
@@ -591,16 +702,17 @@
     .left > .now-panel,
     .left > .next-panel {
       flex: none;
-      height: 150px;
+      height: 130px;
     }
 
-    .right > .go {
+    .left > .go {
       order: 3;
     }
 
+    /* the screen between the buttons and master, so ▼ is in reach without scrolling */
     .right > .text-panel {
       flex: none;
-      height: 330px;
+      height: max(330px, calc(100dvh - 550px));
     }
 
     .next-panel {
@@ -609,6 +721,7 @@
 
     .controls {
       order: 4;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
     }
 
     .text-panel {

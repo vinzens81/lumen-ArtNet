@@ -13,6 +13,7 @@ import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneTiming;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -111,7 +112,7 @@ class SceneController {
 		return response(scenes.setSection(projectId, sceneId, section.marker() == null ? "" : section.marker(),
 				list(section.compositions()).stream().map(SceneCompositionDto::toUse).toList(),
 				list(section.looks()).stream().map(SceneLookDto::toUse).toList(),
-				list(section.moves()).stream().map(SceneMoveDto::toUse).toList()));
+				list(section.moves()).stream().map(SceneMoveDto::toUse).toList(), section.timing()));
 	}
 
 	private static <T> List<T> list(List<T> items) {
@@ -174,20 +175,27 @@ class SceneController {
 	}
 
 	/**
-	 * @param restart start from the beginning at GO, even if the composition already runs in the scene before
+	 * @param restart   start from the beginning at GO, even if the composition already runs in the scene before
+	 * @param fadeInMs  its own fade-in time, {@code null} = the scene's
+	 * @param fadeOutMs its own fade-out time, {@code null} = the one of the transition
 	 */
-	record SceneCompositionDto(Long compositionId, Double level, Double speedFactor, Boolean restart) {
+	record SceneCompositionDto(Long compositionId, Double level, Double speedFactor, Boolean restart, Long fadeInMs,
+			Long fadeOutMs) {
 
 		SceneComposition toUse() {
 			if (compositionId == null) {
 				throw new DomainValidationException(List.of("compositionId is missing"));
 			}
 			return new SceneComposition(compositionId, Objects.requireNonNullElse(level, 1.0),
-					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart));
+					Objects.requireNonNullElse(speedFactor, 1.0), Boolean.TRUE.equals(restart),
+					Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+					Optional.ofNullable(fadeOutMs).map(Duration::ofMillis));
 		}
 
 		static SceneCompositionDto from(SceneComposition use) {
-			return new SceneCompositionDto(use.compositionId(), use.level(), use.speedFactor(), use.restart());
+			return new SceneCompositionDto(use.compositionId(), use.level(), use.speedFactor(), use.restart(),
+					use.fadeIn().map(Duration::toMillis).orElse(null),
+					use.fadeOut().map(Duration::toMillis).orElse(null));
 		}
 	}
 
@@ -225,15 +233,24 @@ class SceneController {
 	 * The light of a part of the scene.
 	 *
 	 * @param marker name of the light marker, {@code null} or empty = the start of the scene
-	 * @param moves  where the pan/tilt fixtures point; on the same fixture a later move wins
+	 * @param moves    where the pan/tilt fixtures point; on the same fixture a later move wins
+	 * @param fadeInMs fade times of the change into a part after a marker, {@code null} = the scene's; ignored for
+	 *                 the start of the scene, which fades with the times of the scene
 	 */
 	record SectionDto(String marker, List<SceneCompositionDto> compositions, List<SceneLookDto> looks,
-			List<SceneMoveDto> moves) {
+			List<SceneMoveDto> moves, Long fadeInMs, Long fadeOutMs) {
 
 		static SectionDto from(SceneSection section) {
 			return new SectionDto(section.marker(), section.compositions().stream().map(SceneCompositionDto::from)
 					.toList(), section.looks().stream().map(SceneLookDto::from).toList(),
-					section.moves().stream().map(SceneMoveDto::from).toList());
+					section.moves().stream().map(SceneMoveDto::from).toList(),
+					section.timing().fadeIn().map(Duration::toMillis).orElse(null),
+					section.timing().fadeOut().map(Duration::toMillis).orElse(null));
+		}
+
+		SectionTiming timing() {
+			return new SectionTiming(Optional.ofNullable(fadeInMs).map(Duration::ofMillis),
+					Optional.ofNullable(fadeOutMs).map(Duration::ofMillis));
 		}
 	}
 

@@ -8,6 +8,7 @@ import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.util.Comparator;
 import java.util.LinkedHashMap;
@@ -52,10 +53,10 @@ public class InMemoryScenes implements SceneRepository {
 
 	@Override
 	public Scene replaceSection(long id, String marker, List<SceneComposition> compositions, List<SceneLook> looks,
-			List<SceneMove> moves) {
+			List<SceneMove> moves, SectionTiming timing) {
 		var scene = scenes.get(id);
 		return put(marker.isEmpty() ? scene.withStart(compositions, looks, moves)
-				: scene.withSection(new SceneSection(marker, compositions, looks, moves)));
+				: scene.withSection(new SceneSection(marker, compositions, looks, moves, timing)));
 	}
 
 	@Override

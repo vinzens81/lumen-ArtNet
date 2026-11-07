@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  parseScript, passages, scriptBlocks, sectionOf, speakerHue, stepPassage, type ScriptBlock, type ScriptPart,
+  parseScript, passages, scriptBlocks, scriptDownAction, sectionOf, speakerHue, stepPassage, stepStop, stopOf, stops,
+  stopSelector, type ScriptBlock, type ScriptPart,
 } from './script';
 
 function lines(text: string): string[] {
@@ -77,7 +78,7 @@ describe('parseScript', () => {
   });
 
   it('has no parts for an empty text', () => {
-    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, speakers: [], markers: [] });
+    expect(parseScript('  \n\n ')).toEqual({ parts: [], lineCount: 0, noteCount: 0, pauseCount: 0, speakers: [], markers: [] });
   });
 });
 
@@ -130,6 +131,7 @@ function summary(block: ScriptBlock): string {
     case 'text': return `text: ${text(block.parts)}`;
     case 'note': return `note: ${block.text}`;
     case 'marker': return `marker ${block.section}: ${block.name} (${block.info})`;
+    case 'pause': return `pause ${block.index}: ${block.name} (${block.info})`;
     case 'paragraph': return 'paragraph';
   }
 }
@@ -187,5 +189,116 @@ describe('stepping through the script', () => {
 
   it('is null without sentences', () => {
     expect(stepPassage(parseScript('**Silence**'), 0, 1)).toBeNull();
+  });
+});
+
+describe('pauses', () => {
+  const script = parseScript([
+    'Michael: Is father here?',
+    '//|| Long pause (they wait)||',
+    'Christian: Hiding.',
+    '//## Hall ##',
+    '//|| Pause ||',
+    '**Leif comes in.**',
+  ].join('\n'));
+
+  it('are positions of their own, not spoken and not a speaker', () => {
+    expect(script.pauseCount).toBe(2);
+    expect(script.lineCount).toBe(4);
+    expect(script.speakers).toEqual(['Michael', 'Christian']);
+    expect(script.markers).toEqual([{ name: 'Hall', info: '' }]);
+    expect(lines('Michael: Is father here?\n//|| Pause ||'), 'not spoken').toEqual(['Is father here?']);
+  });
+
+  it('show on a line of their own', () => {
+    expect(scriptBlocks(script).map(summary)).toEqual([
+      'speech Michael: Is father here?',
+      'pause 1: Long pause (they wait)',
+      'speech Christian: Hiding.',
+      'marker 1: Hall ()',
+      'pause 3: Pause ()',
+      'note: Leif comes in.',
+    ]);
+  });
+
+  it('are a stop of their own; a marker before one changes the light with it', () => {
+    expect(passages(script)).toEqual([{ first: 0, last: 0 }, { first: 1, last: 1 }, { first: 2, last: 2 },
+      { first: 3, last: 3 }]);
+    expect(stops(script)).toEqual([
+      { line: 0, section: 0, marker: false },
+      { line: 1, section: 0, marker: false },
+      { line: 2, section: 0, marker: false },
+      { line: 3, section: 1, marker: false },
+    ]);
+  });
+});
+
+describe('scriptDownAction', () => {
+  it('steps to the next speech before the last one', () => {
+    expect(scriptDownAction(0, 3, true, false)).toBe('speech');
+    expect(scriptDownAction(1, 3, true, true)).toBe('speech');
+  });
+
+  it('asks first at the last speech, then goes to the next scene', () => {
+    expect(scriptDownAction(2, 3, true, false)).toBe('arm');
+    expect(scriptDownAction(2, 3, true, true)).toBe('go');
+  });
+
+  it('treats a scene without text as at its end', () => {
+    expect(scriptDownAction(-1, 0, true, false)).toBe('arm');
+  });
+
+  it('does nothing at the end when GO is not possible', () => {
+    expect(scriptDownAction(2, 3, false, true)).toBe('none');
+  });
+});
+
+describe('stops', () => {
+  const directionsOnly = parseScript([
+    '**DARK**',
+    '//## Lamp (only the lamp)##',
+    '**Dancers enter – waltz.**',
+    '//## Only the lamp##',
+    '**Linda hides the letter.**',
+    '//## Blackout##',
+  ].join('\n'));
+
+  it('stops at every light marker that no speech follows', () => {
+    expect(stops(directionsOnly)).toEqual([
+      { line: 0, section: 0, marker: false },
+      { line: 0, section: 1, marker: true },
+      { line: 0, section: 2, marker: true },
+      { line: 0, section: 3, marker: true },
+    ]);
+  });
+
+  it('changes the light together with the speech that follows a marker', () => {
+    const script = parseScript('Puck: Here.\n//## Moon##\nOberon: Ill met.\n\nTitania: Away.');
+    expect(stops(script)).toEqual([
+      { line: 0, section: 0, marker: false },
+      { line: 1, section: 1, marker: false },
+      { line: 2, section: 1, marker: false },
+    ]);
+  });
+
+  it('keeps a marker of its own between speeches when only directions follow it', () => {
+    const script = parseScript('Puck: Here.\n//## Dance##\n**They dance.**\n//## Moon##\nOberon: Ill met.');
+    expect(stops(script).map((s) => [s.line, s.section, s.marker])).toEqual([
+      [0, 0, false], [1, 1, true], [1, 2, false],
+    ]);
+  });
+
+  it('finds the position and steps from marker to marker', () => {
+    const list = stops(directionsOnly);
+    expect(stopOf(list, 0, 0)).toBe(0);
+    expect(stopOf(list, 0, 2)).toBe(2);
+    expect(stepStop(list, 0, 0, 1)).toEqual({ line: 0, section: 1, marker: true });
+    expect(stepStop(list, 0, 3, 1)).toEqual({ line: 0, section: 3, marker: true });
+    expect(stepStop(list, 0, 1, -1)).toEqual({ line: 0, section: 0, marker: false });
+  });
+
+  it('scrolls to the marker or the speech', () => {
+    expect(stopSelector({ line: 4, section: 2, marker: true })).toBe('[data-marker="2"]');
+    expect(stopSelector({ line: 4, section: 2, marker: false })).toBe('[data-line="4"]');
   });
 });

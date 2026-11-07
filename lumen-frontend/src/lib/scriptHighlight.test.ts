@@ -8,6 +8,7 @@ const text = [
   'He said: no speaker.',
   '//## Licht Marker 1 (infotext)##',
   'ROLF: Gut.',
+  '//|| Pause **lang** ||',
 ].join('\n');
 
 describe('highlightScript', () => {
@@ -17,11 +18,12 @@ describe('highlightScript', () => {
     expect(segments.map((s) => s.text).join('')).toBe(text);
   });
 
-  it('colors speakers, stage directions and light markers', () => {
+  it('colors speakers, stage directions, light markers and pauses', () => {
     const of = (kind: string) => segments.filter((s) => s.kind === kind).map((s) => s.text);
     expect(of('speaker')).toEqual(['Maike Schmitz', 'ROLF']);
     expect(of('direction')).toEqual(['Regie Anweisung', 'lacht']);
     expect(of('marker')).toEqual(['//## Licht Marker 1 (infotext)##']);
+    expect(of('pause')).toEqual(['//|| Pause **lang** ||']);
     expect(of('syntax')).toEqual(['**', '**', ':', '**', '**', ':']);
     expect(segments.find((s) => s.text === 'ROLF')?.hue).toBe(speakerHue('ROLF'));
   });

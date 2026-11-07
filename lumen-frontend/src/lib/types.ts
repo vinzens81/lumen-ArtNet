@@ -252,6 +252,10 @@ export interface SceneComposition {
   speedFactor: number;
   /** start from the beginning at GO, even if it already runs in the scene before */
   restart: boolean;
+  /** its own fade-in time at GO, null = the scene's */
+  fadeInMs: number | null;
+  /** its own fade-out time when it leaves the stage, null = the one of the transition */
+  fadeOutMs: number | null;
 }
 
 /** A look used directly in a scene: it stays as it is. */
@@ -273,6 +277,9 @@ export interface SceneSection {
   looks: SceneLook[];
   /** on the same fixture a later move wins */
   moves: SceneMove[];
+  /** fade times of the change into the part, null = the scene's */
+  fadeInMs: number | null;
+  fadeOutMs: number | null;
 }
 
 /** An extra key of a scene: switches a composition or a move on and off while the scene is on stage. */
@@ -606,10 +613,8 @@ export interface CompositionRequest {
   folder?: string;
 }
 
-/** A rehearsed GO into the scene on stage; the fade-in starts delayMs after GO, the fade-out at GO. */
-export interface RehearsedFade {
-  /** the scene fading out, null for the dark stage */
-  fromSceneId: number | null;
+/** A fade from the light on stage into the scene on stage; the fade-in starts delayMs after it, the fade-out at once. */
+export interface StageFade {
   elapsedMs: number;
   fadeInMs: number;
   fadeOutMs: number;
@@ -620,8 +625,10 @@ export interface StagePreviewStatus {
   compositionId: number | null;
   moveId: number | null;
   sceneId: number | null;
-  /** running rehearsed fade into sceneId, null if none or ended */
-  fade: RehearsedFade | null;
+  /** the light marker of the part of sceneId on stage, null for its start */
+  marker: string | null;
+  /** running fade into sceneId, null if none or ended */
+  fade: StageFade | null;
 }
 
 /**

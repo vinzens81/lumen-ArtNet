@@ -5,6 +5,7 @@ import de.vinzens.lumen.domain.move.Figure;
 import de.vinzens.lumen.domain.move.Move;
 import de.vinzens.lumen.domain.move.MoveRepeat;
 
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -17,9 +18,12 @@ import java.util.Optional;
  * @param sourceId what decides whether it continues seamlessly from scene to scene: the same composition
  * @param once     stands still at the end of its first run
  * @param perHead  every head of a multi-pixel fixture is an element of its own
+ * @param fadeIn   its own fade-in time at GO, empty = the one of the transition
+ * @param fadeOut  its own fade-out time when it leaves the stage, empty = the one of the transition
  */
 public record ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds,
-		double level, double speedFactor, boolean restart, boolean once, boolean perHead) {
+		double level, double speedFactor, boolean restart, boolean once, boolean perHead, Optional<Duration> fadeIn,
+		Optional<Duration> fadeOut) {
 
 	/** Moves play with ids from here on, so they never meet a composition or look id. */
 	public static final long MOVE_IDS = 1L << 40;
@@ -27,7 +31,16 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 	public ActiveComposition {
 		Objects.requireNonNull(sourceId, "sourceId");
 		Objects.requireNonNull(pattern, "pattern");
+		Objects.requireNonNull(fadeIn, "fadeIn");
+		Objects.requireNonNull(fadeOut, "fadeOut");
 		fixtureIds = List.copyOf(fixtureIds);
+	}
+
+	/** A composition with the fade times of the transition. */
+	public ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds, double level,
+			double speedFactor, boolean restart, boolean once, boolean perHead) {
+		this(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, once, perHead, Optional.empty(),
+				Optional.empty());
 	}
 
 	/**
@@ -80,6 +93,12 @@ public record ActiveComposition(long id, Optional<Long> sourceId, Pattern patter
 	public ActiveComposition(long id, Optional<Long> sourceId, Pattern pattern, List<Long> fixtureIds, double level,
 			double speedFactor, boolean restart) {
 		this(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, false, false);
+	}
+
+	/** The same composition with its own fade times (empty = the ones of the transition). */
+	public ActiveComposition withFades(Optional<Duration> newFadeIn, Optional<Duration> newFadeOut) {
+		return new ActiveComposition(id, sourceId, pattern, fixtureIds, level, speedFactor, restart, once, perHead,
+				newFadeIn, newFadeOut);
 	}
 
 	/** Pattern time for the given time since the start: scaled by the speed, held at the end when running once. */

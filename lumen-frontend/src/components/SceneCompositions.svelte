@@ -2,7 +2,11 @@
   import { api } from '../lib/api';
   import { compositionIcon, effectLabel, isFast, lookMap, overlaps, scenesUsing } from '../lib/compositions';
   import { live } from '../lib/live.svelte';
+  import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
+  import { fadeEnded, fadeInProgress, sceneRequestOf, secondsToMs } from '../lib/sceneTiming';
+  import { parseScript } from '../lib/script';
+  import { stagePreview } from '../lib/stagePreview.svelte';
   import type {
     Composition, Fixture, Group, Look, Mode, Move, Scene, SceneComposition, SceneLook, SceneMove,
   } from '../lib/types';
@@ -11,14 +15,16 @@
 
   /**
    * The light of a scene or of one part of it (after a light marker of the script): compositions with level, tempo
-   * and restart, looks used directly, and moves for where the pan/tilt fixtures point.
+   * and restart, looks used directly, and moves for where the pan/tilt fixtures point. Each part can be shown on
+   * stage on its own, or or faded into from the light on stage. Its fade times: for the start those of the GO into the
+   * scene, for a part after a marker its own (empty = the scene's).
    */
   let {
     projectId,
     scene,
     marker = null,
     info = '',
-    framed = false,
+    hasMarkers = false,
     scenes,
     compositions,
     looks,
@@ -40,8 +46,8 @@
     marker?: string | null;
     /** the text in brackets of the marker */
     info?: string;
-    /** a frame around the settings, so the parts of a scene with light markers stand apart */
-    framed?: boolean;
+    /** the scene has light markers: this part is its start */
+    hasMarkers?: boolean;
   } = $props();
 
   let uses = $state<SceneComposition[]>([]);
@@ -62,7 +68,7 @@
   /** looks a scene can use: the shared ones (a composition's own looks stay in their composition) */
   const availableLooks = $derived(looks.filter((l) => l.owner === null && !lookUses.some((u) => u.lookId === l.id)));
   const section = $derived(marker === null ? scene : scene.sections.find((s) => s.marker === marker)
-    ?? { compositions: [], looks: [], moves: [] });
+    ?? { compositions: [], looks: [], moves: [], fadeInMs: null, fadeOutMs: null });
   const movesById = $derived(new Map(moves.map((m) => [m.id, m])));
   const availableMoves = $derived(moves.filter((m) => !moveUses.some((u) => u.moveId === m.id)));
 
@@ -79,7 +85,26 @@
     moveUses = nextMoves;
     try {
       await api.scenes.setSection(projectId, scene.id, { marker, compositions: next, looks: nextLooks,
-        moves: nextMoves });
+        moves: nextMoves, fadeInMs: section.fadeInMs, fadeOutMs: section.fadeOutMs });
+    } catch (e) {
+      showError(e);
+    }
+  }
+
+  /** where empty fade fields of the frame come from: the project for the start, the scene for a part */
+  const fadeFallback = $derived(marker === null
+    ? { fadeIn: app.active?.fadeInMs ?? null, fadeOut: app.active?.fadeOutMs ?? null }
+    : { fadeIn: scene.fadeInMs ?? app.active?.fadeInMs ?? null, fadeOut: scene.fadeOutMs ?? app.active?.fadeOutMs ?? null });
+
+  /** The fade times of the frame: of the GO into the scene for its start, of the part after a marker. */
+  async function saveFades(patch: { fadeInMs?: number | null; fadeOutMs?: number | null }) {
+    try {
+      if (marker === null) {
+        await api.scenes.update(projectId, scene.id, { ...sceneRequestOf(scene), ...patch });
+      } else {
+        await api.scenes.setSection(projectId, scene.id, { marker, compositions: uses, looks: lookUses,
+          moves: moveUses, fadeInMs: section.fadeInMs, fadeOutMs: section.fadeOutMs, ...patch });
+      }
     } catch (e) {
       showError(e);
     }
@@ -119,6 +144,13 @@
       || s.sections.some((part) => part.moves.some((u) => u.moveId === moveId)));
   }
 
+  /** the scene's own fade-in as a hint in empty fields */
+  const sceneFadeIn = $derived(scene.fadeInMs !== null ? String(scene.fadeInMs / 1000) : 'scene');
+
+  function msToSeconds(ms: number | null): number | null {
+    return ms === null ? null : ms / 1000;
+  }
+
   function change(index: number, patch: Partial<SceneComposition>) {
     save(uses.map((u, i) => (i === index ? { ...u, ...patch } : u)));
   }
@@ -134,7 +166,8 @@
   function add() {
     const id = Number(addId);
     addId = '';
-    if (id) save([...uses, { compositionId: id, level: 1, speedFactor: 1, restart: false }]);
+    if (id) save([...uses, { compositionId: id, level: 1, speedFactor: 1, restart: false, fadeInMs: null,
+      fadeOutMs: null }]);
   }
 
   /** A new composition for this scene: the programmer as its first step, or an effect to generate. */
@@ -145,7 +178,8 @@
         name: `${scene.name}${marker ? ` – ${marker}` : ''} – ${kind === 'effect' ? 'effect' : count}`,
       });
       if (kind === 'programmer') created = await api.compositions.recordStep(projectId, created.id);
-      await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false }]);
+      await save([...uses, { compositionId: created.id, level: 1, speedFactor: 1, restart: false,
+        fadeInMs: null, fadeOutMs: null }]);
       if (kind === 'effect') editing = { id: created.id, generate: true };
     } catch (e) {
       showError(e);
@@ -162,14 +196,36 @@
     ].filter(Boolean).join(' · ');
   }
 
+  // --- on stage: this part alone, or the fade into it -----------------------------------------------------------
+
+  /** markers of the saved script in their order – the server plays what is saved */
+  const savedMarkers = $derived(parseScript(scene.script).markers.map((m) => m.name));
+  /** the part exists on the server: the start always, a marker once the script with it is saved */
+  const saved = $derived(marker === null || savedMarkers.includes(marker));
+  const onStage = $derived(stagePreview.status.sceneId === scene.id && stagePreview.status.marker === marker);
+  // progress of a fade into this light, interpolated from the moment the status arrived
+  let now = $state(performance.now());
+  const stageFade = $derived(onStage ? stagePreview.status.fade : null);
+  const stageFadeElapsed = $derived(stageFade ? stageFade.elapsedMs + (now - stagePreview.receivedAt) : 0);
+  const stageFadeRunning = $derived(stageFade !== null && !fadeEnded(stageFadeElapsed, stageFade));
+
+  $effect(() => {
+    if (stageFade === null) return;
+    let frame = requestAnimationFrame(function tick() {
+      now = performance.now();
+      if (!fadeEnded(stageFadeElapsed, stageFade)) frame = requestAnimationFrame(tick);
+    });
+    return () => cancelAnimationFrame(frame);
+  });
+
   function sliderValue(event: Event): number {
     return Number((event.currentTarget as HTMLInputElement).value);
   }
 </script>
 
-<section class="compositions" class:part={marker !== null} class:framed>
+<section class="compositions" class:part={marker !== null}>
   {#if marker === null}
-    <h3>Compositions{framed ? ' · Start' : ''}</h3>
+    <h3>Compositions{hasMarkers ? ' · Start' : ''}</h3>
     <p class="hint dim">
       Run side by side from GO. Intensity: the highest wins; colors: the later one. A composition that is in the next
       scene too keeps running.
@@ -181,6 +237,25 @@
       choose again what should stay on. What is in both parts does not move.
     </p>
   {/if}
+  <div class="frame-fades">
+    <label title={marker === null
+      ? 'How long the GO into this scene fades in. Empty = the project\'s'
+      : 'How long this light fades in when the script passes the marker. Empty = the scene\'s'}>
+      Fade in
+      <input type="number" min="0" max="600" step="0.1" value={msToSeconds(section.fadeInMs)}
+        placeholder={fadeFallback.fadeIn === null ? '' : String(fadeFallback.fadeIn / 1000)}
+        onchange={(e) => saveFades({ fadeInMs: secondsToMs(e.currentTarget.valueAsNumber) })} /> s
+    </label>
+    <label title={marker === null
+      ? 'How long the light before fades out at the GO into this scene. Empty = the project\'s'
+      : 'How long the light before the marker fades out. Empty = the scene\'s'}>
+      Fade out
+      <input type="number" min="0" max="600" step="0.1" value={msToSeconds(section.fadeOutMs)}
+        placeholder={fadeFallback.fadeOut === null ? '' : String(fadeFallback.fadeOut / 1000)}
+        onchange={(e) => saveFades({ fadeOutMs: secondsToMs(e.currentTarget.valueAsNumber) })} /> s
+    </label>
+    <span class="dim small">{marker === null ? 'empty = the project\'s' : 'empty = the scene\'s'}</span>
+  </div>
 
   {#if lookUses.length > 0}
     <ol class="list">
@@ -239,6 +314,17 @@
               <input type="checkbox" checked={use.restart} onchange={(e) => change(i, { restart: e.currentTarget.checked })} />
               Restart at GO
             </label>
+            <label class="mini fade" title="Its own fade-in at GO, after the delay of the scene. Empty = the scene's">
+              Fade in
+              <span><input type="number" min="0" max="600" step="0.1" value={msToSeconds(use.fadeInMs)}
+                placeholder={sceneFadeIn} onchange={(e) => change(i, { fadeInMs: secondsToMs(e.currentTarget.valueAsNumber) })} />
+                s</span></label>
+            <label class="mini fade"
+              title="Its own fade-out when it leaves the stage (next GO, a light marker). Empty = the one of that GO">
+              Fade out
+              <span><input type="number" min="0" max="600" step="0.1" value={msToSeconds(use.fadeOutMs)}
+                placeholder="scene" onchange={(e) => change(i, { fadeOutMs: secondsToMs(e.currentTarget.valueAsNumber) })} />
+                s</span></label>
           </div>
         </li>
       {/each}
@@ -299,6 +385,40 @@
       {#each availableMoves as move (move.id)}<option value={String(move.id)}>↻ {move.name}</option>{/each}
     </select>
   </label>
+  <div class="stage">
+    {#if onStage}
+      <button class="btn small primary" type="button" onclick={() => stagePreview.stop()}
+        title="Stop playing this on stage">■ Stop showing</button>
+    {:else}
+      <button class="btn small" type="button" disabled={!saved}
+        onclick={() => stagePreview.showScene(projectId, scene.id, marker)}
+        title={saved ? `Play ${marker === null ? 'the start of the scene' : 'this part'} on stage, above the playback`
+          : 'Save the scene first – the marker is not in the saved script yet'}>▶ Show on stage</button>
+    {/if}
+    <button class="btn small" type="button" disabled={!saved}
+      onclick={() => stagePreview.fadeIn(projectId, scene.id, marker)}
+      title={saved ? `Fade from the light on stage into ${marker === null ? 'this scene' : 'this part'}, with the fade times of the show`
+        : 'Save the scene first – the marker is not in the saved script yet'}>⇢ Fade in</button>
+  </div>
+  {#if stageFade && stageFadeRunning}
+    {@const delayLeft = Math.max(0, stageFade.delayMs - stageFadeElapsed)}
+    <div class="stage-fade" role="status">
+      <div class="small">
+        Fading in from the light on stage
+        <span class="mono dim">
+          · {delayLeft > 0
+            ? `fade in starts in ${(delayLeft / 1000).toFixed(1)} s`
+            : `${(Math.max(0, stageFade.delayMs + stageFade.fadeInMs - stageFadeElapsed) / 1000).toFixed(1)} s left`}
+        </span>
+      </div>
+      <div class="bar">
+        <span style="width: {fadeInProgress(stageFadeElapsed, stageFade.fadeInMs, stageFade.delayMs) * 100}%"></span>
+      </div>
+    </div>
+  {/if}
+  {#if onStage && programmerHasValues}
+    <p class="hint warning-text">The programmer is on top of the stage preview – clear it to see the light as it is.</p>
+  {/if}
 </section>
 
 <Modal wide bind:open={() => editingComposition !== null, (open) => { if (!open) editing = null; }} title="Composition">
@@ -314,29 +434,22 @@
 </Modal>
 
 <style>
+  /* everything that belongs to one part, from its heading to the pickers, in a frame */
   .compositions {
     display: flex;
     flex-direction: column;
     gap: 8px;
+    margin-top: 6px;
+    padding: 12px 14px 14px;
+    border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+    border-left: 3px solid var(--warning);
+    border-radius: var(--radius-sm);
+    background: rgba(255, 255, 255, 0.02);
   }
 
   /* a part after a light marker */
   .compositions.part h3 {
     color: var(--warning);
-  }
-
-  /* everything that belongs to one part, from its heading to the pickers */
-  .compositions.framed {
-    margin-top: 6px;
-    padding: 12px 14px 14px;
-    border: 1px solid var(--border-strong);
-    border-radius: var(--radius-sm);
-    background: rgba(255, 255, 255, 0.02);
-  }
-
-  .compositions.framed.part {
-    border-color: color-mix(in srgb, var(--warning) 40%, transparent);
-    border-left: 3px solid var(--warning);
   }
 
   .list {
@@ -379,6 +492,14 @@
     color: var(--text-dim);
   }
 
+  .fade {
+    width: 80px;
+  }
+
+  .fade input {
+    width: 56px;
+  }
+
   .icon {
     width: 20px;
     text-align: center;
@@ -409,6 +530,7 @@
 
   .actions {
     display: flex;
+    margin-left: auto;
   }
 
   .fast {
@@ -426,6 +548,51 @@
 
   .warning-text {
     color: var(--warning);
+  }
+
+  .frame-fades {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 14px;
+    font-size: 13px;
+  }
+
+  .frame-fades label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .frame-fades input {
+    width: 64px;
+  }
+
+  .stage {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding-top: 8px;
+    border-top: 1px solid var(--border);
+  }
+
+  .stage-fade {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .stage-fade .bar {
+    height: 6px;
+    border-radius: 3px;
+    background: rgba(255, 255, 255, 0.08);
+    overflow: hidden;
+  }
+
+  .stage-fade .bar span {
+    display: block;
+    height: 100%;
+    background: var(--accent);
   }
 
   .small {

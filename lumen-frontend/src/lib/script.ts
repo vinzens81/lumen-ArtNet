@@ -2,7 +2,8 @@
  * The text spoken on stage during a scene, split into the sentences the operator steps through. Text in
  * `**…**` is a stage direction: shown differently and skipped when stepping. A name and a colon at the start of a
  * line (`Maike Schmitz: Hallo Rolf!`) marks who speaks. A line `//## Name (info)##` is a light marker: the scene's
- * light changes when the operator steps past it (same rule as ScriptMarkers on the server).
+ * light changes when the operator steps past it (same rule as ScriptMarkers on the server). A line
+ * `//|| Name (info)||` is a pause: nobody speaks, but the operator stops there like at a speech.
  */
 export type ScriptPart =
   /** a spoken sentence; `index` counts the sentences of the scene, starting at 0 */
@@ -15,6 +16,8 @@ export type ScriptPart =
    * sentence after it
    */
   | { kind: 'marker'; name: string; info: string; section: number; firstLine: number }
+  /** a pause the operator stops at; it takes a sentence `index` of its own, so it is a position like a sentence */
+  | { kind: 'pause'; name: string; info: string; index: number }
   /** line break in the text */
   | { kind: 'break' }
   /** empty line in the text */
@@ -22,9 +25,10 @@ export type ScriptPart =
 
 export interface Script {
   parts: ScriptPart[];
-  /** number of spoken sentences */
+  /** number of positions in the text: spoken sentences and pauses */
   lineCount: number;
   noteCount: number;
+  pauseCount: number;
   /** names of the speakers in order of their first appearance */
   speakers: string[];
   /** light markers in their order */
@@ -32,6 +36,9 @@ export interface Script {
 }
 
 export const MARKER = /^[ \t]*\/\/[ \t]*##[ \t]*(.*?)[ \t]*##[ \t]*$/gm;
+export const PAUSE = /^[ \t]*\/\/[ \t]*\|\|[ \t]*(.*?)[ \t]*\|\|[ \t]*$/gm;
+/** a light marker (`##`) or a pause (`||`) on a line of its own */
+const DIVIDER = /^[ \t]*\/\/[ \t]*(##|\|\|)[ \t]*(.*?)[ \t]*\1[ \t]*$/gm;
 
 /**
  * A speaker at the start of a line: one to four words starting with a capital letter, then a colon and a space (or
@@ -54,6 +61,7 @@ export function parseScript(text: string): Script {
   const parts: ScriptPart[] = [];
   let lineCount = 0;
   let noteCount = 0;
+  let pauseCount = 0;
   const speakers: string[] = [];
   /** the next text starts a line of the text (where a speaker can stand) */
   let atLineStart = true;
@@ -62,7 +70,7 @@ export function parseScript(text: string): Script {
 
   const addBreak = (kind: 'break' | 'paragraph') => {
     const last = parts[parts.length - 1];
-    if (last === undefined || last.kind === 'marker') return; // nothing to separate
+    if (last === undefined || last.kind === 'marker' || last.kind === 'pause') return; // nothing to separate
     if (last.kind === 'paragraph') return;
     if (last.kind === 'break') parts[parts.length - 1] = { kind };
     else parts.push({ kind });
@@ -106,21 +114,26 @@ export function parseScript(text: string): Script {
   };
 
   let position = 0;
-  for (const match of text.matchAll(MARKER)) {
-    if (!match[1].trim()) continue;
+  for (const match of text.matchAll(DIVIDER)) {
+    if (!match[2].trim()) continue;
     addText(text.slice(position, match.index));
     while (parts.length > 0 && isBreak(parts[parts.length - 1])) parts.pop();
-    const info = /^(.*?)\s*\((.*)\)$/.exec(match[1]);
-    const marker = info && info[1].trim() ? { name: info[1].trim(), info: info[2].trim() } : { name: match[1].trim(), info: '' };
-    markers.push(marker);
-    parts.push({ kind: 'marker', ...marker, section: markers.length, firstLine: lineCount });
+    const info = /^(.*?)\s*\((.*)\)$/.exec(match[2]);
+    const named = info && info[1].trim() ? { name: info[1].trim(), info: info[2].trim() } : { name: match[2].trim(), info: '' };
+    if (match[1] === '##') {
+      markers.push(named);
+      parts.push({ kind: 'marker', ...named, section: markers.length, firstLine: lineCount });
+    } else {
+      parts.push({ kind: 'pause', ...named, index: lineCount++ });
+      pauseCount++;
+    }
     atLineStart = true;
     position = match.index + match[0].length;
   }
   addText(text.slice(position));
 
   while (parts.length > 0 && isBreak(parts[parts.length - 1])) parts.pop();
-  return { parts, lineCount, noteCount, speakers, markers };
+  return { parts, lineCount, noteCount, pauseCount, speakers, markers };
 }
 
 /** How the script is laid out: speeches indented under their speaker, stage directions on lines of their own. */
@@ -131,6 +144,7 @@ export type ScriptBlock =
   | { kind: 'text'; parts: ScriptPart[] }
   | { kind: 'note'; text: string }
   | { kind: 'marker'; name: string; info: string; section: number }
+  | { kind: 'pause'; name: string; info: string; index: number }
   | { kind: 'paragraph' };
 
 export function scriptBlocks(script: Script): ScriptBlock[] {
@@ -172,6 +186,11 @@ export function scriptBlocks(script: Script): ScriptBlock[] {
       case 'marker':
         close();
         blocks.push({ kind: 'marker', name: part.name, info: part.info, section: part.section });
+        interrupted = speaker !== null;
+        break;
+      case 'pause':
+        close();
+        blocks.push({ kind: 'pause', name: part.name, info: part.info, index: part.index });
         interrupted = speaker !== null;
         break;
       case 'paragraph':
@@ -241,7 +260,8 @@ function endsSentence(text: string, index: number, punctuation: string, end: num
 
 /**
  * The units the operator steps through: the whole speech of a speaker (stage directions in it do not split it), text
- * without a speaker line by line. A light marker always starts a new passage. `first` and `last` are sentence indexes.
+ * without a speaker line by line, and every pause on its own. A light marker always starts a new passage. `first` and
+ * `last` are sentence indexes.
  */
 export interface Passage {
   first: number;
@@ -268,6 +288,10 @@ export function passages(script: Script): Passage[] {
         break;
       case 'marker':
         close();
+        break;
+      case 'pause':
+        close();
+        result.push({ first: part.index, last: part.index });
         break;
       case 'break':
       case 'note':
@@ -300,7 +324,80 @@ export function stepPassage(script: Script, line: number, step: number): number 
   return list[target].first;
 }
 
+/**
+ * A place the operator stops at when stepping through the script: the start of the scene, every passage (a pause is
+ * one), and every light marker that no speech or pause follows before the next marker – there the light changes and
+ * waits, e.g. for a dance described only in stage directions. A marker followed by speech or a pause changes the light
+ * together with it.
+ *
+ * @param line    the sentence it stands at (for a marker: the first sentence after it)
+ * @param section the part of the scene whose light is on stage there
+ * @param marker  the stop is a light marker, not a speech
+ */
+export interface Stop {
+  line: number;
+  section: number;
+  marker: boolean;
+}
+
+export function stops(script: Script): Stop[] {
+  const starts = new Set(passages(script).map((p) => p.first));
+  const result: Stop[] = [{ line: 0, section: 0, marker: false }];
+  const add = (stop: Stop) => {
+    const last = result[result.length - 1];
+    if (last.line !== stop.line || last.section !== stop.section) result.push(stop);
+  };
+  let section = 0;
+  /** a marker waiting for its speech; without one before the next marker it is a stop of its own */
+  let pending: Stop | null = null;
+  for (const part of script.parts) {
+    if (part.kind === 'marker') {
+      if (pending) add(pending);
+      section = part.section;
+      pending = { line: part.firstLine, section, marker: true };
+    } else if ((part.kind === 'line' || part.kind === 'pause') && starts.has(part.index)) {
+      pending = null;
+      add({ line: part.index, section, marker: false });
+    }
+  }
+  if (pending) add(pending);
+  return result;
+}
+
+/** The stop the operator is at (or the last one before the position). */
+export function stopOf(list: Stop[], line: number, section: number): number {
+  let found = 0;
+  list.forEach((stop, i) => {
+    if (stop.section < section || (stop.section === section && stop.line <= line)) found = i;
+  });
+  return found;
+}
+
+/** The stop `step` stops away from the position, within the scene. */
+export function stepStop(list: Stop[], line: number, section: number, step: number): Stop {
+  return list[Math.max(0, Math.min(list.length - 1, stopOf(list, line, section) + step))];
+}
+
+/** What to scroll to for a stop: its speech, or the light marker. */
+export function stopSelector(stop: Stop): string {
+  return stop.marker ? `[data-marker="${stop.section}"]` : `[data-line="${stop.line}"]`;
+}
+
 /** The part of the scene a sentence is in: 0 before the first light marker, n after the n-th. */
 export function sectionOf(script: Script, line: number): number {
   return script.parts.filter((p) => p.kind === 'marker' && p.firstLine <= line).length;
+}
+
+/** How long a first ▼ at the last stop waits for the second one that starts the next scene. */
+export const NEXT_SCENE_ARM_MS = 3000;
+
+/**
+ * What ▼ (or ↓) does: the next stop; at the last stop of the scene (or in a scene without text) the first press
+ * asks and a second one within {@link NEXT_SCENE_ARM_MS} is a GO into the next scene. Nothing when GO is not possible.
+ */
+export function scriptDownAction(stopIndex: number, stopCount: number, canGo: boolean,
+  armed: boolean): 'speech' | 'arm' | 'go' | 'none' {
+  if (stopIndex < stopCount - 1) return 'speech';
+  if (!canGo) return 'none';
+  return armed ? 'go' : 'arm';
 }

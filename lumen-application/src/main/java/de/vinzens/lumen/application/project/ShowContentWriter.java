@@ -69,8 +69,7 @@ public final class ShowContentWriter {
 		content.sceneCompositions().forEach((sceneId, uses) -> mapped(sceneIds, sceneId).ifPresent(id ->
 				scenes.replaceCompositions(id, uses.stream()
 						.filter(use -> compositionIds.containsKey(use.compositionId()))
-						.map(use -> new SceneComposition(compositionIds.get(use.compositionId()), use.level(),
-								use.speedFactor(), use.restart()))
+						.map(use -> use.withCompositionId(compositionIds.get(use.compositionId())))
 						.toList())));
 		content.sceneKeys().forEach((sceneId, keys) -> mapped(sceneIds, sceneId).ifPresent(id ->
 				scenes.replaceKeys(id, keys.stream()

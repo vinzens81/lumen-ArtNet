@@ -1,8 +1,10 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
+  import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
+  import SpeechProgress from '../components/SpeechProgress.svelte';
   import DmxMonitorView from './DmxMonitorView.svelte';
   import StageView from './StageView.svelte';
   import Swatches from '../components/Swatches.svelte';
@@ -12,8 +14,10 @@
   import { showClock } from '../lib/format';
   import { live } from '../lib/live.svelte';
   import { fadeInProgress as fadeInProgressOf, timingLabel } from '../lib/sceneTiming';
-  import { parseScript, passageOf, passages, sectionOf, stepPassage } from '../lib/script';
-  import { centerIn } from '../lib/scroll';
+  import {
+    NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
+  } from '../lib/script';
+  import { centerIn, SceneGlide } from '../lib/scroll';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -73,8 +77,10 @@
   const script = $derived(parseScript(current?.script ?? ''));
   const scriptLine = $derived(status?.scriptLine ?? 0);
   /** what ↑/↓ step through: the whole speech of a speaker */
-  const scriptPassages = $derived(passages(script));
-  const passageIndex = $derived(passageOf(scriptPassages, scriptLine));
+  const scriptSection = $derived(status?.section ?? 0);
+  /** the places ▲/▼ stop at: speeches, pauses, and light markers without speech or pause after them */
+  const scriptStops = $derived(stops(script));
+  const stopIndex = $derived(stopOf(scriptStops, scriptLine, scriptSection));
 
   /** Time since the status arrived, frozen while paused. */
   const sinceStatus = $derived(status?.paused ? 0 : Math.max(0, now - live.playbackReceivedAt));
@@ -128,11 +134,32 @@
     center(`[data-scene="${id}"]`);
   });
 
-  // keep the current sentence in the middle, however long the text is
+  // after GO the text read ahead below the cut glides into place instead of a long scroll through the script
+  const glide = new SceneGlide();
+  /** a primitive on purpose: scenes reload as new objects */
+  const currentId = $derived(current?.id);
+  /** the scene whose text stands below the cut right now; not reactive, read before the page changes */
+  let readAheadId: number | undefined;
+  $effect.pre(() => {
+    const id = currentId;
+    untrack(() => {
+      if (tab === 'script') glide.capture(listElement, id !== undefined && id === readAheadId);
+      else glide.reset();
+    });
+  });
   $effect(() => {
-    const line = scriptLine;
-    if (tab !== 'script' || current === undefined) return;
-    center(`[data-line="${line}"]`);
+    readAheadId = next?.id;
+  });
+
+  // keep the current sentence in the middle, however long the text is – in the scene on stage, not the next one below
+  $effect(() => {
+    const stop = scriptStops[stopIndex];
+    if (tab !== 'script' || current === undefined) {
+      glide.reset();
+      return;
+    }
+    const selector = `.current-scene ${stopSelector(stop)}`;
+    glide.scroll(listElement, (behavior) => centerIn(listElement, selector, behavior));
   });
 
   onMount(() => {
@@ -192,11 +219,34 @@
     if (target) chooseNext(target);
   }
 
+  /** a first ▼ at the last speech asks; a second one within a few seconds is a GO into the next scene */
+  let nextArmedFor = $state<number | null>(null);
+  let nextArmTimer: ReturnType<typeof setTimeout> | null = null;
+  const nextArmed = $derived(nextArmedFor !== null && nextArmedFor === current?.id);
+  const downAction = $derived(scriptDownAction(stopIndex, scriptStops.length, canGo, nextArmed));
+  const nextLabel = $derived(next ? `${next.number} ${next.name}` : 'end of show');
+
+  function scriptDown() {
+    if (downAction === 'speech') {
+      stepScript(1);
+    } else if (downAction === 'arm' && current) {
+      nextArmedFor = current.id;
+      if (nextArmTimer) clearTimeout(nextArmTimer);
+      nextArmTimer = setTimeout(() => (nextArmedFor = null), NEXT_SCENE_ARM_MS);
+    } else if (downAction === 'go') {
+      nextArmedFor = null;
+      go();
+    }
+  }
+
   function stepScript(step: number) {
+    nextArmedFor = null;
     if (!current) return;
-    const line = stepPassage(script, scriptLine, step);
+    const target = stepStop(scriptStops, scriptLine, scriptSection, step);
     // passing a light marker fades to the light of its part
-    if (line !== null && line !== scriptLine) live.scriptCommand(current.id, line, sectionOf(script, line));
+    if (target.line !== scriptLine || target.section !== scriptSection) {
+      live.scriptCommand(current.id, target.line, target.section);
+    }
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -208,7 +258,7 @@
       P: () => live.playbackCommand('pause'),
       Enter: () => live.playbackCommand('finish'),
       ArrowUp: () => (event.shiftKey ? moveNext(-1) : stepScript(-1)),
-      ArrowDown: () => (event.shiftKey ? moveNext(1) : stepScript(1)),
+      ArrowDown: () => (event.shiftKey ? moveNext(1) : scriptDown()),
     };
     const action = actions[event.key];
     if (action) {
@@ -231,13 +281,19 @@
   {#if current}
     <div class="script-head">
       <h2><span class="mono">{current.number}</span> {current.name}</h2>
-      {#if script.lineCount > 0}
-        <span class="dim small mono" title="Speeches">{passageIndex + 1} / {scriptPassages.length}</span>
+      {#if scriptStops.length > 1}
+        <SpeechProgress index={stopIndex} count={scriptStops.length} />
         <div class="script-steps">
-          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={passageIndex <= 0}
+          <button type="button" class="btn" onclick={() => stepScript(-1)} disabled={stopIndex <= 0}
             aria-label="Previous speech">▲ <kbd>↑</kbd></button>
-          <button type="button" class="btn" onclick={() => stepScript(1)}
-            disabled={passageIndex >= scriptPassages.length - 1} aria-label="Next speech">▼ <kbd>↓</kbd></button>
+          {#if downAction === 'speech'}
+            <button type="button" class="btn" onclick={scriptDown} aria-label="Next speech">▼ <kbd>↓</kbd></button>
+          {:else}
+            <!-- at the last speech: twice for a GO into the next scene -->
+            <button type="button" class="btn" class:armed={nextArmed} onclick={scriptDown}
+              disabled={downAction === 'none'} title="Press twice for a GO into the next scene">
+              {nextArmed ? `GO ${nextLabel}?` : '▼ Next scene'} <kbd>↓</kbd></button>
+          {/if}
         </div>
       {/if}
     </div>
@@ -253,12 +309,13 @@
     {#if script.parts.length === 0}
       <p class="dim pad">This scene has no script. Add it in setup mode under Scenes.</p>
     {:else}
-      <div class="script"><ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} /></div>
-      <p class="script-end dim small">
-        {#if next}Next: GO <span class="mono">{next.number}</span> {next.name}
-        {:else if status?.nextIsEnd}Next: end of show{/if}
-        · <kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> choose the next scene
-      </p>
+      <div class="script">
+        <div class="current-scene">
+          <ScriptText {script} currentLine={scriptLine} section={status?.section ?? 0} />
+        </div>
+        <NextSceneText {next} end={status?.nextIsEnd ?? false} />
+      </div>
+      <p class="script-end dim small"><kbd>Shift</kbd>+<kbd>↑</kbd>/<kbd>↓</kbd> choose the next scene</p>
     {/if}
   {/if}
 {/snippet}
@@ -316,7 +373,11 @@
         {/if}
         {#if timingLabel(scene)}<span class="badge" title="Own fade times">⏱ {timingLabel(scene)}</span>{/if}
         {#if scene.autoFollowMs !== null}<span class="badge">⟳ {seconds(scene.autoFollowMs)}</span>{/if}
-        {#if rowState(scene, i) === 'current'}<span class="tag now">NOW</span>{/if}
+        {#if rowState(scene, i) === 'current'}
+          <!-- how far the scene is in its script -->
+          {#if scriptStops.length > 1}<SpeechProgress index={stopIndex} count={scriptStops.length} />{/if}
+          <span class="tag now">NOW</span>
+        {/if}
         {#if rowState(scene, i) === 'next'}<span class="tag next">NEXT</span>{/if}
       </button>
     {/each}
@@ -557,6 +618,12 @@
   .script-steps {
     display: flex;
     gap: 6px;
+  }
+
+  .script-steps .armed {
+    border-color: var(--warning);
+    background: var(--warning-soft);
+    color: var(--warning);
   }
 
   .script {

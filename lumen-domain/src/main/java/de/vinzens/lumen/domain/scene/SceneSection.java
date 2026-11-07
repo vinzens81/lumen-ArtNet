@@ -13,16 +13,24 @@ import java.util.Objects;
  * @param marker the name of the marker in the script
  * @param looks  applied first, the compositions over them
  * @param moves  where the pan/tilt fixtures point; on the same fixture a later move wins
+ * @param timing fade times of the change into the part, empty = the scene's
  */
 public record SceneSection(String marker, List<SceneComposition> compositions, List<SceneLook> looks,
-		List<SceneMove> moves) {
+		List<SceneMove> moves, SectionTiming timing) {
 
 	public SceneSection {
 		Objects.requireNonNull(marker, "marker");
+		Objects.requireNonNull(timing, "timing");
 		compositions = List.copyOf(compositions);
 		looks = List.copyOf(looks);
 		moves = List.copyOf(moves);
 		validate(compositions, looks, moves, "the part " + marker);
+	}
+
+	/** A part with the fade times of the scene. */
+	public SceneSection(String marker, List<SceneComposition> compositions, List<SceneLook> looks,
+			List<SceneMove> moves) {
+		this(marker, compositions, looks, moves, SectionTiming.NONE);
 	}
 
 	/** A part without moves. */
@@ -30,8 +38,9 @@ public record SceneSection(String marker, List<SceneComposition> compositions, L
 		this(marker, compositions, looks, List.of());
 	}
 
+	/** Nothing chosen: the part is dark and fades with the times of the scene. */
 	public boolean isEmpty() {
-		return compositions.isEmpty() && looks.isEmpty() && moves.isEmpty();
+		return compositions.isEmpty() && looks.isEmpty() && moves.isEmpty() && timing.isNone();
 	}
 
 	static void validate(List<SceneComposition> compositions, List<SceneLook> looks, List<SceneMove> moves,

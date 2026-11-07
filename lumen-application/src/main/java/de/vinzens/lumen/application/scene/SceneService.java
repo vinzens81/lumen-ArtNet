@@ -29,6 +29,7 @@ import de.vinzens.lumen.domain.scene.SceneSection;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
 import de.vinzens.lumen.domain.scene.SceneTiming;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.time.Duration;
 import java.util.ArrayList;
@@ -128,11 +129,12 @@ public class SceneService implements ManageScenesUseCase {
 		var copy = scenes.create(projectId, new SceneSpec(sceneNumber, spec.name() + " (copy)", spec.cueNote(),
 				spec.autoFollow(), spec.timing(), spec.script()), original.compositions(), original.keys());
 		if (!original.looks().isEmpty() || !original.moves().isEmpty()) {
-			copy = scenes.replaceSection(copy.id(), "", original.compositions(), original.looks(), original.moves());
+			copy = scenes.replaceSection(copy.id(), "", original.compositions(), original.looks(), original.moves(),
+					SectionTiming.NONE);
 		}
 		for (var section : original.sections()) {
 			copy = scenes.replaceSection(copy.id(), section.marker(), section.compositions(), section.looks(),
-					section.moves());
+					section.moves(), section.timing());
 		}
 		return published(copy);
 	}
@@ -147,7 +149,7 @@ public class SceneService implements ManageScenesUseCase {
 
 	@Override
 	public Scene setSection(long projectId, long sceneId, String marker, List<SceneComposition> sceneCompositions,
-			List<SceneLook> sceneLooks, List<SceneMove> sceneMoves) {
+			List<SceneLook> sceneLooks, List<SceneMove> sceneMoves, SectionTiming timing) {
 		var scene = requireScene(projectId, sceneId);
 		var name = marker == null ? "" : marker.strip();
 		requireCompositions(projectId, sceneCompositions.stream().map(SceneComposition::compositionId));
@@ -157,9 +159,10 @@ public class SceneService implements ManageScenesUseCase {
 		if (name.isEmpty()) {
 			scene.withStart(sceneCompositions, sceneLooks, sceneMoves);
 		} else {
-			scene.withSection(new SceneSection(name, sceneCompositions, sceneLooks, sceneMoves));
+			scene.withSection(new SceneSection(name, sceneCompositions, sceneLooks, sceneMoves, timing));
 		}
-		return published(scenes.replaceSection(sceneId, name, sceneCompositions, sceneLooks, sceneMoves));
+		return published(scenes.replaceSection(sceneId, name, sceneCompositions, sceneLooks, sceneMoves,
+				name.isEmpty() ? SectionTiming.NONE : timing));
 	}
 
 	@Override

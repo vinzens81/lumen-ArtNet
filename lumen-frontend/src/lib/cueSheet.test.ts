@@ -42,7 +42,7 @@ describe('cueRows', () => {
   it('names the compositions and keys of each scene', () => {
     const compositions = [{ id: 7, name: 'Storm' }, { id: 8, name: 'Candles' }] as Composition[];
     const scenes = [scene(1, '1', {
-      compositions: [{ compositionId: 8, level: 1, speedFactor: 1, restart: false }],
+      compositions: [{ compositionId: 8, level: 1, speedFactor: 1, restart: false, fadeInMs: null, fadeOutMs: null }],
       keys: [{ slot: 2, compositionId: 8, moveId: null, mode: 'flash', fadeMs: 0 },
         { slot: 1, compositionId: 7, moveId: null, mode: 'toggle', fadeMs: 0 },
         { slot: 3, compositionId: null, moveId: 4, mode: 'toggle', fadeMs: 0 }],

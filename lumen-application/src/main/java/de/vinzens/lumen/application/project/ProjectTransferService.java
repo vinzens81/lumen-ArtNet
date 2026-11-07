@@ -47,6 +47,7 @@ import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneLook;
 import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.lang.System.Logger.Level;
 import java.time.Clock;
@@ -204,12 +205,14 @@ public class ProjectTransferService implements TransferProjectUseCase {
 				var id = sceneIds.get(scene.id());
 				if (!scene.looks().isEmpty() || !scene.moves().isEmpty()) {
 					scenes.replaceSection(id, "", mappedUses(scene.compositions(), written.compositionIds()),
-							mappedLooks(scene.looks(), written.lookIds()), mappedMoves(scene.moves(), ids.moves));
+							mappedLooks(scene.looks(), written.lookIds()), mappedMoves(scene.moves(), ids.moves),
+							SectionTiming.NONE);
 				}
 				for (var section : scene.sections()) {
 					scenes.replaceSection(id, section.marker(),
 							mappedUses(section.compositions(), written.compositionIds()),
-							mappedLooks(section.looks(), written.lookIds()), mappedMoves(section.moves(), ids.moves));
+							mappedLooks(section.looks(), written.lookIds()), mappedMoves(section.moves(), ids.moves),
+							section.timing());
 				}
 			}
 			partyMatrices.save(projectId, partyMatrix(export.partyMatrix(), sceneIds, written.compositionIds(),
@@ -219,8 +222,7 @@ public class ProjectTransferService implements TransferProjectUseCase {
 
 	private static List<SceneComposition> mappedUses(List<SceneComposition> uses, Map<Long, Long> compositionIds) {
 		return uses.stream().filter(use -> compositionIds.containsKey(use.compositionId()))
-				.map(use -> new SceneComposition(compositionIds.get(use.compositionId()), use.level(),
-						use.speedFactor(), use.restart()))
+				.map(use -> use.withCompositionId(compositionIds.get(use.compositionId())))
 				.toList();
 	}
 

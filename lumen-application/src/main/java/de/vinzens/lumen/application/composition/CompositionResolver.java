@@ -190,7 +190,7 @@ public class CompositionResolver {
 					result.add(ActiveComposition.ofLook(use.lookId(), look, use.level()))));
 			uses.forEach(use -> Optional.ofNullable(compositions.get(use.compositionId())).ifPresent(composition ->
 					result.add(ActiveComposition.of(composition, looks, use.level(), use.speedFactor(),
-							use.restart()))));
+							use.restart()).withFades(use.fadeIn(), use.fadeOut()))));
 			sceneMoves.forEach(use -> move(use.moveId()).ifPresent(move -> result.add(move.active())));
 			return List.copyOf(result);
 		}

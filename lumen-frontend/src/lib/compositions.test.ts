@@ -96,7 +96,7 @@ describe('compositions', () => {
 
   it('previews the looks of a scene under its compositions', () => {
     const looks = lookMap([look(1, { 1: { dimmer: 1, red: 1 } }), look(2, { 1: { blue: 1 } })]);
-    const values = sceneStartValues({ compositions: [{ compositionId: 2, level: 1, speedFactor: 1, restart: false }],
+    const values = sceneStartValues({ compositions: [{ compositionId: 2, level: 1, speedFactor: 1, restart: false, fadeInMs: null, fadeOutMs: null }],
       looks: [{ lookId: 1, level: 0.5 }] }, new Map([[2, composition(2, [2])]]), looks);
     expect(values[1]).toEqual({ dimmer: 0.5, red: 1, blue: 1 });
   });
@@ -110,9 +110,9 @@ describe('compositions', () => {
       [3, composition(3, [3], { intensityMode: 'relative' })],
     ]);
     const scene = { compositions: [
-      { compositionId: 1, level: 1, speedFactor: 1, restart: false },
-      { compositionId: 2, level: 0.5, speedFactor: 1, restart: false },
-      { compositionId: 3, level: 1, speedFactor: 1, restart: false },
+      { compositionId: 1, level: 1, speedFactor: 1, restart: false, fadeInMs: null, fadeOutMs: null },
+      { compositionId: 2, level: 0.5, speedFactor: 1, restart: false, fadeInMs: null, fadeOutMs: null },
+      { compositionId: 3, level: 1, speedFactor: 1, restart: false, fadeInMs: null, fadeOutMs: null },
     ] };
     expect(sceneStartValues(scene, compositions, looks)).toEqual({ 1: { dimmer: 0.5, red: 1, blue: 1 } });
     expect(compositionIcon(composition(1, [1]))).toBe('▣');

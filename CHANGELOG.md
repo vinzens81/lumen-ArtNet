@@ -3,6 +3,74 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.118 · 2026-11-07
+
+### Changed
+- Remote: blackout sits in the middle of the master bar, away from ▼ at the bottom right of the script.
+- Script in the show, on the remote and in `#/view/script`: after GO the script no longer scrolls through the whole
+  text to the new scene. It is in place at once, and the text read ahead below the cut glides up to the top from
+  where it stood; a scene that was not read ahead (Back, chosen by hand) fades in.
+
+## 1.0.113 · 2026-10-30
+
+### Added
+- Cue list on a phone, view only (`#/view/cues`, "🎬 Cues" in the header): the show time, the scene on stage with how
+  far its script is ("3 / 12" in a bar that fills, like on the remote) and the next three, each with its name and cue
+  note – no controls.
+
+### Changed
+- Remote: the script takes most of the screen and is larger (A−/A+ set its size); GO, ▼ and all other buttons are
+  much smaller, in a narrow column on the left with now and next.
+- Script in the show, on the remote and in `#/view/script`: below the script of the scene on stage comes a clear cut
+  ("GO ▸" and the next scene in the color of GO) and then the script of the next scene, dimmed, to read ahead.
+- Show: the current scene in the scene list shows how far its script is ("3 / 12" in a bar that fills), like the
+  remote; the Script tab has the same bar.
+
+## 1.0.112 · 2026-10-28
+
+### Added
+- Script: pauses. "⏸ Pause" in the script editor inserts a line `//|| Pause (info)||` – shown as ⏸ in the script,
+  and a stop of its own when stepping through it in show mode and on the remote, like a speech. A light marker right
+  before a pause changes the light with it. Before, a pause needed a made-up speaker such as `ALLE: pause`.
+- Scenes: every light frame has its own Fade in and Fade out. The start frame holds the fade times of the GO into the
+  scene (moved there from the scene settings above); a frame after a light marker sets how long its light fades in
+  and the light before fades out when the script passes the marker – empty fields keep the scene's times. They travel
+  with the project export.
+
+### Changed
+- Scenes: "▶ Show on stage" and "⇢ Fade in" (was "Rehearse fade") sit under each light frame – the start of the scene
+  and every part after a light marker – so each light can be tried on its own. "⇢ Fade in" fades from the light that
+  is on stage right now, whatever it is, with the fade times of the show; what is in both keeps running and does not
+  move. Before, it jumped to the scene before (to its start, not its last part) and faded from there, so light that
+  stays on in the show went out and came back.
+
+### Removed
+- Scenes: "Load into programmer", "Update from programmer" and the look history that belonged to it. A scene is
+  changed through its compositions; their looks are updated in the composition or under Looks.
+
+## 1.0.109 – 1.0.111 · 2026-10-26
+
+### Added
+- Show mode and the tablet remote: at the last speech of a scene, ▼ (or ↓) leads on to the next scene – the first
+  press asks ("GO 4 Sunrise?"), a second one within 3 s is the GO. It works the same in a scene without text.
+- Tablet remote: a bar behind the speech count ("3 / 5") shows how far the scene is.
+- Script: a light marker followed only by stage directions (or nothing) is a stop of its own – ▲/▼ stop there, its
+  light fades in and waits, the next ▼ goes on. No more placeholder speeches like "All: pause" to hold the light. A
+  marker followed by speech still changes the light together with that speech.
+- Fade times per composition in a scene (Scenes → a composition → Fade in / Fade out, optional): a composition with
+  its own fade-in fades in that long at GO (after the delay of the scene), one with its own fade-out takes that long
+  to fade out when it leaves the stage (next GO, a light marker, the end of the show). Empty fields keep the fade
+  times of the scene. Where compositions share a fixture, the one with its own time wins, the longest of several.
+
+### Changed
+- In the scene settings the remove button of a look sits on the right, like the one of a composition.
+- The light of a scene always sits in a yellow frame, like the parts after its light markers – also without markers.
+
+### Fixed
+- Tablet remote: the stage directions and the light marker right before the current speech stay in view – the speech
+  no longer pushes them out at the top.
+- Script preview in the scene editor counts the stops (speeches and light markers) instead of "0 sentences".
+
 ## 1.0.106 – 1.0.107 · 2026-10-14
 
 ### Added

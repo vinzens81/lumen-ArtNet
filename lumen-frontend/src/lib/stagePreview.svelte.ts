@@ -3,11 +3,12 @@ import { showError } from './toasts.svelte';
 import type { StagePreviewStatus } from './types';
 
 /**
- * What runs on the real stage for trying it out in setup mode: one composition, one move, a whole scene or a
- * rehearsed fade into a scene. Server state – every browser shows the same; reloaded when the server reports composition changes.
+ * What runs on the real stage for trying it out in setup mode: one composition, one move, a scene or one part of it
+ * after a light marker, or a fade from the light on stage into one of them. Server state – every browser shows the same; reloaded when the server reports composition changes.
  */
 class StagePreviewState {
-  status = $state<StagePreviewStatus>({ compositionId: null, moveId: null, sceneId: null, fade: null });
+  status = $state<StagePreviewStatus>({ compositionId: null, moveId: null, sceneId: null, marker: null,
+    fade: null });
   /** performance.now() when the status arrived, to interpolate the fade */
   receivedAt = $state(0);
   active = $derived(this.status.compositionId !== null || this.status.moveId !== null
@@ -21,8 +22,9 @@ class StagePreviewState {
     }
   }
 
-  async showScene(projectId: number, sceneId: number) {
-    await this.run(api.stagePreview.showScene(projectId, sceneId));
+  /** Plays the start of the scene, or with a marker the part after it. */
+  async showScene(projectId: number, sceneId: number, marker: string | null = null) {
+    await this.run(api.stagePreview.showScene(projectId, sceneId, marker));
   }
 
   async showComposition(projectId: number, compositionId: number) {
@@ -34,9 +36,12 @@ class StagePreviewState {
     await this.run(api.stagePreview.showMove(projectId, moveId));
   }
 
-  /** Plays the GO into the scene from the scene before it, with the fade times of the show. */
-  async rehearseFade(projectId: number, sceneId: number) {
-    await this.run(api.stagePreview.rehearseFade(projectId, sceneId));
+  /**
+   * Fades from the light on stage into the scene with the fade times of the GO into it – or with a marker into the
+   * part after it, with the times of passing the marker.
+   */
+  async fadeIn(projectId: number, sceneId: number, marker: string | null = null) {
+    await this.run(api.stagePreview.fadeIn(projectId, sceneId, marker));
   }
 
   async stop() {

@@ -18,6 +18,7 @@ import de.vinzens.lumen.domain.scene.SceneKey;
 import de.vinzens.lumen.domain.scene.SceneMove;
 import de.vinzens.lumen.domain.scene.SceneNumber;
 import de.vinzens.lumen.domain.scene.SceneSpec;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -100,8 +101,10 @@ class SqliteMoveRepositoryTest {
 		var key = SceneKey.move(2, b, KeyMode.FLASH, Duration.ofMillis(300));
 		var scene = repos.scenes().create(project, new SceneSpec(SceneNumber.of(1), "Song", Optional.empty(),
 				Optional.empty()), List.of(), List.of(key));
-		repos.scenes().replaceSection(scene.id(), "", List.of(), List.of(), List.of(SceneMove.of(b), SceneMove.of(a)));
-		repos.scenes().replaceSection(scene.id(), "Chorus", List.of(), List.of(), List.of(SceneMove.of(a)));
+		repos.scenes().replaceSection(scene.id(), "", List.of(), List.of(), List.of(SceneMove.of(b), SceneMove.of(a)),
+				SectionTiming.NONE);
+		repos.scenes().replaceSection(scene.id(), "Chorus", List.of(), List.of(), List.of(SceneMove.of(a)),
+				SectionTiming.NONE);
 
 		var loaded = new SqliteRepositories(SqliteDatabase.open(dbFile)).scenes().findById(scene.id()).orElseThrow();
 		assertThat(loaded.moves()).containsExactly(SceneMove.of(b), SceneMove.of(a));

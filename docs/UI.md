@@ -90,17 +90,19 @@ happen by accident during the performance. If no PIN is set, a confirmation is e
   optional. The list takes 30 % of the width, the editor 70 %; "Save" sits at the bottom of the editor and stays
   visible while scrolling.
   The **script** is edited with formatting: speaker names in their show-mode color, stage directions purple, light
-  markers orange, control characters (`**`, `:`, `//##`) dimmed. Plain text is what is saved; a toolbar sets the
-  speaker of the current line, turns the selection into a stage direction and inserts a light marker. "👁 Preview"
-  shows the text as in show mode.
+  markers orange, pauses green, control characters (`**`, `:`) dimmed. Plain text is what is saved; a toolbar sets the
+  speaker of the current line, turns the selection into a stage direction and inserts a light marker
+  (`//## Name (info)##`) or a pause (`//|| Pause (info)||`). "👁 Preview" shows the text as in show mode.
   In the editor: section **Compositions** (add existing, "⏺ From programmer", "✦ Effect"; per use level, tempo and
   "Restart at GO"; reorder; a click on the name opens the composition – changes apply in all scenes) and **Keys** 1–8
-  (composition, toggle/flash, fade). A new scene takes over the keys of the scene before it. "Update from programmer"
-  and "↶ Undo" act on the look of the first composition if it has one step (the shortcut for simple scenes).
+  (composition, toggle/flash, fade). A new scene takes over the keys of the scene before it.
   "⧉ Duplicate" copies the scene directly after it with the same compositions and keys. With the fade times there is
-  also the curve (linear, s-curve, square law; empty = the project's). "▶ Show on stage" plays the scene with its
-  compositions on the real stage (above the playback, below the programmer); "■ Stop showing" or "■ Stop" in the
-  header ends it.
+  also the curve (linear, s-curve, square law; empty = the project's). Each light frame (the start of the scene and
+  every part after a light marker) has its own "Fade in" and "Fade out" – for the start those of the GO into the
+  scene (empty = the project's), for a marker those of the change at the marker (empty = the scene's) – and its own
+  "▶ Show on stage": it plays that light on the real stage (above the
+  playback, below the programmer); "■ Stop showing" or "■ Stop" in the header ends it. Scenes are changed through
+  their compositions, not from the programmer – the looks of a composition are updated in the composition.
 - **Settings:** setup PIN, network access for tablet/phone (with addresses), list of DB backups and "Back up now". The
   global fade times are set with the project. Later keyboard shortcuts and MIDI mapping with MIDI learn
   ([MIDI.md](MIDI.md)).
@@ -128,9 +130,13 @@ It is built **dynamically from the fixture type**, so a new YAML is enough for n
 4. **Record** (new scene) or **Update**: "Replace" replaces the whole picture, "Merge" only takes what the programmer
    sets – optionally only certain attribute groups (intensity, color, position, beam, other) and/or only the fixtures
    selected in the programmer. The previous picture stays in the history
-5. Optional **rehearsal cross-fade** ("⇢ Rehearse fade" in the scene editor): plays the GO into the scene on stage –
-   from the scene before it in the cue list (for the first scene from dark) with the real fade times incl. delay and
-   compositions. Progress in the editor; afterwards the scene stays until the preview is stopped
+5. Optional **trying a cross-fade** ("⇢ Fade in" under each light frame of the scene editor): fades on stage from the
+   light that is there right now – whatever the stage preview shows (a scene, a part, a composition, a move, a fade
+   still running) or the dark stage – into this light. For the start of the scene with the real fade times of the GO
+   incl. delay, for a part after a light marker with the times of passing the marker. What is on stage and in the new
+   light keeps running and does not move. Typical: "▶ Show on stage" for scene 1, then "⇢ Fade in" at scene 2.
+   Progress under the frame; afterwards the light stays until the preview is stopped. "▶ Show on stage" switches
+   without a fade
 6. **Printable cue list** ("🖨 Cue list"): a page of its own without the app frame, also as PDF via the print dialog
 
 ---
@@ -165,7 +171,9 @@ Optimized for one task: press GO at the right time, without mistakes.
 ```
 
 - **Scene list** on the left: finished scenes dimmed, the current one highlighted, the next one marked. Tapping picks
-  a scene as the *next* one (jump); it is only triggered with GO.
+  a scene as the *next* one (jump); it is only triggered with GO. If the current scene has a script, its row shows how
+  far the scene is: "3 / 12" (speeches, pauses and light markers) in a bar that fills with every step, like on the
+  remote and in the Script tab.
 - **Progress as a stack** on the right: the scene before (small, indented; during the fade "Fading out" with a bar),
   **Now** large, **Next** a bit smaller, "Then" (the one after) smaller still and "+ n more scenes"; a line with dots
   connects them. If the scene has light markers, the "Now" box lists its parts (start and every marker with info
@@ -199,9 +207,16 @@ Unlike blackout, the position is not kept. `POST /api/playback/stop`.
 
 ### Script in the show
 The tab **Script** next to Scenes, Stage and DMX shows the script of the scene on stage. `↑`/`↓` (on a tablet ▲/▼)
-move from speech to speech, the current one is highlighted and kept in the middle; stage directions are skipped. The
+move from speech to speech ("3 / 12" above it fills like a bar), the current one is highlighted and kept in the
+middle; stage directions are skipped, a
+pause (`//|| … ||`, shown as "⏸ …") is a stop of its own where nobody speaks. The
 position is server state, so all browsers show the same speech. Passing a light marker fades to the light of that
-part of the scene.
+part of the scene. Below the end of the script comes a clear cut – a bar in the color of GO with "GO ▸" and the next
+scene, its cue note below – and then the script of the next scene, dimmed and without highlighting, to read ahead.
+It follows the scene chosen as next; stepping with `↓` does not go into it. The show remote and `#/view/script` show
+the same. After GO the script does not scroll through the text in between: the view is in place at once and the
+text read ahead glides from below the cut to its new place (a scene that was not read ahead fades in; no animation
+with reduced motion).
 
 ### Stage in the show
 The tab **Stage** next to Scenes, Script and DMX shows the stage view read-only: the fixtures glow like the real
@@ -224,23 +239,33 @@ the end of the text. Text size via A−/A+ (remembered by the browser). Scrollin
 following; "↧ Follow the show" or the next scene resumes it. The screen stays on. Like `#/view`: no controls, no
 keyboard shortcuts, no PIN, does not follow the operating mode.
 
+### Cue list on a phone, view only (`#/view/cues`)
+
+For a phone (e.g. an iPhone backstage): the link **🎬 Cues** in the header (or `http://<computer>:8080/#/view/cues`)
+shows only the show time, large, the scene on stage with its active light marker, cue note and how far its script is
+("3 / 12" in a bar that fills with every speech, pause and light marker), and the next three
+scenes with their cue notes – starting at the next scene the operator chose, then on in the cue list; "End of the
+show" when the show ends after them. The screen stays on. Like `#/view`: no controls, no keyboard shortcuts, no PIN,
+does not follow the operating mode.
+
 ### Show remote for a tablet (`#/remote`)
 
 For running the show from a tablet (e.g. an iPad in landscape) next to or instead of the laptop: the link
 **🎛 Remote** in the header (or `http://<computer>:8080/#/remote`) shows only what the show needs – now (with the
-fade or auto-follow bar) and next (with its cue note, ▲/▼ choose another next scene), a big GO, Back, Pause,
+fade or auto-follow bar) and next (with its cue note, ▲/▼ choose another next scene), GO, Back, Pause,
 Finish fade and Stop (asks first, like in the show view), the whole script of the scene on stage with ▲/▼ through its
 speeches (like `↑`/`↓` in the show view: the current speech is highlighted and kept in the middle, "3 / 12" counts
 them; passing a light marker fades to its light), the keys of the scene, the faders, master and blackout. No scene
 list, stage or DMX.
 
-Layout in landscape: now, next, the 8 keys and the faders (if the project has any) on the left; a smaller GO, the
-playback buttons and the script below them on the right – the script panel takes the remaining height (the current
-speech at its top, what comes next below) and has a big ▼ (next speech) at the bottom, the button pressed most
-during a play, ▲ goes back. Master below. Every panel has a
-fixed size – long names and cue notes are cut, the script scrolls inside its panel, the panel stays (empty) for a
-scene without text, and the "show mode is off" hint lies over the panels – so nothing on the page ever moves. In
-portrait one column: now, next, GO, buttons, script, keys, faders.
+Layout in landscape: the text comes first, so it can be read from a distance. A narrow column on the left holds
+now, next, a compact GO, the playback buttons, the 8 keys and the faders (if the project has any); the script takes
+the rest of the screen (the current speech at its top, what comes next below), with A−/A+ for its text size
+(remembered by the browser), ▲ back and a ▼ (next speech) across its bottom, the button pressed most during a play.
+Master below, with blackout in the middle of the bar, away from ▼. Long names are cut, cue notes after three lines; the script scrolls inside its panel, the panel stays
+(empty) for a scene without text, and the "show mode is off" hint lies over the panels – so the page does not jump.
+On a short screen the left column scrolls. In portrait one column: now, next, GO, buttons, the script down to master
+(▼ in reach without scrolling), keys and faders below.
 
 The remote wears the show colors (amber) and shows the show time (⏱) in its header. It only runs the show: outside
 show mode it says so and GO, the playback buttons and the keys are disabled;

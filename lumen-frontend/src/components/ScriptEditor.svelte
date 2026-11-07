@@ -4,8 +4,8 @@
   import { highlightScript } from '../lib/scriptHighlight';
 
   /**
-   * The script of a scene as formatted text: speakers in their colors, stage directions and light markers marked. The
-   * text stays plain (`NAME:`, `**…**`, `//## … ##`); a colored copy lies exactly under the transparent text field, so
+   * The script of a scene as formatted text: speakers in their colors, stage directions, light markers and pauses
+   * marked. The text stays plain (`NAME:`, `**…**`, `//## … ##`, `//|| … ||`); a colored copy lies exactly under the transparent text field, so
    * typing, selecting, copying and undo work as in any text field.
    */
   let {
@@ -75,6 +75,15 @@
     const offset = text.indexOf(name);
     replace(end, end, text, [offset, offset + name.length]);
   }
+
+  /** Inserts a pause as a new line after the current one, its name selected to type over. */
+  function pause() {
+    if (!textarea) return;
+    const { end } = lineAt(textarea.selectionStart);
+    const text = `${value.length > 0 ? '\n' : ''}//|| Pause ||`;
+    const offset = text.indexOf('Pause');
+    replace(end, end, text, [offset, offset + 'Pause'.length]);
+  }
 </script>
 
 <div class="script-editor">
@@ -95,6 +104,9 @@
     <button class="btn small marker-btn" type="button" onclick={marker}
       title="A light marker on a line of its own (//## Name (info)##): the part after it gets light of its own">
       💡 Light marker</button>
+    <button class="btn small pause-btn" type="button" onclick={pause}
+      title="A pause on a line of its own (//|| Pause (info)||): nobody speaks, stepping through the script stops here">
+      ⏸ Pause</button>
   </div>
   <div class="surface-wrap">
     <div class="surface layer" bind:this={layer} aria-hidden="true">{#each segments as segment, i (i)}<span
@@ -150,6 +162,10 @@
 
   .marker-btn {
     color: var(--warning);
+  }
+
+  .pause-btn {
+    color: var(--pause);
   }
 
   .surface-wrap {
@@ -226,6 +242,11 @@
   .marker {
     background: var(--warning-soft);
     color: var(--warning);
+  }
+
+  .pause {
+    background: var(--pause-soft);
+    color: var(--pause);
   }
 
   .syntax {

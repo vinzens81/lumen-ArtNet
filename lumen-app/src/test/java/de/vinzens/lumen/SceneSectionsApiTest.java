@@ -61,10 +61,37 @@ class SceneSectionsApiTest {
 		Thread.sleep(150);
 		assertThat(dmx(2)).as("after the marker: front stays, back at half").containsExactly(255, 128);
 
+		// the part fades in and out with its own times
+		assertThat(put(base + "/scenes/" + scene + "/sections", """
+				{"marker": "Window", "looks": [{"lookId": %d}, {"lookId": %d, "level": 0.5}], "fadeInMs": 2500,
+				 "fadeOutMs": 1000}""".formatted(warm, spot)))
+				.hasStatusOk().bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.sections[0].fadeInMs").isEqualTo(2500);
+					assertThat(json).extractingPath("$.sections[0].fadeOutMs").isEqualTo(1000);
+				});
+
 		var copy = "/api/projects/" + id(post("/api/projects/import", body(base + "/export")));
 		var copied = body(copy + "/scenes");
 		assertThat(JsonPath.<String>read(copied, "$[0].sections[0].marker")).isEqualTo("Window");
 		assertThat(JsonPath.<Double>read(copied, "$[0].sections[0].looks[1].level")).isEqualTo(0.5);
+		assertThat(JsonPath.<Integer>read(copied, "$[0].sections[0].fadeInMs")).isEqualTo(2500);
+	}
+
+	@Test
+	void aDarkPartKeepsItsOwnFadeTimes() throws Exception {
+		var project = id(post("/api/projects", "{\"name\": \"Dark part\"}"));
+		var base = "/api/projects/" + project;
+		var scene = id(post(base + "/scenes", """
+				{"name": "Night", "script": "Michael: Good night.\\n//## Out ##"}"""));
+
+		assertThat(put(base + "/scenes/" + scene + "/sections", """
+				{"marker": "Out", "fadeOutMs": 8000}""")).hasStatusOk().bodyJson().satisfies(json -> {
+					assertThat(json).extractingPath("$.sections[0].marker").isEqualTo("Out");
+					assertThat(json).extractingPath("$.sections[0].fadeInMs").isNull();
+					assertThat(json).extractingPath("$.sections[0].fadeOutMs").isEqualTo(8000);
+				});
+		assertThat(put(base + "/scenes/" + scene + "/sections", "{\"marker\": \"Out\"}")).hasStatusOk()
+				.bodyJson().extractingPath("$.sections.length()").as("back to the scene's times").isEqualTo(0);
 	}
 
 	private long fixture(String base, long universe, int address) throws Exception {

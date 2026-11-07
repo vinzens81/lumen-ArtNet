@@ -12,6 +12,8 @@ import de.vinzens.lumen.domain.output.FixtureValues;
 import de.vinzens.lumen.domain.scene.FadeCurve;
 import de.vinzens.lumen.domain.scene.MoveInDark;
 import de.vinzens.lumen.domain.scene.Scene;
+import de.vinzens.lumen.domain.scene.ScriptMarkers;
+import de.vinzens.lumen.domain.scene.SectionTiming;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -24,6 +26,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 
 /**
  * Plays a cue list: GO starts the next scene, fading out what is on stage while fading in the new scene.
@@ -189,8 +192,26 @@ public final class Playback {
 		if (target == null) {
 			return false;
 		}
-		startTransition(now, target, 0, behaviors);
+		// the same scene again (chosen with setNext) restarts at once, without its delay
+		var times = target == position && isScene(target) ? markerTimes(target, 0) : timesInto(target);
+		startTransition(now, target, 0, times, behaviors);
 		return true;
+	}
+
+	/**
+	 * Fades from what is on stage to a part of any scene of the cue list (0 = its start, n = after the n-th light
+	 * marker), e.g. to try a transition: into the start with the times of the GO into the scene, into a part with the
+	 * times of passing its marker. What is in both continues.
+	 */
+	public void goTo(long sceneId, int part, Instant now, FadeBehaviors behaviors) {
+		var index = indexOf(sceneId);
+		if (index < 0) {
+			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
+		}
+		if (part < 0 || part > partCount(index)) {
+			throw new IllegalArgumentException("Scene " + sceneId + " has no part " + part);
+		}
+		startTransition(now, index, part, part == 0 ? timesInto(index) : markerTimes(index, part), behaviors);
 	}
 
 	/**
@@ -201,7 +222,7 @@ public final class Playback {
 		if (!isScene(position) || target == section || target < 0 || target > sectionCount()) {
 			return false;
 		}
-		startTransition(now, position, target, behaviors);
+		startTransition(now, position, target, markerTimes(position, target), behaviors);
 		return true;
 	}
 
@@ -215,7 +236,7 @@ public final class Playback {
 		if (position == READY) {
 			return false;
 		}
-		startTransition(now, position - 1, 0, behaviors);
+		startTransition(now, position - 1, 0, timesInto(position - 1), behaviors);
 		return true;
 	}
 
@@ -224,18 +245,43 @@ public final class Playback {
 	 * countdown starts now.
 	 */
 	public void restore(long sceneId, Instant now) {
+		restore(sceneId, 0, now);
+	}
+
+	/**
+	 * Puts a part of a scene on stage at once (0 = its start, n = after the n-th light marker), without a fade. A part
+	 * the scene does not have is its start.
+	 */
+	public void restore(long sceneId, int part, Instant now) {
 		var index = indexOf(sceneId);
 		if (index < 0) {
 			throw new IllegalArgumentException("Scene " + sceneId + " is not in the cue list");
 		}
 		position = index;
-		section = 0;
+		section = part > 0 && part <= sectionCount() ? part : 0;
 		transition = null;
 		pendingNext = null;
 		stayStart = virtualNow(now);
 		held = Map.of();
 		var v = stayStart;
 		running = compositionsAt(index).stream().map(c -> new Running(c, v)).toList();
+		dropDeletedScene();
+	}
+
+	/**
+	 * Puts light on stage at once that is no scene of the cue list (e.g. a preview), its compositions running since
+	 * {@code startedAt}. No scene is current; {@link #goTo} fades from it, and what it has in common with the target
+	 * continues with its phase.
+	 */
+	public void restoreLight(List<ActiveComposition> light, Instant startedAt) {
+		position = READY;
+		section = 0;
+		transition = null;
+		pendingNext = null;
+		held = Map.of();
+		var v = virtualNow(startedAt);
+		stayStart = v;
+		running = light.stream().map(c -> new Running(c, v)).toList();
 		dropDeletedScene();
 	}
 
@@ -327,7 +373,7 @@ public final class Playback {
 		var to = look(held, incoming, v);
 		var times = transition.times();
 		var mixed = Crossfade.mix(from, to, elapsed, times.fadeIn(), times.fadeOut(), times.delay(), times.curve(),
-				behaviors, transition.darkAtGo());
+				behaviors, transition.darkAtGo(), transition.own().fadeIn(), transition.own().fadeOut());
 
 		// continuing compositions are not faded out and in: they glide from their old to their new values
 		var progress = times.curve().progress(Crossfade.progress(elapsed.minus(times.delay()), times.fadeIn()));
@@ -365,7 +411,7 @@ public final class Playback {
 		if (elapsed.compareTo(dimOutEnd) < 0) {
 			return scaledIntensity(fixtureId, old, curve.level(1 - Crossfade.progress(elapsed, dimOutEnd)), behaviors);
 		}
-		var level = curve.level(Crossfade.progress(elapsed.minus(dark.fadeInStart()), transition.times().fadeIn()));
+		var level = curve.level(Crossfade.progress(elapsed.minus(dark.fadeInStart()), transition.fadeIn(fixtureId)));
 		return scaledIntensity(fixtureId, newValues(fixtureId, old, target, behaviors), level,
 				behaviors);
 	}
@@ -433,10 +479,10 @@ public final class Playback {
 		if (transition == null) {
 			return Optional.empty();
 		}
-		var times = transition.times();
 		// with heads moving in the dark, the fade-in starts when they dim in
 		return Optional.of(new FadeStatus(transition.fromSceneId(), virtualNow(now).minus(transition.start()),
-				times.fadeIn(), times.fadeOut(), transition.inStart(), transition.withinScene()));
+				transition.longestFadeIn(), transition.longestFadeOut(), transition.inStart(),
+				transition.withinScene()));
 	}
 
 	/** Time left until auto-follow fires, if the current scene has one. */
@@ -471,8 +517,9 @@ public final class Playback {
 	/**
 	 * @param fromSceneId scene that is fading out, empty if it was the dark start or an unrecorded look
 	 * @param elapsed     time since GO (paused time excluded)
-	 * @param fadeIn      fade-in time of this transition, starting after the delay
-	 * @param fadeOut     fade-out time of this transition, starting at GO
+	 * @param fadeIn      fade-in time of this transition, starting after the delay (the longest, if a composition has
+	 *                    its own)
+	 * @param fadeOut     fade-out time of this transition, starting at GO (the longest, as the fade-in)
 	 * @param withinScene the light changes between parts of the scene on stage (a light marker), not to another scene
 	 */
 	public record FadeStatus(Optional<Long> fromSceneId, Duration elapsed, Duration fadeIn, Duration fadeOut,
@@ -481,7 +528,7 @@ public final class Playback {
 
 	// --- internals -------------------------------------------------------------------------------------------
 
-	private void startTransition(Instant now, int target, int targetSection, FadeBehaviors behaviors) {
+	private void startTransition(Instant now, int target, int targetSection, Times times, FadeBehaviors behaviors) {
 		var v = virtualNow(now);
 		var current = output(now, behaviors);
 		var darkAtGo = new HashSet<Long>();
@@ -514,8 +561,6 @@ public final class Playback {
 
 		var fromSceneId = currentScene().map(Scene::id);
 		var withinScene = target == position && isScene(target);
-		// the delay of a scene is for the GO into it, a light marker changes the light at once
-		var times = withinScene ? timesInto(target).withoutDelay() : timesInto(target);
 		var dark = DarkMove.NONE;
 		if (times.moveInDark()) {
 			dark = darkMove(next, continuing, darkAtGo, times, v);
@@ -529,8 +574,10 @@ public final class Playback {
 						? r : new Running(r.composition(), start));
 			}
 		}
+		var own = OwnFades.of(next.stream().filter(r -> !continuing.containsKey(r.composition().id())).toList(),
+				fromRunning, r -> contribution(r, v).keySet());
 		transition = new Transition(from, fromRunning, continuing, Set.copyOf(darkAtGo), fromSceneId, target, v,
-				times, withinScene, dark);
+				times, withinScene, dark, own);
 		running = List.copyOf(next);
 		position = target;
 		section = targetSection;
@@ -621,7 +668,12 @@ public final class Playback {
 
 	/** Number of light markers of the current scene. */
 	private int sectionCount() {
-		return isScene(position) ? parts.getOrDefault(scenes.get(position).id(), List.of()).size() : 0;
+		return partCount(position);
+	}
+
+	/** Number of light markers of the scene at a position. */
+	private int partCount(int index) {
+		return isScene(index) ? parts.getOrDefault(scenes.get(index).id(), List.of()).size() : 0;
 	}
 
 	/** Static values with the running compositions laid over them. */
@@ -711,6 +763,24 @@ public final class Playback {
 				timing.curveOr(fadeCurve), dark.enabled(), dark.dimOutOr(dimOut), dark.travelOr(travel));
 	}
 
+	/**
+	 * Fade times of passing a light marker: the delay of a scene is for the GO into it, a marker changes the light at
+	 * once – with the fade times of its part, if it has its own.
+	 */
+	private Times markerTimes(int index, int part) {
+		return timesInto(index).withoutDelay().with(partTiming(index, part));
+	}
+
+	/** The own fade times of a part of a scene (n = after the n-th light marker of its script); none for its start. */
+	private SectionTiming partTiming(int index, int part) {
+		if (part == 0 || !isScene(index)) {
+			return SectionTiming.NONE;
+		}
+		var scene = scenes.get(index);
+		var markers = ScriptMarkers.parse(scene.spec().script());
+		return part <= markers.size() ? scene.section(markers.get(part - 1).name()).timing() : SectionTiming.NONE;
+	}
+
 	/** Time since an arbitrary origin that does not advance while paused. */
 	private Duration virtualNow(Instant now) {
 		var paused = pausedAt == null ? pausedTotal : pausedTotal.plus(Duration.between(pausedAt, now));
@@ -725,9 +795,9 @@ public final class Playback {
 			return new Times(fadeIn, fadeOut, Duration.ZERO, curve, moveInDark, dimOut, travel);
 		}
 
-		Duration longest() {
-			var in = delay.plus(fadeIn);
-			return in.compareTo(fadeOut) >= 0 ? in : fadeOut;
+		/** The times with the own fade times of a part of the scene where it has them. */
+		Times with(SectionTiming part) {
+			return new Times(part.fadeInOr(fadeIn), part.fadeOutOr(fadeOut), delay, curve, moveInDark, dimOut, travel);
 		}
 	}
 
@@ -754,16 +824,33 @@ public final class Playback {
 	 */
 	private record Transition(Map<Long, FixtureValues> from, List<Running> fromRunning,
 			Map<Long, Running> continuing, Set<Long> darkAtGo, Optional<Long> fromSceneId, int target,
-			Duration start, Times times, boolean withinScene, DarkMove dark) {
+			Duration start, Times times, boolean withinScene, DarkMove dark, OwnFades own) {
 
 		Transition withTarget(int newTarget) {
 			return new Transition(from, fromRunning, continuing, darkAtGo, fromSceneId, newTarget, start, times,
-					withinScene, dark);
+					withinScene, dark, own);
 		}
 
 		Transition withContinuing(Map<Long, Running> newContinuing) {
 			return new Transition(from, fromRunning, newContinuing, darkAtGo, fromSceneId, target, start, times,
-					withinScene, dark);
+					withinScene, dark, own);
+		}
+
+		/** The fade-in time of a fixture: its composition's own, otherwise the transition's. */
+		Duration fadeIn(long fixtureId) {
+			return own.fadeIn().getOrDefault(fixtureId, times.fadeIn());
+		}
+
+		Duration longestFadeIn() {
+			return longest(times.fadeIn(), own.fadeIn());
+		}
+
+		Duration longestFadeOut() {
+			return longest(times.fadeOut(), own.fadeOut());
+		}
+
+		private static Duration longest(Duration time, Map<Long, Duration> own) {
+			return own.values().stream().reduce(time, (a, b) -> a.compareTo(b) >= 0 ? a : b);
 		}
 
 		/** When the fade-in starts: the delay, or later when heads move in the dark first. */
@@ -773,13 +860,41 @@ public final class Playback {
 
 		/** When everything has faded in. */
 		Duration inEnd() {
-			return inStart().plus(times.fadeIn());
+			return inStart().plus(longestFadeIn());
 		}
 
 		/** When the transition is over. */
 		Duration end() {
-			var longest = times.longest();
+			var longest = times.delay().plus(longestFadeIn());
+			if (longestFadeOut().compareTo(longest) > 0) {
+				longest = longestFadeOut();
+			}
 			return inEnd().compareTo(longest) > 0 ? inEnd() : longest;
+		}
+	}
+
+	/**
+	 * Fade times of single fixtures in one transition, fixed at GO: the fixtures of an incoming composition with its
+	 * own fade-in, of an outgoing one with its own fade-out. Where several share a fixture, the longest time wins.
+	 */
+	private record OwnFades(Map<Long, Duration> fadeIn, Map<Long, Duration> fadeOut) {
+
+		static OwnFades of(List<Running> incoming, List<Running> outgoing, Function<Running, Set<Long>> fixturesOf) {
+			return new OwnFades(times(incoming, ActiveComposition::fadeIn, fixturesOf),
+					times(outgoing, ActiveComposition::fadeOut, fixturesOf));
+		}
+
+		private static Map<Long, Duration> times(List<Running> compositions,
+				Function<ActiveComposition, Optional<Duration>> timeOf, Function<Running, Set<Long>> fixturesOf) {
+			var result = new HashMap<Long, Duration>();
+			for (var r : compositions) {
+				timeOf.apply(r.composition()).ifPresent(time -> {
+					var fixtures = new HashSet<>(fixturesOf.apply(r));
+					fixtures.addAll(r.composition().fixtureIds());
+					fixtures.forEach(id -> result.merge(id, time, (a, b) -> a.compareTo(b) >= 0 ? a : b));
+				});
+			}
+			return Map.copyOf(result);
 		}
 	}
 }
