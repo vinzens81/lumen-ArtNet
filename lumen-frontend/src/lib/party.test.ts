@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
-  cellCovering, cellLabel, emptyCell, faderBackground, faderLabel, faderPoint, gridRow, groupNames, isOn, maxRowSpan,
-  maxSpan, movedPage, newPageName, padPointAt, pagePlaces, pointAt, resized, rowTracks, textColorFor,
+  beatPhase, cellCovering, cellLabel, emptyCell, faderBackground, faderLabel, faderPoint, gridRow, groupNames, isOn,
+  maxRowSpan, maxSpan, movedPage, newPageName, padPointAt, pagePlaces, pointAt, resized, rowTracks, textColorFor,
   toggledSeparator, withCell, withoutCell, withPage, withSlide,
 } from './party';
 import type { Composition, PartyPage, Scene } from './types';
@@ -54,7 +54,7 @@ describe('party pages', () => {
   });
 
   it('follows gradients and pads', () => {
-    const status = { on: [], points: [] };
+    const status = { on: [], points: [], bpm: 120, beatOrigin: -1, speed: 1 };
     const touched = withSlide(status, at(1, 0), 0.3, 0.5);
     expect(isOn(touched, at(1, 0))).toBe(true);
     expect(isOn(touched, at(1, 0, 1))).toBe(false);
@@ -108,7 +108,7 @@ describe('party pages', () => {
   });
 
   it('knows the fields that are on and the groups of all pages', () => {
-    expect(isOn({ on: [at(1, 2)], points: [] }, at(1, 2))).toBe(true);
+    expect(isOn({ on: [at(1, 2)], points: [], bpm: 120, beatOrigin: -1, speed: 1 }, at(1, 2))).toBe(true);
     expect(isOn(null, at(1, 2))).toBe(false);
     const other = { ...page, cells: [{ ...emptyCell(0, 0), compositionId: 9, group: 'Beams' }] };
     expect(groupNames({ pages: [page, other] })).toEqual(['Beams', 'Colors', 'FX']);
@@ -117,5 +117,20 @@ describe('party pages', () => {
   it('picks readable text on the fill', () => {
     expect(textColorFor('#ffff00')).toBe('#0b0d12');
     expect(textColorFor('#1c2230')).toBe('#e8ecf4');
+  });
+});
+
+describe('beat clock', () => {
+  it('runs the phase from the last beat origin, wrapped into 0–1', () => {
+    // 120 BPM = 500 ms per beat; origin at second 0
+    expect(beatPhase(120, 0, 0)).toBe(0);
+    expect(beatPhase(120, 0, 125)).toBeCloseTo(0.25);
+    expect(beatPhase(120, 0, 750)).toBeCloseTo(0.5); // wrapped around the beat
+    expect(beatPhase(120, 0, 1500)).toBeCloseTo(0);
+  });
+
+  it('has no phase without a tempo', () => {
+    expect(beatPhase(0, 0, 10_000)).toBe(0);
+    expect(beatPhase(120, -1, 10_000)).toBe(0);
   });
 });

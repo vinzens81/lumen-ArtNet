@@ -47,6 +47,20 @@ running order – you switch prepared scenes and compositions on and off freely.
 - If a scene or composition is deleted, its field becomes a text field; so does a gradient once all its fixtures are
   deleted.
 
+## Tempo and speed master (2026-10-22)
+
+The party bar has two live tools on the right:
+
+- **Beat clock:** a **TAP** button, the BPM display and a beat dot pulsing at the tempo. Two or more taps within
+  two seconds set the BPM from their average interval (40–300); a tap after a break starts a new round. The tempo is
+  live state like the fields: it survives "All off" and switching modes, and every browser follows it. The dot runs
+  locally from the BPM and the time of the last beat, without any traffic per beat. The REST API offers the same:
+  `POST /api/party/beat/tap` and `POST /api/party/beat/bpm` with `{"bpm": 128}`.
+- **Speed master:** a fader from 0 to 2 that scales the playback speed of all running compositions and moves:
+  1 = programmed speed, 0 = frozen, 2 = twice as fast. Gradient and pad fields stay manual, and the tempo is
+  untouched. `POST /api/party/speed` with `{"speed": 1.5}` does the same over REST.
+
+
 ## Quick setup (2026-10-12)
 
 Optional help for freshly patched fixtures, in the patch: a "Quick setup" box in "Add fixture" (the choice is

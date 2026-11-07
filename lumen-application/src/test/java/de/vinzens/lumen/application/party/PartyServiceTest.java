@@ -100,6 +100,36 @@ class PartyServiceTest {
 		assertThat(party.status().on()).isEmpty();
 	}
 
+	@Test
+	void beatAndSpeedAreLiveStateThatSurvivesClearAndModeChanges() {
+		var party = party();
+		assertThat(party.status().bpm()).isEqualTo(120);
+		assertThat(party.status().beatOrigin()).isEqualTo(-1);
+		assertThat(party.status().speed()).isEqualTo(1);
+
+		party.tapBeat();
+		party.tapBeat();
+		// the fixed test clock means both taps land on NOW: no interval, origin set
+		assertThat(party.status().bpm()).isEqualTo(120);
+		assertThat(party.status().beatOrigin()).isEqualTo(NOW.toEpochMilli());
+
+		party.setBpm(160);
+		assertThat(party.status().bpm()).isEqualTo(160);
+		assertThat(party.status().speed()).isEqualTo(1);
+
+		party.setSpeed(1.5);
+		assertThat(party.status().speed()).isEqualTo(1.5);
+
+		party.clear();
+		assertThat(party.status().bpm()).as("clear switches fields off, not the tempo").isEqualTo(160);
+		assertThat(party.status().speed()).isEqualTo(1.5);
+
+		currentMode = OperatingMode.SETUP;
+		assertThatThrownBy(() -> party.tapBeat()).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> party.setBpm(100)).isInstanceOf(ConflictException.class);
+		assertThatThrownBy(() -> party.setSpeed(1)).isInstanceOf(ConflictException.class);
+	}
+
 	private PartyService party() {
 		return new PartyService(projects(), matrices(), show.resolver(), mode(), Clock.fixed(NOW, ZoneOffset.UTC),
 				events);

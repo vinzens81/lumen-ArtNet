@@ -58,7 +58,8 @@ import java.util.concurrent.TimeUnit;
  * {@code master.set}, {@code blackout.set}, {@code playback.go/back/pause/finish}, {@code playback.script} (with
  * {@code sceneId} and {@code line}), {@code keys.press/release} (with {@code slot}) and {@code fader.set} (with
  * {@code slot} and {@code level}) and {@code party.slide} (a gradient or pad field: {@code page}, {@code row},
- * {@code column}, {@code x} and – on a pad – {@code y}, both 0–1) for low latency.
+ * {@code column}, {@code x} and – on a pad – {@code y}, both 0–1), {@code party.tap} (the tempo) and
+ * {@code party.speed} (the speed master, {@code level} = factor) for low latency.
  *
  * <p>Live output: after {@code {"type":"subscribe","topics":["output","dmx:1","preview:7"]}} a client gets
  * {@code output} (attribute values as sent, before the grand master), {@code dmx} (512 channel values of a universe)
@@ -302,6 +303,17 @@ class LiveSocketHandler extends TextWebSocketHandler implements AutoCloseable {
 					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
 					party.slide(new PartyPlace(command.page(), command.row(), command.column()),
 							new PartyPoint(command.x(), Objects.requireNonNullElse(command.y(), 0.5)));
+				}
+				case "party.tap" -> {
+					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
+					party.tapBeat();
+				}
+				case "party.speed" -> {
+					if (command.level() == null) {
+						throw new DomainValidationException(List.of("level is required"));
+					}
+					lock.requireUnlocked(LiveConfiguration.HttpSessionReference.of(session.getAttributes()));
+					party.setSpeed(command.level());
 				}
 				case "playback.go" -> playback.go();
 				case "playback.back" -> playback.back();

@@ -103,7 +103,8 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 
 	@Override
 	public synchronized PartyStatus status() {
-		return new PartyStatus(board.onPlaces(), board.faderPoints());
+		var beat = board.beat();
+		return new PartyStatus(board.onPlaces(), board.faderPoints(), beat.bpm(), beat.originMillis(), board.speed());
 	}
 
 	@Override
@@ -137,6 +138,33 @@ public class PartyService implements ControlPartyUseCase, OutputLayerSource {
 		synchronized (this) {
 			requirePartyMode();
 			board.clear();
+		}
+		events.publish(StateTopic.PARTY);
+	}
+
+	@Override
+	public void tapBeat() {
+		synchronized (this) {
+			requirePartyMode();
+			board.beat().tap(clock.instant());
+		}
+		events.publish(StateTopic.PARTY);
+	}
+
+	@Override
+	public void setBpm(double bpm) {
+		synchronized (this) {
+			requirePartyMode();
+			board.beat().setBpm(bpm);
+		}
+		events.publish(StateTopic.PARTY);
+	}
+
+	@Override
+	public void setSpeed(double speed) {
+		synchronized (this) {
+			requirePartyMode();
+			board.setSpeed(speed);
 		}
 		events.publish(StateTopic.PARTY);
 	}

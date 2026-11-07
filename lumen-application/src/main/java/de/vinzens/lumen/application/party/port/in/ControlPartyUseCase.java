@@ -25,11 +25,24 @@ public interface ControlPartyUseCase {
 	/** Everything off. */
 	void clear();
 
+	/** Taps the tempo: two or more taps set the BPM from their average interval. */
+	void tapBeat();
+
+	/** Sets the tempo in BPM directly. */
+	void setBpm(double bpm);
+
+	/** Sets the speed master factor (0 = frozen, 1 = programmed, 2 = twice). */
+	void setSpeed(double speed);
+
 	/**
 	 * @param on          the fields that are on
 	 * @param faderPoints the point last touched on each gradient and pad field, also of those that are off
+	 * @param bpm         the tempo in beats per minute
+	 * @param beatOrigin  epoch milliseconds of the last beat, or -1 if no tempo has been set
+	 * @param speed       the speed master factor (0–2)
 	 */
-	record PartyStatus(Set<PartyPlace> on, Map<PartyPlace, PartyPoint> faderPoints) {
+	record PartyStatus(Set<PartyPlace> on, Map<PartyPlace, PartyPoint> faderPoints, double bpm, long beatOrigin,
+			double speed) {
 
 		public PartyStatus {
 			on = Set.copyOf(on);

@@ -226,4 +226,33 @@ class PartySwitchboardTest {
 		return new PlayableCell(cell, List.of(new ActiveComposition(compositionId, Optional.of(compositionId), look,
 				List.of(5L), 1, 1, false)));
 	}
+
+	@Test
+	void speedMasterScalesThePlaybackTimeOfRunningCompositions() {
+		var chase = new StepSequence(List.of(
+				new StepSequence.Step(1, 0, Map.of(5L, new FixtureValues(Map.of(DIMMER, 1.0)))),
+				new StepSequence.Step(1, 0, Map.of(5L, new FixtureValues(Map.of(DIMMER, 0.0))))),
+				StepSequence.PlayMode.LOOP);
+		var cell = new PlayableCell(PartyCell.composition(0, 0, 1),
+				List.of(new ActiveComposition(1, Optional.of(1L), chase, List.of(5L), 1, 1, false)));
+		board.configure(List.of(cell));
+		board.press(at(0, 0), NOW);
+
+		// at 0.5 s: step 1 (dimmer on)
+		assertThat(board.output(NOW.plusMillis(500), FixtureAttributes.ALL).get(5L).get(DIMMER))
+				.as("at half a second, first step").contains(1.0);
+		// at 1.5 s: step 2 (dimmer off)
+		assertThat(board.output(NOW.plusMillis(1500), FixtureAttributes.ALL).get(5L).get(DIMMER))
+				.as("after a second and a half, second step").contains(0.0);
+
+		// double speed: at 0.6 s we are where we would be at 1.2 s, in the second step
+		board.setSpeed(2);
+		assertThat(board.output(NOW.plusMillis(600), FixtureAttributes.ALL).get(5L).get(DIMMER))
+				.as("at double speed, 0.6 s is the second step").contains(0.0);
+
+		// frozen: always the first step
+		board.setSpeed(0);
+		assertThat(board.output(NOW.plusMillis(5000), FixtureAttributes.ALL).get(5L).get(DIMMER))
+				.as("at zero speed, frozen at the start").contains(1.0);
+	}
 }
