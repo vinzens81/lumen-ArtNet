@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import MasterBar from '../components/MasterBar.svelte';
@@ -13,7 +13,7 @@
   import {
     NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
   } from '../lib/script';
-  import { topIn } from '../lib/scroll';
+  import { SceneGlide, topIn } from '../lib/scroll';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
   import { wakeLock } from '../lib/wakeLock.svelte';
@@ -69,6 +69,20 @@
     }
   }
 
+  // after GO the text read ahead below the cut glides to the top instead of a long scroll through the script
+  const glide = new SceneGlide();
+  /** a primitive on purpose: scenes reload as new objects */
+  const currentId = $derived(current?.id);
+  /** the scene whose text stands below the cut right now; not reactive, read before the page changes */
+  let readAheadId: number | undefined;
+  $effect.pre(() => {
+    const id = currentId;
+    glide.capture(untrack(() => scriptElement), id !== undefined && id === readAheadId);
+  });
+  $effect(() => {
+    readAheadId = next?.id;
+  });
+
   // the current speech at the top of the script panel, what comes next below it – in the scene on stage, not the next one
   $effect(() => {
     const selector = `.current-scene ${stopSelector(scriptStops[stopIndex])}`;
@@ -76,7 +90,7 @@
     void current;
     void textSize;
     // after the layout, so it also works when the page opens in the middle of a scene
-    const frame = requestAnimationFrame(() => topIn(element, selector));
+    const frame = requestAnimationFrame(() => glide.scroll(element, (behavior) => topIn(element, selector, 8, behavior)));
     return () => cancelAnimationFrame(frame);
   });
   const stoppable = $derived(status !== null && status.available && (status.position >= 0

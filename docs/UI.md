@@ -214,7 +214,9 @@ position is server state, so all browsers show the same speech. Passing a light 
 part of the scene. Below the end of the script comes a clear cut – a bar in the color of GO with "GO ▸" and the next
 scene, its cue note below – and then the script of the next scene, dimmed and without highlighting, to read ahead.
 It follows the scene chosen as next; stepping with `↓` does not go into it. The show remote and `#/view/script` show
-the same.
+the same. After GO the script does not scroll through the text in between: the view is in place at once and the
+text read ahead glides from below the cut to its new place (a scene that was not read ahead fades in; no animation
+with reduced motion).
 
 ### Stage in the show
 The tab **Stage** next to Scenes, Script and DMX shows the stage view read-only: the fixtures glow like the real

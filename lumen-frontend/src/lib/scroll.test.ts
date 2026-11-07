@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { centeredScrollTop, leadInTop, topScrollTop } from './scroll';
+import { centeredScrollTop, glideOffset, leadInTop, topScrollTop } from './scroll';
 
 describe('centeredScrollTop', () => {
   it('puts the element in the middle of the container', () => {
@@ -35,5 +35,24 @@ describe('leadInTop', () => {
 
   it('is the speech itself without anything before it', () => {
     expect(leadInTop(speech, [], 400, 200)).toBe(500);
+  });
+});
+
+describe('glideOffset', () => {
+  it('moves the text from below the cut to its new place', () => {
+    // the read-ahead text stood 300 px below the top of the box, after GO it stands 8 px below it
+    expect(glideOffset(300, 8, 600)).toBe(292);
+  });
+
+  it('starts a text from far below at the edge of the box', () => {
+    expect(glideOffset(2000, 8, 600)).toBe(592);
+  });
+
+  it('starts a text from far above at the top edge', () => {
+    expect(glideOffset(-2000, 8, 600)).toBe(-608);
+  });
+
+  it('has nothing to glide when the text stays where it is', () => {
+    expect(glideOffset(8.4, 8, 600)).toBeNull();
   });
 });

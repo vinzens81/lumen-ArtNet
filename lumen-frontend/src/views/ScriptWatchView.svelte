@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import NextSceneText from '../components/NextSceneText.svelte';
   import ScriptText from '../components/ScriptText.svelte';
   import WatchHeader from '../components/WatchHeader.svelte';
   import { live } from '../lib/live.svelte';
   import { parseScript, stopOf, stops, stopSelector } from '../lib/script';
-  import { centerIn } from '../lib/scroll';
+  import { centerIn, SceneGlide } from '../lib/scroll';
   import { wakeLock } from '../lib/wakeLock.svelte';
   import { watchCaption, watchIdleText } from '../lib/watch';
   import { watchScenes } from '../lib/watchScenes.svelte';
@@ -63,6 +63,18 @@
     }
   }
 
+  // after GO the text read ahead below the cut glides into place instead of a long scroll through the script
+  const glide = new SceneGlide();
+  /** the scene whose text stands below the cut right now; not reactive, read before the page changes */
+  let readAheadId: number | undefined;
+  $effect.pre(() => {
+    const id = sceneId;
+    untrack(() => glide.capture(body, id !== null && id === readAheadId));
+  });
+  $effect(() => {
+    readAheadId = nextScene?.id;
+  });
+
   // a new scene on stage: follow it again from its first speech
   $effect(() => {
     void sceneId;
@@ -79,7 +91,7 @@
 
   function center(selector: string) {
     autoScrollUntil = performance.now() + AUTO_SCROLL_MS;
-    centerIn(body, selector);
+    glide.scroll(body, (behavior) => centerIn(body, selector, behavior));
   }
 
   function follow() {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, untrack } from 'svelte';
   import FaderBar from '../components/FaderBar.svelte';
   import KeyBar from '../components/KeyBar.svelte';
   import NextSceneText from '../components/NextSceneText.svelte';
@@ -17,7 +17,7 @@
   import {
     NEXT_SCENE_ARM_MS, parseScript, scriptDownAction, stepStop, stopOf, stops, stopSelector,
   } from '../lib/script';
-  import { centerIn } from '../lib/scroll';
+  import { centerIn, SceneGlide } from '../lib/scroll';
   import { showStack } from '../lib/showStack';
   import { app } from '../lib/state.svelte';
   import { showError } from '../lib/toasts.svelte';
@@ -134,11 +134,32 @@
     center(`[data-scene="${id}"]`);
   });
 
+  // after GO the text read ahead below the cut glides into place instead of a long scroll through the script
+  const glide = new SceneGlide();
+  /** a primitive on purpose: scenes reload as new objects */
+  const currentId = $derived(current?.id);
+  /** the scene whose text stands below the cut right now; not reactive, read before the page changes */
+  let readAheadId: number | undefined;
+  $effect.pre(() => {
+    const id = currentId;
+    untrack(() => {
+      if (tab === 'script') glide.capture(listElement, id !== undefined && id === readAheadId);
+      else glide.reset();
+    });
+  });
+  $effect(() => {
+    readAheadId = next?.id;
+  });
+
   // keep the current sentence in the middle, however long the text is – in the scene on stage, not the next one below
   $effect(() => {
     const stop = scriptStops[stopIndex];
-    if (tab !== 'script' || current === undefined) return;
-    center(`.current-scene ${stopSelector(stop)}`);
+    if (tab !== 'script' || current === undefined) {
+      glide.reset();
+      return;
+    }
+    const selector = `.current-scene ${stopSelector(stop)}`;
+    glide.scroll(listElement, (behavior) => centerIn(listElement, selector, behavior));
   });
 
   onMount(() => {

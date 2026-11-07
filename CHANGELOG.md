@@ -7,6 +7,9 @@ below covers the commits of that day. Shown in Lumen under Settings → What's n
 
 ### Changed
 - Remote: blackout sits in the middle of the master bar, away from ▼ at the bottom right of the script.
+- Script in the show, on the remote and in `#/view/script`: after GO the script no longer scrolls through the whole
+  text to the new scene. It is in place at once, and the text read ahead below the cut glides up to the top from
+  where it stood; a scene that was not read ahead (Back, chosen by hand) fades in.
 
 ## 1.0.113 · 2026-10-30
 
