@@ -3,6 +3,11 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.118 · 2026-11-07
+
+### Changed
+- Remote: blackout sits in the middle of the master bar, away from ▼ at the bottom right of the script.
+
 ## 1.0.113 · 2026-10-30
 
 ### Added

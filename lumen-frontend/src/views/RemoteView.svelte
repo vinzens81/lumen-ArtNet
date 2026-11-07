@@ -292,7 +292,7 @@
     </div>
   </div>
 
-  <MasterBar />
+  <MasterBar centered />
 </section>
 
 <style>

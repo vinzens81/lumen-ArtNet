@@ -260,7 +260,7 @@ Layout in landscape: the text comes first, so it can be read from a distance. A 
 now, next, a compact GO, the playback buttons, the 8 keys and the faders (if the project has any); the script takes
 the rest of the screen (the current speech at its top, what comes next below), with A−/A+ for its text size
 (remembered by the browser), ▲ back and a ▼ (next speech) across its bottom, the button pressed most during a play.
-Master below. Long names are cut, cue notes after three lines; the script scrolls inside its panel, the panel stays
+Master below, with blackout in the middle of the bar, away from ▼. Long names are cut, cue notes after three lines; the script scrolls inside its panel, the panel stays
 (empty) for a scene without text, and the "show mode is off" hint lies over the panels – so the page does not jump.
 On a short screen the left column scrolls. In portrait one column: now, next, GO, buttons, the script down to master
 (▼ in reach without scrolling), keys and faders below.
