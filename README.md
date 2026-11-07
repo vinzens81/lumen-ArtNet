@@ -60,3 +60,16 @@ and fade-in running in parallel.
 | sACN | Own lean implementation (E1.31 data packets, multicast or unicast, universe discovery) |
 | Tests | JUnit 5, AssertJ, ArchUnit, Spring Boot Test |
 | Frontend | Vite + TypeScript + Svelte 5, built via `frontend-maven-plugin`, served by Spring Boot |
+
+## License
+
+Copyright (C) 2026 vinzens81
+
+Lumen is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later
+version. It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied
+warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
+
+The libraries Lumen uses keep their own licenses (Apache-2.0, MIT, BSD; the fonts Inter and JetBrains Mono are under
+the SIL Open Font License 1.1). Fixture profiles imported from the
+[Open Fixture Library](https://open-fixture-library.org) are under the MIT license.

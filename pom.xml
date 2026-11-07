@@ -14,6 +14,14 @@
 	<packaging>pom</packaging>
 	<name>lumen-parent</name>
 	<description>Lumen DMX/Art-Net lighting control</description>
+	<url>https://github.com/vinzens81/lumen-ArtNet</url>
+
+	<licenses>
+		<license>
+			<name>GPL-3.0-or-later</name>
+			<url>https://www.gnu.org/licenses/gpl-3.0.html</url>
+		</license>
+	</licenses>
 
 	<modules>
 		<module>lumen-domain</module>
