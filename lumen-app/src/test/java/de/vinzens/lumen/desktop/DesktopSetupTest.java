@@ -26,6 +26,28 @@ class DesktopSetupTest {
 	}
 
 	@Test
+	void keepsDataInTheSystemDataDirOnWindows() {
+		var setup = DesktopSetup.forUser(home, "Windows 11");
+
+		assertThat(setup.arguments()).containsExactly(
+				"--lumen.database-file=" + home.resolve("AppData/Roaming/Lumen/lumen.db"),
+				"--lumen.backup.dir=" + home.resolve("AppData/Roaming/Lumen/backups"),
+				"--lumen.fixture-library-dir=" + home.resolve("AppData/Roaming/Lumen/fixture-types"),
+				"--logging.file.name=" + home.resolve("AppData/Local/Lumen/Logs/lumen.log"));
+	}
+
+	@Test
+	void keepsDataInTheXdgDirsOnLinux() {
+		var setup = DesktopSetup.forUser(home, "Linux");
+
+		assertThat(setup.arguments()).containsExactly(
+				"--lumen.database-file=" + home.resolve(".local/share/lumen/lumen.db"),
+				"--lumen.backup.dir=" + home.resolve(".local/share/lumen/backups"),
+				"--lumen.fixture-library-dir=" + home.resolve(".local/share/lumen/fixture-types"),
+				"--logging.file.name=" + home.resolve(".local/state/lumen/lumen.log"));
+	}
+
+	@Test
 	void copiesShippedProfilesWithoutOverwritingTheUsersOnes() throws IOException {
 		var bundled = home.resolve("Lumen.app/Contents/app/fixture-types");
 		write(bundled.resolve("generic/dimmer.yaml"), "shipped dimmer");
