@@ -19,6 +19,10 @@ Für den Alltag gibt es zwei Skripte im Projekt-Root (`--help` zeigt alle Option
 ./package-mac.sh        # Mac-App: dist/Lumen-<Version>.dmg ohne Tests (--test mit Tests; Version 1.0.<Anzahl Commits>, --version 1.2.0 setzt sie)
 ```
 
+CI: `.github/workflows/ci.yml` baut bei jedem Push und Pull Request alle Tests. `.github/workflows/release.yml`
+baut auf einen Versionstag (`v1.2.0`) oder manuell die Installer für alle drei Plattformen (DMG, MSI, deb +
+portables Archiv für Linux) und hängt sie an einen Draft-Release.
+
 Die Mac-App startet dasselbe JAR mit `-Dlumen.desktop=true` (`DesktopLauncher`: eigenes Fenster, Daten unter
 `~/Library/Application Support/Lumen`, Log unter `~/Library/Logs/Lumen`). Ohne diese Option läuft Lumen wie bisher
 ohne Fenster.

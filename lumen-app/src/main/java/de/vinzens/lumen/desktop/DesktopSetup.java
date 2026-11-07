@@ -14,8 +14,10 @@ import java.util.Properties;
 import java.util.stream.Stream;
 
 /**
- * Where the Mac app keeps its data. The app bundle is read-only, so database, backups and the fixture library live in
- * {@code ~/Library/Application Support/Lumen}, the log in {@code ~/Library/Logs/Lumen}.
+ * Where the desktop app keeps its data. The installation is read-only, so database, backups and the fixture library
+ * live with the system's application data: on macOS in {@code ~/Library/Application Support/Lumen} (log in
+ * {@code ~/Library/Logs/Lumen}), on Windows in {@code %APPDATA%\Lumen} (log in {@code %LOCALAPPDATA%\Lumen\Logs}),
+ * on Linux in {@code ~/.local/share/lumen} (log in {@code ~/.local/state/lumen}, following XDG).
  *
  * @param dataDir database, backups and the fixture library
  * @param logDir  log files
@@ -23,7 +25,19 @@ import java.util.stream.Stream;
 public record DesktopSetup(Path dataDir, Path logDir) {
 
 	public static DesktopSetup forUser(Path home) {
-		return new DesktopSetup(home.resolve("Library/Application Support/Lumen"), home.resolve("Library/Logs/Lumen"));
+		return forUser(home, System.getProperty("os.name", ""));
+	}
+
+	/** Package-private for tests: the directories per operating system, as {@code os.name} reports it. */
+	static DesktopSetup forUser(Path home, String os) {
+		if (os.startsWith("Mac")) {
+			return new DesktopSetup(home.resolve("Library/Application Support/Lumen"),
+					home.resolve("Library/Logs/Lumen"));
+		}
+		if (os.contains("Windows")) {
+			return new DesktopSetup(home.resolve("AppData/Roaming/Lumen"), home.resolve("AppData/Local/Lumen/Logs"));
+		}
+		return new DesktopSetup(home.resolve(".local/share/lumen"), home.resolve(".local/state/lumen"));
 	}
 
 	public Path fixtureLibrary() {

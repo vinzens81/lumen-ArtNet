@@ -46,7 +46,12 @@ class RenderLoopTest {
 			var stats = loop.stats();
 			assertThat(stats.errors()).isEqualTo(2);
 			assertThat(stats.lastError()).contains("StackOverflowError: deep");
-			assertThat(stats.ticks()).isGreaterThanOrEqualTo(5);
+			// the latch opens when the fifth tick starts; give the tick a moment to complete before counting
+			var deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2);
+			while (loop.stats().ticks() < 5 && System.nanoTime() < deadline) {
+				Thread.sleep(10);
+			}
+			assertThat(loop.stats().ticks()).isGreaterThanOrEqualTo(5);
 		}
 	}
 

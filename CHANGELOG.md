@@ -3,6 +3,21 @@
 What changed in Lumen, newest first. The version of the Mac app is `1.0.<number of commits>`, so each version range
 below covers the commits of that day. Shown in Lumen under Settings → What's new.
 
+## 1.0.119 · 2026-11-07
+
+### Added
+- CI: GitHub Actions build all tests on every push and pull request (`.github/workflows/ci.yml`).
+- Installers for all three platforms via GitHub Actions (`.github/workflows/release.yml`), started by a version tag
+  `v1.2.0` or manually: a DMG for macOS, an MSI for Windows and a deb package plus a portable archive for Linux,
+  attached to a draft GitHub release. Snap deliberately left out: the deb and the portable archive run without the
+  confinement rules (read-only SquashFS) that a snap would need.
+- Desktop app on Windows and Linux: the data now lies with the system's application data (`%APPDATA%\Lumen` with the
+  log in `%LOCALAPPDATA%\Lumen\Logs`, on Linux `~/.local/share/lumen` with the log in `~/.local/state/lumen`,
+  following XDG) – on macOS as before in `~/Library`.
+### Changed
+- `DesktopSetup.forUser` chooses the data directories by operating system, so the Windows MSI and the Linux deb
+  start correctly out of the box.
+
 ## 1.0.118 · 2026-11-07
 
 ### Changed
