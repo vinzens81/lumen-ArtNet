@@ -1042,6 +1042,24 @@ cd lumen-ArtNet
       <li>Switch to <strong class="mode-party">Party</strong> from setup mode (not directly from show mode).</li>
     </ul>
 
+    <h3>Beat clock &amp; speed master</h3>
+    <p>The party header has two more controls for the rhythm of the evening: a <strong>beat clock</strong> with tap
+      tempo and a <strong>speed master</strong> fader. Both are live state of the party, like a field being on: they
+      survive <strong>All off</strong> and switching the mode, and every connected browser follows them.</p>
+    <figure>
+      <img src="images/party-tempo.jpg" width="1440" height="698" alt="Party mode with the beat clock and speed master in the header: a pulsing dot, 119 BPM next to the TAP button and the speed fader at 150 %" loading="lazy">
+      <figcaption>Tap the beat twice to set the tempo – the dot pulses with it and the speed fader takes the
+        compositions to 150 %.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>TAP</strong>: tap at least twice, in step with the music – the display shows the tempo as BPM
+        (40–300). Taps older than two seconds are forgotten, so the tempo always follows the last taps. The dot beside
+        the number pulses on the beat; it runs locally in the browser and costs no network traffic.</li>
+      <li><strong>Speed master</strong>: drags the whole party faster or slower. 100 % is the programmed speed, 200 %
+        double, 50 % half – and 0 % freezes every running composition and move on its current step. Gradients and pads
+        are manual positions and keep their point. The fader is one more thing every browser shares.</li>
+    </ul>
+
     <!-- ───────────────────────────────────────────── -->
     <h2 id="settings"><span class="num">16</span>Settings &amp; safety</h2>
     <figure>
