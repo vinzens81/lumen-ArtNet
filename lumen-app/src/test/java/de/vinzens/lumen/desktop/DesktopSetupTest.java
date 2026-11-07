@@ -16,7 +16,8 @@ class DesktopSetupTest {
 
 	@Test
 	void keepsDataInTheUsersLibrary() {
-		var setup = DesktopSetup.forUser(home);
+		var setup = DesktopSetup.forUser(home, "Mac OS X");
+
 
 		assertThat(setup.arguments()).containsExactly(
 				"--lumen.database-file=" + home.resolve("Library/Application Support/Lumen/lumen.db"),
