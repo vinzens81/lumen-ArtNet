@@ -47,6 +47,31 @@ and fade-in running in parallel.
 | [docs/MOVEMENT.md](docs/MOVEMENT.md) | Moves – drawn figures for pan/tilt fixtures, size, shift, offset |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Iterative steps with a definition of done |
 
+## Building a release
+
+Every push and pull request runs all tests on GitHub Actions (`ci.yml`). The installers for the three platforms are
+built by `release.yml`:
+
+```bash
+./mvnw verify                        # everything green locally
+git tag v1.2.0 && git push --tags    # starts the release build
+```
+
+The tag (`v` + version, e.g. `v1.2.0`) starts three parallel jobs that build and attach to a **draft GitHub release**:
+
+| Platform | Artifact |
+|---|---|
+| macOS | `Lumen-<version>.dmg` |
+| Windows | `Lumen-<version>.msi` |
+| Linux | `lumen_<version>_amd64.deb` and a portable `Lumen-<version>-linux.tar.gz` |
+
+Without a tag, the workflow can also be started manually ("Run workflow") with an explicit version. The release
+stays a draft until it is published on GitHub — check the artifacts once, add notes, then publish.
+
+Locally, `package-mac.sh` builds only the macOS DMG (see `CLAUDE.md`). The installers run the same JAR with
+`-Dlumen.desktop=true`; data lives in the system's application data (`~/Library/...` on macOS, `%APPDATA%\Lumen` on
+Windows, `~/.local/share/lumen` on Linux).
+
 ## Tech stack
 
 | Area | Choice |
