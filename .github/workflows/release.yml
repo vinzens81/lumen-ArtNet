@@ -58,7 +58,7 @@ jobs:
           jpackage \
             --type app-image \
             --name Lumen \
-            --app-version "$VERSION" \
+            --app-version "${{ steps.version.outputs.value }}" \
             --vendor "Lumen" \
             --description "DMX/Art-Net lighting control for the theatre" \
             --input "$work/input" \
@@ -80,7 +80,7 @@ jobs:
             --type dmg \
             --app-image "$app" \
             --name Lumen \
-            --app-version "$VERSION" \
+            --app-version "${{ steps.version.outputs.value }}" \
             --vendor "Lumen" \
             --dest dist
 
@@ -207,7 +207,6 @@ jobs:
             --java-options "-Dlumen.desktop=true" \
             --java-options '-Dlumen.bundled-fixture-library=$APPDIR/fixture-types' \
             --icon "$work/lumen.png" \
-            --linux-menu-group Utility \
             --dest "$work/image"
 
           jpackage \
@@ -216,6 +215,7 @@ jobs:
             --name lumen \
             --app-version "${{ steps.version.outputs.value }}" \
             --vendor "Lumen" \
+            --linux-menu-group Utility \
             --dest dist
 
           tar czf "dist/Lumen-${{ steps.version.outputs.value }}-linux.tar.gz" -C "$work/image" Lumen
